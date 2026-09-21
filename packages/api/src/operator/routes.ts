@@ -1004,11 +1004,24 @@ app.post("/research/advance", async (c) => {
 
 // Research one open question.
 //
-// The seed is the question itself and the angle is the measured gap, so the
-// run has a stated reason rather than a topic: "3 documents raised this, one
-// source answers it". Whatever it produces comes back as an unpublished draft
-// document, and its extraction merges evidence onto this same question through
-// the merge key — which is what makes the corpus close its own gaps.
+// NOTHING LINKS THIS ANY MORE, ON PURPOSE. Retired but unwired, not deleted —
+// the same treatment the retired crawler gets.
+//
+// The questions this acted on are extracted with the instruction "questions a
+// person would genuinely type into a search box, THAT THIS DOCUMENT ANSWERS",
+// so every one of them arrives with its answer attached. The angle below then
+// told the writer the record "cannot answer it" and sent it to find what was
+// missing — about something nothing was missing about. What came back was a
+// thinner copy of the document that produced the question, which is a loop
+// that returns to where it started rather than one that goes anywhere.
+//
+// It also failed the standing test for what belongs in this system at all:
+// repeatable, at scale, with no issues. It needs a model call, a web search
+// and two passes through a queue that only a person can drain.
+//
+// The queue is now fed by ABSENCES instead — contradictions between documents
+// and figures with no named source (graph/lib/leads.ts), which are mechanical,
+// free and cannot be answered by a document already in the corpus.
 app.post("/answers/:id/research", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");

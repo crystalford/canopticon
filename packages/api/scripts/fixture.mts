@@ -399,6 +399,29 @@ function makeDb(): D1Database {
             results: [...EXTRACTION].map(([slug, e]) => ({ piece_id: slug, n: e.quotes })),
           };
         }
+        // Cross-document links: subjects this piece shares with others.
+        // Both labels below appear VERBATIM in RESEARCH_BODY — a label that
+        // did not would be located, fail, and silently link nothing, which is
+        // correct behaviour but photographs identically to the feature being
+        // broken. The point of a fixture is that a state can be seen.
+        if (/JOIN mine/i.test(sql) && /spread\.pieces/i.test(sql)) {
+          return {
+            results: [
+              {
+                label: "Reprofiling accounts",
+                slug: "housing-starts-q3",
+                title: "Housing Starts, Q3",
+                pieces: 2,
+              },
+              {
+                label: "supplementary estimates",
+                slug: "transfer-payments-2025",
+                title: "Transfer Payments 2025",
+                pieces: 3,
+              },
+            ],
+          };
+        }
         // Typed-graph node counts, per piece.
         if (/FROM nodes/i.test(sql) && /GROUP BY piece_id/i.test(sql)) {
           return {

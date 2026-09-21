@@ -898,27 +898,52 @@ export async function renderLibraryIndex(
     }
   }
 
-  // The research queue: questions the corpus raised and cannot answer.
+  // WHAT THESE QUESTIONS ACTUALLY ARE — and what they are not.
+  //
+  // This block used to be headed "Questions the documents raised and cannot
+  // answer", with a "Research this" button on every row. Both were false, and
+  // the extractor's own prompt says so in as many words:
+  //
+  //     "questions" — questions a person would genuinely type into a search
+  //     box, THAT THIS DOCUMENT ANSWERS. […] Do not ask questions the document
+  //     cannot answer.
+  //
+  // So every row here arrives with its answer attached — openQuestions cannot
+  // even return one without evidence, since evidence_count counts the answer
+  // passages. Pressing "Research this" then told the writer "the record has N
+  // documents touching this but cannot answer it; find what is missing", and
+  // sent it to research a question the document it came from already answers.
+  // What came back was a thinner copy of that document.
+  //
+  // The operator found this from the outside, from behaviour alone: "the
+  // question I was asking to get that research report was a question that the
+  // system detected the research report was trying to find… but that's also
+  // what that research article is, so what if I build another one, what's
+  // that gonna do?" Nothing. It returns to where it started.
+  //
+  // The rows are not wrong, they were mislabelled. A question carrying its own
+  // answer is an INDEX of what the document establishes — real value, and what
+  // the FAQ structured data is built from. It is not a worklist.
+  //
+  // Real leads come from ABSENCE, and they already render per document above:
+  // "NO SOURCE NAMED" (a figure with no attribution anywhere in the corpus)
+  // and "SOURCES DISAGREE" (two documents that contradict each other), each
+  // with its own DIG HERE. Those are the queue. See graph/lib/leads.ts.
   const { openQuestions } = await import("../../graph/lib/standing-answer");
   const open =
     opts.isOperator && userId ? await openQuestions(env.DB, userId, 12).catch(() => []) : [];
 
-  // Each row states the SIZE OF THE GAP, not just that a gap exists. "2
-  // documents touch this, none answers it" is a research prompt; a bare
-  // question is a topic, and a topic is what produced the sprawl this
-  // publication is recovering from.
   const queueBlock = open.length
     ? `<section class="op-queue">
-  <div class="op-queue-head">Questions the documents raised and cannot answer
-    <span class="op-queue-note">Nothing here has a public page. Each is a question to chase, judged on its own.</span>
+  <div class="op-queue-head">Questions these documents answer
+    <span class="op-queue-note">Extracted with the passage that answers each one, and used for the FAQ structured data. Not a to-do list — what to chase shows on each document above, as a lead.</span>
   </div>
   <ul class="op-queue-list">
 ${open
   .map(
     (q) => `    <li>
       <span class="atom-q">${escapeHtml(q.question)}</span>
-      <span class="atom-meta">${q.sources} document${q.sources === 1 ? "" : "s"} · ${q.evidence_count} quote${q.evidence_count === 1 ? "" : "s"} · ${q.answer_words}w${q.has_draft ? " · drafted" : ""}</span>
-      <form method="POST" action="/op/answers/${escapeAttr(q.id)}/research" style="display:inline"><button type="submit" class="atom-run">Research this</button></form>
+      <span class="atom-meta">answered in ${q.sources} document${q.sources === 1 ? "" : "s"} · ${q.evidence_count} quote${q.evidence_count === 1 ? "" : "s"}${q.has_draft ? " · drafted" : ""}</span>
     </li>`,
   )
   .join("\n")}

@@ -369,6 +369,22 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   box-shadow: 0 0 0 3px var(--accent-wash, rgba(224,67,60,0.10));
 }
 
+/* A cross-document link: this subject is also in another document here.
+   Deliberately the QUIETEST of the three link kinds in a reading column. A
+   receipt says "this was checked" and earns its mark; an outbound link leaves
+   the site. This one only says "there is more of this, here", and it appears
+   up to twelve times in a document — the reader research is explicit that
+   inline links do not hurt comprehension but density does, so it takes the
+   ink of a solid rule rather than the ink of a colour. */
+.prose a.xdoc {
+  color: inherit;
+  text-decoration: underline solid var(--ink-faint);
+  text-underline-offset: 3.5px;
+  text-decoration-thickness: 1px;
+  transition: color .12s, text-decoration-color .12s;
+}
+.prose a.xdoc:hover { color: var(--accent); text-decoration-color: var(--accent); }
+
 .finding-links { display: flex; gap: 16px; align-items: center; margin-top: 9px; }
 .finding-context {
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;

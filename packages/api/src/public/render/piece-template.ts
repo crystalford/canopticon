@@ -41,7 +41,7 @@ import {
 // hard-wrapped prose, none of which the CMS renderer handles — which is what
 // made a research dossier render as a wall of text. See render/markdown.ts.
 import { renderInlineMarkdown, renderMarkdown } from "./markdown";
-import { spliceReceipts } from "./receipts";
+import { type CrossLinkSpan, spliceInline } from "./receipts";
 
 /** Bylines that name the machinery rather than an author. Never rendered. */
 
@@ -63,6 +63,12 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
   // page — no new URL, so no thin-content exposure at all.
   const findings = await findingsForPiece(env.DB, userId, piece.id).catch(() => []);
   const lede = await ledeForPiece(env.DB, userId, piece.id).catch(() => null);
+  // Subjects this document shares with other published documents. A query, not
+  // a model call: the typed graph already records which piece every node came
+  // from, so a label on two pieces IS an edge between them. Free, deterministic
+  // and always current — a new document joins the web the moment it extracts.
+  const { crossDocumentLinks } = await import("../../graph/lib/crosslinks");
+  const crosslinks = await crossDocumentLinks(env.DB, userId, piece.id).catch(() => []);
 
   const body = renderPieceBody(piece, {
     topics: topics.map((t) => ({ slug: t.slug, label: t.label })),
@@ -70,6 +76,7 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
     fed,
     findings,
     lede,
+    crosslinks,
   });
 
   // The piece page emitted no structured data at all, while subject pages and
@@ -116,6 +123,12 @@ interface PieceCtx {
   fed?: FedSummary;
   findings?: FindingRow[];
   lede?: LedeRow | null;
+  /**
+   * Subjects this document shares with other published documents, from
+   * graph/lib/crosslinks.ts. A query over the typed graph, not a model call —
+   * so it costs nothing, never fails, and returns the same answer every time.
+   */
+  crosslinks?: Array<CrossLinkSpan & { title: string }>;
 }
 
 /**
@@ -236,7 +249,11 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
   // piece, linking them all would be the density problem the reader research
   // warns about, and a figure with a named source and a date is the
   // best-evidenced citable shape there is.
-  const receipts = spliceReceipts(piece.body_md ?? "", ctx.findings ?? []);
+  // ONE pass, not two. Receipts and cross-document links compete for the same
+  // prose, and splicing them separately would let the second pass match inside
+  // the markdown the first just wrote — a link nested in a link. Receipts win
+  // any contested span (see spliceInline): proof before navigation.
+  const receipts = spliceInline(piece.body_md ?? "", ctx.findings ?? [], ctx.crosslinks ?? []);
   const withReceipts = receipts.markdown;
   const sections = parseSections(withReceipts);
   const videoMeta = parseVideoMetadata(piece);
