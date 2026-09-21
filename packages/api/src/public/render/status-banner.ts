@@ -23,6 +23,7 @@ export function renderLiveStatusBanner(pollUrl: string, initialHeadline: string)
     <span class="live-status-headline">${escapeHtml(initialHeadline)}</span>
   </div>
   <ul class="live-status-steps"></ul>
+  <div class="live-status-action" hidden></div>
   <div class="live-status-review" hidden></div>
 </aside>
 ${LIVE_STATUS_STYLES}
@@ -35,6 +36,7 @@ ${LIVE_STATUS_STYLES}
   var dotEl = root.querySelector(".live-status-dot");
   var stepsEl = root.querySelector(".live-status-steps");
   var reviewEl = root.querySelector(".live-status-review");
+  var actionEl = root.querySelector(".live-status-action");
   var MARK = { done: "\\u2713", warn: "!", active: "\\u2026", pending: "\\u00b7" };
   function render(s) {
     headlineEl.textContent = s.headline || "";
@@ -47,6 +49,32 @@ ${LIVE_STATUS_STYLES}
       li.textContent = text;
       stepsEl.appendChild(li);
     });
+    // A run that is waiting on a press renders the press. Standing rule 4
+    // means queues are drained by a person, so the person has to be able to
+    // see and reach the thing that drains this one — a banner that only
+    // narrates the wait is how a queued run reads as a broken one.
+    if (s.action && s.action.postTo) {
+      actionEl.hidden = false;
+      actionEl.innerHTML = "";
+      var form = document.createElement("form");
+      form.method = "POST";
+      form.action = s.action.postTo;
+      if (s.action.returnTo) {
+        var back = document.createElement("input");
+        back.type = "hidden";
+        back.name = "return_to";
+        back.value = s.action.returnTo;
+        form.appendChild(back);
+      }
+      var btn = document.createElement("button");
+      btn.type = "submit";
+      btn.className = "live-status-btn";
+      btn.textContent = s.action.label || "Continue";
+      form.appendChild(btn);
+      actionEl.appendChild(form);
+    } else {
+      actionEl.hidden = true;
+    }
     if (s.reviewUrl) {
       reviewEl.hidden = false;
       reviewEl.innerHTML = "";
@@ -92,6 +120,12 @@ const LIVE_STATUS_STYLES = `<style>
   .live-status-step-done { color: var(--ink-2); }
   .live-status-step-active { color: var(--accent); }
   .live-status-step-warn { color: var(--correction, #c4816a); }
+  .live-status-action { margin-top: 12px; }
+  .live-status-btn { padding: 9px 15px; border: 1px solid var(--accent-bd, #7a2c26);
+    border-radius: 4px; background: var(--accent-bg, rgba(224,67,60,0.10));
+    color: var(--accent, #e0433c); font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; }
+  .live-status-btn:hover { border-color: var(--accent, #e0433c); color: var(--accent-2, #ef6a63); }
   .live-status-review { margin-top: 10px; font-family: var(--mono); font-size: 12.5px; }
   .live-status-review a { color: var(--accent); text-decoration: none; }
   .live-status-review a:hover { text-decoration: underline; }

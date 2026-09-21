@@ -989,6 +989,14 @@ app.post("/research/advance", async (c) => {
   // execution died mid-pass would otherwise block the queue behind it.
   await reapStaleResearchRuns(c.env, userId).catch(() => {});
   const report = await advanceResearchRun(c.env, userId).catch(() => null);
+  // When the press came from the run's own status banner, go back to that
+  // banner rather than to /library — the operator was watching one run, and
+  // dumping them on the library index loses the thing they were watching.
+  // Same-origin only: a return_to is a redirect target, so it is confined to
+  // this site's own paths and never allowed to carry a scheme or a host.
+  const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
+  const back = typeof form.return_to === "string" ? form.return_to : "";
+  if (back.startsWith("/") && !back.startsWith("//")) return c.redirect(back);
   return c.redirect(
     `/library?research=${encodeURIComponent(report?.advanced ? "advanced" : "nothing-pending")}`,
   );

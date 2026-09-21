@@ -97,3 +97,55 @@ describe("llm/router.ts — Claude toggle for the research writer", () => {
     expect(src).toContain('operation_type: "workers_ai.research_writer"');
   });
 });
+
+// Step five is where the operator's run stopped: "it got to step like five and
+// it didn't work". It had not failed — pass 2 is dispatched by
+// advanceResearchRun, whose only live caller is a button, and the cron that
+// used to drive it is off by design (standing rule 4). So the run was waiting
+// for a press, and the banner was telling it was digging.
+describe("a run waiting on a press says so, and carries the press", () => {
+  const src = readFileSync("./src/graph/lib/deep-research.ts", "utf-8");
+  const branch = () => {
+    const after = src.split('if (runRow.status === "pass2_pending")')[1] as string;
+    expect(after).toBeDefined();
+    return after.split("if (runRow.status ===")[0] as string;
+  };
+
+  it("does not report itself as still running", () => {
+    // terminal:false made the banner poll every 1.5s forever against a state
+    // that cannot change without a person. The pulsing dot was the bug.
+    expect(branch()).toContain("terminal: true");
+    expect(branch()).not.toContain("terminal: false");
+  });
+
+  it("is not an error either", () => {
+    // Nothing went wrong. A warn state would send the operator looking for a
+    // failure that does not exist.
+    expect(branch()).toContain("warn: false");
+  });
+
+  it("marks the queued step pending rather than active", () => {
+    // Rule 6: nothing is running. "active" was the lie that made a waiting
+    // run indistinguishable from a hung one.
+    const stepPush = src
+      .split('if (runRow.status === "pass2_pending")')[1]
+      ?.split("return {")[0] as string;
+    expect(stepPush).toContain('state: "pending"');
+    expect(stepPush).not.toContain('state: "active"');
+  });
+
+  it("carries the POST that advances it, and a way back to this screen", () => {
+    expect(branch()).toContain("postTo:");
+    expect(branch()).toContain("/op/research/advance");
+    expect(branch()).toContain("returnTo:");
+  });
+
+  it("offers the press as a POST, never a link", () => {
+    // advanceResearchRun spends model calls and writes rows. A GET that a
+    // crawler or a prefetch could follow would run research by accident.
+    const banner = readFileSync("./src/public/render/status-banner.ts", "utf-8");
+    const block = banner.split("if (s.action")[1]?.split("if (s.reviewUrl)")[0] as string;
+    expect(block).toContain('form.method = "POST"');
+    expect(block).not.toMatch(/createElement\("a"\)/);
+  });
+});

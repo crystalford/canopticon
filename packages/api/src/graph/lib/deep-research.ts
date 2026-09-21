@@ -542,9 +542,21 @@ export interface ResearchStep {
   detail?: string | undefined;
 }
 
+/** A step the run cannot take by itself. Standing rule 4 says work happens
+ *  when a person does something — so when a run is waiting on a press, the
+ *  status has to carry the press, not just describe the wait. */
+export interface ResearchAction {
+  label: string;
+  /** A POST endpoint. The banner renders it as a form, never a link. */
+  postTo: string;
+  /** Sent back so the operator lands on the same screen afterwards. */
+  returnTo?: string;
+}
+
 export interface ResearchStatus {
   terminal: boolean;
   warn: boolean;
+  action?: ResearchAction;
   headline: string;
   steps: ResearchStep[];
   reviewUrl?: string;
@@ -648,15 +660,35 @@ export async function getResearchStatus(
     if (runRow.status === "pass2_pending") {
       const queryCount = parseJsonArray(runRow.followup_queries).length;
       steps.push({ label: "Write a synthesis", state: "done", detail: "first pass done" });
+      // "pending", not "active" — rule 6. Nothing is running: the searches are
+      // written down and waiting. Showing them as active was the lie that made
+      // a waiting run look like a hung one.
       steps.push({
         label: `Dig deeper (${queryCount} follow-up search${queryCount === 1 ? "" : "es"})`,
-        state: "active",
+        state: "pending",
+        detail: "queued — needs a press",
       });
+      // NOT terminal:false. This state said "digging deeper on what it
+      // couldn't cover…" and polled forever, because nothing was digging:
+      // pass 2 is dispatched by advanceResearchRun, whose only live caller is
+      // the POST /op/research/advance button, and the cron that used to drive
+      // it is off by design. So the run sat at step five with a pulsing dot
+      // and no way to act, which is exactly what the operator reported.
+      //
+      // It is terminal in the sense the banner needs — stop polling, this will
+      // not change on its own — and it carries the press that moves it.
       return {
-        terminal: false,
+        terminal: true,
         warn: false,
-        headline: "First pass done — digging deeper on what it couldn't cover…",
+        headline: `First pass done. ${queryCount} follow-up search${
+          queryCount === 1 ? "" : "es"
+        } are queued and waiting for you to run them.`,
         steps,
+        action: {
+          label: `Run ${queryCount === 1 ? "it" : "them"} now`,
+          postTo: "/op/research/advance",
+          returnTo: `/op/research?q=${encodeURIComponent(label)}`,
+        },
       };
     }
 
