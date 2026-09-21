@@ -93,6 +93,101 @@ Checking takes time; the signal is instant. A live audience cannot pause to veri
 // blockquote, and a sources list. Every one of those is a construct that was
 // silently unsupported. If a change makes documents look worse, it should be
 // visible in .look/research.png before anyone else has to see it.
+// A research run mid-flight: the opening question, two follow-up searches the
+// writer proposed (one already run), and the pages it has read. Every field
+// here is one the live system genuinely writes — record-builder emits url,
+// title and chars per source; the plan lives in research_runs.followup_queries.
+const RESEARCH_LABEL = "What is the genuine white space in ad-serving and attribution?";
+
+const RESEARCH_PLAN = [
+  "post-cookie attribution vendors market share 2026",
+  "retail media network incrementality measurement gaps",
+];
+
+const RESEARCH_RUN = {
+  id: "run-1",
+  label: RESEARCH_LABEL,
+  angle: null,
+  status: "pass2_pending",
+  pass1_piece_ids: JSON.stringify(["s1", "s2", "s3", "s4", "s5"]),
+  pass2_piece_ids: JSON.stringify(["s6"]),
+  followup_queries: JSON.stringify(RESEARCH_PLAN),
+  followups_done: JSON.stringify([RESEARCH_PLAN[0]]),
+  final_piece_id: null,
+  error: null,
+  created_at: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+};
+
+const RESEARCH_SOURCES: Array<[string, string, string, number]> = [
+  [
+    RESEARCH_LABEL,
+    "https://www.iab.com/guidelines/attribution-2026/",
+    "IAB attribution guidance 2026",
+    41200,
+  ],
+  [
+    RESEARCH_LABEL,
+    "https://digiday.com/marketing/post-cookie-measurement/",
+    "The post-cookie measurement scramble",
+    18700,
+  ],
+  [
+    RESEARCH_LABEL,
+    "https://adexchanger.com/data-driven-thinking/mta-is-dead/",
+    "Multi-touch attribution is dead. What replaces it?",
+    12400,
+  ],
+  [
+    RESEARCH_LABEL,
+    "https://en.wikipedia.org/wiki/Attribution_(marketing)",
+    "Attribution (marketing)",
+    9800,
+  ],
+  [
+    RESEARCH_LABEL,
+    "https://www.thetradedesk.com/us/about-us/industry-initiatives",
+    "Industry initiatives — Unified ID",
+    7100,
+  ],
+  [
+    RESEARCH_PLAN[0] as string,
+    "https://www.emarketer.com/content/retail-media-measurement",
+    "Retail media measurement, 2026 outlook",
+    15300,
+  ],
+];
+
+const RESEARCH_EVENTS = [
+  {
+    event_type: "record.expand.started",
+    payload: JSON.stringify({ subject: RESEARCH_LABEL }),
+    created_at: RESEARCH_RUN.created_at,
+  },
+  {
+    event_type: "record.expand.search_done",
+    payload: JSON.stringify({ subject: RESEARCH_LABEL }),
+    created_at: RESEARCH_RUN.created_at,
+  },
+  ...RESEARCH_SOURCES.map(([subject, url, title, chars], i) => ({
+    event_type:
+      i === RESEARCH_SOURCES.length - 1
+        ? "record.expand.source_fetching"
+        : "record.expand.source_banked",
+    payload: JSON.stringify({ subject, url, title, chars }),
+    created_at: new Date(Date.now() - (60 - i) * 1000).toISOString(),
+  })),
+  // banked_piece_ids is what getExpandStatus counts extraction against — the
+  // facts number is derived from these ids, not from anything in this payload.
+  {
+    event_type: "record.expand.completed",
+    payload: JSON.stringify({
+      subject: RESEARCH_LABEL,
+      banked_piece_ids: ["s1", "s2", "s3", "s4", "s5"],
+    }),
+    created_at: new Date().toISOString(),
+  },
+];
+
 const RESEARCH_BODY = `Departmental spending for the 2026 cycle was tabled on 4 March. This
 extract covers the main estimates only; supplementary estimates A and B
 are not included and had not been tabled at time of writing.
@@ -298,6 +393,8 @@ function makeDb(): D1Database {
         return stmt;
       },
       async first() {
+        if (/FROM research_runs/i.test(sql)) return RESEARCH_RUN;
+        if (/FROM nodes/i.test(sql) && /neutral_fact/i.test(sql)) return { n: 273 };
         if (/FROM users/i.test(sql)) return { id: "u1" };
         if (/FROM pieces WHERE user_id = \? AND slug = \?/i.test(sql)) {
           return ALL.find((p) => p.slug === bound[1]) ?? null;
@@ -399,6 +496,35 @@ function makeDb(): D1Database {
             results: [...EXTRACTION].map(([slug, e]) => ({ piece_id: slug, n: e.quotes })),
           };
         }
+        // A RESEARCH RUN IN FLIGHT, so the workspace can be photographed.
+        //
+        // Three separate queries back that screen and all three need answers,
+        // or the page renders its empty frame and the screenshot proves
+        // nothing: the expand event log, the research_runs row (the plan), and
+        // the same event log again filtered across every subject in that plan.
+        if (/FROM orchestrator_events/i.test(sql)) {
+          return { results: RESEARCH_EVENTS };
+        }
+        if (/FROM research_runs/i.test(sql)) {
+          return { results: [RESEARCH_RUN] };
+        }
+        // The run's extraction jobs. factsAdded is counted off these, not off
+        // the event payload, so without them the workspace photographs
+        // "Verbatim facts 0" beside five banked sources — which is the exact
+        // kind of quietly-wrong screenshot a fixture exists to prevent.
+        if (/FROM digest_jobs/i.test(sql)) {
+          return {
+            results: ["s1", "s2", "s3", "s4", "s5", "s6"].map((id) => ({
+              piece_id: id,
+              // "completed", not "done" — checkExtraction tests for that exact
+              // string, so the wrong one counts as still pending and the
+              // screenshot shows zero facts beside five read sources.
+              status: "completed",
+              step: null,
+              last_error: null,
+            })),
+          };
+        }
         // Cross-document links: subjects this piece shares with others.
         // Both labels below appear VERBATIM in RESEARCH_BODY — a label that
         // did not would be located, fail, and silently link nothing, which is
@@ -421,6 +547,10 @@ function makeDb(): D1Database {
               },
             ],
           };
+        }
+        // Facts extracted from the research run's banked sources.
+        if (/FROM nodes/i.test(sql) && /neutral_fact/i.test(sql)) {
+          return { results: [{ n: 273 }] };
         }
         // Typed-graph node counts, per piece.
         if (/FROM nodes/i.test(sql) && /GROUP BY piece_id/i.test(sql)) {

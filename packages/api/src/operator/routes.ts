@@ -1171,7 +1171,15 @@ app.get("/research", async (c) => {
   if (!q) return c.redirect("/");
   const angle = c.req.query("angle")?.trim() || undefined;
   const { renderResearchScreen } = await import("./screens/research");
-  return opHtml(renderResearchScreen({ label: q, angle }));
+  // Hand the screen the state at load so it renders COMPLETE — every source
+  // found so far, the whole plan, the next action. The live layer then only
+  // keeps it current. Without this the first paint is an empty frame that
+  // fills in a second later, which is exactly the "is this working?" feeling
+  // the workspace exists to remove, and it leaves the page useless with
+  // JavaScript off.
+  const { getResearchStatus } = await import("../graph/lib/deep-research");
+  const status = await getResearchStatus(c.env, userId, q).catch(() => null);
+  return opHtml(renderResearchScreen({ label: q, angle, status }));
 });
 
 // JSON status for the live-polling banner (public/render/status-banner.ts's

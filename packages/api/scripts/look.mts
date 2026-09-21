@@ -60,6 +60,9 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
 });
 
+const RESEARCH_Q = "What is the genuine white space in ad-serving and attribution?";
+const RESEARCH_URL = `/op/research?q=${encodeURIComponent(RESEARCH_Q)}`;
+
 const SHOTS: Array<[string, string, number, "operator"?]> = [
   ["front", "/", 1400],
   ["essays", "/essays", 1400],
@@ -76,6 +79,11 @@ const SHOTS: Array<[string, string, number, "operator"?]> = [
   // that can push a whole page sideways. The overflow check below is what
   // actually catches that, and it needs a page with a table on it to check.
   ["research-mobile", "/p/budget-2026-estimates", 390],
+  // THE RESEARCH WORKSPACE, mid-run: two of the plan's searches done, sources
+  // landing, one still being fetched. Operator-only, and the one screen where
+  // "is this working?" is the whole question — so it has to be looked at.
+  ["research-workspace", RESEARCH_URL, 1400, "operator"],
+  ["research-workspace-mobile", RESEARCH_URL, 390, "operator"],
   // OPERATOR-ONLY. /library is where documents are uploaded and where the
   // ingestion receipt renders, and it 401s without a session — so until now
   // the only thing this tool could photograph was the signed-out page. An
@@ -102,7 +110,12 @@ for (const [name, urlPath, width, as] of SHOTS) {
   }
   const errs: string[] = [];
   page.on("pageerror", (e) => errs.push(e.message));
-  const resp = await page.goto(`${origin}${urlPath}`, { waitUntil: "networkidle" });
+  // "load", not "networkidle". The research workspace polls its own status
+  // endpoint, so network idle never arrives and the shot times out — a live
+  // page is not a broken one. A short settle instead gives the poller time to
+  // paint its first frame without waiting for silence that will not come.
+  const resp = await page.goto(`${origin}${urlPath}`, { waitUntil: "load" });
+  await page.waitForTimeout(900);
   await page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
   // Horizontal overflow is the one layout bug a screenshot hides: the page
   // looks fine and the reader gets a sideways scrollbar. Report the widest

@@ -60,7 +60,13 @@ describe("deep-research.ts — two-pass pipeline shape", () => {
     // one, so no execution ever carries two expands.
     const fn = src.split("export async function advanceResearchRun")[1] as string;
     expect(fn).not.toMatch(/Promise\.all\(queries\.map/);
-    expect(fn).toMatch(/const \[next, \.\.\.rest\]/);
+    // The property, not the syntax: exactly one expandRecord call in the
+    // follow-up branch, and it is handed a single query rather than a list.
+    const branch = fn
+      .split('if (runRow.status === "pass2_pending")')[1]
+      ?.split("// ---- step")[0] as string;
+    expect(branch.match(/expandRecord\(/g) ?? []).toHaveLength(1);
+    expect(branch).toMatch(/expandRecord\(env, userId, next\)/);
   });
 
   it("never runs two model-heavy steps in one execution", () => {

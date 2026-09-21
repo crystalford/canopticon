@@ -24,8 +24,12 @@
 --   pass2_synth_pending  follow-up sources banked; the final synthesis is due
 --   done / failed        terminal
 --
--- followup_queries becomes the REMAINING queries: each advance pops one, so
--- the count visibly counts down and no execution ever runs two expands.
+-- followup_queries is the PLAN and never changes once written; followups_done
+-- records which of those searches have run. Two columns rather than one
+-- shrinking list, because the plan is the most interesting thing a research
+-- run produces and a list that deletes its own history cannot be shown. The
+-- operator should be able to watch the investigation take shape — that is the
+-- difference between a progress bar and a research tool.
 --
 -- SQLite cannot alter a CHECK constraint, so this is the standard rebuild —
 -- the same shape migration 0030 used for nodes.
@@ -45,7 +49,8 @@ CREATE TABLE research_runs_new (
       'failed'
     )),
   pass1_piece_ids TEXT,   -- JSON array, set once the first expand banks sources
-  followup_queries TEXT,  -- JSON array, the writer's proposed searches STILL TO RUN
+  followup_queries TEXT,  -- JSON array, the writer's proposed searches: THE PLAN
+  followups_done TEXT,    -- JSON array, which of those have actually run
   pass2_piece_ids TEXT,   -- JSON array, appended to as each follow-up banks
   final_piece_id TEXT,    -- set once the final synthesis lands (working-material)
   error TEXT,
@@ -59,10 +64,10 @@ CREATE TABLE research_runs_new (
 -- time instead of all at once.
 INSERT INTO research_runs_new
   (id, user_id, label, angle, status, pass1_piece_ids, followup_queries,
-   pass2_piece_ids, final_piece_id, error, created_at, updated_at)
+   followups_done, pass2_piece_ids, final_piece_id, error, created_at, updated_at)
 SELECT
    id, user_id, label, angle, status, pass1_piece_ids, followup_queries,
-   pass2_piece_ids, final_piece_id, error, created_at, updated_at
+   NULL, pass2_piece_ids, final_piece_id, error, created_at, updated_at
   FROM research_runs;
 
 DROP TABLE research_runs;

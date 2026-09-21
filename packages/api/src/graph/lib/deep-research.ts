@@ -391,9 +391,11 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     pass1_piece_ids: string | null;
     pass2_piece_ids: string | null;
     followup_queries: string | null;
+    followups_done: string | null;
   }>(
     env.DB,
-    `SELECT id, label, angle, status, pass1_piece_ids, pass2_piece_ids, followup_queries
+    `SELECT id, label, angle, status, pass1_piece_ids, pass2_piece_ids,
+            followup_queries, followups_done
        FROM research_runs
       WHERE user_id = ?
         AND status IN ('synth_pending', 'pass2_pending', 'pass2_synth_pending')
@@ -462,24 +464,32 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
   // pass 1 had, just with more fetches in it. followup_queries holds what is
   // STILL TO RUN, so each press pops one and the count visibly goes down.
   if (runRow.status === "pass2_pending") {
-    const queries = parseJsonArray(runRow.followup_queries);
-    if (queries.length === 0) {
-      // Nothing queued but sources banked: go straight to the final write
-      // rather than failing a run that has everything it needs.
+    // THE PLAN IS NOT CONSUMED. followup_queries holds every search the
+    // writer proposed and is never rewritten; followups_done records which
+    // have run. A list that deletes its own history cannot be shown, and the
+    // plan taking shape is the most interesting thing a run produces — it is
+    // the difference between a progress bar and a research tool.
+    const plan = parseJsonArray(runRow.followup_queries);
+    const done = parseJsonArray(runRow.followups_done);
+    const next = plan.find((q) => !done.includes(q));
+
+    if (!next) {
+      // Everything planned has run (or there was never a plan). Go to the
+      // final write rather than failing a run that has all it needs.
       await updateById(env.DB, "research_runs", runRow.id, { status: "pass2_synth_pending" });
       return { advanced: true, label: runRow.label };
     }
 
-    const [next, ...rest] = queries as [string, ...string[]];
     const { expandRecord } = await import("./record-builder");
     const report = await withExpandBudget(expandRecord(env, userId, next), next);
     const banked = [...new Set([...pass2Ids, ...report.banked_piece_ids])];
+    const nowDone = [...done, next];
 
     await updateById(env.DB, "research_runs", runRow.id, {
       // An expand that banks nothing is not a failure — the query simply had
       // no usable sources, and the remaining ones may still.
-      status: rest.length ? "pass2_pending" : "pass2_synth_pending",
-      followup_queries: JSON.stringify(rest),
+      status: nowDone.length < plan.length ? "pass2_pending" : "pass2_synth_pending",
+      followups_done: JSON.stringify(nowDone),
       pass2_piece_ids: JSON.stringify(banked),
     });
     return { advanced: true, label: runRow.label };
@@ -515,6 +525,15 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
   });
   await emitDrafted(env, userId, runRow.label, angleHint, persisted.pieceId);
   return { advanced: true, label: runRow.label };
+}
+
+/** The host, for a source line the eye can scan. Never throws on a bad URL. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url.slice(0, 40);
+  }
 }
 
 const STALE_RUN_MS = 10 * 60 * 1000; // well past EXPAND_BUDGET_MS, which is all pass 1 does now
@@ -611,10 +630,46 @@ export interface ResearchAction {
   auto?: boolean;
 }
 
+/** One search in the investigation's plan. */
+export interface ResearchQuery {
+  query: string;
+  state: "done" | "running" | "queued";
+  /** True for the operator's own question, false for a proposed follow-up. */
+  opening: boolean;
+}
+
+/** One source the run actually read, as the expand logged it. */
+export interface ResearchSource {
+  title: string;
+  url: string;
+  /** Host only, for a compact line the eye can scan. */
+  domain: string;
+  chars?: number;
+  state: "banked" | "fetching" | "duplicate";
+}
+
 export interface ResearchStatus {
   terminal: boolean;
   warn: boolean;
   action?: ResearchAction;
+  /**
+   * The searches this investigation is made of, in order.
+   *
+   * The single most valuable thing a research run produces and the last thing
+   * that was visible: the writer proposes follow-up searches naming exactly
+   * what the first pass could not cover, and they were stored and never shown.
+   * A reader watching the plan fill in is watching an investigation take
+   * shape; a reader watching "5 banked" is watching a progress bar.
+   */
+  plan?: ResearchQuery[];
+  /** Every source read, newest first. Logged all along, never surfaced. */
+  sources?: ResearchSource[];
+  /** Verbatim facts extracted so far. */
+  facts?: number;
+  /** ISO timestamp the run started, so the screen can show elapsed time. */
+  startedAt?: string;
+  /** The finished draft, once there is one. */
+  draft?: { title: string; slug: string; reviewUrl: string };
   headline: string;
   steps: ResearchStep[];
   reviewUrl?: string;
@@ -639,16 +694,93 @@ export async function getResearchStatus(
   const expand = await getExpandStatus(env, userId, label);
   if (!expand) return null;
 
+  // The run is loaded BEFORE the events, because the plan decides which
+  // events belong to this investigation. A follow-up expand logs under its
+  // own query as the subject, not under the operator's original question —
+  // so a query filtered on the label alone could only ever see the first
+  // pass, and every source found by digging deeper was invisible.
+  const run = await one<{
+    id: string;
+    status: string;
+    final_piece_id: string | null;
+    error: string | null;
+    followup_queries: string | null;
+    followups_done: string | null;
+    created_at: string;
+  }>(
+    env.DB,
+    `SELECT id, status, final_piece_id, error, followup_queries, followups_done, created_at
+       FROM research_runs
+      WHERE user_id = ? AND label = ? AND created_at > datetime('now','-1 day')
+      ORDER BY created_at DESC LIMIT 1`,
+    [userId, label],
+  ).catch(() => null);
+
+  const planQueries = parseJsonArray(run?.followup_queries ?? null);
+  const planDone = parseJsonArray(run?.followups_done ?? null);
+  const subjects = [label, ...planQueries];
+  const subjectMarks = subjects.map(() => "?").join(",");
+
   const events = await all<{ event_type: string; payload: string }>(
     env.DB,
     `SELECT event_type, payload FROM orchestrator_events
       WHERE user_id = ?
         AND event_type LIKE 'record.expand.%'
-        AND json_extract(payload, '$.subject') = ?
-        AND created_at > datetime('now','-15 minutes')
-      ORDER BY created_at ASC LIMIT 100`,
-    [userId, label],
+        AND json_extract(payload, '$.subject') IN (${subjectMarks})
+        AND created_at > datetime('now','-1 day')
+      ORDER BY created_at ASC LIMIT 400`,
+    [userId, ...subjects],
   ).catch(() => []);
+
+  // ---- the material the run actually produced ---------------------------
+  //
+  // All of this was already being written on every run and then thrown away
+  // at the point of display: the banner counted the events and showed "5
+  // banked". A source list with real titles and real domains is the whole
+  // difference between watching a job and watching a researcher work.
+  const sources: ResearchSource[] = [];
+  const seenUrls = new Set<string>();
+  for (const e of [...events].reverse()) {
+    const p = safeParseJson(e.payload) as { url?: string; title?: string; chars?: number } | null;
+    const url = typeof p?.url === "string" ? p.url : "";
+    if (!url || seenUrls.has(url)) continue;
+    const state =
+      e.event_type === "record.expand.source_banked"
+        ? "banked"
+        : e.event_type === "record.expand.source_duplicate"
+          ? "duplicate"
+          : e.event_type === "record.expand.source_fetching"
+            ? "fetching"
+            : null;
+    if (!state) continue;
+    seenUrls.add(url);
+    sources.push({
+      title: (typeof p?.title === "string" && p.title.trim()) || hostOf(url),
+      url,
+      domain: hostOf(url),
+      ...(typeof p?.chars === "number" ? { chars: p.chars } : {}),
+      state,
+    });
+  }
+
+  const running = run?.status === "pass1_pending" || run?.status === "pass2_pending";
+  const plan: ResearchQuery[] = [
+    {
+      query: label,
+      opening: true,
+      // The opening search is done the moment anything has been banked for it.
+      state: run && run.status !== "pass1_pending" ? "done" : "running",
+    },
+    ...planQueries.map((q): ResearchQuery => {
+      const isDone = planDone.includes(q);
+      const isNext = !isDone && planDone.length === planQueries.indexOf(q);
+      return {
+        query: q,
+        opening: false,
+        state: isDone ? "done" : isNext && running ? "running" : "queued",
+      };
+    }),
+  ];
   const has = (t: string) => events.some((e) => e.event_type === t);
   const bankedCount = events.filter((e) => e.event_type === "record.expand.source_banked").length;
   const fetchingCount = events.filter(
@@ -692,23 +824,22 @@ export async function getResearchStatus(
   // record-builder.ts's expandRecord with no researchOnDemand wrapper —
   // never will; no research_runs row for its label would ever exist).
   if (extractDone && includeSynthesis) {
-    const runRow = await one<{
-      status: string;
-      final_piece_id: string | null;
-      error: string | null;
-      followup_queries: string | null;
-    }>(
-      env.DB,
-      `SELECT status, final_piece_id, error, followup_queries FROM research_runs
-        WHERE user_id = ? AND label = ? AND created_at > datetime('now','-15 minutes')
-        ORDER BY created_at DESC LIMIT 1`,
-      [userId, label],
-    ).catch(() => null);
+    const runRow = run;
 
     // Every waiting state below is terminal for the POLLER — it will not
     // change on its own — and carries the press that moves it. The banner
     // advances automatically while the tab is open, so in practice the
     // operator presses once; the button is what it falls back to.
+    //
+    // `material` is attached to every return rather than to some of them: a
+    // source list that vanished the moment the run finished would be the
+    // worst possible time to lose it.
+    const material = {
+      plan,
+      sources,
+      facts: expand.factsAdded,
+      ...(run ? { startedAt: run.created_at } : {}),
+    };
     const advance = (label_: string) => ({
       label: label_,
       postTo: "/op/research/advance",
@@ -723,6 +854,7 @@ export async function getResearchStatus(
         warn: false,
         headline: "Banking sources…",
         steps,
+        ...material,
       };
     }
 
@@ -741,6 +873,7 @@ export async function getResearchStatus(
         headline: "Sources banked. Writing the brief is the next step.",
         steps,
         action: advance("Write the brief"),
+        ...material,
       };
     }
 
@@ -763,6 +896,7 @@ export async function getResearchStatus(
         } left to run.`,
         steps,
         action: advance("Run the next search"),
+        ...material,
       };
     }
 
@@ -780,6 +914,7 @@ export async function getResearchStatus(
         headline: "Everything is banked. One step left: the final brief.",
         steps,
         action: advance("Write the final brief"),
+        ...material,
       };
     }
 
@@ -791,20 +926,31 @@ export async function getResearchStatus(
         headline: "Draft brief ready — review it before it can publish.",
         steps,
         reviewUrl: `/op/library/research/${runRow.final_piece_id}/review`,
+        ...material,
       };
     }
 
-    const reason = runRow.error ?? "unknown reason";
+    const reason = runRow?.error ?? "unknown reason";
     steps.push({ label: "Write a synthesis", state: "warn", detail: reason });
     return {
       terminal: true,
       warn: true,
       headline: `Sources banked, but no brief written — ${reason}.`,
       steps,
+      ...material,
     };
   }
 
-  return { terminal: expand.terminal, warn: expand.warn, headline: expand.line, steps };
+  return {
+    terminal: expand.terminal,
+    warn: expand.warn,
+    headline: expand.line,
+    steps,
+    plan,
+    sources,
+    facts: expand.factsAdded,
+    ...(run ? { startedAt: run.created_at } : {}),
+  };
 }
 
 // Races expandRecord against EXPAND_BUDGET_MS. On timeout, treats it as
