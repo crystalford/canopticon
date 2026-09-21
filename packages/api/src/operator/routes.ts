@@ -995,6 +995,11 @@ app.post("/research/advance", async (c) => {
   // Same-origin only: a return_to is a redirect target, so it is confined to
   // this site's own paths and never allowed to carry a scheme or a host.
   const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
+  // The status banner takes steps itself via fetch() and then re-polls, so it
+  // wants the outcome, not a redirect it would have to follow.
+  if (form.no_redirect === "1") {
+    return c.json({ advanced: !!report?.advanced, reason: report?.reason ?? null });
+  }
   const back = typeof form.return_to === "string" ? form.return_to : "";
   if (back.startsWith("/") && !back.startsWith("//")) return c.redirect(back);
   return c.redirect(

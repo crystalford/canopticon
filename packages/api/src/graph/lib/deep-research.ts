@@ -347,56 +347,21 @@ export async function researchOnDemand(
     return { ok: false, reason };
   }
 
-  const synth = await synthesizeBrief(env, userId, label, expandReport.banked_piece_ids, {
-    angleHint,
-    wantFollowups: true,
-  });
-  if (!synth.ok || !synth.bodyMd || !synth.title) {
-    await updateById(env.DB, "research_runs", runId, {
-      status: "failed",
-      error: synth.reason ?? "synthesis failed",
-      pass1_piece_ids: JSON.stringify(expandReport.banked_piece_ids),
-    });
-    await emitDraftFailed(env, userId, label, angleHint, synth.reason);
-    return { ok: false, reason: synth.reason };
-  }
-
-  const followups = synth.followupQueries ?? [];
-  if (followups.length === 0) {
-    const persisted = await persistBrief(
-      env,
-      userId,
-      label,
-      synth.title,
-      synth.bodyMd,
-      expandReport.banked_piece_ids,
-      { publish: false, angleHint },
-    );
-    await updateById(env.DB, "research_runs", runId, {
-      status: "done",
-      pass1_piece_ids: JSON.stringify(expandReport.banked_piece_ids),
-      final_piece_id: persisted.pieceId,
-    });
-    await emitDrafted(env, userId, label, angleHint, persisted.pieceId);
-    return { ok: true, ...persisted };
-  }
-
-  // There's more to chase — defer to the cron drain (see file comment on
-  // why this isn't just another expandRecord+synthesizeBrief call right
-  // here).
+  // STOPS HERE. The synthesis used to run in this same execution, and that
+  // is what stalled live: expandRecord had just fetched six pages and
+  // extracted 273 facts, and a synthesis over up to twelve sources on top of
+  // that is past Cloudflare's ceiling. The sources are banked and recorded;
+  // writing from them is its own step, dispatched by advanceResearchRun.
   await updateById(env.DB, "research_runs", runId, {
-    status: "pass2_pending",
+    status: "synth_pending",
     pass1_piece_ids: JSON.stringify(expandReport.banked_piece_ids),
-    followup_queries: JSON.stringify(followups),
   });
-  await insertOne(env.DB, "orchestrator_events", {
-    user_id: userId,
-    event_type: "deep_research.pass2_queued",
-    subject_kind: "query",
-    subject_id: null,
-    payload: { label, angle: angleHint ?? null, followup_queries: followups },
-  }).catch(() => {});
-  return { ok: false, reason: "digging deeper — follow-up research queued" };
+  return {
+    ok: false,
+    reason: `${expandReport.banked_piece_ids.length} source${
+      expandReport.banked_piece_ids.length === 1 ? "" : "s"
+    } banked — writing the brief is the next step`,
+  };
 }
 
 export interface AdvanceRunReport {
@@ -405,53 +370,133 @@ export interface AdvanceRunReport {
   reason?: string | undefined;
 }
 
-/** Research pass 2 — one research_runs row per call, oldest first. Runs
- *  the follow-up searches pass 1's writer proposed, then re-synthesizes
- *  over the COMBINED source pool (pass 1 + pass 2 sources) into the final
- *  draft. Wired into index.ts's every-2-minute cron drain. */
+/**
+ * Do exactly ONE model-heavy step of the oldest run that has one due.
+ *
+ * Every branch below is a separate Worker execution, which is the whole point:
+ * the previous shape ran an expand and a synthesis together in pass 1, and two
+ * expands and a synthesis together in pass 2, and both were over Cloudflare's
+ * ceiling. Observed live as "Sources banked, but no brief written — execution
+ * stalled", with 273 facts successfully extracted immediately above it.
+ *
+ * Returns { advanced: false } when nothing is due, so a caller can press it
+ * repeatedly without doing harm.
+ */
 export async function advanceResearchRun(env: Env, userId: string): Promise<AdvanceRunReport> {
   const runRow = await one<{
     id: string;
     label: string;
     angle: string | null;
+    status: string;
     pass1_piece_ids: string | null;
+    pass2_piece_ids: string | null;
     followup_queries: string | null;
   }>(
     env.DB,
-    `SELECT id, label, angle, pass1_piece_ids, followup_queries FROM research_runs
-      WHERE user_id = ? AND status = 'pass2_pending'
+    `SELECT id, label, angle, status, pass1_piece_ids, pass2_piece_ids, followup_queries
+       FROM research_runs
+      WHERE user_id = ?
+        AND status IN ('synth_pending', 'pass2_pending', 'pass2_synth_pending')
       ORDER BY created_at ASC LIMIT 1`,
     [userId],
   ).catch(() => null);
   if (!runRow) return { advanced: false, reason: "no run due" };
 
+  const angleHint = runRow.angle ?? undefined;
   const pass1Ids = parseJsonArray(runRow.pass1_piece_ids);
-  const queries = parseJsonArray(runRow.followup_queries);
+  const pass2Ids = parseJsonArray(runRow.pass2_piece_ids);
 
-  if (queries.length === 0) {
-    await updateById(env.DB, "research_runs", runRow.id, {
-      status: "failed",
-      error: "no follow-up queries recorded",
+  // ---- step: the first synthesis --------------------------------------
+  if (runRow.status === "synth_pending") {
+    const synth = await synthesizeBrief(env, userId, runRow.label, pass1Ids, {
+      angleHint,
+      wantFollowups: true,
     });
-    return { advanced: false, label: runRow.label, reason: "no follow-up queries recorded" };
+    if (!synth.ok || !synth.bodyMd || !synth.title) {
+      await updateById(env.DB, "research_runs", runRow.id, {
+        status: "failed",
+        error: synth.reason ?? "synthesis failed",
+      });
+      await emitDraftFailed(env, userId, runRow.label, angleHint, synth.reason);
+      return { advanced: false, label: runRow.label, reason: synth.reason };
+    }
+
+    const followups = synth.followupQueries ?? [];
+    if (followups.length === 0) {
+      // Nothing left to chase, so this synthesis IS the draft.
+      const persisted = await persistBrief(
+        env,
+        userId,
+        runRow.label,
+        synth.title,
+        synth.bodyMd,
+        pass1Ids,
+        { publish: false, angleHint },
+      );
+      await updateById(env.DB, "research_runs", runRow.id, {
+        status: "done",
+        final_piece_id: persisted.pieceId,
+      });
+      await emitDrafted(env, userId, runRow.label, angleHint, persisted.pieceId);
+      return { advanced: true, label: runRow.label };
+    }
+
+    await updateById(env.DB, "research_runs", runRow.id, {
+      status: "pass2_pending",
+      followup_queries: JSON.stringify(followups),
+    });
+    await insertOne(env.DB, "orchestrator_events", {
+      user_id: userId,
+      event_type: "deep_research.pass2_queued",
+      subject_kind: "query",
+      subject_id: null,
+      payload: { label: runRow.label, angle: runRow.angle ?? null, followup_queries: followups },
+    }).catch(() => {});
+    return { advanced: true, label: runRow.label };
   }
 
-  const { expandRecord } = await import("./record-builder");
-  const followupReports = await Promise.all(queries.map((q) => expandRecord(env, userId, q)));
-  const pass2Ids = followupReports.flatMap((r) => r.banked_piece_ids);
-  const combinedIds = [...new Set([...pass1Ids, ...pass2Ids])];
+  // ---- step: ONE follow-up search --------------------------------------
+  //
+  // One, not all of them. They used to run as Promise.all over every queued
+  // query and then synthesize, in one execution — the same ceiling problem
+  // pass 1 had, just with more fetches in it. followup_queries holds what is
+  // STILL TO RUN, so each press pops one and the count visibly goes down.
+  if (runRow.status === "pass2_pending") {
+    const queries = parseJsonArray(runRow.followup_queries);
+    if (queries.length === 0) {
+      // Nothing queued but sources banked: go straight to the final write
+      // rather than failing a run that has everything it needs.
+      await updateById(env.DB, "research_runs", runRow.id, { status: "pass2_synth_pending" });
+      return { advanced: true, label: runRow.label };
+    }
 
+    const [next, ...rest] = queries as [string, ...string[]];
+    const { expandRecord } = await import("./record-builder");
+    const report = await withExpandBudget(expandRecord(env, userId, next), next);
+    const banked = [...new Set([...pass2Ids, ...report.banked_piece_ids])];
+
+    await updateById(env.DB, "research_runs", runRow.id, {
+      // An expand that banks nothing is not a failure — the query simply had
+      // no usable sources, and the remaining ones may still.
+      status: rest.length ? "pass2_pending" : "pass2_synth_pending",
+      followup_queries: JSON.stringify(rest),
+      pass2_piece_ids: JSON.stringify(banked),
+    });
+    return { advanced: true, label: runRow.label };
+  }
+
+  // ---- step: the final synthesis ---------------------------------------
+  const combinedIds = [...new Set([...pass1Ids, ...pass2Ids])];
   const synth = await synthesizeBrief(env, userId, runRow.label, combinedIds, {
-    angleHint: runRow.angle ?? undefined,
+    angleHint,
     wantFollowups: false,
   });
   if (!synth.ok || !synth.bodyMd || !synth.title) {
     await updateById(env.DB, "research_runs", runRow.id, {
       status: "failed",
       error: synth.reason ?? "final synthesis failed",
-      pass2_piece_ids: JSON.stringify(pass2Ids),
     });
-    await emitDraftFailed(env, userId, runRow.label, runRow.angle ?? undefined, synth.reason);
+    await emitDraftFailed(env, userId, runRow.label, angleHint, synth.reason);
     return { advanced: false, label: runRow.label, reason: synth.reason };
   }
 
@@ -462,19 +507,17 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     synth.title,
     synth.bodyMd,
     combinedIds,
-    { publish: false, angleHint: runRow.angle ?? undefined },
+    { publish: false, angleHint },
   );
   await updateById(env.DB, "research_runs", runRow.id, {
     status: "done",
-    pass2_piece_ids: JSON.stringify(pass2Ids),
     final_piece_id: persisted.pieceId,
   });
-  await emitDrafted(env, userId, runRow.label, runRow.angle ?? undefined, persisted.pieceId);
-
+  await emitDrafted(env, userId, runRow.label, angleHint, persisted.pieceId);
   return { advanced: true, label: runRow.label };
 }
 
-const STALE_RUN_MS = 10 * 60 * 1000; // well past EXPAND_BUDGET_MS + a synthesis call
+const STALE_RUN_MS = 10 * 60 * 1000; // well past EXPAND_BUDGET_MS, which is all pass 1 does now
 
 /** Safety net for the exact failure class EXPAND_BUDGET_MS above guards
  *  against — a pass1_pending/pass2_pending row whose execution died
@@ -488,8 +531,14 @@ export async function reapStaleResearchRuns(env: Env, userId: string): Promise<v
   const cutoff = new Date(Date.now() - STALE_RUN_MS).toISOString();
   await run(
     env.DB,
+    // pass1_pending ONLY. It is the single state with an execution actually in
+    // flight — expandRecord running inside the operator's own request. Every
+    // other pending state is a run WAITING FOR A PRESS, and reaping those
+    // marked a perfectly healthy run "execution stalled" for the crime of
+    // having been queued more than ten minutes ago, which is how long it takes
+    // to go and get a coffee. pass2_pending was in this list.
     `UPDATE research_runs SET status = 'failed', error = 'execution stalled — try again', updated_at = ?
-      WHERE user_id = ? AND status IN ('pass1_pending', 'pass2_pending') AND created_at < ?`,
+      WHERE user_id = ? AND status = 'pass1_pending' AND created_at < ?`,
     [new Date().toISOString(), userId, cutoff],
   );
 }
@@ -551,6 +600,15 @@ export interface ResearchAction {
   postTo: string;
   /** Sent back so the operator lands on the same screen afterwards. */
   returnTo?: string;
+  /**
+   * The banner may take this step itself while the tab is open.
+   *
+   * Not a schedule (standing rule 4): it only happens because a person pressed
+   * Research and is sitting there watching. Close the tab and it stops; an
+   * idle site still costs nothing. The browser is the only thing driving it,
+   * and the button stays visible so a failed auto-step is recoverable by hand.
+   */
+  auto?: boolean;
 }
 
 export interface ResearchStatus {
@@ -647,13 +705,42 @@ export async function getResearchStatus(
       [userId, label],
     ).catch(() => null);
 
+    // Every waiting state below is terminal for the POLLER — it will not
+    // change on its own — and carries the press that moves it. The banner
+    // advances automatically while the tab is open, so in practice the
+    // operator presses once; the button is what it falls back to.
+    const advance = (label_: string) => ({
+      label: label_,
+      postTo: "/op/research/advance",
+      returnTo: `/op/research?q=${encodeURIComponent(label)}`,
+      auto: true,
+    });
+
     if (!runRow || runRow.status === "pass1_pending") {
-      steps.push({ label: "Write a synthesis", state: "active" });
+      steps.push({ label: "Write a synthesis", state: "pending" });
       return {
         terminal: false,
         warn: false,
-        headline: "Writing a synthesis from what was found…",
+        headline: "Banking sources…",
         steps,
+      };
+    }
+
+    // Sources are in and the writing has not started. This is where it broke:
+    // the synthesis used to run in the same execution as the expand that
+    // banked those sources, and the two together went past the ceiling.
+    if (runRow.status === "synth_pending") {
+      steps.push({
+        label: "Write a synthesis",
+        state: "pending",
+        detail: "sources banked — needs a press",
+      });
+      return {
+        terminal: true,
+        warn: false,
+        headline: "Sources banked. Writing the brief is the next step.",
+        steps,
+        action: advance("Write the brief"),
       };
     }
 
@@ -664,31 +751,35 @@ export async function getResearchStatus(
       // written down and waiting. Showing them as active was the lie that made
       // a waiting run look like a hung one.
       steps.push({
-        label: `Dig deeper (${queryCount} follow-up search${queryCount === 1 ? "" : "es"})`,
+        label: `Dig deeper (${queryCount} follow-up search${queryCount === 1 ? "" : "es"} left)`,
         state: "pending",
         detail: "queued — needs a press",
       });
-      // NOT terminal:false. This state said "digging deeper on what it
-      // couldn't cover…" and polled forever, because nothing was digging:
-      // pass 2 is dispatched by advanceResearchRun, whose only live caller is
-      // the POST /op/research/advance button, and the cron that used to drive
-      // it is off by design. So the run sat at step five with a pulsing dot
-      // and no way to act, which is exactly what the operator reported.
-      //
-      // It is terminal in the sense the banner needs — stop polling, this will
-      // not change on its own — and it carries the press that moves it.
       return {
         terminal: true,
         warn: false,
         headline: `First pass done. ${queryCount} follow-up search${
           queryCount === 1 ? "" : "es"
-        } are queued and waiting for you to run them.`,
+        } left to run.`,
         steps,
-        action: {
-          label: `Run ${queryCount === 1 ? "it" : "them"} now`,
-          postTo: "/op/research/advance",
-          returnTo: `/op/research?q=${encodeURIComponent(label)}`,
-        },
+        action: advance("Run the next search"),
+      };
+    }
+
+    if (runRow.status === "pass2_synth_pending") {
+      steps.push({ label: "Write a synthesis", state: "done", detail: "first pass done" });
+      steps.push({ label: "Dig deeper", state: "done", detail: "follow-up sources banked" });
+      steps.push({
+        label: "Write the final brief",
+        state: "pending",
+        detail: "needs a press",
+      });
+      return {
+        terminal: true,
+        warn: false,
+        headline: "Everything is banked. One step left: the final brief.",
+        steps,
+        action: advance("Write the final brief"),
       };
     }
 

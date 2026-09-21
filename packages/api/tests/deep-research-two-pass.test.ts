@@ -26,16 +26,23 @@ describe("deep-research.ts — two-pass pipeline shape", () => {
     expect(fn).not.toContain("advanceResearchRun(");
   });
 
-  it("researchOnDemand persists a piece immediately only when there are no follow-up queries", () => {
+  it("researchOnDemand banks sources and STOPS — it does not also synthesize", () => {
+    // This assertion used to check which branch persisted a piece, because
+    // pass 1 both expanded and synthesized. That pairing is what failed live:
+    //
+    //     ✓ Extract verbatim facts — 273 facts
+    //     ! Write a synthesis — execution stalled — try again
+    //
+    // expandRecord had just fetched six pages and extracted 273 facts; a
+    // synthesis over up to twelve sources on top of that is past Cloudflare's
+    // ceiling. Pass 1 now ends at synth_pending and writing is its own step.
     const fn = src
       .split("export async function researchOnDemand")[1]
       ?.split("export interface AdvanceRunReport")[0] as string;
-    // The immediate-persist branch is gated on followups.length === 0.
-    expect(fn).toContain("followups.length === 0");
-    // The deferred branch sets pass2_pending and returns without a
-    // second persistBrief call in that branch.
-    const deferredRegion = fn.split('status: "pass2_pending"')[1] ?? "";
-    expect(deferredRegion.split("return {")[0]).not.toContain("persistBrief(");
+    expect(fn).toBeDefined();
+    expect(fn).toContain('status: "synth_pending"');
+    expect(fn).not.toContain("synthesizeBrief(");
+    expect(fn).not.toContain("persistBrief(");
   });
 
   it("advanceResearchRun dedupes pass1+pass2 source ids before the final synthesis", () => {
@@ -44,9 +51,25 @@ describe("deep-research.ts — two-pass pipeline shape", () => {
     expect(fn).toMatch(/new Set\(\[\.\.\.pass1Ids,\s*\.\.\.pass2Ids\]\)/);
   });
 
-  it("advanceResearchRun runs follow-up searches concurrently, not sequentially", () => {
+  it("advanceResearchRun runs ONE follow-up search per call, never all of them", () => {
+    // The exact inversion of what this test used to require. It asserted
+    // Promise.all(queries.map(...)) — every queued search at once, and then a
+    // synthesis, in one execution. Concurrency was the point and the ceiling
+    // was the cost: that is the same failure pass 1 had, with more fetches in
+    // it. followup_queries now holds what is STILL TO RUN and each call pops
+    // one, so no execution ever carries two expands.
     const fn = src.split("export async function advanceResearchRun")[1] as string;
-    expect(fn).toMatch(/Promise\.all\(queries\.map/);
+    expect(fn).not.toMatch(/Promise\.all\(queries\.map/);
+    expect(fn).toMatch(/const \[next, \.\.\.rest\]/);
+  });
+
+  it("never runs two model-heavy steps in one execution", () => {
+    // The property the whole state machine exists for, checked structurally:
+    // no branch may both expand and synthesize. Each status is one step.
+    const fn = src.split("export async function advanceResearchRun")[1] as string;
+    const branch = fn.split('if (runRow.status === "pass2_pending")')[1]?.split("// ---- step")[0];
+    expect(branch).toContain("expandRecord");
+    expect(branch).not.toContain("synthesizeBrief(");
   });
 
   it("getResearchStatus reads research_runs directly (authoritative state, not just event inference)", () => {
@@ -105,39 +128,59 @@ describe("llm/router.ts — Claude toggle for the research writer", () => {
 // for a press, and the banner was telling it was digging.
 describe("a run waiting on a press says so, and carries the press", () => {
   const src = readFileSync("./src/graph/lib/deep-research.ts", "utf-8");
-  const branch = () => {
-    const after = src.split('if (runRow.status === "pass2_pending")')[1] as string;
-    expect(after).toBeDefined();
+  const statusFn = () => src.split("export async function getResearchStatus")[1] as string;
+  const branch = (status: string) => {
+    const after = statusFn().split(`if (runRow.status === "${status}")`)[1] as string;
+    expect(after, `no status branch for ${status}`).toBeDefined();
     return after.split("if (runRow.status ===")[0] as string;
   };
 
-  it("does not report itself as still running", () => {
+  // Every state that cannot move without a person, and what each must say.
+  const WAITING = ["synth_pending", "pass2_pending", "pass2_synth_pending"];
+
+  it.each(WAITING)("%s does not report itself as still running", (status) => {
     // terminal:false made the banner poll every 1.5s forever against a state
     // that cannot change without a person. The pulsing dot was the bug.
-    expect(branch()).toContain("terminal: true");
-    expect(branch()).not.toContain("terminal: false");
+    expect(branch(status)).toContain("terminal: true");
+    expect(branch(status)).not.toContain("terminal: false");
   });
 
-  it("is not an error either", () => {
-    // Nothing went wrong. A warn state would send the operator looking for a
-    // failure that does not exist.
-    expect(branch()).toContain("warn: false");
+  it.each(WAITING)("%s is not an error either", (status) => {
+    expect(branch(status)).toContain("warn: false");
   });
 
-  it("marks the queued step pending rather than active", () => {
+  it.each(WAITING)("%s carries the press that moves it", (status) => {
+    expect(branch(status)).toContain("action: advance(");
+  });
+
+  it("marks a queued step pending, never active", () => {
     // Rule 6: nothing is running. "active" was the lie that made a waiting
     // run indistinguishable from a hung one.
-    const stepPush = src
-      .split('if (runRow.status === "pass2_pending")')[1]
-      ?.split("return {")[0] as string;
-    expect(stepPush).toContain('state: "pending"');
-    expect(stepPush).not.toContain('state: "active"');
+    for (const status of WAITING) {
+      const stepPush = branch(status).split("return {")[0] as string;
+      expect(stepPush).toContain('state: "pending"');
+      expect(stepPush).not.toContain('state: "active"');
+    }
   });
 
-  it("carries the POST that advances it, and a way back to this screen", () => {
-    expect(branch()).toContain("postTo:");
-    expect(branch()).toContain("/op/research/advance");
-    expect(branch()).toContain("returnTo:");
+  it("the press is a POST to the advance route, and comes back to this screen", () => {
+    const helper = statusFn().split("const advance =")[1]?.split("};")[0] as string;
+    expect(helper).toContain("postTo:");
+    expect(helper).toContain("/op/research/advance");
+    expect(helper).toContain("returnTo:");
+  });
+
+  it("a stalled run is only ever reaped from the one in-flight state", () => {
+    // pass2_pending was in this list, so a healthy run WAITING FOR A PRESS got
+    // marked "execution stalled" ten minutes after it was queued — long enough
+    // to go and get a coffee. Only pass1_pending has an execution in flight.
+    const fn = src.split("export async function reapStaleResearchRuns")[1] as string;
+    // The SQL only — the comment above it names pass2_pending precisely
+    // because that is the state that must NOT be reaped, and an assertion
+    // that reads comments would punish explaining the bug.
+    const sql = fn.split("UPDATE research_runs")[1]?.split("`")[0] as string;
+    expect(sql).toContain("status = 'pass1_pending'");
+    expect(sql).not.toContain("pass2_pending");
   });
 
   it("offers the press as a POST, never a link", () => {

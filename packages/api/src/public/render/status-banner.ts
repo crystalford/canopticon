@@ -89,11 +89,43 @@ ${LIVE_STATUS_STYLES}
     dotEl.classList.toggle("live-status-dot-done", done);
     dotEl.classList.toggle("live-status-dot-warn", !!s.warn);
   }
+  // THE BROWSER IS THE SCHEDULER.
+  //
+  // A research run is four model-heavy steps, each of which must be its own
+  // Worker execution or it goes past Cloudflare's ceiling — that is what
+  // "Sources banked, but no brief written" was. Standing rule 4 forbids a
+  // cron, and rightly: an idle site should cost nothing. But a person who
+  // pressed Research and is sitting here watching IS the attendance the rule
+  // is about, so the banner takes the next step for them.
+  //
+  // Close the tab and it stops. Nothing runs unattended, nothing is scheduled,
+  // and the button stays on screen throughout, so a step that fails to
+  // auto-advance is still one click from being taken by hand.
+  var autoLeft = 6;   // a run needs at most four; the margin absorbs a retry
+  var lastAuto = "";  // never auto-step the same state twice in a row
   function poll() {
     fetch(url, { headers: { Accept: "application/json" } })
       .then(function (r) { return r.json(); })
       .then(function (s) {
         render(s);
+        var act = s.action;
+        if (act && act.auto && autoLeft > 0 && lastAuto !== act.label) {
+          autoLeft--;
+          lastAuto = act.label;
+          headlineEl.textContent = act.label + "\u2026";
+          var body = new URLSearchParams();
+          body.set("no_redirect", "1");
+          fetch(act.postTo, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: body.toString(),
+          })
+            .catch(function () {})
+            // Whatever happened, ask the server what the state is now rather
+            // than assuming the step worked.
+            .then(function () { setTimeout(poll, 800); });
+          return;
+        }
         if (!s.terminal) setTimeout(poll, 1500);
       })
       .catch(function () { setTimeout(poll, 3000); });
