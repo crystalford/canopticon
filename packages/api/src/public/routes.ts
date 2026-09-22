@@ -178,31 +178,13 @@ async function renderWorkStatusBadge(db: D1Database): Promise<WorkStatus | null>
       live: true,
     };
   }
-  const last = await one<{ updated_at: string | null }>(
-    db,
-    "SELECT MAX(updated_at) AS updated_at FROM digest_jobs WHERE user_id = ?",
-    [userId],
-  ).catch(() => null);
-  if (!last?.updated_at) return null;
-  const ago = formatRelativeTime(last.updated_at);
-  return {
-    text: `idle — ${ago}`,
-    title: "nothing queued or running right now — click for the full extraction log",
-    live: false,
-  };
-}
-
-function formatRelativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "";
-  const diffMs = Date.now() - then;
-  const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  // No idle badge. It read "idle — 54d ago" on the live site: a timestamp of
+  // the last typed-graph digestion, which is one of several pipelines and not
+  // the one the operator had just run. True, internal, and alarming — the
+  // same measure-the-internals pattern the front page's state strip and the
+  // library's number band were removed for. When nothing is running, the bar
+  // says nothing; when something is, it says so.
+  return null;
 }
 
 // Favicon — a tight monogram in the accent color. The "canopticon." brand

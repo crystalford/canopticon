@@ -1738,16 +1738,19 @@ details.rcpt[open] > summary { border-color: var(--accent-bd); background: var(-
 .leads .conns { }
 
 /* ---- trust strip + footer ---- */
-.trust { border-top: 1px solid var(--rule); background: var(--surface); }
-.trust-inner { max-width: var(--shell); margin: 0 auto; padding: 20px var(--gutter); display: flex; gap: 13px; align-items: flex-start; }
+/* The trust line is the footer's first row, not a second band above it. */
+.foot-trust {
+  max-width: var(--shell); margin: 0 auto; padding: 22px var(--gutter) 20px;
+  display: flex; gap: 13px; align-items: flex-start; border-bottom: 1px solid var(--rule);
+}
+.foot-trust p { font-family: var(--serif); font-size: 13.5px; line-height: 1.6; color: var(--ink-3); max-width: 700px; margin: 0; }
+.foot-trust a { color: var(--accent-2); white-space: nowrap; }
+.foot-trust a:hover { text-decoration: underline; }
 .trust-mark {
   flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; margin-top: 1px;
   background: var(--conf-bg); color: var(--confirmed); border: 1px solid var(--conf-bd);
   display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
 }
-.trust p { font-family: var(--serif); font-size: 13.5px; line-height: 1.6; color: var(--ink-3); max-width: 700px; }
-.trust a { color: var(--accent-2); white-space: nowrap; }
-.trust a:hover { text-decoration: underline; }
 .foot { border-top: 1px solid var(--rule); background: var(--paper-2); }
 .foot-inner { max-width: var(--shell); margin: 0 auto; padding: 26px var(--gutter) 34px; display: flex; justify-content: space-between; gap: 16px 40px; flex-wrap: wrap; }
 .foot .coord { font-size: 10.5px; }

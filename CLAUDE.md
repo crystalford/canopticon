@@ -150,24 +150,92 @@ test suite answers none of those.
 `packages/api` — its own Worker, own D1 (`canopticon`), own R2, own Vectorize.
 
 **Public** — `public/routes.ts` (every public route) · `public/layout.ts`
-(the shell: head, OG/canonical, nav, footer, mailing-list form) ·
-`public/machine.ts` (JSON-LD, the `.md` twin, APA/BibTeX, llms.txt, feed) ·
-`public/data.ts` (all piece queries) · `public/styles.ts` (one stylesheet,
-served at `/styles.css`) · `public/render/` (`indexes.ts`, `about.ts`,
-`piece-template.ts`, `quote-receipt.ts`, `search.ts`, `arrangements/timeline.ts`).
+(the shell: head, OG/canonical, nav, footer with the trust line, mailing-list
+form) · `public/machine.ts` (JSON-LD, the `.md` twin, APA/BibTeX, llms.txt,
+feed) · `public/data.ts` (all piece queries) · `public/styles.ts` (one
+stylesheet, served at `/styles.css`) · `public/render/` (`indexes.ts`,
+`front.ts`, `about.ts`, `piece-template.ts`, `markdown.ts`, `receipts.ts`,
+`quote-receipt.ts`, `search.ts`, `investigations.ts` — which is `/library`).
+
+**A document page is assembled, not copied.** `lib/document-structure.ts`
+promotes the document's own summary table and its "gaps" section to the top
+and cuts them from the body (nothing is written twice). `receipts.ts`
+splices verified quotes into the prose as links to their `/q/` receipts, and
+`graph/lib/crosslinks.ts` splices phrases that link to the OTHER documents
+sharing that subject — a query over the typed graph, no model, so it is free,
+deterministic and always current. Both are placed in ONE pass and a receipt
+wins any contested span: proof before navigation. `lib/title.ts` flags a
+working title and `lib/title-candidates.ts` offers replacements selected
+verbatim from the document, never composed. `graph/lib/topics.ts` files each
+document into one of a CLOSED list of eight sections (free naming produced
+forty near-duplicate buckets); "Everything else" is a real answer.
 
 **Ingest** — `operator/routes.ts`'s `createAndExtract()` is the spine:
 SHA-256 dedup → R2 → `uploaded_files` → `extract.ts` → a published `pieces`
 row. `graph/lib/digestion-typed.ts` pulls verified quotes and typed nodes out
-of the text.
+of the text; `graph/lib/aeo-extract.ts` pulls findings (a figure with its
+source and date) and answered questions. `graph/lib/ingestion-receipt.ts`
+reports, per document, what was read (`EXTRACTION_CHAR_CEILING` = 70,400 —
+not 72,000, chunks overlap) and what survived verification. It returns null
+when nothing ran, so "not extracted" never renders as confident zeros.
+
+**Leads** — `graph/lib/leads.ts`: where the corpus is strange. Two documents
+that contradict each other; a figure with no source named anywhere. Each is a
+QUERY over the graph — no model, no count, ordered by recency and never by
+frequency (the documents are the operator's own output, so three agreeing may
+be one upstream page echoing). `graph/lib/answer-lead.ts` settles a
+contradiction from the two documents already held: three sentences, up to
+four quotes each located verbatim by `locateVerbatim`, and the number of
+proposed quotes that FAILED that check shown in red. Small enough to check in
+half a minute instead of having to be trusted. An answer with no surviving
+quote becomes "not settled" — a finding, not an error. Stored in
+`lead_answers`, keyed on a hash of the lead, so it vanishes when the lead does.
+
+**Research on demand** — `graph/lib/deep-research.ts` is a state machine, one
+model-heavy step per Worker execution: bank sources → write → one follow-up
+search at a time → final brief. It was two passes that each ran an expand AND
+a synthesis in one execution, and both stalled past Cloudflare's ceiling
+("Sources banked, but no brief written"). `followup_queries` is the PLAN and
+is never consumed; `followups_done` records what ran. Nothing drains it on a
+schedule (rule 4) — `POST /op/research/advance` does one step, and the
+workspace's poller presses it while the tab is open. **The browser is the
+scheduler**: attended by construction, nothing when idle. The writer is
+`@cf/openai/gpt-oss-120b` unless `RESEARCH_LLM_PROVIDER=anthropic` +
+`ANTHROPIC_API_KEY` + a `cost_whitelists` row for `anthropic.research_writer`,
+in which case it is Opus 5. Its budget is the honest limit: 5,000 chars per
+source, 12 sources, 4,000 output tokens. Deeper than that means more calls,
+not a bigger one.
+
+**The operator surface** — `/library` is the working page: upload first, the
+documents, each with its receipt and its leads, the answered-questions index
+below. `/op/research?q=` is the research workspace: the plan, the sources as
+they land, two numbers, the one next action — rendered COMPLETE on the
+server, the poller only keeps it current. Sign-in is `/op/login`, inside the
+prefix Cloudflare Access protects (`/auth/login` sits outside it and could
+never mint a session). `operator/operator-styles.ts` has its own token NAMES
+for its thousand lines of console CSS, but every VALUE now resolves to the
+publication's palette and the public names are aliased — one product.
 
 **Design** — dark ground, one red accent (`#e0433c`), Archivo + JetBrains
-Mono, Newsreader for reading columns. Component vocabulary lives in
-`styles.ts` under "v3 — THE PUBLICATION".
+Mono, Newsreader for reading columns. ONE shell width (`--shell`, `--gutter`)
+for nav, content and footer; ONE panel treatment; a dashed border only on
+`.chip.draft` and `.killed`. `tests/stylesheet-invariants.test.ts` pins all
+of it, plus no backtick in the template literal (four separate build breaks,
+always inside a CSS comment) and balanced braces. Six superseded design
+systems were deleted from `styles.ts` in September 2026 — 500 rules that no
+markup referenced; the current system is what remains.
 
 **Looking at it** — `packages/api/scripts/look.mts` serves the real app
-against a seeded in-memory D1 and screenshots six pages. There is no local
-dev server; this is the fastest way to see a change without deploying.
+against a seeded in-memory D1 (`scripts/fixture.mts`) and screenshots
+thirteen pages, including `/library` and the research workspace signed in.
+There is no local dev server; this is the fastest way to see a change without
+deploying, and it has caught more than the tests have. **If a state cannot
+appear in a screenshot, it is not checked** — seed the fixture.
+
+**Probes** — `/v1/admin/runtime`, `/v1/admin/corpus-split`,
+`/v1/admin/research-runs` (where every research run stopped, and how many are
+waiting for the button). Read-only. Reach them through the admin-probe
+workflow; the sandbox cannot.
 
 ## Known gaps, stated plainly
 
@@ -262,24 +330,24 @@ document behind it. `purgeTypedGraphForPiece()` is the correct primitive.
 
 ## What's next
 
-1. Upload real documents and write real essays. Everything else is downstream
-   of whether that is pleasant.
-2. **Arrangement routes: deliberately deferred, with the reason measured.**
-   The plan was to retire the ~11 unlinked ones and shrink `subject-page.ts`
-   (2,400 lines). Two findings say not yet, and not urgently:
-   - **They are not unlinked any more.** 8 of the 13 now have inbound links
-     from `subject-page.ts`, which fixed the "see standalone" embeds. The
-     stated precondition — once nothing links to them — is not met.
-   - **The crawl exposure is nil.** The worry was that `/s/:slug` subject
-     pages are in the sitemap (the query allows 5,000) and link out to every
-     arrangement, putting thin auto-generated pages in front of crawlers.
-     Measured 2026-09-16: the sitemap is **56 URLs — 50 documents, 5 static
-     pages, and exactly one subject page**. One. Nothing else is announced,
-     so the scaled-content risk this was meant to avert does not exist.
-   What is left is code hygiene on a file nothing points at. Worth doing when
-   the graph is next touched; not worth a large deletion to tick a box.
-3. Then measure: `/citations` already logs GPTBot, ClaudeBot and
-   PerplexityBot hits, so whether any of this worked is answerable.
+1. **Use it.** Upload documents, press "File into sections" (the topic pass
+   has never run on the live corpus), settle a contradiction, run one research
+   question with `RESEARCH_LLM_PROVIDER=anthropic` on and compare it to the
+   Workers AI writer on the same question. Every remaining decision is
+   downstream of whether those four things are pleasant.
+2. **Unsourced-figure leads still use the broad pipeline.** A contradiction
+   is settled from documents already held; a missing attribution genuinely
+   needs the web. The narrow-answer shape (three sentences, verbatim quotes,
+   discards shown) should apply to it too, over a focused search rather than
+   twelve sources.
+3. **A sectioned writer, if the built-in research is worth having at all.**
+   Outline → one section per execution → assemble. It is the only path where
+   Canopticon's own briefs get deep, and it is the biggest build here. Decide
+   it after step 1, not before.
+4. Arrangement routes: deferred, reason measured — 8 of 13 now have inbound
+   links, and the sitemap announces one subject page. Code hygiene, not risk.
+5. Then measure: `/citations` logs GPTBot, ClaudeBot and PerplexityBot, so
+   whether any of this worked is answerable.
 
 ---
 
