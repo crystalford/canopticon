@@ -135,7 +135,8 @@ export function renderMetrics(s: ResearchStatus | null): string {
   const banked = (s?.sources ?? []).filter((x) => x.state === "banked").length;
   const facts = s?.facts ?? 0;
   return `<div class="rw-metric"><dt>Sources kept</dt><dd>${banked}</dd></div>
-    <div class="rw-metric"><dt>Verbatim facts</dt><dd>${facts}</dd></div>`;
+    <div class="rw-metric"><dt>Verbatim facts</dt><dd>${facts}</dd></div>
+    <div class="rw-metric rw-metric-writer"><dt>Writer</dt><dd>${escapeHtml(writerLabel(s?.writer))}</dd></div>`;
 }
 
 /**
@@ -167,4 +168,11 @@ export function renderAction(s: ResearchStatus | null): string {
     </form>`;
   }
   return `<div class="rw-working">Working…</div>`;
+}
+
+/** The run's chosen writer, in words a person uses. */
+export function writerLabel(w: string | null | undefined): string {
+  if (w === "anthropic") return "Claude";
+  if (w === "workers_ai") return "Workers AI";
+  return "default";
 }

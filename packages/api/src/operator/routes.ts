@@ -1147,6 +1147,10 @@ app.post("/leads/dig", async (c) => {
 
   const kind = typeof form.kind === "string" ? form.kind : "";
   const str = (k: string) => (typeof form[k] === "string" ? (form[k] as string).trim() : "");
+  // The per-run writer. A ticked box means Claude for THIS run; unticked means
+  // the deployment default. Stored on the run so every step agrees, and it
+  // fails loudly rather than substituting if Claude is chosen but unavailable.
+  const writer = form.writer === "anthropic" ? "anthropic" : null;
 
   // A CONTRADICTION IS ANSWERED FROM WHAT WE ALREADY HOLD.
   //
@@ -1176,7 +1180,7 @@ app.post("/leads/dig", async (c) => {
       seed,
       angle: angle ?? "",
     };
-    const work = answerLead(c.env, userId, lead).catch(() => {});
+    const work = answerLead(c.env, userId, lead, { writer }).catch(() => {});
     try {
       c.executionCtx.waitUntil(work);
     } catch {
@@ -1194,7 +1198,7 @@ app.post("/leads/dig", async (c) => {
   // no ExecutionContext, and an unguarded access here would 500 the request
   // that started a perfectly good run. Same bug, same fix, as the subscribe
   // route.
-  const run = researchOnDemand(c.env, userId, seed, angle).catch(() => {});
+  const run = researchOnDemand(c.env, userId, seed, angle, { writer }).catch(() => {});
   try {
     c.executionCtx.waitUntil(run);
   } catch {

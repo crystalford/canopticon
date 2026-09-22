@@ -59,8 +59,10 @@ export const RESEARCH_LIVE_JS = `<script>
 
   function metrics(s) {
     var kept = (s.sources || []).filter(function (x) { return x.state === "banked"; }).length;
+    var w = s.writer === "anthropic" ? "Claude" : s.writer === "workers_ai" ? "Workers AI" : "default";
     return '<div class="rw-metric"><dt>Sources kept</dt><dd>' + kept + "</dd></div>" +
-      '<div class="rw-metric"><dt>Verbatim facts</dt><dd>' + (s.facts || 0) + "</dd></div>";
+      '<div class="rw-metric"><dt>Verbatim facts</dt><dd>' + (s.facts || 0) + "</dd></div>" +
+      '<div class="rw-metric rw-metric-writer"><dt>Writer</dt><dd>' + esc(w) + "</dd></div>";
   }
 
   function actions(s) {

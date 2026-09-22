@@ -2251,6 +2251,16 @@ a.lead-ans-src:hover { color: var(--accent); }
 }
 /* "The documents do not settle this" is a FINDING, not a failure — it says
    the gap is real and still open — so it is not coloured like an error. */
+/* The per-run writer choice, beside the button that starts the run. */
+.lead-writer {
+  display: inline-flex; align-items: center; gap: 5px; margin-left: 10px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-mute); cursor: pointer;
+}
+.lead-writer input { margin: 0; accent-color: var(--accent); }
+.lead-ans-model {
+  margin-left: 8px; letter-spacing: 0.06em; text-transform: none; color: var(--ink-faint);
+}
 .lead-ans-none { border-left-color: var(--rule-bright); }
 .lead-ans-warn { border-left-color: var(--correction); font-family: var(--mono);
   font-size: 11.5px; color: var(--ink-3); }

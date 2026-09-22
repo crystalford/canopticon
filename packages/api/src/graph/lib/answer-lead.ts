@@ -53,6 +53,8 @@ export interface LeadAnswer {
   quotes: VerifiedQuote[];
   discarded: number;
   error?: string | null;
+  /** The model that wrote it, so a Claude answer and a free one are told apart. */
+  model?: string | null;
 }
 
 export interface VerifiedQuote {
@@ -122,7 +124,12 @@ interface SourceDoc {
  * Returns the answer AND persists it, so the caller can render immediately and
  * the library can render it again later without re-running anything.
  */
-export async function answerLead(env: Env, userId: string, lead: Lead): Promise<LeadAnswer> {
+export async function answerLead(
+  env: Env,
+  userId: string,
+  lead: Lead,
+  opts: { writer?: string | null } = {},
+): Promise<LeadAnswer> {
   const key = await leadKey(lead.kind, lead.seed);
   const docs = await sourceDocuments(env, userId, lead);
 
@@ -141,26 +148,38 @@ export async function answerLead(env: Env, userId: string, lead: Lead): Promise<
     .map((d) => `### ${d.title}\n${d.body_md.slice(0, CHARS_PER_DOCUMENT)}`)
     .join("\n\n");
 
-  const out = await callResearchWriter(env, {
-    userId,
-    system: PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `QUESTION: ${lead.seed}\n\nWHY IT IS WORTH ASKING: ${lead.angle}\n\nDOCUMENTS:\n${corpus}`,
-          },
-        ],
-      },
-    ],
-    max_tokens: ANSWER_MAX_TOKENS,
-    idempotency_key: `lead:${key}`,
-  }).catch((e: unknown) => {
-    return { text: "", structured: null, error: e instanceof Error ? e.message : String(e) } as {
+  const out = await callResearchWriter(
+    env,
+    {
+      userId,
+      system: PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `QUESTION: ${lead.seed}\n\nWHY IT IS WORTH ASKING: ${lead.angle}\n\nDOCUMENTS:\n${corpus}`,
+            },
+          ],
+        },
+      ],
+      max_tokens: ANSWER_MAX_TOKENS,
+      // Distinct per writer, so choosing Claude after a free run does not hand
+      // back the free run's cached answer.
+      idempotency_key: `lead:${key}:${opts.writer ?? "default"}`,
+    },
+    { writer: opts.writer ?? null },
+  ).catch((e: unknown) => {
+    return {
+      text: "",
+      structured: null,
+      model: null,
+      error: e instanceof Error ? e.message : String(e),
+    } as {
       text: string;
       structured: unknown;
+      model: string | null;
       error?: string;
     };
   });
@@ -194,6 +213,7 @@ export async function answerLead(env: Env, userId: string, lead: Lead): Promise<
       answer_md: answer || null,
       quotes: [],
       discarded,
+      model: out.model ?? null,
     });
   }
 
@@ -203,6 +223,7 @@ export async function answerLead(env: Env, userId: string, lead: Lead): Promise<
     answer_md: answer,
     quotes,
     discarded,
+    model: out.model ?? null,
   });
 }
 
@@ -315,6 +336,7 @@ async function persist(
     answer_md: answer.answer_md,
     quotes: JSON.stringify(answer.quotes),
     discarded: answer.discarded,
+    model: answer.model ?? null,
     error: answer.error ?? null,
   }).catch(() => {});
   return answer;
@@ -335,9 +357,10 @@ export async function answersForLeads(
     quotes: string | null;
     discarded: number;
     error: string | null;
+    model: string | null;
   }>(
     db,
-    `SELECT lead_key, status, answer_md, quotes, discarded, error
+    `SELECT lead_key, status, answer_md, quotes, discarded, error, model
        FROM lead_answers WHERE user_id = ? AND lead_key IN (${marks})`,
     [userId, ...keys],
   ).catch(() => []);
@@ -351,6 +374,7 @@ export async function answersForLeads(
       quotes: parseQuotes(r.quotes),
       discarded: r.discarded ?? 0,
       error: r.error,
+      model: r.model,
     });
   }
   return out;

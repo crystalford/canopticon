@@ -86,7 +86,7 @@ async function synthesizeBrief(
   userId: string,
   label: string,
   pieceIds: string[],
-  opts: { angleHint?: string | undefined; wantFollowups: boolean },
+  opts: { angleHint?: string | undefined; wantFollowups: boolean; writer?: string | null },
 ): Promise<SynthesizeResult> {
   if (pieceIds.length === 0) return { ok: false, reason: "no banked sources to synthesize from" };
   const cappedIds = pieceIds.slice(0, MAX_TOTAL_SOURCES_FOR_SYNTHESIS);
@@ -110,9 +110,11 @@ async function synthesizeBrief(
     ? `\n\nAlso identify up to ${MAX_FOLLOWUP_QUERIES} SPECIFIC follow-up web searches that would fill the most important gaps these sources leave — concrete search queries a researcher would actually type, not vague topics. If these sources already cover the subject thoroughly, return an empty list. Put these in "followup_queries".`
     : "";
 
-  const out = await callResearchWriter(env, {
-    userId,
-    system: `You write a structured RESEARCH BRIEF synthesizing the supplied source excerpts about a subject the operator asked to have researched.
+  const out = await callResearchWriter(
+    env,
+    {
+      userId,
+      system: `You write a structured RESEARCH BRIEF synthesizing the supplied source excerpts about a subject the operator asked to have researched.
 
 RULES:
 - Organize by theme, not by source — pull the excerpts together into a coherent, comprehensive account. Aim for real depth, not a summary paragraph — this should read like a researcher's dossier, not an abstract.
@@ -127,23 +129,25 @@ Return ONLY JSON:
   "body_md": "the full markdown brief",
   "followup_queries": ["query 1", "query 2"]
 }`,
-    messages: [
-      {
-        role: "user",
-        content: [{ type: "text", text: `Subject: ${label}\n\nSOURCE EXCERPTS:\n${excerpts}` }],
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: `Subject: ${label}\n\nSOURCE EXCERPTS:\n${excerpts}` }],
+        },
+      ],
+      max_tokens: REPORT_MAX_TOKENS,
+      response_schema: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          body_md: { type: "string" },
+          followup_queries: { type: "array", items: { type: "string" } },
+        },
+        required: ["title", "body_md"],
       },
-    ],
-    max_tokens: REPORT_MAX_TOKENS,
-    response_schema: {
-      type: "object",
-      properties: {
-        title: { type: "string" },
-        body_md: { type: "string" },
-        followup_queries: { type: "array", items: { type: "string" } },
-      },
-      required: ["title", "body_md"],
     },
-  });
+    { writer: opts.writer ?? null },
+  );
 
   const parsed = (out.structured ?? safeParseJson(out.text)) as {
     title?: string;
@@ -330,12 +334,16 @@ export async function researchOnDemand(
   userId: string,
   label: string,
   angleHint?: string,
+  opts: { writer?: string | null } = {},
 ): Promise<WriteBriefResult> {
   const runId = await insertOne(env.DB, "research_runs", {
     user_id: userId,
     label,
     angle: angleHint ?? null,
     status: "pass1_pending",
+    // Chosen per run and stored, so every later step — dispatched from a
+    // different execution — writes with the same model as the first.
+    writer: opts.writer ?? null,
   });
 
   const { expandRecord } = await import("./record-builder");
@@ -392,10 +400,11 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     pass2_piece_ids: string | null;
     followup_queries: string | null;
     followups_done: string | null;
+    writer: string | null;
   }>(
     env.DB,
     `SELECT id, label, angle, status, pass1_piece_ids, pass2_piece_ids,
-            followup_queries, followups_done
+            followup_queries, followups_done, writer
        FROM research_runs
       WHERE user_id = ?
         AND status IN ('synth_pending', 'pass2_pending', 'pass2_synth_pending')
@@ -413,6 +422,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     const synth = await synthesizeBrief(env, userId, runRow.label, pass1Ids, {
       angleHint,
       wantFollowups: true,
+      writer: runRow.writer,
     });
     if (!synth.ok || !synth.bodyMd || !synth.title) {
       await updateById(env.DB, "research_runs", runRow.id, {
@@ -500,6 +510,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
   const synth = await synthesizeBrief(env, userId, runRow.label, combinedIds, {
     angleHint,
     wantFollowups: false,
+    writer: runRow.writer,
   });
   if (!synth.ok || !synth.bodyMd || !synth.title) {
     await updateById(env.DB, "research_runs", runRow.id, {
@@ -668,6 +679,8 @@ export interface ResearchStatus {
   facts?: number;
   /** ISO timestamp the run started, so the screen can show elapsed time. */
   startedAt?: string;
+  /** Which model is writing this run: 'anthropic', 'workers_ai', or null for the default. */
+  writer?: string | null;
   /** The finished draft, once there is one. */
   draft?: { title: string; slug: string; reviewUrl: string };
   headline: string;
@@ -707,9 +720,10 @@ export async function getResearchStatus(
     followup_queries: string | null;
     followups_done: string | null;
     created_at: string;
+    writer: string | null;
   }>(
     env.DB,
-    `SELECT id, status, final_piece_id, error, followup_queries, followups_done, created_at
+    `SELECT id, status, final_piece_id, error, followup_queries, followups_done, created_at, writer
        FROM research_runs
       WHERE user_id = ? AND label = ? AND created_at > datetime('now','-1 day')
       ORDER BY created_at DESC LIMIT 1`,
@@ -838,7 +852,7 @@ export async function getResearchStatus(
       plan,
       sources,
       facts: expand.factsAdded,
-      ...(run ? { startedAt: run.created_at } : {}),
+      ...(run ? { startedAt: run.created_at, writer: run.writer } : {}),
     };
     const advance = (label_: string) => ({
       label: label_,

@@ -1,0 +1,15 @@
+-- Which model writes a research run — chosen per run, not per deployment.
+--
+-- RESEARCH_LLM_PROVIDER made the choice for every run at once, which is the
+-- wrong grain for the question the operator is actually asking: "is the
+-- output better with Claude?" That is answered by running the SAME question
+-- both ways, and a deployment switch makes that a redeploy per comparison.
+--
+-- It lives on the run rather than the request because a run is several
+-- writer calls across several executions (bank → write → search → final
+-- brief), and step three must not quietly use a different model than step
+-- one. NULL means "the deployment default", so existing rows are unchanged.
+--
+-- Values: 'anthropic' | 'workers_ai' | NULL. Resolved by llm/router.ts's
+-- resolveWriter, which fails loudly when Claude is chosen but unavailable.
+ALTER TABLE research_runs ADD COLUMN writer TEXT;
