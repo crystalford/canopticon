@@ -63,6 +63,16 @@ export interface Lead {
    */
   seed: string;
   angle: string;
+  /**
+   * Stable identity for this lead, so a stored answer can be found for it.
+   *
+   * Leads are computed by queries over the graph and have no id. The key is a
+   * hash of kind + seed (answer-lead.ts's leadKey), attached here rather than
+   * recomputed by every caller — and because it is derived from what the lead
+   * IS, an answer naturally disappears when the lead that provoked it does.
+   * Set by leadsForCorpus; the individual query functions leave it undefined.
+   */
+  answer_key?: string;
 }
 
 /**
@@ -223,5 +233,12 @@ export async function leadsForCorpus(
     contradictionLeads(db, userId, opts),
     unsourcedFigureLeads(db, userId, opts),
   ]);
-  return [...contradictions, ...unsourced].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const leads = [...contradictions, ...unsourced].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  );
+  // Attached here, once, because leadKey is async (crypto.subtle) and a
+  // renderer cannot await. Doing it at the point leads are assembled keeps
+  // every caller — and every template — synchronous.
+  const { leadKey } = await import("./answer-lead");
+  return Promise.all(leads.map(async (l) => ({ ...l, answer_key: await leadKey(l.kind, l.seed) })));
 }

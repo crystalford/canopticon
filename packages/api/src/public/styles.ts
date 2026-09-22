@@ -2209,6 +2209,48 @@ pre.convention {
 /* Following a lead is the act that grows the corpus, so the affordance reads
    as an invitation rather than as another piece of metadata. */
 .lead-dig-form { display: inline; margin: 0; }
+
+/* ---- a lead's answer -----------------------------------------------------
+   Sits under the lead it settles, and is small on purpose. The entire
+   argument for this artifact is that it can be CHECKED rather than trusted:
+   three sentences, up to four quotes, each already located verbatim in a
+   stored document and linking to it. If it takes longer than half a minute
+   to verify, it has failed at the job it exists to do. -------------------- */
+.lead-ans {
+  margin: 10px 0 2px; padding: 12px 14px;
+  border-left: 2px solid var(--confirmed); background: var(--paper-2);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.lead-ans-k {
+  display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--ink-mute); margin-bottom: 7px;
+}
+.lead-ans p {
+  margin: 0; font-family: var(--serif); font-size: 14.5px; line-height: 1.55; color: var(--ink-2);
+}
+.lead-ans-quotes { list-style: none; margin: 11px 0 0; padding: 0; display: flex;
+  flex-direction: column; gap: 9px; }
+.lead-ans-quotes li { display: flex; flex-direction: column; gap: 2px; }
+.lead-ans-q {
+  font-family: var(--serif); font-size: 13.5px; line-height: 1.5; color: var(--ink-3);
+  border-left: 1px solid var(--rule-bright); padding-left: 10px;
+}
+.lead-ans-src {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-mute);
+  padding-left: 11px; text-decoration: none;
+}
+a.lead-ans-src:hover { color: var(--accent); }
+/* Shown even when the answer stands: a high count means the model was
+   reaching, and hiding it would make a shaky answer look like a solid one. */
+.lead-ans-disc {
+  display: block; margin-top: 10px; font-family: var(--mono); font-size: 10px;
+  color: var(--correction);
+}
+/* "The documents do not settle this" is a FINDING, not a failure — it says
+   the gap is real and still open — so it is not coloured like an error. */
+.lead-ans-none { border-left-color: var(--rule-bright); }
+.lead-ans-warn { border-left-color: var(--correction); font-family: var(--mono);
+  font-size: 11.5px; color: var(--ink-3); }
 .lead-dig {
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
   text-transform: uppercase; cursor: pointer; padding: 3px 9px;

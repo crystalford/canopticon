@@ -322,6 +322,43 @@ const CONTRADICTIONS = [
   },
 ];
 
+// A SETTLED LEAD. The answer the narrow answerer produces for the
+// contradiction above, as it is stored: three sentences and quotes that have
+// already passed locateVerbatim against the two documents. One proposed quote
+// was discarded, because a screenshot that never shows the discard count would
+// hide the single most useful signal on the block — that the model reached.
+//
+// lead_key must match answer-lead.ts's leadKey("contradiction", src_label);
+// it is computed at fixture load rather than pasted, so it cannot drift.
+const LEAD_ANSWER_SEED = CONTRADICTIONS[0]?.src_label ?? "";
+const { leadKey } = await import("../src/graph/lib/answer-lead.ts");
+const LEAD_ANSWER_KEY = await leadKey("contradiction", LEAD_ANSWER_SEED);
+
+const LEAD_ANSWER = {
+  status: "answered",
+  answer_md:
+    "They are measuring different things, and both are accurate. The 32.3% is " +
+    "the departmental envelope, which grew because an existing program was " +
+    "consolidated into it; the transfer series counts money moved, which did " +
+    "not change. Nothing here establishes any new housing spending.",
+  quotes: JSON.stringify([
+    {
+      text: "The housing figure is the one worth pausing on",
+      piece_id: "budget-2026-estimates",
+      slug: "budget-2026-estimates",
+      title: "Budget 2026: Main Estimates",
+    },
+    {
+      text: "Every transfer over one million dollars.",
+      piece_id: "transfer-payments-2025",
+      slug: "transfer-payments-2025",
+      title: "Transfer Payments 2025",
+    },
+  ]),
+  discarded: 1,
+  error: null,
+};
+
 // Per-piece extraction counts. Keyed by slug because the fixture uses the slug
 // as the piece id.
 //
@@ -489,6 +526,11 @@ function makeDb(): D1Database {
         // Contradiction leads.
         if (/FROM edges/i.test(sql) && /evidential/i.test(sql)) {
           return { results: CONTRADICTIONS };
+        }
+        if (/FROM lead_answers/i.test(sql)) {
+          return {
+            results: [{ lead_key: LEAD_ANSWER_KEY, ...LEAD_ANSWER }],
+          };
         }
         // Verified-span counts, per piece.
         if (/FROM quotes/i.test(sql) && /GROUP BY sn\.piece_id/i.test(sql)) {

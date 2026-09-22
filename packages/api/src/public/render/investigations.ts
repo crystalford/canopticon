@@ -2,6 +2,7 @@
 // archive). The piece page itself is rendered by piece-template.ts, not
 // here — see that file for the public face of a single document.
 
+import type { LeadAnswer } from "../../graph/lib/answer-lead";
 import type { IngestionReceipt } from "../../graph/lib/ingestion-receipt";
 import type { Lead } from "../../graph/lib/leads";
 import * as GATE from "../../lib/aeo";
@@ -465,7 +466,7 @@ ${options}
  * at would imply a coverage the system does not have. Standing rule 6: an
  * honest gap beats a confident number.
  */
-function renderReceipt(r: IngestionReceipt | undefined): string {
+function renderReceipt(r: IngestionReceipt | undefined, answers?: Map<string, LeadAnswer>): string {
   // Not extracted is a STATE, and it is the one that tells the operator to
   // press a button — so it is rendered, not omitted. It must also be rendered
   // HERE rather than by a second block: the row used to carry a separate
@@ -489,7 +490,7 @@ function renderReceipt(r: IngestionReceipt | undefined): string {
   return `<div class="rcpt">
   <div class="rcpt-line">${coverage}</div>
   <div class="rcpt-line rcpt-counts">${counts}</div>
-  ${renderLeads(r.leads)}
+  ${renderLeads(r.leads, answers)}
 </div>`;
 }
 
@@ -503,10 +504,81 @@ function renderReceipt(r: IngestionReceipt | undefined): string {
  * operator's own research output, so three of them agreeing may be one
  * upstream page echoing three times.
  */
-function renderLeads(leads: Lead[]): string {
+/**
+ * A lead's answer, rendered under the lead it settles.
+ *
+ * Small on purpose. The whole argument for this artifact is that it can be
+ * CHECKED rather than trusted: three sentences and up to four quotes, each one
+ * already located verbatim in a stored document, each linking to that
+ * document. If it takes longer than half a minute to verify, it has failed at
+ * the thing it exists to do.
+ */
+function renderLeadAnswer(a: LeadAnswer | undefined): string {
+  if (!a) return "";
+
+  if (a.status === "failed") {
+    return `      <div class="lead-ans lead-ans-warn">Could not settle it — ${escapeHtml(
+      a.error ?? "unknown reason",
+    )}</div>\n`;
+  }
+
+  // Not a failure, and it must not read as one. "The documents raised this and
+  // do not answer it" is a finding: it says the gap is real and still open.
+  if (a.status === "nothing_found") {
+    return `      <div class="lead-ans lead-ans-none">
+        <span class="lead-ans-k">Not settled by these documents</span>
+        ${a.answer_md ? `<p>${escapeHtml(a.answer_md)}</p>` : ""}
+        ${discardLine(a)}
+      </div>\n`;
+  }
+
+  const quotes = a.quotes
+    .map(
+      (q) => `          <li>
+            <span class="lead-ans-q">${escapeHtml(q.text)}</span>
+            ${
+              q.slug
+                ? `<a class="lead-ans-src" href="/library/${escapeAttr(q.slug)}">${escapeHtml(
+                    q.title ?? q.slug,
+                  )}</a>`
+                : `<span class="lead-ans-src">${escapeHtml(q.title ?? "a stored document")}</span>`
+            }
+          </li>`,
+    )
+    .join("\n");
+
+  return `      <div class="lead-ans">
+        <span class="lead-ans-k">What the documents settle</span>
+        <p>${escapeHtml(a.answer_md ?? "")}</p>
+        <ul class="lead-ans-quotes">
+${quotes}
+        </ul>
+        ${discardLine(a)}
+      </div>\n`;
+}
+
+/**
+ * How many proposed quotes failed the verbatim check.
+ *
+ * Shown rather than hidden, and shown even when the answer stands: a high
+ * count is the operator's signal that the model was reaching, and suppressing
+ * it would make a shaky answer look identical to a solid one.
+ */
+function discardLine(a: LeadAnswer): string {
+  if (!a.discarded) return "";
+  return `<span class="lead-ans-disc">${a.discarded} proposed quote${
+    a.discarded === 1 ? "" : "s"
+  } discarded for not matching any document word for word</span>`;
+}
+
+/** Exported for tests: the block is where the answer's honesty is enforced. */
+export const renderLeadAnswerForTest = renderLeadAnswer;
+
+function renderLeads(leads: Lead[], answers?: Map<string, LeadAnswer>): string {
   if (!leads.length) return "";
   const items = leads
     .map((l) => {
+      const answer = answers?.get(l.answer_key ?? "");
       const label = l.kind === "contradiction" ? "sources disagree" : "no source named";
       const other =
         l.kind === "contradiction" && l.other_piece_slug
@@ -519,18 +591,26 @@ function renderLeads(leads: Lead[]): string {
       // lead is a query result, not a stored row — and the angle is what
       // makes the run worth starting: a run seeded with a bare topic returns
       // a topic's worth of material.
+      // A contradiction is answerable from documents already held, in full,
+      // with no web search — so the button says what it will actually do
+      // rather than promising research it is not going to perform.
+      const verb = answer ? "Dig again" : l.kind === "contradiction" ? "Settle this" : "Dig here";
       const dig = l.seed
         ? `
       <form method="POST" action="/op/leads/dig" class="lead-dig-form">
         <input type="hidden" name="seed" value="${escapeAttr(l.seed)}" />
         <input type="hidden" name="angle" value="${escapeAttr(l.angle)}" />
-        <button type="submit" class="lead-dig">Dig here →</button>
+        <input type="hidden" name="kind" value="${escapeAttr(l.kind)}" />
+        <input type="hidden" name="piece_id" value="${escapeAttr(l.piece_id)}" />
+        <input type="hidden" name="piece_slug" value="${escapeAttr(l.piece_slug ?? "")}" />
+        <input type="hidden" name="other_slug" value="${escapeAttr(l.other_piece_slug ?? "")}" />
+        <button type="submit" class="lead-dig">${escapeHtml(verb)} →</button>
       </form>`
         : "";
       return `    <li class="lead lead-${escapeAttr(l.kind)}">
       <span class="lead-k">${escapeHtml(label)}</span>
       <span class="lead-sum">${escapeHtml(l.summary)}</span>${other}${receipt}${dig}
-    </li>`;
+${renderLeadAnswer(answer)}    </li>`;
     })
     .join("\n");
   return `<ul class="lead-list">
@@ -876,6 +956,19 @@ export async function renderLibraryIndex(
           .catch(() => new Map<string, IngestionReceipt>())
       : new Map<string, IngestionReceipt>();
 
+  // Stored answers for whatever leads those receipts carry. One query for all
+  // of them, keyed by the lead's own identity — see leads.ts's answer_key.
+  const leadKeys = [...receipts.values()]
+    .flatMap((r) => r.leads)
+    .map((l) => l.answer_key)
+    .filter((k): k is string => !!k);
+  const leadAnswers =
+    opts.isOperator && userId && leadKeys.length
+      ? await (await import("../../graph/lib/answer-lead"))
+          .answersForLeads(env.DB, userId, leadKeys)
+          .catch(() => new Map<string, LeadAnswer>())
+      : new Map<string, LeadAnswer>();
+
   // WORKING TITLES. Candidates are computed here rather than stored, for the
   // handful of rows that need them: the function is pure and cheap, so a
   // stored column would only add a backfill and a way to go stale against an
@@ -981,7 +1074,9 @@ ${open
             opts.isOperator && p.publication_status !== "working-material"
               ? renderAtomReview(p.id, atoms, ledeByPiece.get(p.id))
               : "";
-          const receiptBlock = opts.isOperator ? renderReceipt(receipts.get(p.id)) : "";
+          const receiptBlock = opts.isOperator
+            ? renderReceipt(receipts.get(p.id), leadAnswers)
+            : "";
           const renameBlock = opts.isOperator
             ? renderRename(p.id, p.title, candidatesByPiece.get(p.id))
             : "";

@@ -1145,6 +1145,50 @@ app.post("/leads/dig", async (c) => {
   const angle = typeof form.angle === "string" ? form.angle.trim() || undefined : undefined;
   if (!seed) return c.redirect("/library?error=that+lead+carried+nothing+to+search+for");
 
+  const kind = typeof form.kind === "string" ? form.kind : "";
+  const str = (k: string) => (typeof form[k] === "string" ? (form[k] as string).trim() : "");
+
+  // A CONTRADICTION IS ANSWERED FROM WHAT WE ALREADY HOLD.
+  //
+  // This used to fire the full deep-research pipeline at every lead — a broad
+  // web search, twelve sources read to twelve percent each, a three-thousand
+  // word brief — for a question one sentence wide. For two documents that
+  // disagree, that is the wrong instrument twice over: the material needed to
+  // settle it is already in the corpus, in full, and the output was something
+  // the operator had to trust rather than check.
+  //
+  // Both documents are read whole, the answer is three sentences, and every
+  // quote is located verbatim in one of them before it is stored. Nothing is
+  // fetched, nothing is banked, no new population appears in `pieces`.
+  if (kind === "contradiction") {
+    const { answerLead } = await import("../graph/lib/answer-lead");
+    const lead = {
+      kind: "contradiction" as const,
+      summary: seed,
+      detail: seed,
+      quote_id: null,
+      piece_id: str("piece_id"),
+      piece_slug: str("piece_slug") || null,
+      piece_title: null,
+      other_piece_slug: str("other_slug") || null,
+      other_piece_title: null,
+      created_at: new Date().toISOString(),
+      seed,
+      angle: angle ?? "",
+    };
+    const work = answerLead(c.env, userId, lead).catch(() => {});
+    try {
+      c.executionCtx.waitUntil(work);
+    } catch {
+      // No execution context (tests) — already running, just not kept alive.
+    }
+    // Back to the document, where the lead and its answer live. There is no
+    // separate screen for this and there should not be: the answer belongs
+    // under the question it settles.
+    const back = str("piece_slug");
+    return c.redirect(back ? `/library/${encodeURIComponent(back)}#leads` : "/library#leads");
+  }
+
   const { researchOnDemand } = await import("../graph/lib/deep-research");
   // Started before it is handed anywhere: c.executionCtx THROWS when there is
   // no ExecutionContext, and an unguarded access here would 500 the request
