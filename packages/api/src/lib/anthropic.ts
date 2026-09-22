@@ -302,7 +302,18 @@ export interface CostEstimate {
   rates: { input_per_1k: number; output_per_1k: number };
 }
 
-// Cents per 1k tokens. Opus 4.7 list prices.
+// Cents per 1k tokens.
+//
+// The fallback is the MOST expensive rate here, on purpose: this table feeds a
+// spend cap, and a model whose price we do not know must be over-estimated,
+// never under. A missing entry therefore makes the gate stricter rather than
+// blinder, which is the only safe direction for a guess.
+//
+// The Claude 5 models are deliberately absent. Their list prices are not
+// something this file should assert from memory — an invented number in a cost
+// table is worse than no number, because it looks authoritative and silently
+// governs how much gets spent. They price at the conservative fallback until
+// somebody checks the rate card and writes the real figures here.
 const FALLBACK_RATES = { input_per_1k: 1.5, output_per_1k: 7.5 } as const;
 const PRICE_TABLE: Record<string, { input_per_1k: number; output_per_1k: number }> = {
   "claude-opus-4-7": FALLBACK_RATES,
