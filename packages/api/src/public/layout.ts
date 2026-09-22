@@ -122,8 +122,7 @@ ${renderNav(args.activeNav)}
 <main class="record-main">
 ${args.bare ? args.body : `<div class="container">${args.body}</div>`}
 </main>
-${mode === "public" ? renderTrustStrip() : ""}
-${renderFooter()}
+${renderFooter(mode === "public")}
 </body>
 </html>`;
 }
@@ -154,11 +153,13 @@ function renderNav(activeHref?: string): string {
 </nav>`;
 }
 
-// The trust strip — what makes this site honest, in plain words. Sits
-// between the body and the footer on every public page.
-function renderTrustStrip(): string {
-  return `<aside class="trust" aria-label="How this site verifies">
-  <div class="trust-inner">
+// The trust line — what makes this site honest, in plain words.
+//
+// It was its own <aside> band between the body and the footer: a grey strip
+// stacked directly on top of another grey strip, on every page, reading as a
+// double footer. It is the first row OF the footer now. Same words, one band.
+function renderTrustLine(): string {
+  return `<div class="foot-trust" aria-label="How this site verifies">
     <span class="trust-mark" aria-hidden="true">✓</span>
     <p>
       Every documented fact on this site is backed by a word-for-word quote
@@ -167,12 +168,12 @@ function renderTrustStrip(): string {
       verification are removed, and we say so.
       <a href="/method">How verification works →</a>
     </p>
-  </div>
-</aside>`;
+  </div>`;
 }
 
-function renderFooter(): string {
+function renderFooter(withTrust = true): string {
   return `<footer class="foot">
+  ${withTrust ? renderTrustLine() : ""}
   <div class="foot-inner">
     <div>
       <a href="/" class="wordmark">canopticon</a>

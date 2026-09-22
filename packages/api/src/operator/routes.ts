@@ -989,6 +989,19 @@ app.post("/research/advance", async (c) => {
   // execution died mid-pass would otherwise block the queue behind it.
   await reapStaleResearchRuns(c.env, userId).catch(() => {});
   const report = await advanceResearchRun(c.env, userId).catch(() => null);
+  // When the press came from the run's own status banner, go back to that
+  // banner rather than to /library — the operator was watching one run, and
+  // dumping them on the library index loses the thing they were watching.
+  // Same-origin only: a return_to is a redirect target, so it is confined to
+  // this site's own paths and never allowed to carry a scheme or a host.
+  const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
+  // The status banner takes steps itself via fetch() and then re-polls, so it
+  // wants the outcome, not a redirect it would have to follow.
+  if (form.no_redirect === "1") {
+    return c.json({ advanced: !!report?.advanced, reason: report?.reason ?? null });
+  }
+  const back = typeof form.return_to === "string" ? form.return_to : "";
+  if (back.startsWith("/") && !back.startsWith("//")) return c.redirect(back);
   return c.redirect(
     `/library?research=${encodeURIComponent(report?.advanced ? "advanced" : "nothing-pending")}`,
   );
@@ -996,11 +1009,24 @@ app.post("/research/advance", async (c) => {
 
 // Research one open question.
 //
-// The seed is the question itself and the angle is the measured gap, so the
-// run has a stated reason rather than a topic: "3 documents raised this, one
-// source answers it". Whatever it produces comes back as an unpublished draft
-// document, and its extraction merges evidence onto this same question through
-// the merge key — which is what makes the corpus close its own gaps.
+// NOTHING LINKS THIS ANY MORE, ON PURPOSE. Retired but unwired, not deleted —
+// the same treatment the retired crawler gets.
+//
+// The questions this acted on are extracted with the instruction "questions a
+// person would genuinely type into a search box, THAT THIS DOCUMENT ANSWERS",
+// so every one of them arrives with its answer attached. The angle below then
+// told the writer the record "cannot answer it" and sent it to find what was
+// missing — about something nothing was missing about. What came back was a
+// thinner copy of the document that produced the question, which is a loop
+// that returns to where it started rather than one that goes anywhere.
+//
+// It also failed the standing test for what belongs in this system at all:
+// repeatable, at scale, with no issues. It needs a model call, a web search
+// and two passes through a queue that only a person can drain.
+//
+// The queue is now fed by ABSENCES instead — contradictions between documents
+// and figures with no named source (graph/lib/leads.ts), which are mechanical,
+// free and cannot be answered by a document already in the corpus.
 app.post("/answers/:id/research", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");
@@ -1119,6 +1145,50 @@ app.post("/leads/dig", async (c) => {
   const angle = typeof form.angle === "string" ? form.angle.trim() || undefined : undefined;
   if (!seed) return c.redirect("/library?error=that+lead+carried+nothing+to+search+for");
 
+  const kind = typeof form.kind === "string" ? form.kind : "";
+  const str = (k: string) => (typeof form[k] === "string" ? (form[k] as string).trim() : "");
+
+  // A CONTRADICTION IS ANSWERED FROM WHAT WE ALREADY HOLD.
+  //
+  // This used to fire the full deep-research pipeline at every lead — a broad
+  // web search, twelve sources read to twelve percent each, a three-thousand
+  // word brief — for a question one sentence wide. For two documents that
+  // disagree, that is the wrong instrument twice over: the material needed to
+  // settle it is already in the corpus, in full, and the output was something
+  // the operator had to trust rather than check.
+  //
+  // Both documents are read whole, the answer is three sentences, and every
+  // quote is located verbatim in one of them before it is stored. Nothing is
+  // fetched, nothing is banked, no new population appears in `pieces`.
+  if (kind === "contradiction") {
+    const { answerLead } = await import("../graph/lib/answer-lead");
+    const lead = {
+      kind: "contradiction" as const,
+      summary: seed,
+      detail: seed,
+      quote_id: null,
+      piece_id: str("piece_id"),
+      piece_slug: str("piece_slug") || null,
+      piece_title: null,
+      other_piece_slug: str("other_slug") || null,
+      other_piece_title: null,
+      created_at: new Date().toISOString(),
+      seed,
+      angle: angle ?? "",
+    };
+    const work = answerLead(c.env, userId, lead).catch(() => {});
+    try {
+      c.executionCtx.waitUntil(work);
+    } catch {
+      // No execution context (tests) — already running, just not kept alive.
+    }
+    // Back to the document, where the lead and its answer live. There is no
+    // separate screen for this and there should not be: the answer belongs
+    // under the question it settles.
+    const back = str("piece_slug");
+    return c.redirect(back ? `/library/${encodeURIComponent(back)}#leads` : "/library#leads");
+  }
+
   const { researchOnDemand } = await import("../graph/lib/deep-research");
   // Started before it is handed anywhere: c.executionCtx THROWS when there is
   // no ExecutionContext, and an unguarded access here would 500 the request
@@ -1145,7 +1215,15 @@ app.get("/research", async (c) => {
   if (!q) return c.redirect("/");
   const angle = c.req.query("angle")?.trim() || undefined;
   const { renderResearchScreen } = await import("./screens/research");
-  return opHtml(renderResearchScreen({ label: q, angle }));
+  // Hand the screen the state at load so it renders COMPLETE — every source
+  // found so far, the whole plan, the next action. The live layer then only
+  // keeps it current. Without this the first paint is an empty frame that
+  // fills in a second later, which is exactly the "is this working?" feeling
+  // the workspace exists to remove, and it leaves the page useless with
+  // JavaScript off.
+  const { getResearchStatus } = await import("../graph/lib/deep-research");
+  const status = await getResearchStatus(c.env, userId, q).catch(() => null);
+  return opHtml(renderResearchScreen({ label: q, angle, status }));
 });
 
 // JSON status for the live-polling banner (public/render/status-banner.ts's

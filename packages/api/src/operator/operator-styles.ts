@@ -1,7 +1,21 @@
-// Operator console design tokens + complete stylesheet.
-// Lifted verbatim from canopticon-operator-design-bundle/Operator Console.html
-// per the operator-claude-code-handoff. Six-surface dark-amber theme,
-// distinct from the public site's warm-paper theme.
+// Operator console stylesheet.
+//
+// ONE PRODUCT, NOT TWO. This was lifted verbatim from a separate design bundle
+// and kept its own everything: its own grounds, its own ink, its own rules,
+// its own type, and — most visibly — its own accent, a cool blue, against a
+// publication whose stated design is "dark ground, one red accent (#e0433c)".
+// Signing in teleported you into a different product, which is exactly the
+// seam behind "make it feel like a seamless product".
+//
+// The fix is deliberately the smallest one that actually closes it. Every
+// token NAME below is unchanged, so the thousand lines of operator CSS under
+// them keep working untouched; only the VALUES now resolve to the
+// publication's palette, and the public vocabulary is aliased alongside so a
+// component can be written once and rendered on either surface.
+//
+// The public tokens are also the better ones on their merits: --ink-3 and
+// --ink-mute were explicitly lightened to clear WCAG AA against this ground,
+// which the values they replace did not.
 //
 // Used by operator/layout.ts as inline CSS. Cached via stylesHash() (the
 // content is static; the hash is a build-time fingerprint for cache busting
@@ -9,23 +23,23 @@
 
 export const OPERATOR_CSS = String.raw`
 :root {
-  /* grounds */
-  --bg:        #0c0d10;
-  --panel:     #15161b;
-  --raised:    #1c1d23;
-  --raised-2:  #25262e;
-  --surface:   #121319;
+  /* grounds — the publication's own, under the operator's names */
+  --bg:        #0e1013;
+  --panel:     #14171a;
+  --raised:    #191d20;
+  --raised-2:  #212229;
+  --surface:   #131419;
   /* ink */
   --ink:       #eceef2;
-  --ink-2:     #c7c9d2;
-  --ink-3:     #8c8e99;
-  --mute:      #62646f;
-  --faint:     #44464f;
+  --ink-2:     #ccced6;
+  --ink-3:     #a5a8b3;
+  --mute:      #787b86;
+  --faint:     #484a54;
   --ghost:     #33343c;
   /* rules */
-  --rule:      #232530;
-  --rule-2:    #2e3038;
-  --rule-bright:#3a3d49;
+  --rule:      #23272b;
+  --rule-2:    #2e3439;
+  --rule-bright:#2e3439;
   /* the one accent — cool blue, matching the public site's --op-accent.
      Named --amber for historical reasons (lifted from an older warm-amber
      design bundle); the brand decision that survived is "the dark
@@ -33,23 +47,51 @@ export const OPERATOR_CSS = String.raw`
      is cold" (canopticon-renovation.md), so the VALUE is blue even though
      every call site below still reads var(--amber). Same pattern as
      --serif being aliased to the sans stack a few lines up. */
-  --amber:     #5d8bc6;
-  --amber-hi:  #7ea6d8;
-  --amber-bg:  rgba(93,139,198,0.11);
-  --amber-bg-2:rgba(93,139,198,0.16);
-  --amber-bd:  rgba(93,139,198,0.34);
+  /* THE BRAND ACCENT, at last. Every call site below still reads var(--amber);
+     only the value changed, from the lifted bundle's blue to the red the rest
+     of the site has used since the redesign. */
+  --amber:     #e0433c;
+  --amber-hi:  #ef6a63;
+  --amber-bg:  rgba(224,67,60,0.10);
+  --amber-bg-2:rgba(224,67,60,0.16);
+  --amber-bd:  rgba(224,67,60,0.34);
   /* finding type hues — quiet, used only on badges/edges */
   --c-pattern: #74aef0;  --c-pattern-bg: rgba(116,174,240,0.12);  --c-pattern-bd: rgba(116,174,240,0.28);
   --c-contra:  #d97b6e;  --c-contra-bg:  rgba(217,123,110,0.12);  --c-contra-bd:  rgba(217,123,110,0.30);
   --c-thesis:  #5fc6a2;  --c-thesis-bg:  rgba(95,198,162,0.12);   --c-thesis-bd:  rgba(95,198,162,0.28);
   --c-connect: #a99cea;  --c-connect-bg: rgba(169,156,234,0.12);  --c-connect-bd: rgba(169,156,234,0.28);
   --c-gap:     #6a6c77;  --c-gap-bg:     rgba(120,122,134,0.06);
-  /* type — operator is sans + mono only. --serif is aliased to the sans
-     stack so legacy italic-serif refs collapse to Geist everywhere. */
-  --sans:  'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --serif: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --mono:  'Geist Mono', ui-monospace, 'SF Mono', monospace;
+  /* type — the publication's three faces. --serif is a real serif again:
+     the operator reads the same prose the public does, and setting it in the
+     sans stack was a workaround for a bundle that had no serif in it. */
+  --sans:  'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --mono:  'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
   --rail-w: 168px;
+
+  /* ---- the public vocabulary, aliased --------------------------------
+     So a component can be written once against one set of names and render
+     on either surface. Everything the publication's stylesheet exposes that
+     a shared component might reasonably ask for. */
+  --paper:       var(--bg);
+  --paper-2:     var(--panel);
+  --paper-hover: var(--raised);
+  --paper-3:     var(--raised-2);
+  --ink-mute:    var(--mute);
+  --ink-faint:   var(--faint);
+  --rule-soft:   var(--rule);
+  --accent:      var(--amber);
+  --accent-2:    var(--amber-hi);
+  --accent-bg:   var(--amber-bg);
+  --accent-bd:   var(--amber-bd);
+  --confirmed:   #2f7d52;
+  --correction:  #b0402c;
+  --r-sm: 4px;
+  --r:    7px;
+  --r-lg: 11px;
+  --shell: 1180px;
+  --gutter: 32px;
+  --measure: 64ch;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1013,11 +1055,157 @@ svg { flex-shrink: 0; max-width: 100%; }
 
 /* responsive */
 @media (max-width: 820px) {
+  /* The topbar is a fixed 52px tall, and its h1 is whatever the screen is
+     called. On a research run that is the operator's whole question, which
+     wrapped to three lines inside a bar with room for one and printed itself
+     over the page beneath. The full question is the page's own H1 six pixels
+     lower, so the bar truncates instead of fighting for it. */
+  .topbar { padding: 0 14px; gap: 10px; }
+  .topbar h1 {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  }
+  .topbar .sub { display: none; }
   .rail { width: 60px; }
   .rail-logo .word, .rail-item .lbl, .rail-kbd, .rail-foot-item .fl { display: none; }
   .rail-item { justify-content: center; }
   .setup-grid { grid-template-columns: 1fr; }
   .setup-col + .setup-col { border-left: none; border-top: 1px solid var(--rule); }
+}
+
+
+/* ---- THE RESEARCH WORKSPACE ----------------------------------------------
+   One live surface for one investigation. Built entirely from the tokens the
+   rest of the site already uses — one shell, one panel, one accent — because
+   an operator tool that invents its own vocabulary is how the stylesheet grew
+   six design systems in the first place. -------------------------------- */
+.rw { max-width: var(--shell); margin: 0 auto; padding: 8px var(--gutter) 60px; }
+.rw-head { padding-bottom: 22px; border-bottom: 1px solid var(--rule); margin-bottom: 26px; }
+.rw-kicker {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+}
+.rw-q {
+  font-family: var(--serif); font-size: 31px; line-height: 1.2; font-weight: 500;
+  color: var(--ink); margin: 0 0 10px; max-width: 800px; text-wrap: pretty;
+}
+.rw-angle {
+  font-family: var(--serif); font-size: 15.5px; line-height: 1.55; color: var(--ink-3);
+  margin: 0 0 16px; max-width: 700px;
+}
+.rw-state { display: flex; align-items: center; gap: 10px; }
+.rw-headline { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.rw-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--ink-mute); }
+.rw-dot-run { background: var(--accent); animation: rw-pulse 1.4s ease-in-out infinite; }
+.rw-dot-rest { background: var(--confirmed); }
+.rw-dot-warn { background: var(--correction); }
+@keyframes rw-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+.rw-grid { display: grid; grid-template-columns: minmax(0,1fr) 288px; gap: 36px; align-items: start; }
+.rw-grid > * { min-width: 0; }
+.rw-main { display: flex; flex-direction: column; gap: 26px; }
+
+.rw-panel { border: 1px solid var(--rule); border-radius: var(--r); background: var(--paper-2); }
+.rw-panel-h {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 18px; border-bottom: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.rw-count { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* ---- the plan ---- */
+.rw-plan { list-style: none; margin: 0; padding: 6px 0; }
+.rw-step {
+  display: grid; grid-template-columns: 26px minmax(0,1fr) auto; align-items: baseline;
+  gap: 10px; padding: 9px 18px; font-family: var(--sans); font-size: 14px;
+  color: var(--ink-3); line-height: 1.45;
+}
+.rw-step-q { text-wrap: pretty; }
+.rw-mark {
+  width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--rule-bright);
+  align-self: center; position: relative;
+}
+.rw-step-done { color: var(--ink-2); }
+.rw-step-done .rw-mark { border-color: var(--confirmed); background: var(--confirmed); }
+.rw-step-done .rw-mark::after {
+  content: ""; position: absolute; left: 3.5px; top: 1px; width: 3px; height: 6px;
+  border: solid var(--paper); border-width: 0 1.5px 1.5px 0; transform: rotate(42deg);
+}
+.rw-step-running { color: var(--ink); }
+.rw-step-running .rw-mark {
+  border-color: var(--accent); animation: rw-pulse 1.4s ease-in-out infinite;
+}
+.rw-tag {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-mute); white-space: nowrap;
+}
+
+/* ---- sources ---- */
+.rw-sources { list-style: none; margin: 0; padding: 4px 0; }
+.rw-src { padding: 10px 18px; border-bottom: 1px solid var(--rule-soft); }
+.rw-src:last-child { border-bottom: none; }
+.rw-src a {
+  display: block; font-family: var(--sans); font-size: 14px; line-height: 1.4;
+  color: var(--ink-2); text-decoration: none;
+}
+.rw-src a:hover { color: var(--accent); }
+.rw-src-meta {
+  display: block; margin-top: 3px; font-family: var(--mono); font-size: 10.5px;
+  color: var(--ink-mute);
+}
+.rw-src-fetching { opacity: .55; }
+.rw-src-duplicate { opacity: .7; }
+.rw-empty {
+  padding: 18px; font-family: var(--serif); font-size: 14px; color: var(--ink-mute);
+}
+
+/* ---- the side rail ---- */
+.rw-side { position: sticky; top: 26px; display: flex; flex-direction: column; gap: 20px; }
+.rw-metrics {
+  margin: 0; border: 1px solid var(--rule); border-radius: var(--r);
+  background: var(--paper-2); overflow: hidden;
+}
+.rw-metric {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 13px 18px; border-bottom: 1px solid var(--rule);
+}
+.rw-metric:last-child { border-bottom: none; }
+.rw-metric dt {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.rw-metric dd {
+  margin: 0; font-family: var(--sans); font-size: 21px; font-weight: 600;
+  color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.rw-btn {
+  display: block; width: 100%; text-align: center; padding: 12px 16px;
+  border-radius: var(--r-sm); font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+  border: 1px solid var(--rule-bright); background: transparent; color: var(--ink-2);
+  text-decoration: none; transition: border-color .12s, color .12s, background .12s;
+}
+.rw-btn-primary { border-color: var(--accent-bd); background: var(--accent-bg); color: var(--accent); }
+.rw-btn-primary:hover { border-color: var(--accent); color: var(--accent-2); }
+.rw-working { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
+.rw-note {
+  font-family: var(--serif); font-size: 13px; line-height: 1.55; color: var(--ink-mute);
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .rw-grid { grid-template-columns: 1fr; gap: 24px; }
+  .rw-side { position: static; }
+}
+@media (max-width: 620px) {
+  /* The tag costs more than it says here: it took a third of the row and
+     forced the operator's own question to wrap five times beside it. Which
+     line is theirs is obvious anyway — it is the one at the top, and it is
+     the page's H1 directly above. */
+  .rw-tag { display: none; }
+  .rw-step { grid-template-columns: 22px minmax(0,1fr); gap: 8px; padding: 9px 14px; }
+  .rw-src { padding: 10px 14px; }
+  .rw-panel-h { padding: 12px 14px; }
 }
 
 `;

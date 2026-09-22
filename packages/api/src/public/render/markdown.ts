@@ -86,6 +86,13 @@ export function renderInlineMarkdown(md: string): string {
     if (receipt) {
       return `<a class="receipt" id="q-${receipt[1]}" href="${href}">${text}</a>`;
     }
+    // A link to another document on this site is a third thing, distinct from
+    // both a receipt (proof, stay here) and an outbound link (leave the site).
+    // It gets its own class so the reading column can mark it as "there is
+    // more of this, here" without it shouting over the prose.
+    if (/^\/p\/[A-Za-z0-9_-]+$/.test(href)) {
+      return `<a class="xdoc" href="${href}">${text}</a>`;
+    }
     const ext = /^https?:\/\//i.test(href);
     const rel = ext ? ' rel="nofollow noopener" target="_blank"' : "";
     return `<a href="${href}"${rel}>${text}</a>`;

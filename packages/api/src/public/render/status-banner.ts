@@ -23,6 +23,7 @@ export function renderLiveStatusBanner(pollUrl: string, initialHeadline: string)
     <span class="live-status-headline">${escapeHtml(initialHeadline)}</span>
   </div>
   <ul class="live-status-steps"></ul>
+  <div class="live-status-action" hidden></div>
   <div class="live-status-review" hidden></div>
 </aside>
 ${LIVE_STATUS_STYLES}
@@ -35,6 +36,7 @@ ${LIVE_STATUS_STYLES}
   var dotEl = root.querySelector(".live-status-dot");
   var stepsEl = root.querySelector(".live-status-steps");
   var reviewEl = root.querySelector(".live-status-review");
+  var actionEl = root.querySelector(".live-status-action");
   var MARK = { done: "\\u2713", warn: "!", active: "\\u2026", pending: "\\u00b7" };
   function render(s) {
     headlineEl.textContent = s.headline || "";
@@ -47,6 +49,32 @@ ${LIVE_STATUS_STYLES}
       li.textContent = text;
       stepsEl.appendChild(li);
     });
+    // A run that is waiting on a press renders the press. Standing rule 4
+    // means queues are drained by a person, so the person has to be able to
+    // see and reach the thing that drains this one — a banner that only
+    // narrates the wait is how a queued run reads as a broken one.
+    if (s.action && s.action.postTo) {
+      actionEl.hidden = false;
+      actionEl.innerHTML = "";
+      var form = document.createElement("form");
+      form.method = "POST";
+      form.action = s.action.postTo;
+      if (s.action.returnTo) {
+        var back = document.createElement("input");
+        back.type = "hidden";
+        back.name = "return_to";
+        back.value = s.action.returnTo;
+        form.appendChild(back);
+      }
+      var btn = document.createElement("button");
+      btn.type = "submit";
+      btn.className = "live-status-btn";
+      btn.textContent = s.action.label || "Continue";
+      form.appendChild(btn);
+      actionEl.appendChild(form);
+    } else {
+      actionEl.hidden = true;
+    }
     if (s.reviewUrl) {
       reviewEl.hidden = false;
       reviewEl.innerHTML = "";
@@ -61,11 +89,43 @@ ${LIVE_STATUS_STYLES}
     dotEl.classList.toggle("live-status-dot-done", done);
     dotEl.classList.toggle("live-status-dot-warn", !!s.warn);
   }
+  // THE BROWSER IS THE SCHEDULER.
+  //
+  // A research run is four model-heavy steps, each of which must be its own
+  // Worker execution or it goes past Cloudflare's ceiling — that is what
+  // "Sources banked, but no brief written" was. Standing rule 4 forbids a
+  // cron, and rightly: an idle site should cost nothing. But a person who
+  // pressed Research and is sitting here watching IS the attendance the rule
+  // is about, so the banner takes the next step for them.
+  //
+  // Close the tab and it stops. Nothing runs unattended, nothing is scheduled,
+  // and the button stays on screen throughout, so a step that fails to
+  // auto-advance is still one click from being taken by hand.
+  var autoLeft = 6;   // a run needs at most four; the margin absorbs a retry
+  var lastAuto = "";  // never auto-step the same state twice in a row
   function poll() {
     fetch(url, { headers: { Accept: "application/json" } })
       .then(function (r) { return r.json(); })
       .then(function (s) {
         render(s);
+        var act = s.action;
+        if (act && act.auto && autoLeft > 0 && lastAuto !== act.label) {
+          autoLeft--;
+          lastAuto = act.label;
+          headlineEl.textContent = act.label + "\u2026";
+          var body = new URLSearchParams();
+          body.set("no_redirect", "1");
+          fetch(act.postTo, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: body.toString(),
+          })
+            .catch(function () {})
+            // Whatever happened, ask the server what the state is now rather
+            // than assuming the step worked.
+            .then(function () { setTimeout(poll, 800); });
+          return;
+        }
         if (!s.terminal) setTimeout(poll, 1500);
       })
       .catch(function () { setTimeout(poll, 3000); });
@@ -92,6 +152,12 @@ const LIVE_STATUS_STYLES = `<style>
   .live-status-step-done { color: var(--ink-2); }
   .live-status-step-active { color: var(--accent); }
   .live-status-step-warn { color: var(--correction, #c4816a); }
+  .live-status-action { margin-top: 12px; }
+  .live-status-btn { padding: 9px 15px; border: 1px solid var(--accent-bd, #7a2c26);
+    border-radius: 4px; background: var(--accent-bg, rgba(224,67,60,0.10));
+    color: var(--accent, #e0433c); font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; }
+  .live-status-btn:hover { border-color: var(--accent, #e0433c); color: var(--accent-2, #ef6a63); }
   .live-status-review { margin-top: 10px; font-family: var(--mono); font-size: 12.5px; }
   .live-status-review a { color: var(--accent); text-decoration: none; }
   .live-status-review a:hover { text-decoration: underline; }

@@ -1,57 +1,59 @@
-// The on-demand research screen (2026-07-26) — its own page, not a query
-// param bolted onto /search. Before this, "Research this" landed on the
-// search results page with ?researching=1, which read as broken: a live
-// search box + "no matches" copy + a progress card stapled underneath,
-// as if the two features were the same thing. They aren't — searching
-// the existing record and researching something NEW are different
-// actions with different shapes. This gives the second one a page that
-// looks like what it is: a standing research instrument, not a search
-// miss.
+// The on-demand research screen — one live workspace for one investigation.
+//
+// It used to be a title, a paragraph of explanation and a four-line checklist,
+// with the rest of the screen empty. That checklist was the entire visible
+// output of a run that had searched the web, read six pages, extracted 273
+// verbatim facts and written down a plan of follow-up searches naming exactly
+// what it could not cover. All of that was already in the database. None of it
+// was on the page.
+//
+// So the change here is not new capability, it is the run no longer hiding:
+// the plan, the sources as they land, two numbers that mean something, and the
+// one action worth taking next.
+//
+// The screen renders COMPLETE on the server — every source found so far — and
+// the live layer only keeps it current. With JavaScript off you refresh
+// instead of watching, which is the same contract every public page holds.
 
-import { escapeHtml } from "../../public/layout";
+import type { ResearchStatus } from "../../graph/lib/deep-research";
+import { RESEARCH_LIVE_JS } from "../../public/render/research-live";
+import { renderResearchWorkspace } from "../../public/render/research-workspace";
 import { renderLiveStatusBanner } from "../../public/render/status-banner";
 import { renderOpPage } from "../layout";
 
-export function renderResearchScreen(args: { label: string; angle?: string | undefined }): string {
+export function renderResearchScreen(args: {
+  label: string;
+  angle?: string | undefined;
+  /** State at load. Null on a run that has only just started. */
+  status?: ResearchStatus | null;
+}): string {
   const { label, angle } = args;
   const pollUrl = `/op/research-status?q=${encodeURIComponent(label)}`;
-  const banner = renderLiveStatusBanner(pollUrl, `Starting research on ${label}…`);
   const title = label.length > 64 ? `${label.slice(0, 61)}…` : label;
 
-  const body = `
-<div class="research-head">
-  <div class="research-kicker">On-demand research</div>
-  <h2 class="research-label">${escapeHtml(label)}</h2>
-  ${angle ? `<p class="research-angle">Angle: &ldquo;${escapeHtml(angle)}&rdquo;</p>` : ""}
-</div>
-<p class="research-explain">
-  Searching the web, banking whatever real sources it finds, and drafting a
-  brief from them — word-for-word, nothing invented. Nothing here enters
-  the record until you read the draft and publish it yourself. Same rule
-  as everywhere else: the operator approves, never authors.
-</p>
-${banner}
-<style>
-  .research-head { margin-bottom: 4px; }
-  .research-kicker {
-    font-family: var(--mono); font-size: 11px; letter-spacing: .07em;
-    text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px;
-  }
-  .research-label {
-    font-family: var(--serif); font-size: 30px; line-height: 1.22;
-    color: var(--ink); margin: 0 0 6px; max-width: 720px; font-weight: 500;
-  }
-  .research-angle { font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); margin: 0; }
-  .research-explain {
-    font-family: var(--serif); font-size: 15px; line-height: 1.6;
-    color: var(--ink-2); max-width: 600px; margin: 16px 0 26px;
-  }
-</style>`;
+  const body = `${renderResearchWorkspace({
+    label,
+    angle,
+    status: args.status ?? null,
+    pollUrl,
+  })}
+${RESEARCH_LIVE_JS}`;
 
   return renderOpPage({
     title,
     sub: "researching · not yet in the record",
     body,
     activeNav: "/",
+    // fullBleed, because the workspace brings its own shell width (--shell,
+    // the same one the public site uses). Without it the surface's .wrap caps
+    // everything at 760px, and a two-column workspace inside 760px gives the
+    // plan a 320px column with a third of the screen left empty beside it.
+    fullBleed: true,
   });
 }
+
+// renderLiveStatusBanner is still the right component for the OTHER places a
+// run is narrated — the library's video import, a plain "expand this file" —
+// which are single-step jobs where a checklist is the whole story. Re-exported
+// so this module's consumers do not have to know that.
+export { renderLiveStatusBanner };

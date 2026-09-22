@@ -347,56 +347,21 @@ export async function researchOnDemand(
     return { ok: false, reason };
   }
 
-  const synth = await synthesizeBrief(env, userId, label, expandReport.banked_piece_ids, {
-    angleHint,
-    wantFollowups: true,
-  });
-  if (!synth.ok || !synth.bodyMd || !synth.title) {
-    await updateById(env.DB, "research_runs", runId, {
-      status: "failed",
-      error: synth.reason ?? "synthesis failed",
-      pass1_piece_ids: JSON.stringify(expandReport.banked_piece_ids),
-    });
-    await emitDraftFailed(env, userId, label, angleHint, synth.reason);
-    return { ok: false, reason: synth.reason };
-  }
-
-  const followups = synth.followupQueries ?? [];
-  if (followups.length === 0) {
-    const persisted = await persistBrief(
-      env,
-      userId,
-      label,
-      synth.title,
-      synth.bodyMd,
-      expandReport.banked_piece_ids,
-      { publish: false, angleHint },
-    );
-    await updateById(env.DB, "research_runs", runId, {
-      status: "done",
-      pass1_piece_ids: JSON.stringify(expandReport.banked_piece_ids),
-      final_piece_id: persisted.pieceId,
-    });
-    await emitDrafted(env, userId, label, angleHint, persisted.pieceId);
-    return { ok: true, ...persisted };
-  }
-
-  // There's more to chase — defer to the cron drain (see file comment on
-  // why this isn't just another expandRecord+synthesizeBrief call right
-  // here).
+  // STOPS HERE. The synthesis used to run in this same execution, and that
+  // is what stalled live: expandRecord had just fetched six pages and
+  // extracted 273 facts, and a synthesis over up to twelve sources on top of
+  // that is past Cloudflare's ceiling. The sources are banked and recorded;
+  // writing from them is its own step, dispatched by advanceResearchRun.
   await updateById(env.DB, "research_runs", runId, {
-    status: "pass2_pending",
+    status: "synth_pending",
     pass1_piece_ids: JSON.stringify(expandReport.banked_piece_ids),
-    followup_queries: JSON.stringify(followups),
   });
-  await insertOne(env.DB, "orchestrator_events", {
-    user_id: userId,
-    event_type: "deep_research.pass2_queued",
-    subject_kind: "query",
-    subject_id: null,
-    payload: { label, angle: angleHint ?? null, followup_queries: followups },
-  }).catch(() => {});
-  return { ok: false, reason: "digging deeper — follow-up research queued" };
+  return {
+    ok: false,
+    reason: `${expandReport.banked_piece_ids.length} source${
+      expandReport.banked_piece_ids.length === 1 ? "" : "s"
+    } banked — writing the brief is the next step`,
+  };
 }
 
 export interface AdvanceRunReport {
@@ -405,53 +370,143 @@ export interface AdvanceRunReport {
   reason?: string | undefined;
 }
 
-/** Research pass 2 — one research_runs row per call, oldest first. Runs
- *  the follow-up searches pass 1's writer proposed, then re-synthesizes
- *  over the COMBINED source pool (pass 1 + pass 2 sources) into the final
- *  draft. Wired into index.ts's every-2-minute cron drain. */
+/**
+ * Do exactly ONE model-heavy step of the oldest run that has one due.
+ *
+ * Every branch below is a separate Worker execution, which is the whole point:
+ * the previous shape ran an expand and a synthesis together in pass 1, and two
+ * expands and a synthesis together in pass 2, and both were over Cloudflare's
+ * ceiling. Observed live as "Sources banked, but no brief written — execution
+ * stalled", with 273 facts successfully extracted immediately above it.
+ *
+ * Returns { advanced: false } when nothing is due, so a caller can press it
+ * repeatedly without doing harm.
+ */
 export async function advanceResearchRun(env: Env, userId: string): Promise<AdvanceRunReport> {
   const runRow = await one<{
     id: string;
     label: string;
     angle: string | null;
+    status: string;
     pass1_piece_ids: string | null;
+    pass2_piece_ids: string | null;
     followup_queries: string | null;
+    followups_done: string | null;
   }>(
     env.DB,
-    `SELECT id, label, angle, pass1_piece_ids, followup_queries FROM research_runs
-      WHERE user_id = ? AND status = 'pass2_pending'
+    `SELECT id, label, angle, status, pass1_piece_ids, pass2_piece_ids,
+            followup_queries, followups_done
+       FROM research_runs
+      WHERE user_id = ?
+        AND status IN ('synth_pending', 'pass2_pending', 'pass2_synth_pending')
       ORDER BY created_at ASC LIMIT 1`,
     [userId],
   ).catch(() => null);
   if (!runRow) return { advanced: false, reason: "no run due" };
 
+  const angleHint = runRow.angle ?? undefined;
   const pass1Ids = parseJsonArray(runRow.pass1_piece_ids);
-  const queries = parseJsonArray(runRow.followup_queries);
+  const pass2Ids = parseJsonArray(runRow.pass2_piece_ids);
 
-  if (queries.length === 0) {
-    await updateById(env.DB, "research_runs", runRow.id, {
-      status: "failed",
-      error: "no follow-up queries recorded",
+  // ---- step: the first synthesis --------------------------------------
+  if (runRow.status === "synth_pending") {
+    const synth = await synthesizeBrief(env, userId, runRow.label, pass1Ids, {
+      angleHint,
+      wantFollowups: true,
     });
-    return { advanced: false, label: runRow.label, reason: "no follow-up queries recorded" };
+    if (!synth.ok || !synth.bodyMd || !synth.title) {
+      await updateById(env.DB, "research_runs", runRow.id, {
+        status: "failed",
+        error: synth.reason ?? "synthesis failed",
+      });
+      await emitDraftFailed(env, userId, runRow.label, angleHint, synth.reason);
+      return { advanced: false, label: runRow.label, reason: synth.reason };
+    }
+
+    const followups = synth.followupQueries ?? [];
+    if (followups.length === 0) {
+      // Nothing left to chase, so this synthesis IS the draft.
+      const persisted = await persistBrief(
+        env,
+        userId,
+        runRow.label,
+        synth.title,
+        synth.bodyMd,
+        pass1Ids,
+        { publish: false, angleHint },
+      );
+      await updateById(env.DB, "research_runs", runRow.id, {
+        status: "done",
+        final_piece_id: persisted.pieceId,
+      });
+      await emitDrafted(env, userId, runRow.label, angleHint, persisted.pieceId);
+      return { advanced: true, label: runRow.label };
+    }
+
+    await updateById(env.DB, "research_runs", runRow.id, {
+      status: "pass2_pending",
+      followup_queries: JSON.stringify(followups),
+    });
+    await insertOne(env.DB, "orchestrator_events", {
+      user_id: userId,
+      event_type: "deep_research.pass2_queued",
+      subject_kind: "query",
+      subject_id: null,
+      payload: { label: runRow.label, angle: runRow.angle ?? null, followup_queries: followups },
+    }).catch(() => {});
+    return { advanced: true, label: runRow.label };
   }
 
-  const { expandRecord } = await import("./record-builder");
-  const followupReports = await Promise.all(queries.map((q) => expandRecord(env, userId, q)));
-  const pass2Ids = followupReports.flatMap((r) => r.banked_piece_ids);
-  const combinedIds = [...new Set([...pass1Ids, ...pass2Ids])];
+  // ---- step: ONE follow-up search --------------------------------------
+  //
+  // One, not all of them. They used to run as Promise.all over every queued
+  // query and then synthesize, in one execution — the same ceiling problem
+  // pass 1 had, just with more fetches in it. followup_queries holds what is
+  // STILL TO RUN, so each press pops one and the count visibly goes down.
+  if (runRow.status === "pass2_pending") {
+    // THE PLAN IS NOT CONSUMED. followup_queries holds every search the
+    // writer proposed and is never rewritten; followups_done records which
+    // have run. A list that deletes its own history cannot be shown, and the
+    // plan taking shape is the most interesting thing a run produces — it is
+    // the difference between a progress bar and a research tool.
+    const plan = parseJsonArray(runRow.followup_queries);
+    const done = parseJsonArray(runRow.followups_done);
+    const next = plan.find((q) => !done.includes(q));
 
+    if (!next) {
+      // Everything planned has run (or there was never a plan). Go to the
+      // final write rather than failing a run that has all it needs.
+      await updateById(env.DB, "research_runs", runRow.id, { status: "pass2_synth_pending" });
+      return { advanced: true, label: runRow.label };
+    }
+
+    const { expandRecord } = await import("./record-builder");
+    const report = await withExpandBudget(expandRecord(env, userId, next), next);
+    const banked = [...new Set([...pass2Ids, ...report.banked_piece_ids])];
+    const nowDone = [...done, next];
+
+    await updateById(env.DB, "research_runs", runRow.id, {
+      // An expand that banks nothing is not a failure — the query simply had
+      // no usable sources, and the remaining ones may still.
+      status: nowDone.length < plan.length ? "pass2_pending" : "pass2_synth_pending",
+      followups_done: JSON.stringify(nowDone),
+      pass2_piece_ids: JSON.stringify(banked),
+    });
+    return { advanced: true, label: runRow.label };
+  }
+
+  // ---- step: the final synthesis ---------------------------------------
+  const combinedIds = [...new Set([...pass1Ids, ...pass2Ids])];
   const synth = await synthesizeBrief(env, userId, runRow.label, combinedIds, {
-    angleHint: runRow.angle ?? undefined,
+    angleHint,
     wantFollowups: false,
   });
   if (!synth.ok || !synth.bodyMd || !synth.title) {
     await updateById(env.DB, "research_runs", runRow.id, {
       status: "failed",
       error: synth.reason ?? "final synthesis failed",
-      pass2_piece_ids: JSON.stringify(pass2Ids),
     });
-    await emitDraftFailed(env, userId, runRow.label, runRow.angle ?? undefined, synth.reason);
+    await emitDraftFailed(env, userId, runRow.label, angleHint, synth.reason);
     return { advanced: false, label: runRow.label, reason: synth.reason };
   }
 
@@ -462,19 +517,26 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     synth.title,
     synth.bodyMd,
     combinedIds,
-    { publish: false, angleHint: runRow.angle ?? undefined },
+    { publish: false, angleHint },
   );
   await updateById(env.DB, "research_runs", runRow.id, {
     status: "done",
-    pass2_piece_ids: JSON.stringify(pass2Ids),
     final_piece_id: persisted.pieceId,
   });
-  await emitDrafted(env, userId, runRow.label, runRow.angle ?? undefined, persisted.pieceId);
-
+  await emitDrafted(env, userId, runRow.label, angleHint, persisted.pieceId);
   return { advanced: true, label: runRow.label };
 }
 
-const STALE_RUN_MS = 10 * 60 * 1000; // well past EXPAND_BUDGET_MS + a synthesis call
+/** The host, for a source line the eye can scan. Never throws on a bad URL. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url.slice(0, 40);
+  }
+}
+
+const STALE_RUN_MS = 10 * 60 * 1000; // well past EXPAND_BUDGET_MS, which is all pass 1 does now
 
 /** Safety net for the exact failure class EXPAND_BUDGET_MS above guards
  *  against — a pass1_pending/pass2_pending row whose execution died
@@ -488,8 +550,14 @@ export async function reapStaleResearchRuns(env: Env, userId: string): Promise<v
   const cutoff = new Date(Date.now() - STALE_RUN_MS).toISOString();
   await run(
     env.DB,
+    // pass1_pending ONLY. It is the single state with an execution actually in
+    // flight — expandRecord running inside the operator's own request. Every
+    // other pending state is a run WAITING FOR A PRESS, and reaping those
+    // marked a perfectly healthy run "execution stalled" for the crime of
+    // having been queued more than ten minutes ago, which is how long it takes
+    // to go and get a coffee. pass2_pending was in this list.
     `UPDATE research_runs SET status = 'failed', error = 'execution stalled — try again', updated_at = ?
-      WHERE user_id = ? AND status IN ('pass1_pending', 'pass2_pending') AND created_at < ?`,
+      WHERE user_id = ? AND status = 'pass1_pending' AND created_at < ?`,
     [new Date().toISOString(), userId, cutoff],
   );
 }
@@ -542,9 +610,66 @@ export interface ResearchStep {
   detail?: string | undefined;
 }
 
+/** A step the run cannot take by itself. Standing rule 4 says work happens
+ *  when a person does something — so when a run is waiting on a press, the
+ *  status has to carry the press, not just describe the wait. */
+export interface ResearchAction {
+  label: string;
+  /** A POST endpoint. The banner renders it as a form, never a link. */
+  postTo: string;
+  /** Sent back so the operator lands on the same screen afterwards. */
+  returnTo?: string;
+  /**
+   * The banner may take this step itself while the tab is open.
+   *
+   * Not a schedule (standing rule 4): it only happens because a person pressed
+   * Research and is sitting there watching. Close the tab and it stops; an
+   * idle site still costs nothing. The browser is the only thing driving it,
+   * and the button stays visible so a failed auto-step is recoverable by hand.
+   */
+  auto?: boolean;
+}
+
+/** One search in the investigation's plan. */
+export interface ResearchQuery {
+  query: string;
+  state: "done" | "running" | "queued";
+  /** True for the operator's own question, false for a proposed follow-up. */
+  opening: boolean;
+}
+
+/** One source the run actually read, as the expand logged it. */
+export interface ResearchSource {
+  title: string;
+  url: string;
+  /** Host only, for a compact line the eye can scan. */
+  domain: string;
+  chars?: number;
+  state: "banked" | "fetching" | "duplicate";
+}
+
 export interface ResearchStatus {
   terminal: boolean;
   warn: boolean;
+  action?: ResearchAction;
+  /**
+   * The searches this investigation is made of, in order.
+   *
+   * The single most valuable thing a research run produces and the last thing
+   * that was visible: the writer proposes follow-up searches naming exactly
+   * what the first pass could not cover, and they were stored and never shown.
+   * A reader watching the plan fill in is watching an investigation take
+   * shape; a reader watching "5 banked" is watching a progress bar.
+   */
+  plan?: ResearchQuery[];
+  /** Every source read, newest first. Logged all along, never surfaced. */
+  sources?: ResearchSource[];
+  /** Verbatim facts extracted so far. */
+  facts?: number;
+  /** ISO timestamp the run started, so the screen can show elapsed time. */
+  startedAt?: string;
+  /** The finished draft, once there is one. */
+  draft?: { title: string; slug: string; reviewUrl: string };
   headline: string;
   steps: ResearchStep[];
   reviewUrl?: string;
@@ -569,16 +694,93 @@ export async function getResearchStatus(
   const expand = await getExpandStatus(env, userId, label);
   if (!expand) return null;
 
+  // The run is loaded BEFORE the events, because the plan decides which
+  // events belong to this investigation. A follow-up expand logs under its
+  // own query as the subject, not under the operator's original question —
+  // so a query filtered on the label alone could only ever see the first
+  // pass, and every source found by digging deeper was invisible.
+  const run = await one<{
+    id: string;
+    status: string;
+    final_piece_id: string | null;
+    error: string | null;
+    followup_queries: string | null;
+    followups_done: string | null;
+    created_at: string;
+  }>(
+    env.DB,
+    `SELECT id, status, final_piece_id, error, followup_queries, followups_done, created_at
+       FROM research_runs
+      WHERE user_id = ? AND label = ? AND created_at > datetime('now','-1 day')
+      ORDER BY created_at DESC LIMIT 1`,
+    [userId, label],
+  ).catch(() => null);
+
+  const planQueries = parseJsonArray(run?.followup_queries ?? null);
+  const planDone = parseJsonArray(run?.followups_done ?? null);
+  const subjects = [label, ...planQueries];
+  const subjectMarks = subjects.map(() => "?").join(",");
+
   const events = await all<{ event_type: string; payload: string }>(
     env.DB,
     `SELECT event_type, payload FROM orchestrator_events
       WHERE user_id = ?
         AND event_type LIKE 'record.expand.%'
-        AND json_extract(payload, '$.subject') = ?
-        AND created_at > datetime('now','-15 minutes')
-      ORDER BY created_at ASC LIMIT 100`,
-    [userId, label],
+        AND json_extract(payload, '$.subject') IN (${subjectMarks})
+        AND created_at > datetime('now','-1 day')
+      ORDER BY created_at ASC LIMIT 400`,
+    [userId, ...subjects],
   ).catch(() => []);
+
+  // ---- the material the run actually produced ---------------------------
+  //
+  // All of this was already being written on every run and then thrown away
+  // at the point of display: the banner counted the events and showed "5
+  // banked". A source list with real titles and real domains is the whole
+  // difference between watching a job and watching a researcher work.
+  const sources: ResearchSource[] = [];
+  const seenUrls = new Set<string>();
+  for (const e of [...events].reverse()) {
+    const p = safeParseJson(e.payload) as { url?: string; title?: string; chars?: number } | null;
+    const url = typeof p?.url === "string" ? p.url : "";
+    if (!url || seenUrls.has(url)) continue;
+    const state =
+      e.event_type === "record.expand.source_banked"
+        ? "banked"
+        : e.event_type === "record.expand.source_duplicate"
+          ? "duplicate"
+          : e.event_type === "record.expand.source_fetching"
+            ? "fetching"
+            : null;
+    if (!state) continue;
+    seenUrls.add(url);
+    sources.push({
+      title: (typeof p?.title === "string" && p.title.trim()) || hostOf(url),
+      url,
+      domain: hostOf(url),
+      ...(typeof p?.chars === "number" ? { chars: p.chars } : {}),
+      state,
+    });
+  }
+
+  const running = run?.status === "pass1_pending" || run?.status === "pass2_pending";
+  const plan: ResearchQuery[] = [
+    {
+      query: label,
+      opening: true,
+      // The opening search is done the moment anything has been banked for it.
+      state: run && run.status !== "pass1_pending" ? "done" : "running",
+    },
+    ...planQueries.map((q): ResearchQuery => {
+      const isDone = planDone.includes(q);
+      const isNext = !isDone && planDone.length === planQueries.indexOf(q);
+      return {
+        query: q,
+        opening: false,
+        state: isDone ? "done" : isNext && running ? "running" : "queued",
+      };
+    }),
+  ];
   const has = (t: string) => events.some((e) => e.event_type === t);
   const bankedCount = events.filter((e) => e.event_type === "record.expand.source_banked").length;
   const fetchingCount = events.filter(
@@ -622,41 +824,97 @@ export async function getResearchStatus(
   // record-builder.ts's expandRecord with no researchOnDemand wrapper —
   // never will; no research_runs row for its label would ever exist).
   if (extractDone && includeSynthesis) {
-    const runRow = await one<{
-      status: string;
-      final_piece_id: string | null;
-      error: string | null;
-      followup_queries: string | null;
-    }>(
-      env.DB,
-      `SELECT status, final_piece_id, error, followup_queries FROM research_runs
-        WHERE user_id = ? AND label = ? AND created_at > datetime('now','-15 minutes')
-        ORDER BY created_at DESC LIMIT 1`,
-      [userId, label],
-    ).catch(() => null);
+    const runRow = run;
+
+    // Every waiting state below is terminal for the POLLER — it will not
+    // change on its own — and carries the press that moves it. The banner
+    // advances automatically while the tab is open, so in practice the
+    // operator presses once; the button is what it falls back to.
+    //
+    // `material` is attached to every return rather than to some of them: a
+    // source list that vanished the moment the run finished would be the
+    // worst possible time to lose it.
+    const material = {
+      plan,
+      sources,
+      facts: expand.factsAdded,
+      ...(run ? { startedAt: run.created_at } : {}),
+    };
+    const advance = (label_: string) => ({
+      label: label_,
+      postTo: "/op/research/advance",
+      returnTo: `/op/research?q=${encodeURIComponent(label)}`,
+      auto: true,
+    });
 
     if (!runRow || runRow.status === "pass1_pending") {
-      steps.push({ label: "Write a synthesis", state: "active" });
+      steps.push({ label: "Write a synthesis", state: "pending" });
       return {
         terminal: false,
         warn: false,
-        headline: "Writing a synthesis from what was found…",
+        headline: "Banking sources…",
         steps,
+        ...material,
+      };
+    }
+
+    // Sources are in and the writing has not started. This is where it broke:
+    // the synthesis used to run in the same execution as the expand that
+    // banked those sources, and the two together went past the ceiling.
+    if (runRow.status === "synth_pending") {
+      steps.push({
+        label: "Write a synthesis",
+        state: "pending",
+        detail: "sources banked — needs a press",
+      });
+      return {
+        terminal: true,
+        warn: false,
+        headline: "Sources banked. Writing the brief is the next step.",
+        steps,
+        action: advance("Write the brief"),
+        ...material,
       };
     }
 
     if (runRow.status === "pass2_pending") {
       const queryCount = parseJsonArray(runRow.followup_queries).length;
       steps.push({ label: "Write a synthesis", state: "done", detail: "first pass done" });
+      // "pending", not "active" — rule 6. Nothing is running: the searches are
+      // written down and waiting. Showing them as active was the lie that made
+      // a waiting run look like a hung one.
       steps.push({
-        label: `Dig deeper (${queryCount} follow-up search${queryCount === 1 ? "" : "es"})`,
-        state: "active",
+        label: `Dig deeper (${queryCount} follow-up search${queryCount === 1 ? "" : "es"} left)`,
+        state: "pending",
+        detail: "queued — needs a press",
       });
       return {
-        terminal: false,
+        terminal: true,
         warn: false,
-        headline: "First pass done — digging deeper on what it couldn't cover…",
+        headline: `First pass done. ${queryCount} follow-up search${
+          queryCount === 1 ? "" : "es"
+        } left to run.`,
         steps,
+        action: advance("Run the next search"),
+        ...material,
+      };
+    }
+
+    if (runRow.status === "pass2_synth_pending") {
+      steps.push({ label: "Write a synthesis", state: "done", detail: "first pass done" });
+      steps.push({ label: "Dig deeper", state: "done", detail: "follow-up sources banked" });
+      steps.push({
+        label: "Write the final brief",
+        state: "pending",
+        detail: "needs a press",
+      });
+      return {
+        terminal: true,
+        warn: false,
+        headline: "Everything is banked. One step left: the final brief.",
+        steps,
+        action: advance("Write the final brief"),
+        ...material,
       };
     }
 
@@ -668,20 +926,31 @@ export async function getResearchStatus(
         headline: "Draft brief ready — review it before it can publish.",
         steps,
         reviewUrl: `/op/library/research/${runRow.final_piece_id}/review`,
+        ...material,
       };
     }
 
-    const reason = runRow.error ?? "unknown reason";
+    const reason = runRow?.error ?? "unknown reason";
     steps.push({ label: "Write a synthesis", state: "warn", detail: reason });
     return {
       terminal: true,
       warn: true,
       headline: `Sources banked, but no brief written — ${reason}.`,
       steps,
+      ...material,
     };
   }
 
-  return { terminal: expand.terminal, warn: expand.warn, headline: expand.line, steps };
+  return {
+    terminal: expand.terminal,
+    warn: expand.warn,
+    headline: expand.line,
+    steps,
+    plan,
+    sources,
+    facts: expand.factsAdded,
+    ...(run ? { startedAt: run.created_at } : {}),
+  };
 }
 
 // Races expandRecord against EXPAND_BUDGET_MS. On timeout, treats it as

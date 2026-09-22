@@ -216,7 +216,16 @@ export async function callRole(env: Env, role: Role, args: CallRoleArgs): Promis
 // Sonnet, not Opus/Haiku — the middle tier: this is long-form synthesis
 // work, not a cheap classification call, but not worth Opus pricing for a
 // research draft the operator still has to review before it's anything.
-const RESEARCH_WRITER_ANTHROPIC_MODEL = "claude-sonnet-4-6";
+// Opus 5, not Sonnet 4.6 — this was pinned to a model a whole generation old,
+// so flipping RESEARCH_LLM_PROVIDER would have bought last year's Claude and
+// then been judged as "Claude did not help".
+//
+// Opus rather than Sonnet because of what this call IS: operator-triggered, a
+// handful of times a day, one to three calls per run, and the single output
+// the operator has said they do not trust. At roughly 15k input and 4k output
+// that is a few cents a run. Quality is the entire point of the toggle; the
+// cost gate still bounds it, and it is one constant to change.
+const RESEARCH_WRITER_ANTHROPIC_MODEL = "claude-opus-5";
 
 /** deep-research.ts's synthesis writer, toggleable per env — see
  *  env.ts's RESEARCH_LLM_PROVIDER. Deliberately NOT just another ROUTES

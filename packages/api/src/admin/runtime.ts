@@ -420,6 +420,55 @@ app.get("/backfill-library", async (c) => {
   });
 });
 
+// GET /v1/admin/research-runs — read-only. Where every research run stopped.
+//
+// This did not exist, so when the operator reported "it got to step like five
+// and didn't work", there was no way to look. The probe could read the corpus,
+// the queue depths and the graph counts, but not the one table that records
+// what a research run was doing when it stopped.
+//
+// Step five is "Dig deeper (N follow-up searches)" — the pass2_pending state.
+// Pass 2 is dispatched by advanceResearchRun, and the only caller in the live
+// system is POST /op/research/advance, a button. With the cron off (standing
+// rule 4) nothing drains it on its own, so a run that proposed follow-ups
+// parks there until a person presses it. A row sitting at pass2_pending is
+// therefore not a failure — it is a run waiting for a press, and that is
+// exactly what this endpoint is for saying out loud.
+app.get("/research-runs", async (c) => {
+  const userId = c.get("user_id");
+  const runs = await all<{
+    id: string;
+    label: string;
+    angle: string | null;
+    status: string;
+    error: string | null;
+    followups: string | null;
+    final_piece_id: string | null;
+    created_at: string;
+    updated_at: string | null;
+  }>(
+    c.env.DB,
+    `SELECT id, label, angle, status, error,
+            followup_queries AS followups, final_piece_id, created_at, updated_at
+       FROM research_runs WHERE user_id = ?
+      ORDER BY created_at DESC LIMIT 40`,
+    [userId],
+  ).catch(() => []);
+  const byStatus = await all<{ status: string; n: number }>(
+    c.env.DB,
+    "SELECT status, COUNT(*) AS n FROM research_runs WHERE user_id = ? GROUP BY status",
+    [userId],
+  ).catch(() => []);
+  const waiting = runs.filter((r) => r.status === "pass2_pending").length;
+  return c.json({
+    ok: true,
+    by_status: byStatus,
+    waiting_for_the_advance_button: waiting,
+    advance_with: "POST /op/research/advance (one run per press)",
+    runs,
+  });
+});
+
 // GET /v1/admin/corpus-split — read-only. What is actually in the corpus,
 // grouped so the two populations are visible before anything acts on them.
 app.get("/corpus-split", async (c) => {

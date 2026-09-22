@@ -52,13 +52,43 @@ export interface SpliceResult {
    * provenance, a link that goes nowhere is worse than no link.
    */
   placed: Set<string>;
+  /**
+   * Destination slugs whose phrase actually landed in the prose.
+   *
+   * Same reasoning as `placed`: a "related documents" line naming a connection
+   * the body never made is a claim the page cannot support.
+   */
+  linked: Set<string>;
+}
+
+/** A subject shared with another document, and where that document lives. */
+export interface CrossLinkSpan {
+  label: string;
+  slug: string;
 }
 
 interface Splice {
   start: number;
   end: number;
   text: string;
-  quoteId: string;
+  href: string;
+  key: string;
+}
+
+/**
+ * One thing that wants to become a link in the body.
+ *
+ * Receipts and cross-document links compete for the same prose, so they are
+ * placed in ONE pass rather than two — two passes would let the second splice
+ * inside the markdown the first just wrote, nesting a link in a link.
+ */
+interface Candidate {
+  /** Looked for verbatim; the DOCUMENT's substring is what gets rendered. */
+  text: string;
+  href: string;
+  key: string;
+  /** Lower wins a contested span. Proof beats navigation. */
+  priority: number;
 }
 
 /**
@@ -76,18 +106,54 @@ interface Splice {
  * behaviour — the alternative is linking text that is no longer there.
  */
 export function spliceReceipts(bodyMd: string, spans: ReceiptSpan[]): SpliceResult {
-  if (!bodyMd || !spans.length) return { markdown: bodyMd, placed: new Set() };
+  return spliceInline(bodyMd, spans, []);
+}
+
+/**
+ * Place receipts and cross-document links into the body, in ONE pass.
+ *
+ * Receipts carry priority 0 and links priority 1, so where a quote and a
+ * subject phrase overlap the proof wins and the link is dropped. That is not a
+ * preference: a receipt is the thing this publication exists to provide, and a
+ * link that displaced one would trade provenance for navigation.
+ *
+ * `placed` reports receipt ids (the findings block needs them for its
+ * anchors); `linked` reports destination slugs that actually landed.
+ */
+export function spliceInline(
+  bodyMd: string,
+  spans: ReceiptSpan[],
+  links: CrossLinkSpan[],
+): SpliceResult {
+  const empty: SpliceResult = { markdown: bodyMd, placed: new Set(), linked: new Set() };
+  if (!bodyMd || (!spans.length && !links.length)) return empty;
+
+  const candidates: Candidate[] = [
+    ...spans
+      .filter((s) => s.quote_id && s.verbatim_text)
+      .map((s) => ({
+        text: s.verbatim_text,
+        href: `/q/${s.quote_id}`,
+        key: s.quote_id,
+        priority: 0,
+      })),
+    ...links
+      .filter((l) => l.label && l.slug)
+      .map((l) => ({ text: l.label, href: `/p/${l.slug}`, key: l.slug, priority: 1 })),
+  ];
 
   const protectedRanges = proseExclusions(bodyMd);
   const taken: Splice[] = [];
 
-  // Longest first: a long span is the more specific claim, and placing it
-  // first stops a short one inside it from winning the position.
-  const ordered = [...spans].sort((a, b) => b.verbatim_text.length - a.verbatim_text.length);
+  // Proof first, then longest first within each tier: a long span is the more
+  // specific claim, and placing it first stops a short one inside it from
+  // winning the position.
+  const ordered = [...candidates].sort(
+    (a, b) => a.priority - b.priority || b.text.length - a.text.length,
+  );
 
-  for (const span of ordered) {
-    if (!span.quote_id || !span.verbatim_text) continue;
-    const found = locateVerbatim(bodyMd, span.verbatim_text);
+  for (const c of ordered) {
+    const found = locateVerbatim(bodyMd, c.text);
     if (!found) continue;
 
     const start = found.offset;
@@ -102,21 +168,25 @@ export function spliceReceipts(bodyMd: string, spans: ReceiptSpan[]): SpliceResu
     // Headings, table rows and code are not prose. A link inside a heading
     // fights its anchor; a pipe inside a table cell breaks the row.
     if (protectedRanges.some((r) => start < r.end && end > r.start)) continue;
-    // One receipt per stretch of text.
+    // One link per stretch of text.
     if (taken.some((t) => start < t.end && end > t.start)) continue;
 
-    taken.push({ start, end, text: found.text, quoteId: span.quote_id });
+    taken.push({ start, end, text: found.text, href: c.href, key: c.key });
   }
 
-  if (!taken.length) return { markdown: bodyMd, placed: new Set() };
+  if (!taken.length) return empty;
 
   // Right to left, so earlier offsets stay valid as we rewrite.
   taken.sort((a, b) => b.start - a.start);
   let out = bodyMd;
   for (const t of taken) {
-    out = `${out.slice(0, t.start)}[${t.text}](/q/${t.quoteId})${out.slice(t.end)}`;
+    out = `${out.slice(0, t.start)}[${t.text}](${t.href})${out.slice(t.end)}`;
   }
-  return { markdown: out, placed: new Set(taken.map((t) => t.quoteId)) };
+  return {
+    markdown: out,
+    placed: new Set(taken.filter((t) => t.href.startsWith("/q/")).map((t) => t.key)),
+    linked: new Set(taken.filter((t) => t.href.startsWith("/p/")).map((t) => t.key)),
+  };
 }
 
 /**
