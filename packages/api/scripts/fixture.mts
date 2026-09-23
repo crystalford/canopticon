@@ -113,6 +113,7 @@ const RESEARCH_RUN = {
   pass2_piece_ids: JSON.stringify(["s6"]),
   followup_queries: JSON.stringify(RESEARCH_PLAN),
   followups_done: JSON.stringify([RESEARCH_PLAN[0]]),
+  writer: "anthropic",
   final_piece_id: null,
   error: null,
   created_at: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
@@ -356,6 +357,8 @@ const LEAD_ANSWER = {
     },
   ]),
   discarded: 1,
+  // Which model wrote it, so the tag beside the heading photographs.
+  model: "claude-opus-5",
   error: null,
 };
 

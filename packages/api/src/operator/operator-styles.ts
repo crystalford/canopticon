@@ -1174,6 +1174,7 @@ svg { flex-shrink: 0; max-width: 100%; }
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--ink-mute);
 }
+.rw-metric-writer dd { font-size: 13px; font-weight: 500; font-family: var(--mono); color: var(--ink-2); }
 .rw-metric dd {
   margin: 0; font-family: var(--sans); font-size: 21px; font-weight: 600;
   color: var(--ink); font-variant-numeric: tabular-nums;

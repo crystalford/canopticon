@@ -526,7 +526,7 @@ function renderLeadAnswer(a: LeadAnswer | undefined): string {
   // do not answer it" is a finding: it says the gap is real and still open.
   if (a.status === "nothing_found") {
     return `      <div class="lead-ans lead-ans-none">
-        <span class="lead-ans-k">Not settled by these documents</span>
+        <span class="lead-ans-k">Not settled by these documents${modelTag(a)}</span>
         ${a.answer_md ? `<p>${escapeHtml(a.answer_md)}</p>` : ""}
         ${discardLine(a)}
       </div>\n`;
@@ -548,13 +548,20 @@ function renderLeadAnswer(a: LeadAnswer | undefined): string {
     .join("\n");
 
   return `      <div class="lead-ans">
-        <span class="lead-ans-k">What the documents settle</span>
+        <span class="lead-ans-k">What the documents settle${modelTag(a)}</span>
         <p>${escapeHtml(a.answer_md ?? "")}</p>
         <ul class="lead-ans-quotes">
 ${quotes}
         </ul>
         ${discardLine(a)}
       </div>\n`;
+}
+
+/** Which model wrote it — the whole point of a per-run toggle is comparing. */
+function modelTag(a: LeadAnswer): string {
+  if (!a.model) return "";
+  const short = a.model.replace(/^@cf\/[^/]+\//, "");
+  return ` <span class="lead-ans-model">${escapeHtml(short)}</span>`;
 }
 
 /**
@@ -605,6 +612,7 @@ function renderLeads(leads: Lead[], answers?: Map<string, LeadAnswer>): string {
         <input type="hidden" name="piece_slug" value="${escapeAttr(l.piece_slug ?? "")}" />
         <input type="hidden" name="other_slug" value="${escapeAttr(l.other_piece_slug ?? "")}" />
         <button type="submit" class="lead-dig">${escapeHtml(verb)} →</button>
+        <label class="lead-writer"><input type="checkbox" name="writer" value="anthropic" /> with Claude</label>
       </form>`
         : "";
       return `    <li class="lead lead-${escapeAttr(l.kind)}">

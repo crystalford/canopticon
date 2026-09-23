@@ -227,21 +227,60 @@ export async function callRole(env: Env, role: Role, args: CallRoleArgs): Promis
 // cost gate still bounds it, and it is one constant to change.
 const RESEARCH_WRITER_ANTHROPIC_MODEL = "claude-opus-5";
 
-/** deep-research.ts's synthesis writer, toggleable per env — see
- *  env.ts's RESEARCH_LLM_PROVIDER. Deliberately NOT just another ROUTES
- *  entry: a static table can't express "read an env var at call time,"
- *  and every other role has no reason to ever need that. Falls back to
- *  the free `research_writer` role whenever the toggle is off, the
- *  Anthropic key is missing, or (most likely near-term) the cost gate
- *  hasn't been whitelisted for 'anthropic.research_writer' yet — that
- *  last case surfaces as callLLM throwing "Cost gate blocked ... denied
- *  or pending", not a silent fallback, so a flipped-but-unfunded toggle
- *  fails loudly instead of quietly still being free. */
-export async function callResearchWriter(env: Env, args: CallRoleArgs): Promise<LlmCallOutput> {
+export type WriterProvider = "anthropic" | "workers_ai";
+
+/**
+ * Which model writes, for THIS run.
+ *
+ * Three tiers, most specific wins:
+ *   1. the run's own choice (`requested`) — the per-run toggle
+ *   2. the deployment default (RESEARCH_LLM_PROVIDER)
+ *   3. Workers AI, free
+ *
+ * A run that ASKED for Claude and cannot have it fails loudly here rather
+ * than quietly getting the free writer. The operator ticked a box expecting
+ * a particular model; silently substituting another is how "Claude did not
+ * help" gets concluded from output Claude never wrote.
+ */
+export function resolveWriter(
+  env: Env,
+  requested?: string | null,
+): {
+  provider: WriterProvider;
+  model: string;
+} {
+  if (requested === "anthropic") {
+    if (!env.ANTHROPIC_API_KEY) {
+      throw new Error(
+        "Claude was chosen for this run, but ANTHROPIC_API_KEY is not set — nothing was written",
+      );
+    }
+    return { provider: "anthropic", model: RESEARCH_WRITER_ANTHROPIC_MODEL };
+  }
+  if (requested === "workers_ai") {
+    return { provider: "workers_ai", model: ROUTES.research_writer.model };
+  }
   if (env.RESEARCH_LLM_PROVIDER === "anthropic" && env.ANTHROPIC_API_KEY) {
+    return { provider: "anthropic", model: RESEARCH_WRITER_ANTHROPIC_MODEL };
+  }
+  return { provider: "workers_ai", model: ROUTES.research_writer.model };
+}
+
+/** deep-research.ts's synthesis writer and answer-lead.ts's settler.
+ *  Deliberately NOT just another ROUTES entry: a static table cannot express
+ *  "decided per run". The cost gate still applies to the Anthropic path — a
+ *  chosen-but-unwhitelisted 'anthropic.research_writer' surfaces as callLLM
+ *  throwing "Cost gate blocked", never as a silent fallback. */
+export async function callResearchWriter(
+  env: Env,
+  args: CallRoleArgs,
+  opts: { writer?: string | null } = {},
+): Promise<LlmCallOutput> {
+  const chosen = resolveWriter(env, opts.writer);
+  if (chosen.provider === "anthropic") {
     const input: LlmCallInput = {
       provider: "anthropic",
-      model: RESEARCH_WRITER_ANTHROPIC_MODEL,
+      model: chosen.model,
       system: args.system,
       messages: args.messages,
       max_tokens: args.max_tokens,

@@ -102,7 +102,8 @@ describe("deep-research.ts — two-pass pipeline shape", () => {
   });
 
   it("routes the writer call through callResearchWriter, not a hardcoded role", () => {
-    expect(src).toContain("callResearchWriter(env");
+    // Multi-line call now that it carries a per-run writer as its own argument.
+    expect(src).toMatch(/callResearchWriter\(\s*env/);
     expect(src).not.toContain('callRole(env, "writer"');
   });
 });
@@ -110,8 +111,10 @@ describe("deep-research.ts — two-pass pipeline shape", () => {
 describe("llm/router.ts — Claude toggle for the research writer", () => {
   const src = readFileSync("./src/llm/router.ts", "utf-8");
 
-  it("callResearchWriter only routes to Anthropic when BOTH the toggle and the key are present", () => {
-    const fn = src.split("export async function callResearchWriter")[1] as string;
+  it("the deployment default only routes to Anthropic when BOTH the toggle and the key are present", () => {
+    // The decision moved out of callResearchWriter into resolveWriter so a run
+    // can override it; the deployment-default branch keeps the same shape.
+    const fn = src.split("export function resolveWriter")[1] as string;
     expect(fn).toBeDefined();
     expect(fn).toMatch(/RESEARCH_LLM_PROVIDER === "anthropic" && env\.ANTHROPIC_API_KEY/);
   });
