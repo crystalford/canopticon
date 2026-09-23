@@ -44,7 +44,7 @@ describe("one site, permission layers — /op/* GET dissolves into public routes
     "/op/out": "/",
     "/op/synthesis": "/",
     "/op/studio": "/",
-    "/op/outputs": "/investigations",
+    "/op/outputs": "/research",
     "/op/library": "/library",
     "/op/library/some-slug": "/library/some-slug",
   })) {
@@ -156,9 +156,15 @@ describe("public site is byte-stable for anonymous viewers (no regression)", () 
     const rec = await app.fetch(new Request("http://test/record"), env);
     expect(rec.status).toBe(301);
     expect(rec.headers.get("location")).toBe("/");
+    // /patterns and /investigations both used to land on an index that
+    // described "signed analyses" over a list of every published piece. The
+    // documents live at /research, so both go straight there — no chain.
     const pat = await app.fetch(new Request("http://test/patterns"), env);
     expect(pat.status).toBe(301);
-    expect(pat.headers.get("location")).toBe("/investigations");
+    expect(pat.headers.get("location")).toBe("/research");
+    const inv = await app.fetch(new Request("http://test/investigations"), env);
+    expect(inv.status).toBe(301);
+    expect(inv.headers.get("location")).toBe("/research");
   });
 
   // /about is a real page again — it answers "what is this publication",

@@ -147,7 +147,7 @@ export async function renderSearchPage(
   ${resultsBlock}
 </section>
 <style>
-  .search-section { max-width: 760px; margin: 32px auto; padding: 0 24px 80px; }
+  .search-section { max-width: 760px; margin: 32px 0 0; padding: 0 0 80px; }
   .search-h1 { font-family: var(--serif); font-size: 28px; margin: 0 0 18px; color: var(--ink); }
   .search-form { display: flex; gap: 10px; margin-bottom: 14px; }
   .search-input { flex: 1; padding: 12px 16px; font-family: var(--serif); font-size: 16px;

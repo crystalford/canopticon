@@ -59,10 +59,10 @@ describe("public site — Phase 1 skeleton", () => {
   });
 
   it("each primary destination renders real surfaces without JS", async () => {
-    // The three doors are Essays, Research and About. /topics and
-    // /investigations still resolve — they are unlinked, not removed — so they
-    // are checked here too, to keep old inbound links from rotting silently.
-    for (const path of ["/essays", "/research", "/topics", "/investigations"]) {
+    // The three doors are Essays, Research and About. /topics still resolves
+    // — unlinked, not removed. /investigations used to be in this list; it is
+    // a redirect to /research now, and is asserted as one elsewhere.
+    for (const path of ["/essays", "/research", "/topics"]) {
       const res = await app.fetch(new Request(`http://test${path}`), env);
       expect(res.status, `path ${path}`).toBe(200);
       const html = await res.text();
@@ -123,5 +123,48 @@ describe("public site — Phase 1 skeleton", () => {
     expect(res.headers.get("content-type")).toMatch(/application\/json/);
     const body = (await res.json()) as { error?: { code: string } };
     expect(body.error?.code).toBe("not_found");
+  });
+});
+
+// A sweep on 2026-09-23 found these still resolving as full pages, none
+// linked from anywhere, each describing a part of the product that no longer
+// exists — and /how-it-works rendering six stat tiles that read "undefined".
+// A reachable page that describes the wrong product is worse than no page.
+describe("retired rooms redirect to the surface that does their job", () => {
+  for (const [from, to] of Object.entries({
+    "/how-it-works": "/method",
+    "/investigations": "/research",
+    "/patterns": "/research",
+    "/watchlist": "/library",
+    "/videos": "/",
+  })) {
+    it(`${from} → ${to}`, async () => {
+      const res = await app.fetch(new Request(`http://test${from}`), env);
+      expect(res.status).toBe(301);
+      expect(res.headers.get("location")).toBe(to);
+    });
+  }
+
+  it("the design prototype is no longer a live route", async () => {
+    // It was a labelled mock with fake data at /op/design. A prototype that
+    // is reachable is a page, and it was the only page in an amber palette.
+    const res = await app.fetch(new Request("http://test/op/design"), env);
+    expect(res.status).not.toBe(200);
+  });
+
+  it("/method no longer describes signed analyses, lenses or a second judge", async () => {
+    const res = await app.fetch(new Request("http://test/method"), env);
+    const html = await res.text();
+    for (const stale of [
+      "One file, two views",
+      "The lenses",
+      "signed analysis",
+      "second, independent judge",
+    ]) {
+      expect(html, stale).not.toContain(stale);
+    }
+    // And it does describe what is there.
+    expect(html).toContain("Verified quotes");
+    expect(html).toContain("Findings");
   });
 });

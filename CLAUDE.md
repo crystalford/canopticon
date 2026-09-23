@@ -157,6 +157,16 @@ stylesheet, served at `/styles.css`) · `public/render/` (`indexes.ts`,
 `front.ts`, `about.ts`, `piece-template.ts`, `markdown.ts`, `receipts.ts`,
 `quote-receipt.ts`, `search.ts`, `investigations.ts` — which is `/library`).
 
+**Retired rooms redirect, never render.** A sweep on 2026-09-23 found six
+routes still resolving as full pages, none linked, each describing a part of
+the product that no longer exists — and `/how-it-works` printing six stat
+tiles that read `undefined`. Now: `/how-it-works` → `/method`,
+`/investigations` and `/patterns` → `/research`, `/watchlist` → `/library`,
+`/videos` → `/`, and the `/op/design` prototype is unmounted. Their renderers
+stay in the tree, unwired, like the retired crawler. `/method` was rewritten
+to describe what is actually in the record; it had described a second-judge
+model and "signed analyses" that were never built.
+
 **A document page is assembled, not copied.** `lib/document-structure.ts`
 promotes the document's own summary table and its "gaps" section to the top
 and cuts them from the body (nothing is written twice). `receipts.ts`
