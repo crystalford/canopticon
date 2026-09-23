@@ -19,7 +19,7 @@ import { renderCitationsPage } from "./render/citations";
 import { renderFront } from "./render/front";
 import { renderEssaysIndex, renderResearchIndex } from "./render/indexes";
 import { renderInstrumentsIndex } from "./render/instruments";
-import { renderInvestigationsIndex, renderLibraryIndex } from "./render/investigations";
+import { renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
 import { renderPiece } from "./render/piece-template";
 import { renderNotFound } from "./render/placeholder";
@@ -33,8 +33,6 @@ import {
   renderUnsubscribed,
 } from "./render/subscribe";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
-import { renderVideosPage } from "./render/videos";
-import { renderWatchlistPage } from "./render/watchlist";
 import studioRoutes from "./studio/routes";
 import { STYLES_CSS, stylesHash } from "./styles";
 
@@ -357,19 +355,17 @@ app.get("/research", async (c) => htmlResponse(await renderResearchIndex(c.env))
 
 app.get("/topics", async (c) => htmlResponse(await renderTopicsIndex(c.env)));
 
-// Watchlist — the public surface for coverage_beats (previously only
-// reachable as the operator via /v1/admin/beats). Not "/monitors" —
-// graph/routes/monitors.ts is a separate, older, unrelated system.
-app.get("/watchlist", async (c) =>
-  htmlResponse(await renderWatchlistPage(c.env, { isOperator: c.get("is_operator") })),
-);
-
-// ---- Videos ----------------------------------------------------------
-// Published video essays — reading-sourced (from a signed File's
-// "Produce video essay" action) and the daily GDELT news-clip radar,
-// both surfaced from the separate video Worker's public API. See
-// render/videos.ts.
-app.get("/videos", async (c) => htmlResponse(await renderVideosPage(c.env)));
+// RETIRED ROOMS — redirected, not deleted.
+//
+// A sweep of every route on 2026-09-23 found these still resolving as full
+// pages, none linked from anywhere, each describing a part of the product
+// that no longer exists: /watchlist explained a retired auto-checker over an
+// empty list, /videos said the video Worker was not configured. A reachable
+// page that describes the wrong product is worse than no page. Each goes to
+// the live surface that does its job now. The renderers stay in the tree,
+// unwired — the same treatment as the retired crawler.
+app.get("/watchlist", (c) => c.redirect("/library", 301));
+app.get("/videos", (c) => c.redirect("/", 301));
 app.get("/activity", async (c) => htmlResponse(await renderActivityPage(c.env)));
 
 // ---- Instruments ----------------------------------------------------------
@@ -384,10 +380,10 @@ app.get("/topics/:slug", async (c) => {
 });
 
 // ---- Investigations -------------------------------------------------------
-
-app.get("/investigations", async (c) =>
-  htmlResponse(await renderInvestigationsIndex(c.env, c.req.query("intent"))),
-);
+// The index described "signed analyses", "intent badges" and "the fabric era"
+// over a list that was just every published piece again. The documents live
+// at /research; this is where the room was pointing anyway.
+app.get("/investigations", (c) => c.redirect("/research", 301));
 
 app.get("/investigations/:slug", async (c) => {
   const html = await renderPiece(c.env, c.req.param("slug"));
@@ -819,7 +815,7 @@ app.get("/record/:slug", async (c) => {
 //
 // Part 18: "Patterns" dissolves as a destination — pattern pieces surface
 // inside Investigations (intent badges).
-app.get("/patterns", (c) => c.redirect("/investigations", 301));
+app.get("/patterns", (c) => c.redirect("/research", 301));
 
 // ---- Library --------------------------------------------------------------
 
@@ -887,13 +883,11 @@ app.get("/method", () => htmlResponse(renderMethodology()));
 
 app.get("/methodology", (c) => c.redirect("/method", 301));
 
-// How this works — the operator orientation page: what runs on its own
-// between visits, what each operator action does. Public (nothing
-// sensitive), written for the operator.
-app.get("/how-it-works", async (c) => {
-  const { renderHowItWorks } = await import("./render/how-it-works");
-  return htmlResponse(await renderHowItWorks(c.env));
-});
+// /how-it-works rendered six stat tiles reading "undefined" above an
+// explainer of the arrangement/signed-layer/faces/studio architecture, none
+// of which is the product. /method is the page that explains how the record
+// is kept, and it is the one the footer and the trust line already point at.
+app.get("/how-it-works", (c) => c.redirect("/method", 301));
 
 // /sources was a placeholder stub that never got built — /library already
 // does everything it was meant to (a real index, per-document extraction

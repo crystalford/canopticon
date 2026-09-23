@@ -158,8 +158,7 @@ export async function renderActivityPage(env: PublicEnv): Promise<string> {
   <div class="kicker"><span class="live"></span> Activity</div>
   <h1 class="act-h1">Everything published, in order.</h1>
   <p class="act-lede">
-    Signed analyses, editorial pieces, and legacy briefs — the three places content
-    actually goes live on this site — in one chronological list. Every quote on this
+    Every research document and essay published here, newest first. Every quote on this
     site is checked word-for-word against a stored source.
   </p>
 </section>
@@ -179,10 +178,10 @@ export async function renderActivityPage(env: PublicEnv): Promise<string> {
     description: "Everything published on canopticon.com, in chronological order.",
     body: `${body}
 <style>
-  .act-masthead { max-width: 720px; margin: 40px auto 0; padding: 0 24px; }
+  .act-masthead { max-width: 760px; margin: 40px 0 0; padding: 0; }
   .act-h1 { font-family: var(--serif); font-size: 32px; line-height: 1.15; margin: 12px 0 14px; color: var(--ink); text-wrap: balance; }
   .act-lede { font-family: var(--serif); font-size: 16px; line-height: 1.6; color: var(--ink-2); }
-  .act-list-section { max-width: 720px; margin: 40px auto 0; padding: 0 24px 80px; }
+  .act-list-section { max-width: 760px; margin: 40px 0 0; padding: 0 0 80px; }
   .act-list { display: flex; flex-direction: column; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
   .act-row { background: var(--surface); padding: 14px 18px; }
   .act-row.act-auto { background: var(--corr-bg, rgba(196,106,83,.06)); }

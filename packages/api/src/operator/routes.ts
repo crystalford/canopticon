@@ -36,7 +36,6 @@ import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
 import { opHtml } from "./layout";
-import { renderDesignMock } from "./screens/design-mock";
 import { renderOutputsScreen } from "./screens/outputs";
 import { renderProjectWorkspace, renderStudioScreen } from "./screens/studio";
 
@@ -57,7 +56,7 @@ const OP_GET_REDIRECTS: Array<[string, string]> = [
   ["/out", "/"],
   ["/synthesis", "/"],
   ["/studio", "/"],
-  ["/outputs", "/investigations"],
+  ["/outputs", "/research"],
   ["/library", "/library"],
 ];
 for (const [from, to] of OP_GET_REDIRECTS) {
@@ -1389,10 +1388,6 @@ app.post("/synthesis/thread/:id/:action", async (c) => {
   );
   return c.redirect("/op/synthesis");
 });
-
-// DESIGN PROTOTYPE — unlinked, throwaway. The artifact for the app reframe;
-// see screens/design-mock.ts. Remove when the real redesign lands.
-app.get("/design", (c) => c.html(renderDesignMock()));
 
 // Review screen for an on-demand research draft (graph/lib/deep-research.ts's
 // researchOnDemand) — lands as publication_status='working-material', which
