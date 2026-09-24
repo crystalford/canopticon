@@ -17,6 +17,9 @@ export interface PublicEnv {
    *  segments API cross-Worker. Optional; the page shows an honest
    *  empty state without it. */
   VIDEO_BASE?: string;
+  /** Which model reads for the record — see llm/router.ts modelInUse(). */
+  AI_GATEWAY_ID?: string;
+  CLAUDE_MODEL?: string;
 }
 
 // The public site is single-operator. Resolve "the operator" as the

@@ -319,6 +319,13 @@ const PRICE_TABLE: Record<string, { input_per_1k: number; output_per_1k: number 
   "claude-opus-4-7": FALLBACK_RATES,
   "claude-haiku-4-5-20251001": { input_per_1k: 0.1, output_per_1k: 0.5 },
   "claude-sonnet-4-6": { input_per_1k: 0.3, output_per_1k: 1.5 },
+  // Bare names of the `anthropic/…` models an AI Gateway with Unified
+  // Billing lists (llm/claude-gateway.ts strips the prefix and turns "." into
+  // "-" before looking here). Anthropic list price; what Cloudflare debits
+  // from credits is not visible to the Worker.
+  "claude-opus-4-1": FALLBACK_RATES,
+  "claude-sonnet-4-5": { input_per_1k: 0.3, output_per_1k: 1.5 },
+  "claude-haiku-4-5": { input_per_1k: 0.1, output_per_1k: 0.5 },
 };
 
 export function estimateCostCents(

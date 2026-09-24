@@ -33,10 +33,21 @@
 // /library/research/:id/review) until explicitly published from there.
 // Extraction into the typed graph is deferred to that same publish step
 // too — an unreviewed draft doesn't get to seed graph facts either.
+//
+// WHAT A RUN BANKS. expandRecord writes each fetched page as a `sources` row
+// and nothing else (record-builder.ts), and a run records those SOURCE ids in
+// research_runs.pass1_source_ids / pass2_source_ids (migration 0059). The
+// writer reads them back from `sources`. The older pass1_piece_ids /
+// pass2_piece_ids columns are still read — a run started before that deploy
+// holds piece ids, and loadBankedSources() below falls back to `pieces` for
+// those so an in-flight run finishes. If those pieces have since been purged
+// (/v1/admin/purge-web-fetched), the run fails with a stated reason — "start
+// a new run" — rather than a crash. New runs never set the piece-id columns.
 
 import type { Env } from "../../env";
 import { all, insertOne, one, run, updateById } from "../../lib/d1";
 import { callResearchWriter } from "../../llm/router";
+import { readFullExtractedText } from "./extract";
 
 const EXCERPT_CHARS_PER_SOURCE = 5000; // was 3000 — more raw material now that the writer is gpt-oss-120b, not Scout
 const REPORT_MAX_TOKENS = 4000; // matches hard_extraction's proven-safe budget for this exact model+effort
@@ -77,7 +88,74 @@ interface SynthesizeResult {
   reason?: string;
 }
 
-/** The LLM half only — no DB writes beyond reading the source pieces.
+/** What a run banked, by which column it was recorded in. `sourceIds` are
+ *  `sources.id` (every run since migration 0059); `pieceIds` are the legacy
+ *  `pieces.id` a run started before that deploy holds. Either may be empty;
+ *  a run that straddled the deploy has both. */
+export interface BankedIds {
+  sourceIds: string[];
+  pieceIds: string[];
+}
+
+interface BankedText {
+  title: string;
+  text: string;
+}
+
+/** Everything the writer may read for one synthesis, capped, in the order it
+ *  was banked. Sources first: that is the live path. The `pieces` read is
+ *  the compatibility path for a run that banked before 0059, and it is what
+ *  the purge endpoint can pull out from under a run — so "no longer found"
+ *  is a stated reason there, not an exception. */
+async function loadBankedSources(
+  env: Env,
+  userId: string,
+  banked: BankedIds,
+): Promise<{ excerpts: BankedText[]; reason?: string }> {
+  const cappedSourceIds = banked.sourceIds.slice(0, MAX_TOTAL_SOURCES_FOR_SYNTHESIS);
+  const excerpts: BankedText[] = [];
+  for (const id of cappedSourceIds) {
+    // readFullExtractedText honours the 8KB-inline / R2-overflow rule
+    // extract.ts writes uploads with; a fetched page is inline in full, so
+    // it comes back whole either way. Returns empty on a missing row.
+    const { text, title } = await readFullExtractedText(env, id, userId).catch(() => ({
+      text: "",
+      title: "",
+    }));
+    if (text) excerpts.push({ title: title || "Untitled source", text });
+  }
+
+  // Legacy piece ids fill whatever room the cap leaves after the sources.
+  const pieceIds = banked.pieceIds.slice(0, MAX_TOTAL_SOURCES_FOR_SYNTHESIS);
+  const cappedPieceIds = pieceIds.slice(
+    0,
+    Math.max(0, MAX_TOTAL_SOURCES_FOR_SYNTHESIS - excerpts.length),
+  );
+  if (cappedPieceIds.length > 0) {
+    const placeholders = cappedPieceIds.map(() => "?").join(",");
+    const pieces = await all<{ title: string; body_md: string | null }>(
+      env.DB,
+      `SELECT title, body_md FROM pieces WHERE id IN (${placeholders}) AND user_id = ?`,
+      [...cappedPieceIds, userId],
+    ).catch(() => []);
+    for (const p of pieces) excerpts.push({ title: p.title, text: p.body_md ?? "" });
+  }
+
+  if (excerpts.length === 0) {
+    const wanted = cappedSourceIds.length + cappedPieceIds.length;
+    if (wanted === 0) return { excerpts, reason: "no banked sources to synthesize from" };
+    return {
+      excerpts,
+      reason:
+        cappedSourceIds.length > 0
+          ? "banked sources no longer found — start a new run"
+          : "banked pieces no longer found (purged) — sources unavailable, start a new run",
+    };
+  }
+  return { excerpts };
+}
+
+/** The LLM half only — no DB writes beyond reading the banked sources.
  *  Separated from persistBrief() because pass 1 needs to know the
  *  follow-up queries BEFORE deciding whether this synthesis is the final
  *  draft or just scratch work for planning pass 2. */
@@ -85,22 +163,15 @@ async function synthesizeBrief(
   env: Env,
   userId: string,
   label: string,
-  pieceIds: string[],
+  banked: BankedIds,
   opts: { angleHint?: string | undefined; wantFollowups: boolean; writer?: string | null },
 ): Promise<SynthesizeResult> {
-  if (pieceIds.length === 0) return { ok: false, reason: "no banked sources to synthesize from" };
-  const cappedIds = pieceIds.slice(0, MAX_TOTAL_SOURCES_FOR_SYNTHESIS);
-
-  const placeholders = cappedIds.map(() => "?").join(",");
-  const pieces = await all<{ title: string; body_md: string | null }>(
-    env.DB,
-    `SELECT title, body_md FROM pieces WHERE id IN (${placeholders}) AND user_id = ?`,
-    [...cappedIds, userId],
-  ).catch(() => []);
-  if (pieces.length === 0) return { ok: false, reason: "banked pieces no longer found" };
+  const loaded = await loadBankedSources(env, userId, banked);
+  if (loaded.reason) return { ok: false, reason: loaded.reason };
+  const pieces = loaded.excerpts;
 
   const excerpts = pieces
-    .map((p) => `### ${p.title}\n${(p.body_md ?? "").slice(0, EXCERPT_CHARS_PER_SOURCE)}`)
+    .map((p) => `### ${p.title}\n${p.text.slice(0, EXCERPT_CHARS_PER_SOURCE)}`)
     .join("\n\n");
 
   const angleLine = opts.angleHint
@@ -183,7 +254,7 @@ async function persistBrief(
   label: string,
   title: string,
   bodyMd: string,
-  sourcePieceIds: string[],
+  banked: BankedIds,
   opts: { publish: boolean; angleHint?: string | undefined },
 ): Promise<PersistResult> {
   const sourceId = await insertOne(env.DB, "sources", {
@@ -211,7 +282,10 @@ async function persistBrief(
       ingested_from: "deep-research",
       label,
       angle: opts.angleHint ?? null,
-      source_piece_ids: sourcePieceIds,
+      // What the brief was written from: sources.id rows (every run since
+      // 0059) and, for a run that banked before that deploy, pieces.id rows.
+      source_ids: banked.sourceIds,
+      source_piece_ids: banked.pieceIds,
       source_id: sourceId,
     }),
   });
@@ -225,25 +299,17 @@ async function writeResearchBrief(
   env: Env,
   userId: string,
   label: string,
-  pieceIds: string[],
+  banked: BankedIds,
   opts: { publish: boolean; angleHint?: string | undefined },
 ): Promise<WriteBriefResult> {
-  const synth = await synthesizeBrief(env, userId, label, pieceIds, {
+  const synth = await synthesizeBrief(env, userId, label, banked, {
     angleHint: opts.angleHint,
     wantFollowups: false,
   });
   if (!synth.ok || !synth.bodyMd || !synth.title) {
     return { ok: false, reason: synth.reason };
   }
-  const persisted = await persistBrief(
-    env,
-    userId,
-    label,
-    synth.title,
-    synth.bodyMd,
-    pieceIds,
-    opts,
-  );
+  const persisted = await persistBrief(env, userId, label, synth.title, synth.bodyMd, banked, opts);
   return { ok: true, ...persisted };
 }
 
@@ -289,7 +355,16 @@ export async function synthesizeDueBeatReport(env: Env, userId: string): Promise
     return { synthesized: false, beatLabel: beat.label, reason: "last expand banked nothing" };
   }
 
-  const result = await writeResearchBrief(env, userId, beat.label, pieceIds, { publish: true });
+  // coverage_beats.last_banked_piece_ids predates 0059 and holds piece ids;
+  // nothing writes it any more (autonomous-expand.ts is retired), so this
+  // only ever reads the legacy path.
+  const result = await writeResearchBrief(
+    env,
+    userId,
+    beat.label,
+    { sourceIds: [], pieceIds },
+    { publish: true },
+  );
   await run(env.DB, "UPDATE coverage_beats SET last_synthesized_at = ? WHERE id = ?", [
     now,
     beat.id,
@@ -348,7 +423,7 @@ export async function researchOnDemand(
 
   const { expandRecord } = await import("./record-builder");
   const expandReport = await withExpandBudget(expandRecord(env, userId, label), label);
-  if (expandReport.banked_piece_ids.length === 0) {
+  if (expandReport.banked_source_ids.length === 0) {
     const reason = describeEmptyExpand(expandReport);
     await updateById(env.DB, "research_runs", runId, { status: "failed", error: reason });
     await emitDraftFailed(env, userId, label, angleHint, reason);
@@ -362,12 +437,13 @@ export async function researchOnDemand(
   // writing from them is its own step, dispatched by advanceResearchRun.
   await updateById(env.DB, "research_runs", runId, {
     status: "synth_pending",
-    pass1_piece_ids: JSON.stringify(expandReport.banked_piece_ids),
+    // Source ids, never piece ids: a fetched page has no piece (0059).
+    pass1_source_ids: JSON.stringify(expandReport.banked_source_ids),
   });
   return {
     ok: false,
-    reason: `${expandReport.banked_piece_ids.length} source${
-      expandReport.banked_piece_ids.length === 1 ? "" : "s"
+    reason: `${expandReport.banked_source_ids.length} source${
+      expandReport.banked_source_ids.length === 1 ? "" : "s"
     } banked — writing the brief is the next step`,
   };
 }
@@ -396,6 +472,8 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     label: string;
     angle: string | null;
     status: string;
+    pass1_source_ids: string | null;
+    pass2_source_ids: string | null;
     pass1_piece_ids: string | null;
     pass2_piece_ids: string | null;
     followup_queries: string | null;
@@ -403,7 +481,8 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     writer: string | null;
   }>(
     env.DB,
-    `SELECT id, label, angle, status, pass1_piece_ids, pass2_piece_ids,
+    `SELECT id, label, angle, status, pass1_source_ids, pass2_source_ids,
+            pass1_piece_ids, pass2_piece_ids,
             followup_queries, followups_done, writer
        FROM research_runs
       WHERE user_id = ?
@@ -414,12 +493,18 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
   if (!runRow) return { advanced: false, reason: "no run due" };
 
   const angleHint = runRow.angle ?? undefined;
-  const pass1Ids = parseJsonArray(runRow.pass1_piece_ids);
-  const pass2Ids = parseJsonArray(runRow.pass2_piece_ids);
+  // Source ids are the live path. The piece-id columns are only ever set on
+  // a run that banked before migration 0059; they are carried so that run
+  // can still finish, and a new run leaves them empty.
+  const pass1Ids = parseJsonArray(runRow.pass1_source_ids);
+  const pass2Ids = parseJsonArray(runRow.pass2_source_ids);
+  const pass1PieceIds = parseJsonArray(runRow.pass1_piece_ids);
+  const pass2PieceIds = parseJsonArray(runRow.pass2_piece_ids);
+  const pass1Banked: BankedIds = { sourceIds: pass1Ids, pieceIds: pass1PieceIds };
 
   // ---- step: the first synthesis --------------------------------------
   if (runRow.status === "synth_pending") {
-    const synth = await synthesizeBrief(env, userId, runRow.label, pass1Ids, {
+    const synth = await synthesizeBrief(env, userId, runRow.label, pass1Banked, {
       angleHint,
       wantFollowups: true,
       writer: runRow.writer,
@@ -442,7 +527,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
         runRow.label,
         synth.title,
         synth.bodyMd,
-        pass1Ids,
+        pass1Banked,
         { publish: false, angleHint },
       );
       await updateById(env.DB, "research_runs", runRow.id, {
@@ -492,7 +577,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
 
     const { expandRecord } = await import("./record-builder");
     const report = await withExpandBudget(expandRecord(env, userId, next), next);
-    const banked = [...new Set([...pass2Ids, ...report.banked_piece_ids])];
+    const banked = [...new Set([...pass2Ids, ...report.banked_source_ids])];
     const nowDone = [...done, next];
 
     await updateById(env.DB, "research_runs", runRow.id, {
@@ -500,14 +585,20 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
       // no usable sources, and the remaining ones may still.
       status: nowDone.length < plan.length ? "pass2_pending" : "pass2_synth_pending",
       followups_done: JSON.stringify(nowDone),
-      pass2_piece_ids: JSON.stringify(banked),
+      // A legacy run's pass2_piece_ids is left as it was; new banks are
+      // sources and go in the source column, and the final read merges both.
+      pass2_source_ids: JSON.stringify(banked),
     });
     return { advanced: true, label: runRow.label };
   }
 
   // ---- step: the final synthesis ---------------------------------------
   const combinedIds = [...new Set([...pass1Ids, ...pass2Ids])];
-  const synth = await synthesizeBrief(env, userId, runRow.label, combinedIds, {
+  const combined: BankedIds = {
+    sourceIds: combinedIds,
+    pieceIds: [...new Set([...pass1PieceIds, ...pass2PieceIds])],
+  };
+  const synth = await synthesizeBrief(env, userId, runRow.label, combined, {
     angleHint,
     wantFollowups: false,
     writer: runRow.writer,
@@ -527,7 +618,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     runRow.label,
     synth.title,
     synth.bodyMd,
-    combinedIds,
+    combined,
     { publish: false, angleHint },
   );
   await updateById(env.DB, "research_runs", runRow.id, {
@@ -656,7 +747,10 @@ export interface ResearchSource {
   /** Host only, for a compact line the eye can scan. */
   domain: string;
   chars?: number;
-  state: "banked" | "fetching" | "duplicate";
+  /** "rejected" is a page refused at fetch time (bot challenge, too short);
+   *  it was never written anywhere, and `reason` says why. */
+  state: "banked" | "fetching" | "duplicate" | "rejected";
+  reason?: string;
 }
 
 export interface ResearchStatus {
@@ -673,9 +767,14 @@ export interface ResearchStatus {
    * shape; a reader watching "5 banked" is watching a progress bar.
    */
   plan?: ResearchQuery[];
-  /** Every source read, newest first. Logged all along, never surfaced. */
+  /** Every source read, newest first — including the ones rejected. */
   sources?: ResearchSource[];
-  /** Verbatim facts extracted so far. */
+  /**
+   * No longer produced. Fetched pages are sources, not documents, and are
+   * not digested into the graph, so a run adds no verbatim facts. Left on
+   * the shape (always absent) so the renderers compile; they should drop
+   * the metric.
+   */
   facts?: number;
   /** ISO timestamp the run started, so the screen can show elapsed time. */
   startedAt?: string;
@@ -755,7 +854,12 @@ export async function getResearchStatus(
   const sources: ResearchSource[] = [];
   const seenUrls = new Set<string>();
   for (const e of [...events].reverse()) {
-    const p = safeParseJson(e.payload) as { url?: string; title?: string; chars?: number } | null;
+    const p = safeParseJson(e.payload) as {
+      url?: string;
+      title?: string;
+      chars?: number;
+      reason?: string;
+    } | null;
     const url = typeof p?.url === "string" ? p.url : "";
     if (!url || seenUrls.has(url)) continue;
     const state =
@@ -763,9 +867,11 @@ export async function getResearchStatus(
         ? "banked"
         : e.event_type === "record.expand.source_duplicate"
           ? "duplicate"
-          : e.event_type === "record.expand.source_fetching"
-            ? "fetching"
-            : null;
+          : e.event_type === "record.expand.source_rejected"
+            ? "rejected"
+            : e.event_type === "record.expand.source_fetching"
+              ? "fetching"
+              : null;
     if (!state) continue;
     seenUrls.add(url);
     sources.push({
@@ -774,6 +880,7 @@ export async function getResearchStatus(
       domain: hostOf(url),
       ...(typeof p?.chars === "number" ? { chars: p.chars } : {}),
       state,
+      ...(state === "rejected" && typeof p?.reason === "string" ? { reason: p.reason } : {}),
     });
   }
 
@@ -797,6 +904,9 @@ export async function getResearchStatus(
   ];
   const has = (t: string) => events.some((e) => e.event_type === t);
   const bankedCount = events.filter((e) => e.event_type === "record.expand.source_banked").length;
+  const rejectedCount = events.filter(
+    (e) => e.event_type === "record.expand.source_rejected",
+  ).length;
   const fetchingCount = events.filter(
     (e) => e.event_type === "record.expand.source_fetching",
   ).length;
@@ -820,24 +930,22 @@ export async function getResearchStatus(
           ? "active"
           : "pending",
     detail: has("record.expand.search_done")
-      ? `${bankedCount} banked${fetchingCount > bankedCount ? `, fetching ${fetchingCount}` : ""}`
+      ? `${bankedCount} banked${rejectedCount > 0 ? `, ${rejectedCount} rejected` : ""}${
+          fetchingCount > bankedCount + rejectedCount ? `, fetching ${fetchingCount}` : ""
+        }`
       : undefined,
   });
-  const extractDone = expand.terminal && !expand.line.startsWith("Banked");
-  steps.push({
-    label: "Extract verbatim facts",
-    state: has("record.expand.completed") ? (extractDone ? "done" : "active") : "pending",
-    detail: extractDone
-      ? `${expand.factsAdded} fact${expand.factsAdded === 1 ? "" : "s"}`
-      : undefined,
-  });
+  // There is no extraction step any more: a banked page is a source for the
+  // writer, not a document, and nothing is digested from it (record-builder.ts
+  // header). "completed" from the expand is the end of the banking phase.
+  const bankingDone = expand.terminal;
 
   // The phase getExpandStatus has zero visibility into — only relevant
   // once expand itself has actually finished, and only for callers that
   // actually run a synthesis step afterward (plain "Expand this file" —
   // record-builder.ts's expandRecord with no researchOnDemand wrapper —
   // never will; no research_runs row for its label would ever exist).
-  if (extractDone && includeSynthesis) {
+  if (bankingDone && includeSynthesis) {
     const runRow = run;
 
     // Every waiting state below is terminal for the POLLER — it will not
@@ -851,7 +959,6 @@ export async function getResearchStatus(
     const material = {
       plan,
       sources,
-      facts: expand.factsAdded,
       ...(run ? { startedAt: run.created_at, writer: run.writer } : {}),
     };
     const advance = (label_: string) => ({
@@ -962,7 +1069,6 @@ export async function getResearchStatus(
     steps,
     plan,
     sources,
-    facts: expand.factsAdded,
     ...(run ? { startedAt: run.created_at } : {}),
   };
 }
@@ -989,8 +1095,10 @@ async function withExpandBudget(
           sources_fetched: 0,
           sources_banked: 0,
           sources_duplicate: 0,
+          sources_rejected: 0,
           errors: [`expand timed out after ${EXPAND_BUDGET_MS}ms`],
-          banked_piece_ids: [],
+          rejected: [],
+          banked_source_ids: [],
         }),
       EXPAND_BUDGET_MS,
     );

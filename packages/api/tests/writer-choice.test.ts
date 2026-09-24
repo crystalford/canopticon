@@ -59,11 +59,14 @@ describe("resolving which model writes", () => {
 const asked: Array<string | null | undefined> = [];
 vi.mock("../src/graph/lib/record-builder", () => ({
   expandRecord: async () => ({
-    banked_piece_ids: ["s1"],
-    searched: 1,
-    fetched: 1,
-    skipped: 0,
-    facts_added: 1,
+    banked_source_ids: ["s1"],
+    rejected: [],
+    sources_rejected: 0,
+    sources_found: 1,
+    sources_fetched: 1,
+    sources_banked: 1,
+    sources_duplicate: 0,
+    errors: [],
   }),
   getExpandStatus: async () => null,
 }));
@@ -106,6 +109,8 @@ describe("the choice rides the whole run", () => {
           },
           async first() {
             if (/FROM research_runs/i.test(sql)) return [...runs.values()][0] ?? null;
+            if (/FROM sources/i.test(sql))
+              return { title: "S", content_text: "Body.", metadata: "{}" };
             if (/FROM pieces/i.test(sql)) return { title: "S", body_md: "Body." };
             return null;
           },

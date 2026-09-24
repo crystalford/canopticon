@@ -109,8 +109,8 @@ const RESEARCH_RUN = {
   label: RESEARCH_LABEL,
   angle: null,
   status: "pass2_pending",
-  pass1_piece_ids: JSON.stringify(["s1", "s2", "s3", "s4", "s5"]),
-  pass2_piece_ids: JSON.stringify(["s6"]),
+  pass1_source_ids: JSON.stringify(["s1", "s2", "s3", "s4", "s5"]),
+  pass2_source_ids: JSON.stringify(["s6"]),
   followup_queries: JSON.stringify(RESEARCH_PLAN),
   followups_done: JSON.stringify([RESEARCH_PLAN[0]]),
   writer: "anthropic",
@@ -177,13 +177,25 @@ const RESEARCH_EVENTS = [
     payload: JSON.stringify({ subject, url, title, chars }),
     created_at: new Date(Date.now() - (60 - i) * 1000).toISOString(),
   })),
-  // banked_piece_ids is what getExpandStatus counts extraction against — the
-  // facts number is derived from these ids, not from anything in this payload.
+  // A page the fetcher refused: the crawler writes sources only, and a
+  // bot-challenge page is not a source. Shown so the workspace's rejected
+  // state is in a screenshot.
+  {
+    event_type: "record.expand.source_rejected",
+    payload: JSON.stringify({
+      subject: RESEARCH_LABEL,
+      url: "https://example.com/blocked",
+      title: "Just a moment...",
+      reason: "bot challenge",
+    }),
+    created_at: new Date(Date.now() - 30 * 1000).toISOString(),
+  },
   {
     event_type: "record.expand.completed",
     payload: JSON.stringify({
       subject: RESEARCH_LABEL,
-      banked_piece_ids: ["s1", "s2", "s3", "s4", "s5"],
+      banked_source_ids: ["s1", "s2", "s3", "s4", "s5"],
+      rejected: 1,
     }),
     created_at: new Date().toISOString(),
   },

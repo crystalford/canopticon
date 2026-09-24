@@ -1,0 +1,21 @@
+-- Research runs bank SOURCES, not pieces.
+--
+-- record-builder.ts's fetchAndBank used to save every fetched third-party
+-- page twice: as a `sources` row AND as a `pieces` row (kind research-report,
+-- working-material, tagged web-fetched, ingested_from record-expand). The
+-- writer then read the banked material back FROM PIECES, and the run recorded
+-- piece ids in pass1_piece_ids / pass2_piece_ids. That is why /library filled
+-- with brainly.com pages and Cloudflare "Just a moment..." bot-challenge
+-- pages: the crawler's scratch material was indistinguishable from the
+-- operator's own documents in the one table the library lists.
+--
+-- Fetched pages now go into `sources` only (docs/the-record.md §6, "Research
+-- runs": "Sources are never pieces"), and a run records the SOURCE ids it
+-- banked in the two columns below.
+--
+-- The old piece-id columns are kept, not dropped: a run started before this
+-- deploy still holds piece ids, and deep-research.ts reads from `pieces` for
+-- those rows so an in-flight run finishes rather than failing mid-way. New
+-- runs leave them NULL. Legacy tables and columns are never dropped (CLAUDE.md).
+ALTER TABLE research_runs ADD COLUMN pass1_source_ids TEXT;  -- JSON array of sources.id
+ALTER TABLE research_runs ADD COLUMN pass2_source_ids TEXT;  -- JSON array of sources.id

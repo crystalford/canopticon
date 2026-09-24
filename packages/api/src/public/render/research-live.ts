@@ -49,7 +49,8 @@ export const RESEARCH_LIVE_JS = `<script>
     return list.map(function (x) {
       var meta = esc(x.domain) +
         (x.chars ? " \\u00b7 " + Math.round(x.chars / 1000) + "k" : "") +
-        (x.state === "duplicate" ? " \\u00b7 already held" : "");
+        (x.state === "duplicate" ? " \\u00b7 already held" : "") +
+        (x.state === "rejected" ? " \\u00b7 rejected \\u2014 " + esc(x.reason || "unusable") : "");
       return '<li class="rw-src rw-src-' + esc(x.state) + '">' +
         '<a href="' + esc(x.url) + '" rel="nofollow noopener" target="_blank">' +
         esc(x.title) + "</a>" +
@@ -59,9 +60,10 @@ export const RESEARCH_LIVE_JS = `<script>
 
   function metrics(s) {
     var kept = (s.sources || []).filter(function (x) { return x.state === "banked"; }).length;
+    var rejected = (s.sources || []).filter(function (x) { return x.state === "rejected"; }).length;
     var w = s.writer === "anthropic" ? "Claude" : s.writer === "workers_ai" ? "Workers AI" : "default";
     return '<div class="rw-metric"><dt>Sources kept</dt><dd>' + kept + "</dd></div>" +
-      '<div class="rw-metric"><dt>Verbatim facts</dt><dd>' + (s.facts || 0) + "</dd></div>" +
+      '<div class="rw-metric"><dt>Rejected</dt><dd>' + rejected + "</dd></div>" +
       '<div class="rw-metric rw-metric-writer"><dt>Writer</dt><dd>' + esc(w) + "</dd></div>";
   }
 

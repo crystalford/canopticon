@@ -163,7 +163,12 @@ the product that no longer exists — and `/how-it-works` printing six stat
 tiles that read `undefined`. Now: `/how-it-works` → `/method`,
 `/investigations` and `/patterns` → `/research`, `/watchlist` → `/library`,
 `/videos` → `/`, and the `/op/design` prototype is unmounted. Their renderers
-stay in the tree, unwired, like the retired crawler. `/method` was rewritten
+stay in the tree, unwired. On 2026-09-24 the rest of the graph era followed —
+subject pages, the thirteen arrangement prefixes, records, briefs, topics,
+activity, instruments, studio-produce, and every operator screen for signed
+readings, proposals, faces, synthesis and outputs — each 301ing to the live
+surface that does its job (`docs/the-record.md` §9 is the list and the plan
+this is part of). `/method` was rewritten
 to describe what is actually in the record; it had described a second-judge
 model and "signed analyses" that were never built.
 
@@ -300,7 +305,14 @@ workflow; the sandbox cannot.
 |---|---|---|---|
 | `feed-upload` | 50 | the operator's own uploaded documents | yes — all published |
 | `deep-research` | 6 | the dormant research pipeline's own output — all `working-material` | **no** — unpublished 2026-09-16 |
-| `record-expand` | 0 | third-party pages a retired crawler banked | **never** — purged |
+| `record-expand` | 0 | third-party pages the crawler banked before 2026-09-24 | **never** — purged |
+
+**Since 2026-09-24 the crawler writes `sources` only** (`graph/lib/record-builder.ts`),
+rejects bot-challenge and sub-400-character pages at fetch time, and research
+runs bank source ids (`research_runs.pass1_source_ids`, migration 0059). It
+had not been retired: "Dig here" and the research workspace still reached it,
+and every page it fetched became a `pieces` row in `/library`. Any row it left
+behind matches `WEB_FETCHED_SQL` and is purged the same way as before.
 
 The `record-expand` group was source material to quote from, never content.
 Publishing it would have put Wikipedia articles and copyrighted news text on

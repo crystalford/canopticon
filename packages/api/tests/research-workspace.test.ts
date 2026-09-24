@@ -114,12 +114,18 @@ describe("the numbers", () => {
           { title: "a", url: "u1", domain: "d", state: "banked" },
           { title: "b", url: "u2", domain: "d", state: "duplicate" },
           { title: "c", url: "u3", domain: "d", state: "fetching" },
+          {
+            title: "Just a moment...",
+            url: "u4",
+            domain: "d",
+            state: "rejected",
+            reason: "bot challenge",
+          },
         ],
-        facts: 273,
       }),
     );
     expect(html).toMatch(/Sources kept<\/dt><dd>1</);
-    expect(html).toMatch(/Verbatim facts<\/dt><dd>273</);
+    expect(html).toMatch(/Rejected<\/dt><dd>1</);
   });
 
   it("shows zero rather than nothing when a run has just started", () => {
@@ -137,15 +143,23 @@ describe("the page works without the poller", () => {
         plan: [{ query: "A question", state: "done", opening: true }],
         sources: [
           { title: "A source", url: "https://x.test/a", domain: "x.test", state: "banked" },
+          {
+            title: "Just a moment...",
+            url: "https://x.test/b",
+            domain: "x.test",
+            state: "rejected",
+            reason: "bot challenge",
+          },
         ],
-        facts: 12,
       }),
       pollUrl: "/op/research-status?q=A+question",
     });
     expect(html).toContain("A source");
     expect(html).toContain("x.test");
     expect(html).toContain("A question");
-    expect(html).toContain("12");
+    // A refused page is listed with its reason, so "why only one source?" is
+    // answered on the page rather than in a log.
+    expect(html).toContain("rejected — bot challenge");
   });
 
   it("renders the waiting run's press as a real form, not a script hook", () => {

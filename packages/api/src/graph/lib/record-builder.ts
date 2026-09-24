@@ -6,41 +6,83 @@
 //      independently — even a name + one citation lands).
 //   2. Searches the web for the subject name via Brave Search.
 //   3. Fetches each found page.
-//   4. Banks the fetched content as a source document (with content-hash
-//      dedup) and enqueues a digest job — the same typed-extraction
-//      pipeline used on uploaded research reports.
-//   5. Queues the digest job for the same every-minute cron drain that
-//      already processes uploads — NOT run inline. Chaining a full
-//      typed-extraction pass (real LLM calls) onto the search+fetch+bank
-//      loop for up to 6 sources, all in one execution context, silently
-//      exceeded the platform's execution ceiling in practice (confirmed
-//      live: digest_jobs rows stuck 'running' with no heartbeat, no
-//      completion). getExpandStatus() below polls the drain's real
-//      progress instead of assuming it happened synchronously.
+//   4. Banks the fetched content as a `sources` row (with content-hash
+//      dedup). SOURCES ONLY — never a `pieces` row, and no digest job.
+//
+// Why fetched pages are sources and not pieces (docs/the-record.md §6):
+// they used to be written to BOTH tables, so every third-party page the
+// crawler touched — brainly.com answers, Cloudflare "Just a moment..."
+// bot-challenge pages — showed up in /library beside the operator's own
+// documents, and "Extract all" would have pulled quotes from them into the
+// graph. A fetched page is raw material for the research writer to read
+// (deep-research.ts reads it back from `sources`); it is not a document in
+// the record, and it never gets a URL.
+//
+// Junk is refused at fetch time, before any write: bot-challenge and blocked
+// pages, and bodies under MIN_TEXT_CHARS (see rejectFetchedPage). Each
+// rejection is recorded in orchestrator_events with its reason so the
+// research workspace can list "rejected: <url> — bot challenge".
 //
 // The architecture is jurisdiction-aware but global. Not Canada-hardcoded.
 //
-// State is observable via the orchestrator_events table so the public
-// Record's expanding banner can surface progress.
+// State is observable via the orchestrator_events table so the research
+// workspace and the expanding banner can surface progress.
 //
 // Modes:
-//   - Live: BRAVE_SEARCH_API_KEY set → real searches, real fetches, real
-//     extraction.
+//   - Live: BRAVE_SEARCH_API_KEY set → real searches, real fetches.
 //   - Stub: key absent → emits an event saying the key isn't configured and
 //     no-ops. The affordance is visible; the action is wired; the secret
 //     is the missing piece.
 
 import { approvePaidOperation } from "../../cost/approve";
 import type { Env } from "../../env";
-import { all, insertOne, one, run } from "../../lib/d1";
+import { all, insertOne, one } from "../../lib/d1";
 import { TIMEOUTS, fetchWithTimeout } from "../../lib/timeout";
 import { BROWSER_RENDERING_PER_PAGE_CENTS, callBrowserRendering } from "../tools/web_research";
-import { enqueueDigest } from "./digest-jobs";
 
 const BRAVE_SEARCH_ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
 const MAX_SOURCES_PER_EXPAND = 6;
 const SEARCH_POOL_SIZE = 15; // requested from Brave, before the low-yield filter below
-const MIN_TEXT_CHARS = 400; // skip pages that didn't yield real article text
+export const MIN_TEXT_CHARS = 400; // reject pages that didn't yield real article text
+
+// ---------------------------------------------------------------------------
+// Junk detection — a pure function over what a fetch returned, applied BEFORE
+// any write. Observed live in the library: "Just a moment..." (Cloudflare's
+// bot challenge, which strips to a few hundred characters of "Enable
+// JavaScript and cookies to continue" and a challenge-platform script
+// reference) banked as a research report. Jina's reader proxy reports a
+// blocked origin inline as text rather than as an HTTP error, so its warning
+// line is a body match too.
+// ---------------------------------------------------------------------------
+
+const BLOCKED_TITLE_RE =
+  /^(just a moment|attention required|access denied|verifying you are human|checking your browser)/i;
+
+const BLOCKED_BODY_MARKERS = [
+  "challenge-platform",
+  "cf_chl",
+  "Enable JavaScript and cookies to continue",
+  "Warning: Target URL returned error 403",
+];
+
+/**
+ * Why a fetched page must not be banked, or null when it is usable.
+ *
+ * Order matters only for the reason reported: a bot-challenge page is usually
+ * also short, and "bot challenge" is the more useful thing to tell the
+ * operator than "too short".
+ */
+export function rejectFetchedPage(title: string, text: string): string | null {
+  if (BLOCKED_TITLE_RE.test(title.trim())) return "bot challenge";
+  const body = text.slice(0, 20_000);
+  for (const marker of BLOCKED_BODY_MARKERS) {
+    if (body.includes(marker)) {
+      return marker.startsWith("Warning:") ? "blocked (403 via reader)" : "bot challenge";
+    }
+  }
+  if (text.length < MIN_TEXT_CHARS) return `too short (${text.length} chars)`;
+  return null;
+}
 
 // Social/video platforms whose pages are either walled off from a plain
 // HTTP fetch (login/JS-rendered) or return no real article text even when
@@ -71,6 +113,11 @@ function isLowYieldDomain(url: string): boolean {
   }
 }
 
+export interface RejectedSource {
+  url: string;
+  reason: string;
+}
+
 export interface ExpandReport {
   subject: string;
   configured: boolean;
@@ -78,26 +125,23 @@ export interface ExpandReport {
   sources_fetched: number;
   sources_banked: number;
   sources_duplicate: number;
+  sources_rejected: number;
   errors: string[];
-  banked_piece_ids: string[];
+  /** Pages refused at fetch time, each with why. Never written anywhere. */
+  rejected: RejectedSource[];
+  /** `sources.id` of every page banked by THIS expand (duplicates excluded). */
+  banked_source_ids: string[];
 }
 
 /** The single entry point. Called from the /op/records/:slug/expand handler
- *  via c.executionCtx.waitUntil so the page render returns instantly and the
- *  expansion completes in the background.
+ *  via c.executionCtx.waitUntil so the page render returns instantly, and
+ *  from deep-research.ts as the banking step of a research run.
  *
- *  Search + fetch + bank ONLY — deliberately does NOT run extraction inline
- *  anymore. It used to call runDigestJob() directly for each banked source,
- *  chaining up to 6 sources' full typed-extraction (real LLM calls, chunked)
- *  into the same execution context as the fetches. That's the exact class of
- *  bug already found and fixed this session in entity-resolution.ts,
- *  surfacing.ts, and draft-reading.ts: real work that silently never gets a
- *  chance to finish. Confirmed live here too — digest_jobs rows stuck at
- *  status='running' with no heartbeat progress and no completion event.
- *  Extraction now goes through the SAME queued path uploads already use
- *  (enqueueDigest → the every-minute cron drain, 4 jobs/tick, stale-heartbeat
- *  retry) — a mechanism already proven reliable by every "completed" row in
- *  digest_jobs. getExpandStatus() below reports on it live. */
+ *  Search + fetch + bank ONLY. It does not extract: fetched pages are
+ *  sources for a writer to read, not documents, so nothing is digested into
+ *  the graph and no `pieces` row is ever created here. (It used to enqueue
+ *  a digest job per page as well — that is how third-party text reached
+ *  the typed graph and the library. See the file header.) */
 export async function expandRecord(
   env: Env,
   userId: string,
@@ -110,8 +154,10 @@ export async function expandRecord(
     sources_fetched: 0,
     sources_banked: 0,
     sources_duplicate: 0,
+    sources_rejected: 0,
     errors: [],
-    banked_piece_ids: [],
+    rejected: [],
+    banked_source_ids: [],
   };
 
   await emit(env, userId, "record.expand.started", { subject: subjectLabel });
@@ -168,34 +214,32 @@ export async function expandRecord(
         title: r.title,
         url: r.url,
       });
-      const banked = await fetchAndBank(env, userId, r.url, r.title || subjectLabel);
-      if (!banked) {
-        return { url: r.url, kind: "empty" as const };
+      const outcome = await fetchAndBank(env, userId, r.url, r.title || subjectLabel);
+      if (outcome.kind === "rejected") {
+        // Recorded with its reason and NOT written anywhere — the workspace
+        // lists it as "rejected: <url> — <reason>" from this event.
+        await emit(env, userId, "record.expand.source_rejected", {
+          subject: subjectLabel,
+          url: r.url,
+          title: outcome.title || r.title || "",
+          reason: outcome.reason,
+        });
+        return { url: r.url, kind: "rejected" as const, reason: outcome.reason };
       }
-      if (banked.duplicate) {
+      if (outcome.duplicate) {
         await emit(env, userId, "record.expand.source_duplicate", {
           subject: subjectLabel,
           url: r.url,
         });
-        return { url: r.url, kind: "duplicate" as const };
+        return { url: r.url, kind: "duplicate" as const, sourceId: outcome.sourceId };
       }
       await emit(env, userId, "record.expand.source_banked", {
         subject: subjectLabel,
         url: r.url,
-        title: banked.title,
-        chars: banked.chars,
+        title: outcome.title,
+        chars: outcome.chars,
       });
-      // Enqueue only — same idempotent-on-retry job the drain cron already
-      // processes for uploads. Same firewall + verbatim checks apply either
-      // way; only WHEN it runs changed.
-      await enqueueDigest(env, {
-        userId,
-        pieceId: banked.pieceId,
-        slug: banked.slug,
-        title: banked.title,
-        sourceId: banked.sourceId,
-      });
-      return { url: r.url, kind: "banked" as const, pieceId: banked.pieceId };
+      return { url: r.url, kind: "banked" as const, sourceId: outcome.sourceId };
     }),
   );
 
@@ -212,28 +256,29 @@ export async function expandRecord(
       continue;
     }
     const { kind } = outcome.value;
-    if (kind === "empty") {
-      report.errors.push(`empty or too short: ${url}`);
+    if (kind === "rejected") {
+      report.sources_rejected++;
+      report.rejected.push({ url, reason: outcome.value.reason });
       continue;
     }
     report.sources_fetched++;
     if (kind === "banked") {
       report.sources_banked++;
-      report.banked_piece_ids.push(outcome.value.pieceId);
+      report.banked_source_ids.push(outcome.value.sourceId);
     } else if (kind === "duplicate") {
       report.sources_duplicate++;
     }
   }
 
-  // "completed" here means the search+fetch+bank phase is done — extraction
-  // is queued, not finished. banked_piece_ids is what getExpandStatus below
-  // polls against to know when the REAL work (facts landing) is done.
+  // "completed" means the search+fetch+bank phase is done, and that is all
+  // there is: nothing is queued behind it. The ids are source ids.
   await emit(env, userId, "record.expand.completed", {
     subject: subjectLabel,
     found: report.sources_found,
     fetched: report.sources_fetched,
     banked: report.sources_banked,
-    banked_piece_ids: report.banked_piece_ids,
+    rejected: report.sources_rejected,
+    banked_source_ids: report.banked_source_ids,
   });
   return report;
 }
@@ -241,12 +286,15 @@ export async function expandRecord(
 export interface ExpandStatus {
   /** True once nothing more will happen automatically — safe to stop polling. */
   terminal: boolean;
-  /** True if the overall run ended cleanly (no per-source or extraction failures). */
+  /** True if the overall run ended cleanly (no per-source failures). */
   warn: boolean;
   /** Plain-text narration — the caller escapes/wraps as HTML. */
   line: string;
-  /** Real fact count added, computed from the banked pieces once extraction
-   *  has actually run — 0 while still pending. */
+  /**
+   * Always 0. Fetched pages are no longer digested into the graph, so an
+   * expand adds no facts. Kept on the shape so the callers that summed it
+   * (bulk-expand.ts) keep compiling; there is nothing to sum.
+   */
   factsAdded: number;
 }
 
@@ -257,12 +305,10 @@ interface ExpandEventRow {
 }
 
 /** The single source of truth for "how is this record-expand run going,
- *  right now" — used by the public search page (to know when to stop
+ *  right now" — used by the research workspace (to know when to stop
  *  polling), the per-subject banner, and the bulk-expand result page. Reads
- *  orchestrator_events for the search/fetch/bank phase, then — once that
- *  phase's "completed" event names banked_piece_ids — cross-checks
- *  digest_jobs for those exact pieces, because "record.expand.completed"
- *  no longer means extraction is done (see expandRecord's comment above). */
+ *  orchestrator_events for the search/fetch/bank phase. "completed" IS the
+ *  end: nothing is queued behind a bank any more. */
 export async function getExpandStatus(
   env: { DB: D1Database },
   userId: string,
@@ -288,6 +334,9 @@ export async function getExpandStatus(
   const skipped = events.find((e) => e.event_type === "record.expand.skipped");
   const sourceSeen = events.filter((e) => e.event_type === "record.expand.source_fetching").length;
   const sourceBanked = events.filter((e) => e.event_type === "record.expand.source_banked").length;
+  const sourceRejected = events.filter(
+    (e) => e.event_type === "record.expand.source_rejected",
+  ).length;
 
   if (skipped) {
     const reason = field(skipped.payload, "reason") ?? "unconfigured";
@@ -303,6 +352,8 @@ export async function getExpandStatus(
     return { terminal: true, warn: true, line: `Expansion failed — ${error}`, factsAdded: 0 };
   }
 
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
   if (!completed) {
     const stage = latest.event_type.replace("record.expand.", "");
     let line = "Working…";
@@ -311,139 +362,31 @@ export async function getExpandStatus(
     else if (stage === "source_fetching") {
       line = `Fetching source ${sourceSeen} — ${field(latest.payload, "title") ?? ""}`;
     } else if (stage === "source_banked") {
-      line = `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} · queuing for extraction…`;
+      line = `Banked ${plural(sourceBanked, "source")}…`;
+    } else if (stage === "source_rejected") {
+      line = `Rejected ${field(latest.payload, "url") ?? "a page"} — ${
+        field(latest.payload, "reason") ?? "unusable"
+      }`;
     } else if (stage === "source_duplicate") line = "Already had that source · moving on…";
     return { terminal: false, warn: false, line, factsAdded: 0 };
   }
 
-  // Search+fetch+bank phase is done. Check what actually banked.
-  // NOTE: banked_piece_ids is an array — field() below stringifies every
-  // value via String(), which turns an array into a comma-joined string
-  // ("a,b", not '["a","b"]') that JSON.parse then throws on. Read it
-  // directly off the parsed payload instead of through field().
-  const pieceIds = fieldArray(completed.payload, "banked_piece_ids");
-  if (pieceIds.length === 0) {
+  const rejectedNote = sourceRejected > 0 ? ` · ${plural(sourceRejected, "page")} rejected` : "";
+  if (sourceBanked === 0) {
     return {
       terminal: true,
       warn: false,
-      line: "Searched and fetched, but nothing new to add — every source found was already on record or too thin to use.",
+      line: `Searched and fetched, but nothing new to add — every source found was already on record or unusable${rejectedNote}.`,
       factsAdded: 0,
-    };
-  }
-
-  const extraction = await checkExtraction(env, userId, pieceIds);
-  if (extraction.pending > 0) {
-    // A source can be genuinely large (a full Wikipedia article, chunked
-    // 20-30+ ways) — each chunk is its own LLM call + D1 write, and this
-    // account's shared D1 CPU budget means a chunk sometimes has to retry
-    // (checkpointed, no lost progress, just slower). Without surfacing
-    // WHICH chunk it's on, real incremental progress on a big source looks
-    // identical to being stuck — confirmed live: an operator watching
-    // "extracting (0/2 done)" sit still for several minutes had no way to
-    // tell a 32-chunk article was actively resuming from chunk 12 after
-    // each reset from one that's actually dead.
-    const detail = extraction.pendingDetail ? ` · ${extraction.pendingDetail}` : "";
-    return {
-      terminal: false,
-      warn: false,
-      line: `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} · extracting (${extraction.done + extraction.failed}/${pieceIds.length} done)${detail}…`,
-      factsAdded: 0,
-    };
-  }
-
-  if (extraction.failed > 0) {
-    const reasons = extraction.failedReasons.slice(0, 3).join("; ");
-    return {
-      terminal: true,
-      warn: true,
-      line: `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} but extraction failed for ${extraction.failed}: ${reasons}`,
-      factsAdded: extraction.factsAdded,
     };
   }
 
   return {
     terminal: true,
     warn: false,
-    line: `Record expanded — ${extraction.factsAdded} fact${extraction.factsAdded === 1 ? "" : "s"} added from ${extraction.done} source${extraction.done === 1 ? "" : "s"}.`,
-    factsAdded: extraction.factsAdded,
+    line: `Sources banked — ${plural(sourceBanked, "source")} ready for the writer${rejectedNote}.`,
+    factsAdded: 0,
   };
-}
-
-interface ExtractionCheck {
-  done: number;
-  failed: number;
-  pending: number;
-  factsAdded: number;
-  failedReasons: string[];
-  /** The chunk-level step of whichever pending job is furthest along (e.g.
-   *  "chunk 12/32") — lets the caller show real, moving progress on a
-   *  large source instead of a static "0/N done" that looks frozen. */
-  pendingDetail: string | null;
-}
-
-async function checkExtraction(
-  env: { DB: D1Database },
-  userId: string,
-  pieceIds: string[],
-): Promise<ExtractionCheck> {
-  const placeholders = pieceIds.map(() => "?").join(",");
-  const jobs = await all<{
-    piece_id: string;
-    status: string;
-    step: string | null;
-    last_error: string | null;
-  }>(
-    env.DB,
-    `SELECT piece_id, status, step, last_error FROM digest_jobs
-      WHERE user_id = ? AND piece_id IN (${placeholders})
-      ORDER BY created_at DESC`,
-    [userId, ...pieceIds],
-  ).catch(() => []);
-  // Keep only the latest job per piece (there should be exactly one for a
-  // record-expand-banked piece, but be defensive).
-  const latestByPiece = new Map<
-    string,
-    { status: string; step: string | null; last_error: string | null }
-  >();
-  for (const j of jobs) {
-    if (!latestByPiece.has(j.piece_id)) latestByPiece.set(j.piece_id, j);
-  }
-
-  let done = 0;
-  let failed = 0;
-  const failedReasons: string[] = [];
-  const donePieceIds: string[] = [];
-  let pendingDetail: string | null = null;
-  for (const pieceId of pieceIds) {
-    const job = latestByPiece.get(pieceId);
-    if (!job || job.status === "queued" || job.status === "running") {
-      if (job?.step?.startsWith("chunk ")) pendingDetail = job.step;
-      continue;
-    }
-    if (job.status === "completed") {
-      done++;
-      donePieceIds.push(pieceId);
-    } else if (job.status === "failed") {
-      failed++;
-      failedReasons.push(job.last_error ?? "unknown error");
-    }
-  }
-  const pending = pieceIds.length - done - failed;
-
-  let factsAdded = 0;
-  if (donePieceIds.length > 0) {
-    const factPlaceholders = donePieceIds.map(() => "?").join(",");
-    const row = await one<{ n: number }>(
-      env.DB,
-      `SELECT COUNT(*) AS n FROM nodes
-        WHERE user_id = ? AND piece_id IN (${factPlaceholders})
-          AND kind IN ('neutral_fact','event','assertion')`,
-      [userId, ...donePieceIds],
-    ).catch(() => null);
-    factsAdded = row?.n ?? 0;
-  }
-
-  return { done, failed, pending, factsAdded, failedReasons, pendingDetail };
 }
 
 function field(payload: string, key: string): string | null {
@@ -454,16 +397,6 @@ function field(payload: string, key: string): string | null {
     return typeof v === "string" ? v : String(v);
   } catch {
     return null;
-  }
-}
-
-function fieldArray(payload: string, key: string): string[] {
-  try {
-    const obj = JSON.parse(payload) as Record<string, unknown>;
-    const v = obj[key];
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-  } catch {
-    return [];
   }
 }
 
@@ -491,14 +424,14 @@ async function braveSearch(apiKey: string, query: string, count = 6): Promise<Br
     .filter((i) => i.url);
 }
 
-interface BankResult {
-  pieceId: string;
-  slug: string;
+interface Fetched {
   title: string;
-  sourceId: string;
-  chars: number;
-  duplicate: boolean;
+  text: string;
 }
+
+type BankOutcome =
+  | { kind: "banked"; sourceId: string; title: string; chars: number; duplicate: boolean }
+  | { kind: "rejected"; reason: string; title: string };
 
 /** Jina AI Reader (r.jina.ai) — a free, keyless public fetch-and-render
  *  proxy: it executes JS and presents as a different client entirely, so
@@ -613,19 +546,27 @@ async function fetchViaFallbacks(
   return fetchViaRenderingFallback(env, userId, url);
 }
 
-/** Fetch a URL, strip the HTML to plain text, bank it as a source document
- *  + piece. Mirrors createAndExtract in operator/routes.ts but tuned for
- *  web-fetched content (no PDF extraction, no R2 byte store — the text
- *  itself is the artefact). Returns null when the page yielded too little
- *  text to be useful. */
+/** Fetch a URL, strip the HTML to plain text, and bank it as a `sources`
+ *  row — and ONLY a sources row (no piece, no digest job; see the file
+ *  header). The full text is kept inline in content_text, as it always was
+ *  for fetched pages; deep-research.ts reads it back through the same
+ *  helper uploads use (readFullExtractedText), which honours an R2 overflow
+ *  when one is recorded and takes the inline text otherwise.
+ *
+ *  Never writes junk: the page is checked by rejectFetchedPage() before the
+ *  dedup lookup. A bot-challenge page from the plain fetch is handed to the
+ *  fallback chain first (a reader proxy or a real browser often clears the
+ *  challenge); only if what comes back is still unusable is it rejected.
+ *
+ *  Throws when nothing could be fetched at all (every fallback failed), so
+ *  the caller can report a fetch error as distinct from a rejection. */
 async function fetchAndBank(
   env: Env,
   userId: string,
   url: string,
   fallbackTitle: string,
-): Promise<BankResult | null> {
-  let title: string;
-  let text: string;
+): Promise<BankOutcome> {
+  let page: Fetched;
   let viaFallback = false;
   try {
     const res = await fetchWithTimeout(
@@ -646,51 +587,46 @@ async function fetchAndBank(
     if (!ct.includes("html") && !ct.includes("text")) {
       throw new Error(`unsupported content-type ${ct}`);
     }
-    const html = await res.text();
-    const stripped = stripHtmlToText(html);
-    if (stripped.text.length < MIN_TEXT_CHARS) {
+    const stripped = stripHtmlToText(await res.text());
+    const reason = rejectFetchedPage(stripped.title, stripped.text);
+    if (reason) {
       const rendered = await fetchViaFallbacks(env, userId, url);
-      if (!rendered) return null;
-      title = rendered.title;
-      text = rendered.text;
+      const renderedReason = rendered ? rejectFetchedPage(rendered.title, rendered.text) : null;
+      if (!rendered || renderedReason) {
+        return { kind: "rejected", reason: renderedReason ?? reason, title: stripped.title };
+      }
+      page = rendered;
       viaFallback = true;
     } else {
-      title = stripped.title;
-      text = stripped.text;
+      page = stripped;
     }
   } catch (err) {
     const rendered = await fetchViaFallbacks(env, userId, url);
     if (!rendered) throw err;
-    title = rendered.title;
-    text = rendered.text;
+    const reason = rejectFetchedPage(rendered.title, rendered.text);
+    if (reason) return { kind: "rejected", reason, title: rendered.title };
+    page = rendered;
     viaFallback = true;
   }
+  const { title, text } = page;
   const sha256 = await sha256Hex(text);
 
-  // Dedup by content hash — if we've banked the same fetched text before
-  // (the same article surfaced for two different subjects, say) return the
-  // existing piece instead of re-storing.
-  const existing = await one<{
-    piece_id: string;
-    piece_slug: string;
-    piece_title: string;
-    source_id: string;
-  }>(
+  // Dedup by content hash — the same article surfacing for two different
+  // subjects is banked once. The hash lives in sources.metadata now that a
+  // fetched page has no piece to carry it.
+  const existing = await one<{ id: string; title: string }>(
     env.DB,
-    `SELECT p.id AS piece_id, p.slug AS piece_slug, p.title AS piece_title,
-            json_extract(p.metadata, '$.source_id') AS source_id
-       FROM pieces p
-      WHERE p.user_id = ?
-        AND json_extract(p.metadata, '$.content_sha256') = ?
+    `SELECT id, title FROM sources
+      WHERE user_id = ?
+        AND json_extract(metadata, '$.content_sha256') = ?
       LIMIT 1`,
     [userId, sha256],
   );
   if (existing) {
     return {
-      pieceId: existing.piece_id,
-      slug: existing.piece_slug,
-      title: existing.piece_title,
-      sourceId: existing.source_id,
+      kind: "banked",
+      sourceId: existing.id,
+      title: existing.title,
       chars: text.length,
       duplicate: true,
     };
@@ -705,27 +641,17 @@ async function fetchAndBank(
     url,
     authors: JSON.stringify([]),
     content_text: text,
-  });
-  const slug = await ensureUniqueSlug(env.DB, userId, slugify(finalTitle));
-  const pieceId = await insertOne(env.DB, "pieces", {
-    user_id: userId,
-    slug,
-    title: finalTitle,
-    kind: "research-report",
-    publication_status: "working-material",
-    body_md: text,
-    byline: new URL(url).hostname,
-    tags: JSON.stringify(["web-fetched"]),
+    ingested_via: "record-expand",
     metadata: JSON.stringify({
       ingested_from: "record-expand",
-      source_id: sourceId,
       source_url: url,
       content_sha256: sha256,
+      extracted_chars: text.length,
       fetched_at: new Date().toISOString(),
-      via: viaFallback ? "browser_rendering" : "plain_fetch",
+      via: viaFallback ? "fallback_chain" : "plain_fetch",
     }),
   });
-  return { pieceId, slug, title: finalTitle, sourceId, chars: text.length, duplicate: false };
+  return { kind: "banked", sourceId, title: finalTitle, chars: text.length, duplicate: false };
 }
 
 /** Strip HTML to plain text. Pulls the title out of <title> or the first
@@ -796,33 +722,6 @@ async function sha256Hex(s: string): Promise<string> {
     .join("");
 }
 
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 96);
-}
-
-// Exact-match probing instead of a LIKE prefix scan — D1 threw
-// "LIKE or GLOB pattern too complex" live on some fetched page titles even
-// though the pattern was just `${slug}%` (slugify() only ever emits
-// [a-z0-9-], so it isn't a malformed-pattern issue on our end; whatever the
-// exact cause, exact-match sidesteps it entirely and is simpler besides).
-async function ensureUniqueSlug(db: D1Database, userId: string, base: string): Promise<string> {
-  const slug = base || `web-${Date.now()}`;
-  for (let n = 0; n < 50; n++) {
-    const candidate = n === 0 ? slug : `${slug}-${n + 1}`;
-    const existing = await one<{ id: string }>(
-      db,
-      "SELECT id FROM pieces WHERE user_id = ? AND slug = ? LIMIT 1",
-      [userId, candidate],
-    );
-    if (!existing) return candidate;
-  }
-  return `${slug}-${Date.now()}`;
-}
-
 async function emit(
   env: Env,
   userId: string,
@@ -837,7 +736,3 @@ async function emit(
     payload,
   }).catch(() => {});
 }
-
-// `run` re-exported to silence unused-import in case the helper becomes
-// useful here later. (Currently we use insertOne + one only.)
-export { run };
