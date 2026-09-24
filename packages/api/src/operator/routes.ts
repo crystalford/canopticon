@@ -491,7 +491,8 @@ app.post("/research/advance", async (c) => {
     return c.json({ advanced: !!report?.advanced, reason: report?.reason ?? null });
   }
   const back = typeof form.return_to === "string" ? form.return_to : "";
-  if (back.startsWith("/") && !back.startsWith("//")) return c.redirect(back);
+  // A second "/" OR a backslash: browsers parse "/\evil.com" as "//evil.com".
+  if (/^\/(?![/\\])/.test(back)) return c.redirect(back);
   return c.redirect(
     `/library?research=${encodeURIComponent(report?.advanced ? "advanced" : "nothing-pending")}`,
   );
@@ -729,9 +730,11 @@ app.get("/library/import-video/:id/status", async (c) => {
   if (!row) return c.json({ terminal: true, warn: true, headline: "import not found" }, 404);
   if (row.status === "succeeded") {
     const piece = row.piece_id
-      ? await one<{ slug: string }>(c.env.DB, "SELECT slug FROM pieces WHERE id = ?", [
-          row.piece_id,
-        ])
+      ? await one<{ slug: string }>(
+          c.env.DB,
+          "SELECT slug FROM pieces WHERE id = ? AND user_id = ?",
+          [row.piece_id, userId],
+        )
       : null;
     return c.json({
       terminal: true,
@@ -776,7 +779,12 @@ app.get("/library/research/:id/review", async (c) => {
     meta = {};
   }
   const { escapeHtml } = await import("../public/layout");
-  const { renderMarkdown } = await import("../cms/lib/render-post");
+  // The publication's renderer, which escapes the source before it renders
+  // it. A brief is model-written from fetched third-party pages, so its body
+  // is not operator-authored text: cms/lib/render-post passes raw HTML
+  // through by design ("posts are operator-authored only"), and that let a
+  // <script> carried through a fetched page run on this operator screen.
+  const { renderMarkdown } = await import("../public/render/markdown");
   const { renderOpPage } = await import("./layout");
   const sourceCount = meta.source_piece_ids?.length ?? 0;
   const body = `<div style="font-size:12px;color:var(--dmut,#888);margin-bottom:16px">
@@ -784,7 +792,7 @@ app.get("/library/research/:id/review", async (c) => {
   ${meta.angle ? ` <span style="opacity:.7">· angle: "${escapeHtml(meta.angle)}"</span>` : ""}
   <span style="opacity:.7"> · ${sourceCount} source${sourceCount === 1 ? "" : "s"} banked</span>
 </div>
-<div style="border:1px solid #2e2e38;border-radius:9px;padding:20px 24px;background:#15181f;color:#e8eaef;max-width:720px;line-height:1.6">${renderMarkdown(row.body_md ?? "")}</div>
+<div style="border:1px solid #2e2e38;border-radius:9px;padding:20px 24px;background:#15181f;color:#e8eaef;max-width:720px;line-height:1.6">${renderMarkdown(row.body_md ?? "", { anchors: false })}</div>
 <div style="margin-top:16px;display:flex;gap:10px">
   <form method="POST" action="/op/library/research/${escapeHtml(row.id)}/publish">
     <button type="submit" class="btn primary" style="background:#d9a441;color:#1c1608;font-weight:600;padding:9px 20px;border-radius:7px;border:none;cursor:pointer">Publish</button>
