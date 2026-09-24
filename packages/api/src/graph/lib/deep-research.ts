@@ -255,7 +255,12 @@ async function persistBrief(
   title: string,
   bodyMd: string,
   banked: BankedIds,
-  opts: { publish: boolean; angleHint?: string | undefined },
+  opts: {
+    publish: boolean;
+    angleHint?: string | undefined;
+    /** Lineage (docs/the-record.md §5): the document this run grew from. */
+    parentPieceId?: string | null | undefined;
+  },
 ): Promise<PersistResult> {
   const sourceId = await insertOne(env.DB, "sources", {
     user_id: userId,
@@ -277,6 +282,10 @@ async function persistBrief(
     publication_status: opts.publish ? "published" : "working-material",
     body_md: bodyMd,
     byline: "Canopticon research agent",
+    // Lineage: a brief is a child of the document whose lead started the run,
+    // and `origin` is the question, verbatim. A free question has no parent.
+    parent_piece_id: opts.parentPieceId ?? null,
+    origin: label,
     tags: JSON.stringify(["auto-research", opts.publish ? "beat" : "on-demand"]),
     metadata: JSON.stringify({
       ingested_from: "deep-research",
@@ -300,7 +309,12 @@ async function writeResearchBrief(
   userId: string,
   label: string,
   banked: BankedIds,
-  opts: { publish: boolean; angleHint?: string | undefined },
+  opts: {
+    publish: boolean;
+    angleHint?: string | undefined;
+    /** Lineage (docs/the-record.md §5): the document this run grew from. */
+    parentPieceId?: string | null | undefined;
+  },
 ): Promise<WriteBriefResult> {
   const synth = await synthesizeBrief(env, userId, label, banked, {
     angleHint: opts.angleHint,
@@ -409,7 +423,12 @@ export async function researchOnDemand(
   userId: string,
   label: string,
   angleHint?: string,
-  opts: { writer?: string | null } = {},
+  opts: {
+    writer?: string | null;
+    /** Lineage: the document whose lead/question/bridge/reading started this. */
+    parentPieceId?: string | null;
+    originKind?: string | null;
+  } = {},
 ): Promise<WriteBriefResult> {
   const runId = await insertOne(env.DB, "research_runs", {
     user_id: userId,
@@ -419,6 +438,8 @@ export async function researchOnDemand(
     // Chosen per run and stored, so every later step — dispatched from a
     // different execution — writes with the same model as the first.
     writer: opts.writer ?? null,
+    parent_piece_id: opts.parentPieceId ?? null,
+    origin_kind: opts.originKind ?? "free",
   });
 
   const { expandRecord } = await import("./record-builder");
@@ -479,9 +500,10 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     followup_queries: string | null;
     followups_done: string | null;
     writer: string | null;
+    parent_piece_id: string | null;
   }>(
     env.DB,
-    `SELECT id, label, angle, status, pass1_source_ids, pass2_source_ids,
+    `SELECT id, label, angle, status, pass1_source_ids, pass2_source_ids, parent_piece_id,
             pass1_piece_ids, pass2_piece_ids,
             followup_queries, followups_done, writer
        FROM research_runs
@@ -528,7 +550,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
         synth.title,
         synth.bodyMd,
         pass1Banked,
-        { publish: false, angleHint },
+        { publish: false, angleHint, parentPieceId: runRow.parent_piece_id ?? null },
       );
       await updateById(env.DB, "research_runs", runRow.id, {
         status: "done",
@@ -619,7 +641,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     synth.title,
     synth.bodyMd,
     combined,
-    { publish: false, angleHint },
+    { publish: false, angleHint, parentPieceId: runRow.parent_piece_id ?? null },
   );
   await updateById(env.DB, "research_runs", runRow.id, {
     status: "done",

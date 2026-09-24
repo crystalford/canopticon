@@ -587,7 +587,17 @@ app.post("/leads/dig", async (c) => {
   // no ExecutionContext, and an unguarded access here would 500 the request
   // that started a perfectly good run. Same bug, same fix, as the subscribe
   // route.
-  const run = researchOnDemand(c.env, userId, seed, angle, { writer }).catch(() => {});
+  // Lineage (docs/the-record.md §5): the run remembers which document's lead,
+  // question, bridge or reading started it, so the brief it produces is that
+  // document's child. "novelty" is the bridge's second button — "Has anyone
+  // said this?" — and only changes the angle the writer is given.
+  const parentPieceId = str("piece_id") || null;
+  const originKind = kind || "free";
+  const run = researchOnDemand(c.env, userId, seed, angle, {
+    writer,
+    parentPieceId,
+    originKind,
+  }).catch(() => {});
   try {
     c.executionCtx.waitUntil(run);
   } catch {
