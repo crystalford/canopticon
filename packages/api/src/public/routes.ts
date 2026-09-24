@@ -21,6 +21,9 @@ import {
 } from "./data";
 import { htmlResponse } from "./layout";
 import { feedJson, llmsFullTxt, llmsTxt, pieceMarkdown } from "./machine";
+import { documentModel } from "./models/document";
+import { emptyLibraryModel, libraryModel } from "./models/library";
+import { searchModel } from "./models/search";
 import { renderAbout } from "./render/about";
 import { renderCitationsPage } from "./render/citations";
 import { renderFront } from "./render/front";
@@ -137,7 +140,9 @@ app.use("*", async (c, next) => {
 // page simply carries no og:image.
 app.get("/og/:file", async (c) => {
   const file = c.req.param("file");
-  if (!file.endsWith(".png")) return c.notFound();
+  // One flat name under og/: the pipeline writes og/<slug>.png and a slug
+  // is [a-z0-9-]. Anything else (an encoded "/", a "..") never reaches R2.
+  if (!/^[A-Za-z0-9_-]+\.png$/.test(file)) return c.notFound();
   const obj = await c.env.FILES.get(`og/${file}`).catch(() => null);
   if (!obj) return c.notFound();
   return new Response(obj.body, {
@@ -465,6 +470,24 @@ app.get("/p/:slug", async (c) => {
       },
     });
   }
+  // The JSON face: the same model the page renders from (public/models/
+  // document.ts), for a front end built against real data. Folded in here
+  // for the same reason the twin is. The operator block is present only for
+  // the signed-in operator; a reader gets the public model and nothing else.
+  if (raw.endsWith(".json")) {
+    const model = await documentModel(c.env, raw.slice(0, -5), {
+      isOperator: c.get("is_operator") === true,
+    });
+    if (!model) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+    return new Response(JSON.stringify(model), {
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        // The reader's model caches like the twin; the operator's carries
+        // their forms and leads and must never sit in a shared cache.
+        "cache-control": model.operator ? "private, no-store" : "public, max-age=300",
+      },
+    });
+  }
   const slug = raw;
   // Try the piece renderer first (original semantics).
   const html = await renderPiece(c.env, slug, { isOperator: c.get("is_operator") === true });
@@ -784,6 +807,38 @@ app.get("/library", async (c) => {
   );
 });
 
+// The same model /library renders, as JSON — the data seam for a front end
+// built against real data (public/models/library.ts). Operator-only, like the
+// page; a reader gets a 404, not a 401, because the URL is not a door.
+app.get("/library.json", async (c) => {
+  if (c.get("is_operator") !== true) return c.notFound();
+  const operatorId = await resolveOperatorId(c.env.DB);
+  // Only the flashes actually present, so an absent query key stays absent.
+  const opts: Record<string, string> = {};
+  for (const [key, param] of [
+    ["uploaded", "uploaded"],
+    ["importing", "importing"],
+    ["videoError", "video_error"],
+    ["ingested", "ingested"],
+    ["error", "error"],
+    ["published", "published"],
+    ["renamed", "renamed"],
+    ["queued", "queued"],
+  ] as const) {
+    const v = c.req.query(param);
+    if (v) opts[key] = v;
+  }
+  const model = operatorId
+    ? await libraryModel(c.env, { ...opts, userId: operatorId })
+    : emptyLibraryModel(c.env, opts);
+  return new Response(JSON.stringify(model), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  });
+});
+
 app.get("/briefs/:slug", (c) => c.redirect(`/p/${c.req.param("slug")}`, 301));
 
 // ---- Utility pages (still placeholders until trailing Phase 2) -----------
@@ -820,6 +875,26 @@ app.get("/search", async (c) => {
       asked: c.req.query("asked") === "1",
     }),
   );
+});
+
+// The same search as JSON — the model /search renders from, served as is
+// (public/models/search.ts). One query set, two surfaces. The operator block
+// (the ask/research actions and a miss's preview) is only ever built for a
+// signed-in operator; a reader gets null there. Never cached: a stored answer
+// can land between two requests.
+app.get("/search.json", async (c) => {
+  const q = c.req.query("q") ?? "";
+  const model = await searchModel(c.env, q, {
+    isOperator: c.get("is_operator") === true,
+    asked: c.req.query("asked") === "1",
+  });
+  return new Response(JSON.stringify(model), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex",
+    },
+  });
 });
 
 app.get("/bulk-expand", (c) => c.redirect("/library", 301));
