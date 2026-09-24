@@ -62,17 +62,33 @@ const browser = await chromium.launch({
 
 const RESEARCH_Q = "What is the genuine white space in ad-serving and attribution?";
 const RESEARCH_URL = `/op/research?q=${encodeURIComponent(RESEARCH_Q)}`;
-const { REVIEW_LABEL } = await import("./fixture.mts");
+const { REVIEW_LABEL, REVIEW_WARN_LABEL, REVIEW_PUBLISHED_LABEL, SEARCH_QUESTION } = await import(
+  "./fixture.mts"
+);
 const REVIEW_URL = `/op/research?q=${encodeURIComponent(REVIEW_LABEL)}`;
+const REVIEW_WARN_URL = `/op/research?q=${encodeURIComponent(REVIEW_WARN_LABEL)}`;
+const REVIEW_PUBLISHED_URL = `/op/research?q=${encodeURIComponent(REVIEW_PUBLISHED_LABEL)}`;
+// The question the fixture holds a frozen answer for (lead_answers, kind
+// "question"), so /search for it shows "From the record".
+const SEARCH_ANSWERED_URL = `/search?q=${encodeURIComponent(SEARCH_QUESTION)}`;
 
 // The fourth slot: "operator" signs the request in; "optional" means the route
 // may not exist yet (another branch's work) — a 404 is logged and skipped, it
 // never fails the run.
 const SHOTS: Array<[string, string, number, ("operator" | "optional")?]> = [
   ["front", "/", 1400],
+  ["front-mobile", "/", 390],
   // Search results, the one index whose rows are assembled by query rather
   // than listed, and the page most likely to be reached from a citation.
   ["search", "/search?q=housing", 1400],
+  ["search-mobile", "/search?q=housing", 390],
+  // THE STORED ANSWER: the record's own frozen answer to a question the
+  // operator has asked, above the passages, for every reader — with a quote
+  // linked to its receipt, one without, and the discard count.
+  ["search-answered", SEARCH_ANSWERED_URL, 1400],
+  // The same page signed in: "Ask the record again", the "with Claude"
+  // switch and "Research this on the web" — the only forms on the page.
+  ["search-operator", SEARCH_ANSWERED_URL, 1400, "operator"],
   // The hub, if the route has landed on this tree. Optional: see above.
   ["hub", "/hub", 1400, "optional"],
   ["essays", "/essays", 1400],
@@ -105,6 +121,12 @@ const SHOTS: Array<[string, string, number, ("operator" | "optional")?]> = [
   // in red, the body, the gaps, Publish and Download. The state that closes
   // the loop, and the one a "draft ready" headline used to hide.
   ["research-review", REVIEW_URL, 1400, "operator"],
+  // THE REVIEW'S WARNING: more quotes failed verification than survived —
+  // the red line above Publish. A draft the operator must read, not a gate.
+  ["research-review-warning", REVIEW_WARN_URL, 1400, "operator"],
+  // THE REVIEW, PUBLISHED: the brief is already in the record, so the panel
+  // links to it instead of offering Publish.
+  ["research-review-published", REVIEW_PUBLISHED_URL, 1400, "operator"],
   // OPERATOR-ONLY. /library is where documents are uploaded and where the
   // ingestion receipt renders, and it 401s without a session — so until now
   // the only thing this tool could photograph was the signed-out page. An
@@ -152,6 +174,25 @@ for (const [name, urlPath, width, as] of SHOTS) {
     continue;
   }
   await page.waitForTimeout(900);
+  // The operator console scrolls INSIDE a `.surface` pane, not the document,
+  // so fullPage stopped at the viewport and every research-workspace shot
+  // ended 1000px down — the review panel, the whole point of three of them,
+  // was never in a picture. Grow the viewport to the tallest internal
+  // scroller first; a page that scrolls normally is unaffected.
+  const inner = await page.evaluate(() => {
+    let h = document.documentElement.scrollHeight;
+    for (const el of Array.from(document.querySelectorAll("*"))) {
+      const oy = getComputedStyle(el).overflowY;
+      if (oy !== "auto" && oy !== "scroll") continue;
+      if (el.scrollHeight <= el.clientHeight) continue;
+      h = Math.max(h, Math.ceil(el.getBoundingClientRect().top + window.scrollY + el.scrollHeight));
+    }
+    return h;
+  });
+  if (inner > 1000) {
+    await page.setViewportSize({ width, height: Math.min(inner + 40, 16000) });
+    await page.waitForTimeout(300);
+  }
   await page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
   // Horizontal overflow is the one layout bug a screenshot hides: the page
   // looks fine and the reader gets a sideways scrollbar. Report the widest

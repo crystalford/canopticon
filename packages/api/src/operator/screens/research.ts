@@ -41,7 +41,11 @@ ${RESEARCH_LIVE_JS}`;
 
   return renderOpPage({
     title,
-    sub: "researching · not yet in the record",
+    // Say what is true (standing rule 6): once the brief is published the
+    // header must not go on calling it "not yet in the record".
+    sub: args.status?.review?.published
+      ? "published · in the record"
+      : "researching · not yet in the record",
     body,
     activeNav: "/",
     // fullBleed, because the workspace brings its own shell width (--shell,
