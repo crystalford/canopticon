@@ -27,7 +27,7 @@
 // references them, so ordering within the batch satisfies foreign keys.
 
 import type { Env } from "../../env";
-import { insertOne, run, serialize } from "../../lib/d1";
+import { all, insertOne, run, serialize } from "../../lib/d1";
 import { TIMEOUTS, withTimeout } from "../../lib/timeout";
 import { callRole, gatewayConfigured } from "../../llm/router";
 import type { AssertionStance, EdgeFamily, NodeKind } from "./typed-graph";
@@ -668,7 +668,35 @@ export async function purgeTypedGraphForPiece(
   userId: string,
   pieceId: string,
 ): Promise<void> {
-  await run(env.DB, "DELETE FROM nodes WHERE user_id = ? AND piece_id = ?", [userId, pieceId]);
+  // The operator's readings (lib/readings.ts) are anchored to quotes on this
+  // piece's source node, and quotes cascade from nodes as readings cascade
+  // from quotes — so a blanket delete would silently erase every note the
+  // operator wrote the moment the pipeline re-read the document. Keep the
+  // source node(s) a reading hangs on and clear only the machine's quotes
+  // from them; the pipeline's ensureSourceNode() reuses the kept node.
+  const anchored = await all<{ source_id: string | null }>(
+    env.DB,
+    `SELECT DISTINCT q.source_id FROM readings r JOIN quotes q ON q.id = r.quote_id
+      WHERE r.user_id = ? AND r.piece_id = ?`,
+    [userId, pieceId],
+  ).catch(() => [] as Array<{ source_id: string | null }>);
+  const keep = anchored.map((r) => r.source_id).filter((id): id is string => Boolean(id));
+  if (keep.length === 0) {
+    await run(env.DB, "DELETE FROM nodes WHERE user_id = ? AND piece_id = ?", [userId, pieceId]);
+    return;
+  }
+  const ph = keep.map(() => "?").join(",");
+  await run(env.DB, `DELETE FROM nodes WHERE user_id = ? AND piece_id = ? AND id NOT IN (${ph})`, [
+    userId,
+    pieceId,
+    ...keep,
+  ]);
+  await run(
+    env.DB,
+    `DELETE FROM quotes WHERE user_id = ? AND source_id IN (${ph})
+        AND id NOT IN (SELECT quote_id FROM readings)`,
+    [userId, ...keep],
+  );
 }
 
 // ---------------------------------------------------------------------------

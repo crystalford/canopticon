@@ -49,7 +49,10 @@ function clip(s: string, max: number): string {
 const KIND_LABEL: Record<string, string> = {
   essay: "Essay",
   research: "Research",
+  "research-report": "Research",
+  "documented-record": "Research",
   document: "Research",
+  brief: "Brief",
 };
 
 /**
@@ -60,7 +63,7 @@ const KIND_LABEL: Record<string, string> = {
  */
 export function renderOgCard(piece: OgPiece): string {
   const title = clip(piece.title || "Untitled", 140);
-  const kind = KIND_LABEL[piece.kind] ?? clip(piece.kind || "Document", 24);
+  const kind = KIND_LABEL[piece.kind] ?? clip((piece.kind || "Document").replace(/-/g, " "), 24);
   const long = title.length > 80;
   const subtitle = piece.subtitle ? clip(piece.subtitle, 160) : "";
   const figure = piece.figure?.figure ? piece.figure : null;

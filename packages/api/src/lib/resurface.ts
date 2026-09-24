@@ -58,7 +58,7 @@ export async function resurfacePassage(
        JOIN piece_processing pp ON pp.piece_id = p.id AND pp.status = 'done'
        JOIN nodes n ON n.piece_id = p.id
        JOIN quotes q ON q.source_id = n.id AND q.user_id = p.user_id
-      WHERE p.user_id = ? AND p.publication_status = 'published'
+      WHERE p.user_id = ? AND p.publication_status IN ('published','canonical')
         AND length(q.verbatim_text) >= ?
         AND NOT EXISTS (SELECT 1 FROM readings r
                          WHERE r.piece_id = p.id AND r.user_id = p.user_id AND r.created_at >= ?)
