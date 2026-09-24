@@ -43,6 +43,9 @@ vi.mock("../src/graph/lib/digestion", () => ({
     };
   },
 }));
+vi.mock("../src/graph/lib/embeddings", () => ({
+  embedQuotesForPiece: async () => ({ indexed: 0, skipped: 0 }),
+}));
 vi.mock("../src/graph/lib/extract", () => ({
   readFullExtractedText: async () => ({ text: "Body text.", title: "T" }),
 }));
@@ -223,6 +226,7 @@ describe("one step per press", () => {
       "findings:queued",
       "passage:queued",
       "section:queued",
+      "index:queued",
       "done:done",
     ]);
     expect(calls).toEqual(["digest@0", "findings", "passage", "section"]);
@@ -251,7 +255,7 @@ describe("one step per press", () => {
     expect(r.row?.step).toBe("digest");
     expect(r.row?.status).toBe("queued");
     expect(r.row?.chunks_done).toBe(2);
-    expect(describeProcessing(proc.get("p1") as never).text).toBe("Queued 2/5 · reading (2/7)");
+    expect(describeProcessing(proc.get("p1") as never).text).toBe("Queued 2/6 · reading (2/7)");
     digestBehaviour = "ok";
     await advanceProcessing(env(db), "u");
     expect(calls).toEqual(["digest@0", "digest@2"]);

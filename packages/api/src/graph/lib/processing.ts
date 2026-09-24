@@ -29,11 +29,19 @@ import { titleCandidates } from "../../lib/title-candidates";
 import { gatewayConfigured, modelForRole } from "../../llm/router";
 import { extractAeoAtoms } from "./aeo-extract";
 import { digest } from "./digestion";
+import { embedQuotesForPiece } from "./embeddings";
 import { readFullExtractedText } from "./extract";
 import { approveLede, proposeLede } from "./lede";
 import { assignTopic } from "./topics";
 
-export type ProcessingStep = "title" | "digest" | "findings" | "passage" | "section" | "done";
+export type ProcessingStep =
+  | "title"
+  | "digest"
+  | "findings"
+  | "passage"
+  | "section"
+  | "index"
+  | "done";
 export type ProcessingStatus = "queued" | "running" | "done" | "failed";
 
 export const STEP_ORDER: ProcessingStep[] = [
@@ -42,6 +50,7 @@ export const STEP_ORDER: ProcessingStep[] = [
   "findings",
   "passage",
   "section",
+  "index",
   "done",
 ];
 
@@ -52,6 +61,7 @@ export const STEP_LABEL: Record<ProcessingStep, string> = {
   findings: "finding figures",
   passage: "choosing the passage",
   section: "filing",
+  index: "indexing",
   done: "done",
 };
 
@@ -352,6 +362,15 @@ export async function advanceProcessing(
       case "section": {
         const t = await assignTopic(env, userId, candidate.piece_id);
         note = t.topic ? `filed under ${t.topic}` : "filed under Everything else";
+        await moveTo(env, candidate, "index", model);
+        break;
+      }
+      case "index": {
+        // Passages into the search index: every verified quote of this
+        // document becomes its own vector, so /search can answer with the
+        // words on file rather than a document title.
+        const ix = await embedQuotesForPiece(env, userId, candidate.piece_id);
+        note = ix.indexed > 0 ? `${ix.indexed} passages indexed` : "no passages to index";
         await run(
           env.DB,
           `UPDATE piece_processing

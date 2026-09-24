@@ -40,9 +40,12 @@ export async function embedText(env: Env, text: string): Promise<number[]> {
 
 export interface VectorMeta {
   user_id: string;
-  kind: "entity" | "claim" | "article" | "thesis" | "source" | "piece";
+  kind: "entity" | "claim" | "article" | "thesis" | "source" | "piece" | "quote";
   id: string;
   title?: string;
+  /** "quote" only: the document the passage was verified against. */
+  piece_id?: string;
+  slug?: string;
 }
 
 export async function upsertVector(
@@ -99,6 +102,86 @@ export async function searchVectors(
 /** Convenience: build the canonical vector id for a substrate row. */
 export function vectorId(kind: VectorMeta["kind"], id: string): string {
   return `${kind}:${id}`;
+}
+
+// ---- passages ---------------------------------------------------------------
+//
+// A mind retrieves passages, not documents. Every verified quote already
+// has a receipt at /q/<id>; indexing it as its own vector is what lets
+// /search answer with the words on file instead of a document title.
+// Bounded (QUOTE_INDEX_LIMIT per piece per call) and idempotent: the
+// vector id is derived from the quote id, so a second pass overwrites
+// rather than duplicates. Nothing here calls a model except the embedder.
+
+/** Below this a quote is a fragment, not a passage worth retrieving. */
+export const QUOTE_MIN_CHARS = 120;
+const QUOTE_INDEX_LIMIT = 200;
+const QUOTE_UPSERT_BATCH = 50;
+
+export interface QuoteIndexResult {
+  indexed: number;
+  skipped: number;
+}
+
+export async function embedQuotesForPiece(
+  env: Env,
+  userId: string,
+  pieceId: string,
+  opts: { limit?: number } = {},
+): Promise<QuoteIndexResult> {
+  const limit = opts.limit ?? QUOTE_INDEX_LIMIT;
+  const piece = await one<{ slug: string; title: string }>(
+    env.DB,
+    "SELECT slug, title FROM pieces WHERE id = ? AND user_id = ? LIMIT 1",
+    [pieceId, userId],
+  );
+  if (!piece) return { indexed: 0, skipped: 0 };
+
+  const rows = await all<{ id: string; verbatim_text: string }>(
+    env.DB,
+    `SELECT q.id, q.verbatim_text
+       FROM quotes q JOIN nodes n ON n.id = q.source_id
+      WHERE n.piece_id = ? AND q.user_id = ? AND length(q.verbatim_text) >= ?
+      ORDER BY q.created_at ASC, q.id ASC
+      LIMIT ?`,
+    [pieceId, userId, QUOTE_MIN_CHARS, limit],
+  );
+
+  const seen = new Set<string>();
+  const pending: VectorizeVector[] = [];
+  let indexed = 0;
+  let skipped = 0;
+  const flush = async () => {
+    if (pending.length === 0) return;
+    const batch = pending.splice(0, pending.length);
+    await withTimeout(env.EMBEDDINGS.upsert(batch), TIMEOUTS.VECTORIZE_MS, "embedQuotesForPiece");
+    indexed += batch.length;
+  };
+
+  for (const q of rows) {
+    const text = q.verbatim_text.replace(/\s+/g, " ").trim();
+    if (text.length < QUOTE_MIN_CHARS || seen.has(text)) {
+      skipped++;
+      continue;
+    }
+    seen.add(text);
+    const metadata: VectorMeta = {
+      user_id: userId,
+      kind: "quote",
+      id: q.id,
+      piece_id: pieceId,
+      slug: piece.slug,
+      title: piece.title,
+    };
+    pending.push({
+      id: vectorId("quote", q.id),
+      values: await embedText(env, text),
+      metadata: metadata as unknown as Record<string, VectorizeVectorMetadataValue>,
+    });
+    if (pending.length >= QUOTE_UPSERT_BATCH) await flush();
+  }
+  await flush();
+  return { indexed, skipped };
 }
 
 // One-time backfill for the bge-large-en-v1.5 -> bge-m3 swap (see the

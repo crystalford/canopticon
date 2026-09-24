@@ -1,4 +1,10 @@
-// Search — semantic search over the corpus (spec v2.6 Part 18 #6).
+// Ask the record — one box; answers are passages first, documents second.
+//
+// A mind retrieves passages, not documents. Every verified quote is its
+// own vector (kind "quote", written by the pipeline's "index" step), so
+// the first thing a query returns is the words on file — verbatim, named
+// to the document they came from, each with its /q/ receipt. The document
+// hits follow under their own heading. No model composes anything here.
 //
 // Uses the existing Vectorize index (canopticon-embeddings, 1024-dim
 // cosine) that already holds embeddings for entities, claims, pieces,
@@ -20,7 +26,7 @@
 import type { Env } from "../../env";
 import { getAnswerPreview } from "../../graph/lib/answers-preview";
 import { type VectorMeta, rerankResults, searchVectors } from "../../graph/lib/embeddings";
-import { insertOne, one } from "../../lib/d1";
+import { all, insertOne, one } from "../../lib/d1";
 import { resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
 
@@ -39,7 +45,72 @@ const KIND_LABEL: Record<VectorMeta["kind"], string> = {
   thesis: "Analysis",
   article: "Investigation",
   source: "Quote",
+  quote: "Passage",
 };
+
+const DOCUMENT_KINDS: VectorMeta["kind"][] = [
+  "piece",
+  "entity",
+  "claim",
+  "thesis",
+  "article",
+  "source",
+];
+const PASSAGE_LIMIT = 12;
+
+interface PassageHit {
+  id: string;
+  verbatim_text: string;
+  slug: string;
+  title: string;
+  score: number;
+}
+
+/** Quote hits → the verbatim text and the published document it lives in.
+ *  One query; a hit whose document is no longer published resolves to
+ *  nothing, so an unpublished piece never surfaces through its quotes. */
+export async function resolvePassages(
+  env: Env,
+  hits: Array<{ id: string; score: number; metadata: VectorMeta }>,
+): Promise<PassageHit[]> {
+  const quoteHits = hits.filter((h) => h.metadata.kind === "quote" && h.metadata.id);
+  if (quoteHits.length === 0) return [];
+  const ids = [...new Set(quoteHits.map((h) => h.metadata.id))];
+  const rows = await all<{ id: string; verbatim_text: string; slug: string; title: string }>(
+    env.DB,
+    `SELECT q.id, q.verbatim_text, p.slug, p.title
+       FROM quotes q
+       JOIN nodes n ON n.id = q.source_id
+       JOIN pieces p ON p.id = n.piece_id
+      WHERE q.id IN (${ids.map(() => "?").join(",")})
+        AND p.publication_status IN ('published','canonical')`,
+    ids,
+  ).catch(() => []);
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const out: PassageHit[] = [];
+  const seen = new Set<string>();
+  for (const h of quoteHits) {
+    const row = byId.get(h.metadata.id);
+    if (!row || seen.has(row.id)) continue;
+    seen.add(row.id);
+    out.push({ ...row, score: h.score });
+  }
+  return out;
+}
+
+function renderPassages(passages: PassageHit[]): string {
+  if (passages.length === 0) return "";
+  return `<h2 class="search-h2">Passages</h2>
+<ol class="search-passages">${passages
+    .map(
+      (p) => `<li class="search-passage">
+  <blockquote class="search-passage-text">${escapeHtml(p.verbatim_text)}</blockquote>
+  <div class="search-passage-from">— <a href="/p/${escapeAttr(p.slug)}">${escapeHtml(p.title)}</a>
+    <a class="search-passage-receipt" href="/q/${escapeAttr(p.id)}">verified ↗</a></div>
+</li>`,
+    )
+    .join("")}</ol>`;
+}
 
 export async function renderSearchPage(
   env: Env,
@@ -58,7 +129,11 @@ export async function renderSearchPage(
     // rerank pass below reads (query, candidate) as one input and
     // reorders for real relevance; RESULT_LIMIT caps what's displayed
     // to the reranked top slice, not the raw vector-search order.
-    const hits = await searchVectors(env, { query, userId, topK: 25 }).catch(() => []);
+    const [passageHits, hits] = await Promise.all([
+      searchVectors(env, { query, userId, topK: PASSAGE_LIMIT, kinds: ["quote"] }).catch(() => []),
+      searchVectors(env, { query, userId, topK: 25, kinds: DOCUMENT_KINDS }).catch(() => []),
+    ]);
+    const passages = await resolvePassages(env, passageHits);
     const resolvedAll = await resolveHits(env, hits);
     const RESULT_LIMIT = 12;
     const resolved =
@@ -68,7 +143,7 @@ export async function renderSearchPage(
             RESULT_LIMIT,
           )
         : resolvedAll;
-    if (resolved.length === 0) {
+    if (resolved.length === 0 && passages.length === 0) {
       // A real miss — log it (cheap; feeds the future "what readers are
       // asking for" research signal) and, for the operator only, show a
       // fast AI-generated preview to help triage the miss. That preview is
@@ -104,13 +179,23 @@ export async function renderSearchPage(
 </div>`;
       }
     } else {
-      summary =
-        resolvedAll.length > resolved.length
-          ? `<b>${resolved.length}</b> best matches for <b>${escapeHtml(query)}</b> — top-ranked of ${resolvedAll.length} found.`
-          : `<b>${resolved.length}</b> matches for <b>${escapeHtml(query)}</b>.`;
-      resultsBlock = `<ol class="search-hits">${resolved
-        .map(
-          (h) => `<li class="search-hit">
+      const parts: string[] = [];
+      if (passages.length > 0)
+        parts.push(`<b>${passages.length}</b> passage${passages.length === 1 ? "" : "s"}`);
+      if (resolved.length > 0)
+        parts.push(
+          resolvedAll.length > resolved.length
+            ? `<b>${resolved.length}</b> document${resolved.length === 1 ? "" : "s"} (top-ranked of ${resolvedAll.length})`
+            : `<b>${resolved.length}</b> document${resolved.length === 1 ? "" : "s"}`,
+        );
+      summary = `${parts.join(" and ")} for <b>${escapeHtml(query)}</b>.`;
+      const documents =
+        resolved.length === 0
+          ? ""
+          : `<h2 class="search-h2">Documents</h2>
+<ol class="search-hits">${resolved
+              .map(
+                (h) => `<li class="search-hit">
   <a class="search-link" href="${escapeAttr(h.url)}">
     <span class="search-kind">${escapeHtml(KIND_LABEL[h.kind] ?? h.kind)}</span>
     <span class="search-title">${escapeHtml(h.title)}</span>
@@ -118,8 +203,9 @@ export async function renderSearchPage(
   ${h.snippet ? `<div class="search-snippet">${escapeHtml(h.snippet)}</div>` : ""}
   <div class="search-score">${(h.score * 100).toFixed(1)}% match</div>
 </li>`,
-        )
-        .join("")}</ol>`;
+              )
+              .join("")}</ol>`;
+      resultsBlock = renderPassages(passages) + documents;
     }
   } else if (query.length === 0) {
     summary = "Phrase queries work as well as keywords.";
@@ -131,14 +217,15 @@ export async function renderSearchPage(
 
   const body = `
 <section class="search-section">
-  <h1 class="search-h1">Search</h1>
+  <h1 class="search-h1">Ask the record</h1>
+  <p class="search-dek">Answers are passages from documents on file, word for word, each with its receipt.</p>
   <form class="search-form" method="GET" action="/search">
     <input
       class="search-input"
       type="search"
       name="q"
       value="${escapeAttr(query)}"
-      placeholder="A subject, a claim, a phrase…"
+      placeholder="A question, a claim, a phrase…"
       autofocus
     >
     <button class="search-go" type="submit">Search</button>
@@ -149,6 +236,16 @@ export async function renderSearchPage(
 <style>
   .search-section { max-width: 760px; margin: 32px 0 0; padding: 0 0 80px; }
   .search-h1 { font-family: var(--serif); font-size: 28px; margin: 0 0 18px; color: var(--ink); }
+  .search-dek { font-family: var(--serif); font-size: 15px; color: var(--ink-3); margin: -8px 0 18px; line-height: 1.5; }
+  .search-h2 { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-3); margin: 26px 0 6px; }
+  .search-passages { list-style: none; padding: 0; margin: 0; }
+  .search-passage { padding: 14px 0; border-top: 1px solid var(--rule-soft); }
+  .search-passage-text { font-family: var(--serif); font-size: 16px; line-height: 1.55; color: var(--ink);
+    margin: 0 0 8px; padding: 0 0 0 14px; border-left: 2px solid var(--accent, var(--ink)); }
+  .search-passage-from { font-family: var(--serif); font-size: 13.5px; color: var(--ink-3); }
+  .search-passage-from a { color: var(--ink); }
+  .search-passage-receipt { font-family: var(--mono); font-size: 11px; margin-left: 10px; color: var(--ink-3) !important; }
   .search-form { display: flex; gap: 10px; margin-bottom: 14px; }
   .search-input { flex: 1; padding: 12px 16px; font-family: var(--serif); font-size: 16px;
     border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); color: var(--ink); }
@@ -183,8 +280,9 @@ export async function renderSearchPage(
 </style>`;
 
   return renderPage({
-    title: query ? `Search · "${query}" · canopticon` : "Search · canopticon",
-    description: "Search documented facts, disputed claims, analyses and sources.",
+    title: query ? `Ask the record · "${query}" · canopticon` : "Ask the record · canopticon",
+    description:
+      "Ask the record — answers are passages from documents on file, word for word, each with its receipt.",
     body,
     activeNav: "/search",
   });
