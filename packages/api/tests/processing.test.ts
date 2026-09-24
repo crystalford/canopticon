@@ -66,6 +66,12 @@ vi.mock("../src/graph/lib/lede", () => ({
   },
   approveLede: async () => true,
 }));
+vi.mock("../src/graph/lib/og-image", () => ({
+  generateOgImage: async () => ({
+    ok: false,
+    reason: "Browser Rendering not configured (CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN)",
+  }),
+}));
 vi.mock("../src/graph/lib/topics", () => ({
   assignTopic: async () => {
     calls.push("section");
@@ -216,7 +222,7 @@ describe("one step per press", () => {
     expect(proc.get("p1")?.step).toBe("title");
 
     const steps: string[] = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 7; i++) {
       const r = await advanceProcessing(env(db), "u");
       if (!r.piece_id) break;
       steps.push(`${r.row?.step}:${r.row?.status}`);
@@ -226,6 +232,7 @@ describe("one step per press", () => {
       "findings:queued",
       "passage:queued",
       "section:queued",
+      "og:queued",
       "index:queued",
       "done:done",
     ]);
@@ -255,7 +262,7 @@ describe("one step per press", () => {
     expect(r.row?.step).toBe("digest");
     expect(r.row?.status).toBe("queued");
     expect(r.row?.chunks_done).toBe(2);
-    expect(describeProcessing(proc.get("p1") as never).text).toBe("Queued 2/6 · reading (2/7)");
+    expect(describeProcessing(proc.get("p1") as never).text).toBe("Queued 2/7 · reading (2/7)");
     digestBehaviour = "ok";
     await advanceProcessing(env(db), "u");
     expect(calls).toEqual(["digest@0", "digest@2"]);

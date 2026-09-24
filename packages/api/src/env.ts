@@ -101,6 +101,11 @@ export interface Env {
   // deliberate behaviour rather than a half-configured one. The sending
   // domain must also be verified with the provider or every send is rejected.
   RESEND_API_KEY?: string;
+  // Cloudflare Web Analytics beacon token — optional. Free, no cookies,
+  // billed to nothing. When set, public/layout.ts emits the beacon script
+  // before </body>; when empty, nothing is emitted and every page reads
+  // exactly the same without it (rule 7: no JavaScript required to read).
+  CF_WEB_ANALYTICS_TOKEN?: string;
 }
 
 // The Claude model used through the AI Gateway when CLAUDE_MODEL is unset.

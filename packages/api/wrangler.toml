@@ -85,6 +85,12 @@ VIDEO_BASE = "https://video.canopticon.com"
 # scoped with the 'Browser Rendering Edit' permission. ~$0.005 per page.
 # Leave empty to keep web research limited to Wikipedia (free).
 CLOUDFLARE_ACCOUNT_ID = ""
+# Cloudflare Web Analytics beacon token — optional. Free, no cookies, billed
+# to nothing. When set, every public page loads the beacon before </body>;
+# when empty, nothing is emitted and the page reads fine without it (no
+# JavaScript is ever required to read). Find the token under Analytics &
+# Logs → Web Analytics in the Cloudflare dashboard.
+CF_WEB_ANALYTICS_TOKEN = ""
 # Toggles the Graph compartment. "true" enables substrate tools in chat
 # (search_substrate, query_graph, create_source, etc.) and fires the
 # auto-cascade on post publish. "false" hides graph tools entirely; CMS

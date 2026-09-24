@@ -143,9 +143,9 @@ describe("/library — the pipeline workbench", () => {
     expect(html).toContain('class="lib-st lib-st-done" data-piece="done-doc"');
     expect(html).toContain(">Processed<");
     expect(html).toContain('class="lib-st lib-st-running" data-piece="running-doc"');
-    expect(html).toContain("Processing 2/6 · reading (3/7)");
+    expect(html).toContain("Processing 2/7 · reading (3/7)");
     expect(html).toContain('class="lib-st lib-st-queued" data-piece="queued-doc"');
-    expect(html).toContain("Queued 1/6 · titling");
+    expect(html).toContain("Queued 1/7 · titling");
     expect(html).toContain('class="lib-st lib-st-failed" data-piece="failed-doc"');
     expect(html).toContain("Failed at finding figures: model returned no JSON");
     expect(html).toContain('class="lib-st lib-st-none" data-piece="fresh-doc"');

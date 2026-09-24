@@ -1,7 +1,7 @@
 // THE PIPELINE — what happens to a document after upload, as one state
 // machine with one status per row (docs/the-record.md §4).
 //
-//   title → digest(i/n) → findings → passage → section → done
+//   title → digest(i/n) → findings → passage → section → og → index → done
 //
 // One step per request. `advanceProcessing()` does exactly one step for one
 // document and returns; the library page's poller presses it again while the
@@ -32,6 +32,7 @@ import { digest } from "./digestion";
 import { embedQuotesForPiece } from "./embeddings";
 import { readFullExtractedText } from "./extract";
 import { approveLede, proposeLede } from "./lede";
+import { generateOgImage } from "./og-image";
 import { assignTopic } from "./topics";
 
 export type ProcessingStep =
@@ -40,6 +41,7 @@ export type ProcessingStep =
   | "findings"
   | "passage"
   | "section"
+  | "og"
   | "index"
   | "done";
 export type ProcessingStatus = "queued" | "running" | "done" | "failed";
@@ -50,6 +52,7 @@ export const STEP_ORDER: ProcessingStep[] = [
   "findings",
   "passage",
   "section",
+  "og",
   "index",
   "done",
 ];
@@ -61,6 +64,7 @@ export const STEP_LABEL: Record<ProcessingStep, string> = {
   findings: "finding figures",
   passage: "choosing the passage",
   section: "filing",
+  og: "drawing the card",
   index: "indexing",
   done: "done",
 };
@@ -362,6 +366,18 @@ export async function advanceProcessing(
       case "section": {
         const t = await assignTopic(env, userId, candidate.piece_id);
         note = t.topic ? `filed under ${t.topic}` : "filed under Everything else";
+        await moveTo(env, candidate, "og", model);
+        break;
+      }
+      case "og": {
+        // The share card, rendered once into R2. An unconfigured renderer
+        // (or one that answers with an error) is not a failure of the
+        // document: the row records the stated reason and moves on.
+        const card = await generateOgImage(env, userId, candidate.piece_id).catch((err) => ({
+          ok: false as const,
+          reason: (err as Error).message ?? "card not rendered",
+        }));
+        note = card.ok ? "card rendered" : card.reason;
         await moveTo(env, candidate, "index", model);
         break;
       }
