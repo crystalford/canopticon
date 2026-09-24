@@ -63,8 +63,16 @@ const browser = await chromium.launch({
 const RESEARCH_Q = "What is the genuine white space in ad-serving and attribution?";
 const RESEARCH_URL = `/op/research?q=${encodeURIComponent(RESEARCH_Q)}`;
 
-const SHOTS: Array<[string, string, number, "operator"?]> = [
+// The fourth slot: "operator" signs the request in; "optional" means the route
+// may not exist yet (another branch's work) — a 404 is logged and skipped, it
+// never fails the run.
+const SHOTS: Array<[string, string, number, ("operator" | "optional")?]> = [
   ["front", "/", 1400],
+  // Search results, the one index whose rows are assembled by query rather
+  // than listed, and the page most likely to be reached from a citation.
+  ["search", "/search?q=housing", 1400],
+  // The hub, if the route has landed on this tree. Optional: see above.
+  ["hub", "/hub", 1400, "optional"],
   ["essays", "/essays", 1400],
   ["research", "/research", 1400],
   ["piece", "/p/the-logic-costume", 1400],
@@ -115,6 +123,13 @@ for (const [name, urlPath, width, as] of SHOTS) {
   // page is not a broken one. A short settle instead gives the poller time to
   // paint its first frame without waiting for silence that will not come.
   const resp = await page.goto(`${origin}${urlPath}`, { waitUntil: "load" });
+  if (as === "optional" && resp?.status() === 404) {
+    console.log(
+      `  ${name.padEnd(16)} 404  ${urlPath}  (optional route not mounted here — skipped)`,
+    );
+    await page.close();
+    continue;
+  }
   await page.waitForTimeout(900);
   await page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
   // Horizontal overflow is the one layout bug a screenshot hides: the page

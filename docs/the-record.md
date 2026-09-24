@@ -433,6 +433,9 @@ that exists.
 
 ## 10. Build order
 
+*Status 2026-09-24: all five built. PR 1 merged (#180); PR 2–5 on #181.
+`docs/HANDOFF.md` has what remains.*
+
 Five pull requests. Each leaves the site coherent on its own. What you will
 see after each is stated so we can both check it.
 

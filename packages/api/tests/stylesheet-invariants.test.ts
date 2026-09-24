@@ -10,10 +10,19 @@
 // A screenshot catches a bad page. Only a test catches the SECOND page width.
 
 import { describe, expect, it } from "vitest";
+import { OPERATOR_CSS } from "../src/operator/operator-styles";
 import { STYLES_CSS } from "../src/public/styles";
 
 /** The stylesheet with comments stripped — prose must not be mistaken for CSS. */
 const CSS = STYLES_CSS.replace(/\/\*[\s\S]*?\*\//g, "");
+const OP_CSS = OPERATOR_CSS.replace(/\/\*[\s\S]*?\*\//g, "");
+
+/** Everything after the :root block — the rules, without the token definitions. */
+function outsideRoot(css: string): string {
+  const i = css.indexOf(":root {");
+  const j = css.indexOf("}", i);
+  return css.slice(0, i) + css.slice(j + 1);
+}
 
 describe("the template literal itself", () => {
   it("contains no backtick", () => {
@@ -145,5 +154,83 @@ describe("a flex class never lands on a table cell", () => {
     // It was declared twice with the same selector and different values, so
     // the first block was unreachable — a reader editing it changed nothing.
     expect(CSS.match(/(^|\n)\.coord\s*{/g) ?? []).toHaveLength(1);
+  });
+});
+
+describe("type, space and radius live on one scale", () => {
+  // docs/the-record.md §8: six type sizes, one spacing scale, one radius. A
+  // rule that names its own pixel size is a seventh size waiting to happen;
+  // every font-size and radius outside :root resolves to a token instead.
+  const SHEETS: Array<[string, string]> = [
+    ["styles.ts", CSS],
+    ["operator-styles.ts", OP_CSS],
+  ];
+
+  it.each(SHEETS)("%s defines the six type steps and eight space steps at :root", (_n, css) => {
+    const root = css.slice(css.indexOf(":root {"), css.indexOf("}", css.indexOf(":root {")));
+    for (let k = 1; k <= 6; k++) expect(root).toMatch(new RegExp(`--t-${k}:\\s*\\d`));
+    for (let k = 1; k <= 8; k++) expect(root).toMatch(new RegExp(`--s-${k}:\\s*\\d`));
+    expect(root).toMatch(/--r:\s*6px/);
+    expect(root).toMatch(/--r-lg:\s*10px/);
+    for (const st of ["queued", "running", "done", "failed"]) {
+      expect(root).toMatch(new RegExp(`--st-${st}:`));
+    }
+  });
+
+  it.each(SHEETS)("%s sets no font-size in px outside :root", (_n, css) => {
+    const px = [...outsideRoot(css).matchAll(/font-size:\s*[^;}]*\d(?:\.\d+)?px/g)].map(
+      (m) => m[0],
+    );
+    expect(px).toEqual([]);
+  });
+
+  it.each(SHEETS)("%s uses at most the six sizes anywhere", (_n, css) => {
+    const sizes = new Set([...css.matchAll(/--t-\d:\s*(\d+(?:\.\d+)?)px/g)].map((m) => m[1]));
+    expect(sizes.size).toBeLessThanOrEqual(6);
+    for (const m of outsideRoot(css).matchAll(/font-size:\s*([^;}]+)/g)) {
+      expect(m[1], `font-size ${m[1]} is not on the scale`).toMatch(
+        /var\(--t-[1-6]\)|\dem\b|inherit|%/,
+      );
+    }
+  });
+
+  it.each(SHEETS)("%s sets no border-radius in px outside :root", (_n, css) => {
+    // 50% (a circle) and 0 are shapes, not sizes; anything in px must be a token.
+    const px = [
+      ...outsideRoot(css).matchAll(/border(?:-\w+)*-radius:\s*[^;}]*\d(?:\.\d+)?px/g),
+    ].map((m) => m[0]);
+    expect(px).toEqual([]);
+  });
+
+  it("the status language is one set of tokens", () => {
+    for (const st of ["queued", "running", "done", "failed"]) {
+      expect(ruleFor(`.lib-st-${st}`)).toMatch(new RegExp(`color:\\s*var\\(--st-${st}\\)`));
+    }
+  });
+
+  it("declares one .btn, and the operator verbs share it", () => {
+    expect(CSS.match(/(^|\n)\.btn\s*{/g) ?? []).toHaveLength(0);
+    const shared = CSS.match(/\n\.btn,([^{]*){/);
+    expect(shared).toBeTruthy();
+    for (const cls of [".op-strip-btn", ".atom-run", ".atom-pub", ".lead-dig", ".rn-pick"]) {
+      expect(shared?.[1]).toContain(cls);
+    }
+  });
+
+  it("the reading measure is 68ch and the rail folds under it at 900px", () => {
+    expect(CSS).toMatch(/--measure:\s*68ch/);
+    expect(CSS).toMatch(/@media \(max-width: 900px\) {\s*\.docgrid { grid-template-columns: 1fr/);
+  });
+
+  it("receipts and cross-document links are underlines, never boxes", () => {
+    const receipt = ruleFor(".prose a.receipt");
+    const xdoc = ruleFor(".prose a.xdoc");
+    expect(receipt).toMatch(/text-decoration: underline solid var\(--accent\)/);
+    expect(xdoc).toMatch(/text-decoration: underline solid var\(--ink-3\)/);
+    for (const r of [receipt, xdoc]) {
+      expect(r).not.toMatch(/border(?!-radius)[^;]*solid/);
+      expect(r).not.toMatch(/box-shadow/);
+      expect(r).not.toMatch(/background/);
+    }
   });
 });

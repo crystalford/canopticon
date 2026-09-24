@@ -11,9 +11,11 @@ The product is defined in `docs/the-record.md`: **a research record that
 compounds — a mind you can cite.** Upload → published + processed → what it
 connected to and raised → research → publish, each brief a child of the
 document that raised it. Five PRs were planned there (§10). **PR 1 and PR 2
-are merged; PR 3 is complete and rides the same open PR (#181) as PR 2**,
-because the session's budget did not allow waiting for a merge between them.
-Check whether #181 has merged. PR 4 and PR 5 are not started.
+are merged; PR 3, PR 4 and PR 5 are complete and ride the same open PR
+(#181) as PR 2**, because the session's budget did not allow waiting for a
+merge between them. Check whether #181 has merged. All five PRs of
+`docs/the-record.md` §10 are built; what remains is use, configuration, and
+the "after PR 5" list below.
 
 ## What is merged and live
 
@@ -75,23 +77,49 @@ not yet shown as a banner right after an upload, only on the row.
    with "D1 DB exceeded its CPU time limit" is a shared-budget hiccup:
    re-run the failed job.
 
-## What is next (PR 4, PR 5) — from `docs/the-record.md` §10
+## What PR 4 and PR 5 contain (complete — on #181)
 
-- **PR 4 — Findable (NEO).** Section hubs `/research/<section>`; key
-  figures above the fold; JSON-LD BreadcrumbList / Organization / WebSite +
-  SearchAction / Person; OG image per document (rendered once at
-  processing, R2, `/og/<slug>.png`); `/llms-full.txt`; IndexNow ping on
-  publish; Cloudflare Web Analytics beacon; a Lighthouse pass in `look.mts`.
-- **PR 5 — One design, and say what is true.** §8: one token scale across
-  `styles.ts` and `operator-styles.ts`; the reading page as the hero; the
-  workbench as an application (left rail: Upload · Documents · Worklist ·
-  Research); the fixture seeds every state. Rewrite `/method`, `/about`,
-  the trust line and `CLAUDE.md` from `docs/the-record.md`. `CLAUDE.md`
-  still describes some pre-pipeline mechanics (the "five passes", the
-  `RESEARCH_LLM_PROVIDER` writer note) — fix those there.
-- **After PR 5:** "Resurface" (a passage you haven't seen in N weeks, with
-  Note this / Research this); the tetrad as a Markdown shape; the sectioned
-  research writer — only after real research runs have been judged.
+- **PR 4 — Findable (NEO).** Section hubs `/research/<section>` (eight, in
+  the sitemap and llms.txt when they hold a document); key figures above the
+  body as a table; JSON-LD BreadcrumbList, Organization, WebSite +
+  SearchAction, Person author, `isBasedOn` lineage; `/llms-full.txt`;
+  IndexNow on publish (`lib/indexnow.ts`, inert without `INDEXNOW_KEY`); a
+  share card per document drawn by the pipeline's `og` step through
+  Cloudflare Browser Rendering into R2 (`/og/<slug>.png`; inert until
+  `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` are set); the Cloudflare
+  Web Analytics beacon when `CF_WEB_ANALYTICS_TOKEN` is set. Not done: a
+  Lighthouse pass in `look.mts`.
+- **PR 5 — One design, and say what is true.** Tokens on a scale in both
+  stylesheets (`--t-1..6`, `--s-1..8`, `--r`, `--r-lg`, `--st-*`), pinned by
+  `tests/stylesheet-invariants.test.ts`; the reading page at a 68ch measure;
+  one `.btn`; the workbench with a left rail (Upload · Documents · Worklist ·
+  Research) that becomes tabs on a phone. `/about`, `/method` and
+  `CLAUDE.md`'s product sections rewritten from `docs/the-record.md`.
+
+## More the operator can configure (all optional, all inert until set)
+
+- `INDEXNOW_KEY` (Worker secret, `openssl rand -hex 16`); then
+  `https://canopticon.com/<key>.txt` serves it.
+- `CLOUDFLARE_ACCOUNT_ID` in `[vars]` + `CLOUDFLARE_API_TOKEN` secret with
+  Browser Rendering Edit — share cards (≈$0.005 each). Re-process to draw
+  cards for documents already processed.
+- `CF_WEB_ANALYTICS_TOKEN` in `[vars]` from Analytics & Logs → Web Analytics.
+
+## What is next
+
+- **Use it** (`CLAUDE.md` "What's next"): process the corpus; note passages;
+  follow a bridge with "Has anyone said this?"; publish a brief; open a
+  model-drafted essay from a reading and rewrite it.
+- **Then, only if use asks for it:** "Resurface" (a passage not seen in N
+  weeks, with Note this / Research this); the tetrad as a Markdown shape;
+  readings placed in the margin beside their passage; a post-upload
+  consolidation banner; a Lighthouse pass in `look.mts`; the sectioned
+  research writer after real runs have been judged.
+- **Housekeeping:** the graph-era renderers are unmounted but still in the
+  tree (`public/render/arrangements`, `subject-page.ts`, `record.ts`,
+  `brief.ts`, `faces`, the operator `screens/outputs|studio`) — delete once
+  nothing imports them. Old PRs #165, #128, #117 are stale and can be
+  closed.
 
 ## How to verify anything
 

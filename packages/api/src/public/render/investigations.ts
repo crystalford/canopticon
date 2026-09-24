@@ -678,7 +678,7 @@ function renderWorklist(leads: Lead[], answers: Map<string, LeadAnswer>): string
   const list = leads.length
     ? renderLeads(leads, answers, { showPiece: true })
     : `<p class="op-wants-empty">Nothing yet. Leads appear here once documents have been processed: contradictions between two documents, figures with no source named, and bridges between sections.</p>`;
-  return `<section class="op-queue op-wants" id="op-wants">
+  return `<section class="op-queue op-wants wb-sec" id="op-wants">
   <div class="op-queue-head">What the record wants
     <span class="op-queue-note">Recent-first, never by frequency. Contradictions settle from documents already held; the rest start a research run parented to the document that raised them.</span>
   </div>
@@ -892,65 +892,7 @@ export async function renderLibraryIndex(
     <summary>Maintenance</summary>
     <div class="op-strip-actions">${processBtn}${advanceBtn}</div>
   </details>
-  <style>
-    .op-video-form { display:flex; gap:8px; margin-top:10px; }
-    .op-video-input { flex:1; font-size:13px; padding:8px 10px; border-radius:6px;
-      border:1px solid var(--rule); background:var(--surface); color:var(--ink); }
-  </style>
-</div>
-<style>
-  .op-strip { padding:16px; margin:0 0 28px;
-    border:1px solid var(--rule); border-radius:8px; background:rgba(0,0,0,.03); }
-
-  /* Maintenance folds away. Five batch verbs in front of the upload box made
-     the page look like a control panel instead of a place to put a document.
-     A native <details> keeps them one click away with no JavaScript. */
-  .op-more { margin-top: 12px; border-top: 1px solid var(--rule); padding-top: 10px; }
-  .op-more > summary {
-    cursor: pointer; list-style: none;
-    font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em;
-    text-transform: uppercase; color: var(--ink-mute);
-  }
-  .op-more > summary::-webkit-details-marker { display: none; }
-  .op-more > summary::before { content: "+ "; color: var(--ink-faint); }
-  .op-more[open] > summary::before { content: "− "; }
-  .op-more > summary:hover { color: var(--ink-2); }
-  .op-more .op-strip-actions { margin-top: 12px; }
-
-  /* Per-row machinery, folded. Same idiom as .op-more so the page has one
-     way of saying "there is more here if you want it". */
-  .atom-more { margin-top: 6px; }
-  .atom-more > summary {
-    cursor: pointer; list-style: none;
-    font-family: var(--mono); font-size: 10px; letter-spacing: .07em;
-    text-transform: uppercase; color: var(--ink-mute);
-  }
-  .atom-more > summary::-webkit-details-marker { display: none; }
-  .atom-more > summary::before { content: "+ "; color: var(--ink-faint); }
-  .atom-more[open] > summary::before { content: "− "; }
-  .atom-more > summary:hover { color: var(--ink-2); }
-  .op-strip-top { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
-  .op-strip-label { font-size:11px; letter-spacing:.12em; text-transform:uppercase;
-    color:var(--ink-3); font-weight:600; }
-  .op-strip-actions { display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
-  .op-strip-btn { font-size:12.5px; padding:6px 14px; border-radius:6px; cursor:pointer;
-    border:1px solid var(--rule); background:var(--surface); color:var(--ink); }
-  .op-strip-btn-primary { background:var(--ink); color:#fff; border-color:var(--ink); }
-  .op-dropzone-form { margin:0; }
-  .op-dropzone {
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:5px; padding:34px 16px; border:1px dashed var(--rule-bright, var(--rule));
-    border-radius:8px; background:var(--surface); cursor:pointer; text-align:center;
-    transition: border-color .12s, background .12s;
-  }
-  .op-dropzone:hover { border-color: var(--accent); background: var(--accent-bg, var(--surface)); }
-  .op-dz-1 { font-size:13.5px; color:var(--ink); font-weight:500; }
-  .op-dz-2 { font-size:11.5px; color:var(--ink-3); }
-  .op-dz-uploading { padding:14px; text-align:center; font-size:12.5px; color:var(--ink-3); }
-  .op-banner { padding:11px 14px; margin:0 0 16px; border-radius:8px; font-size:13px;
-    border:1px solid var(--conf-bd, var(--rule)); background:var(--conf-bg, var(--surface)); color:var(--ink); }
-  .op-banner-error { border-color:var(--corr-bd, var(--rule)); background:var(--corr-bg, var(--surface)); }
-</style>`;
+</div>`;
   }
 
   // Proposed atoms, per document. Operator-only: these have no URL until they
@@ -1110,7 +1052,7 @@ export async function renderLibraryIndex(
     opts.isOperator && userId ? await openQuestions(env.DB, userId, 12).catch(() => []) : [];
 
   const queueBlock = open.length
-    ? `<section class="op-queue">
+    ? `<section class="op-queue wb-sec" id="answers">
   <div class="op-queue-head">Questions these documents answer
     <span class="op-queue-note">Extracted with the passage that answers each one, and used for the FAQ structured data. Not a to-do list — what to chase shows on each document above, as a lead.</span>
   </div>
@@ -1241,90 +1183,23 @@ ${open
   </p>
   ${modelLine}
 </header>
+<div class="wb">
+<nav class="wb-rail" aria-label="Library sections">
+  <a href="#upload">Upload</a>
+  <a href="#documents">Documents <span class="wb-n">${pieces.length}</span></a>
+  <a href="#op-wants">Worklist</a>
+  <a href="/op/research">Research</a>
+</nav>
+<div class="wb-main">
+<section class="wb-sec" id="upload">
 ${uploadBanner}
 ${opStrip}
-<section>${sectionHeader(`All material (${pieces.length})`)}${queueLine}${table}</section>
+</section>
+<section class="wb-sec" id="documents">${sectionHeader(`All material (${pieces.length})`)}${queueLine}${table}</section>
 ${opts.isOperator ? renderWorklist(worklist, leadAnswers) : ""}
 ${queueBlock}
-<style>
-  .lib-weight {
-    display: flex; flex-wrap: wrap;
-    gap: 20px 36px;
-    padding: 22px 24px;
-    margin: 0 0 28px;
-    border: 1px solid var(--rule);
-    border-radius: 11px;
-    background: var(--surface, #fff);
-  }
-  .lw-cell { display: flex; flex-direction: column; gap: 2px; }
-  .lw-cell b {
-    font-family: var(--serif);
-    font-size: 28px; line-height: 1;
-    color: var(--ink);
-    font-weight: 600;
-  }
-  .lw-cell span {
-    font-size: 12.5px;
-    color: var(--ink-3);
-    letter-spacing: .02em;
-  }
-  .lib-model { font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); margin: 6px 0 0; }
-  .lib-model .label { letter-spacing: .12em; text-transform: uppercase; font-size: 11px; margin-right: 8px; }
-  .lib-model-fallback { color: var(--accent); }
-  .lib-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-family: var(--serif); }
-  .lib-table th { text-align: left; padding: 10px 14px 10px 0; border-bottom: 1px solid var(--rule); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
-  .lib-table td { padding: 14px 14px 14px 0; border-bottom: 1px solid var(--rule-soft, var(--rule)); vertical-align: top; font-size: 15px; line-height: 1.4; }
-  .lib-table td.coord { font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); }
-  .lib-table tr:hover td { background: rgba(0,0,0,0.015); }
-  .lib-title-raw { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); margin-top: 3px; word-break: break-all; }
-
-  /* The pipeline, per row. One line, one colour per state; the poller swaps
-     the class and the text and nothing else, so the server-rendered cell and
-     the live one are the same cell. */
-  /* styles.ts gives every non-first cell width:1% and nowrap, which is right
-     for "essay" and a date and wrong for "Failed at finding figures: <reason>".
-     The status cell gets a real width and wraps at spaces. */
-  .lib-table td.lib-status { width: auto; min-width: 160px; max-width: 300px; white-space: normal; }
-  .lib-st { font-family: var(--mono); font-size: 11.5px; line-height: 1.45; display: block; overflow-wrap: break-word; }
-  .lib-st-none { color: var(--ink-mute); font-style: italic; }
-  .lib-st-queued { color: var(--ink-3); }
-  .lib-st-running { color: var(--accent); }
-  .lib-st-done { color: var(--confirmed, var(--ink-3)); }
-  .lib-st-failed { color: var(--correction, var(--accent)); }
-  .lib-status .chip { margin-top: 4px; }
-  .lib-queue { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); margin: 6px 0 4px; }
-  .rcpt-consol { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); margin-top: 4px; }
-  .lib-lineage { font-family: var(--sans); font-size: 12px; color: var(--ink-3); margin-top: 3px; }
-  .lib-lineage-origin { font-family: var(--serif); font-style: italic; color: var(--ink-mute); }
-  .lead-piece { font-family: var(--mono); font-size: 10px; color: var(--ink-2); text-decoration: none; }
-  .lead-piece:hover { color: var(--accent); }
-  .op-wants { margin-top: 36px; }
-  .op-wants .lead-list { margin-top: 12px; }
-  .op-wants-empty { font-family: var(--sans); font-size: 13px; color: var(--ink-3); margin: 10px 0 0; }
-  .lib-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
-  .lib-retitled { font-family: var(--sans); font-size: 12px; color: var(--ink-3); margin-top: 4px;
-    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .atom-lede { font-family: var(--serif); font-size: 13.5px; line-height: 1.5; color: var(--ink-2);
-    margin: 6px 0 8px; padding-left: 10px; border-left: 2px solid var(--rule-bright, var(--rule)); }
-  .atom-lede-k { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
-    color: var(--ink-mute); margin-right: 4px; }
-
-  /* On a phone the five-column table pushed the page 552px wide inside a
-     390px viewport. Nobody had seen it, because /library 401s without a
-     session and the screenshot tool could not log in until now. The table
-     becomes a stack of cards: each row a block, the secondary columns
-     labelled inline rather than by a header off the side of the screen. */
-  @media (max-width: 720px) {
-    .lib-table, .lib-table tbody, .lib-table tr, .lib-table td { display: block; width: 100%; }
-    .lib-table thead { display: none; }
-    .lib-table tr {
-      padding: 14px 0; border-bottom: 1px solid var(--rule-soft, var(--rule));
-    }
-    .lib-table td { border: none; padding: 0 0 4px; }
-    .lib-table td.coord { display: inline-block; width: auto; margin-right: 10px; }
-    .lib-table td.lib-status { width: 100%; min-width: 0; max-width: none; }
-  }
-</style>
+</div>
+</div>
 ${opts.isOperator ? PROCESS_LIVE_JS : ""}
 `;
   return renderPage({
