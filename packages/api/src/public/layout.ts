@@ -60,6 +60,10 @@ export interface RenderPageArgs {
   /** Cloudflare Web Analytics token (env.CF_WEB_ANALYTICS_TOKEN). When set,
    *  the beacon script goes before </body>; when empty, nothing is emitted. */
   analyticsToken?: string;
+  /** Keep this page out of indexes. A search result page with a query is
+   *  the one public page that must never compete with the documents it
+   *  lists (CLAUDE.md: a site's own pages displace each other). */
+  noindex?: boolean;
 }
 
 const SITE_ORIGIN = "https://canopticon.com";
@@ -119,6 +123,7 @@ export function renderPage(args: RenderPageArgs): string {
 <title>${fullTitle}</title>
 <meta name="description" content="${description}" />
 ${canonical ? `<link rel="canonical" href="${escapeAttr(canonical)}" />` : ""}
+${args.noindex ? '<meta name="robots" content="noindex,follow" />' : ""}
 ${social}
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

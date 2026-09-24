@@ -295,6 +295,17 @@ describe("/search — From the record", () => {
     expect(html).not.toContain('action="/op/ask"');
     expect(html).not.toContain('action="/op/leads/dig"');
     expect(html).not.toMatch(/<script(?![^>]*application\/ld\+json)/);
+    // A query page never competes with the documents it lists: canonical to
+    // the bare search page, and out of the index.
+    expect(html).toContain('<link rel="canonical" href="https://canopticon.com/search" />');
+    expect(html).toContain('<meta name="robots" content="noindex,follow" />');
+  });
+
+  it("indexes the bare search page itself", async () => {
+    const env = { DB: searchDb(null), AI: {} } as never;
+    const html = await renderSearchPage(env, "");
+    expect(html).toContain('<link rel="canonical" href="https://canopticon.com/search" />');
+    expect(html).not.toContain('name="robots"');
   });
 
   it("renders nothing_found as the record not settling it", async () => {

@@ -385,6 +385,10 @@ export async function renderSearchPage(
       "Ask the record — answers are passages from documents on file, word for word, each with its receipt.",
     body,
     activeNav: "/search",
+    // The bare search page is in the sitemap; a query page is not, and says
+    // so — the passages it lists belong to their documents, not to it.
+    canonical: "https://canopticon.com/search",
+    noindex: Boolean(query),
   });
 }
 

@@ -171,10 +171,38 @@ for (const [name, urlPath, width, as] of SHOTS) {
     }
     return { page: doc.scrollWidth, view: doc.clientWidth, ...worst };
   });
+  // The SEO audits Lighthouse would run, on public pages only (the operator
+  // console is behind Access and indexes nothing): a title, a description,
+  // a canonical, a lang, exactly one h1, alt on every image, and JSON-LD on
+  // a document page. Lighthouse itself is not installable in the sandbox;
+  // these are the checks of its SEO category that a static render can fail.
+  const audit =
+    as === "operator"
+      ? []
+      : await page.evaluate((isPiece: boolean) => {
+          // No inner function declarations: esbuild's keep-names helper
+          // (__name) does not exist inside the page.
+          const out: string[] = [];
+          const d = document;
+          if (!d.title.trim()) out.push("no <title>");
+          if (!d.querySelector('meta[name="description"]')?.getAttribute("content")?.trim())
+            out.push("no meta description");
+          if (!d.querySelector('link[rel="canonical"]')?.getAttribute("href"))
+            out.push("no canonical");
+          if (!document.documentElement.lang) out.push("no <html lang>");
+          const h1 = document.querySelectorAll("h1").length;
+          if (h1 !== 1) out.push(`${h1} <h1>`);
+          const noAlt = Array.from(document.images).filter((i) => !i.hasAttribute("alt")).length;
+          if (noAlt) out.push(`${noAlt} <img> without alt`);
+          if (isPiece && !d.querySelector('script[type="application/ld+json"]'))
+            out.push("no JSON-LD");
+          return out;
+        }, urlPath.startsWith("/p/"));
   console.log(
     `  ${name.padEnd(16)} ${String(resp?.status()).padEnd(4)} ${urlPath}` +
       `${errs.length ? `  ⚠ ${errs.join("; ")}` : ""}` +
-      `${overflow ? `  ⚠ overflows ${overflow.page}>${overflow.view}px — widest: ${overflow.sel} @${overflow.right}` : ""}`,
+      `${overflow ? `  ⚠ overflows ${overflow.page}>${overflow.view}px — widest: ${overflow.sel} @${overflow.right}` : ""}` +
+      `${audit.length ? `  ⚠ seo: ${audit.join(", ")}` : ""}`,
   );
   await page.close();
 }

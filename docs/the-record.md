@@ -436,7 +436,10 @@ that exists.
 *Status 2026-09-24: all five built, and the "after PR 5" list with them —
 the document as workbench, new version, resurface, narrow answers for
 unsourced figures, the tetrad shape, the sectioned research writer, and the
-graph era's code deleted. PR 1 merged (#180); the rest on #181.
+graph era's code deleted; then Ask the record, readings in the margin,
+the post-upload banner, the brief reviewed and published on one screen, a
+labelled tetrad draft and the opened signal. PR 1 merged (#180); the rest
+on #181.
 `docs/HANDOFF.md` has what remains.*
 
 Five pull requests. Each leaves the site coherent on its own. What you will

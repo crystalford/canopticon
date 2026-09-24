@@ -56,7 +56,7 @@ parent_piece_id/origin_kind`, table `readings`). Then, built in parallel:
 - **Ask the record** — verified quotes are embedded (`kind: "quote"`) by a
   new pipeline step `index`; `/search` returns passages with receipts first.
 
-All of the above is in the tree and tested (702 tests at the last run). Known small
+All of the above is in the tree and tested (749 tests at the last run). Known small
 leftovers for PR 3's follow-up: readings render as a block after the body
 rather than in the margin beside the passage; "Note this" takes the
 selection from rendered HTML, so a selection crossing a spliced link can fail
@@ -148,6 +148,42 @@ not yet shown as a banner right after an upload, only on the row.
   them; `operator/screens/design-mock.ts` has no importer and is a safe
   one-line deletion. Leftover `.cmdk-*` CSS in both stylesheets can go too.
 
+## What the third swing added (complete — on #181, 2026-09-24)
+
+- **Ask the record** — `graph/lib/answer-question.ts`: a question on
+  `/search` answered from the corpus's own verified passages (top 8 by
+  Vectorize, four documents read around the hits, one writer call, every
+  quote located verbatim, the failed count in red). Stored in
+  `lead_answers` with `kind="question"` and shown to every reader above the
+  passages; `nothing_found` renders "The record does not settle this."
+  `POST /op/ask` (field `q`, optional `writer=anthropic`) for the operator,
+  beside "Research this on the web". No poller: `?asked=1` says "reload".
+- **Readings in the margin** — `public/render/margin-readings.ts`: each
+  reading is an `<aside class="reading">` after the block that holds its
+  passage (grid column ≥1180px, inline below). Unfound passages fall back to
+  the after-body block with a red line. JSON-LD Comments unchanged.
+- **Post-upload banner** — upload redirects carry `?uploaded=<ids>` (≤5);
+  `/library` opens on "Just uploaded": link, step, and once done the
+  consolidation line and the row's leads. `process-live.ts` repaints every
+  cell for a piece, not the first.
+- **The brief reviewed on one screen** — a done run's workspace shows
+  `review`: parent document, question, sections with verified/killed, body
+  at a reading measure, gaps, a red warning when killed > verified, and
+  "Publish to the record" (the existing `POST /op/library/research/:id/publish`)
+  or `GET /op/library/research/:id/brief.md` (labelled download). The old
+  `/op/library/research/:id/review` page is unlinked but still mounted.
+- **Draft a tetrad (labelled)** — `graph/lib/draft-tetrad.ts`,
+  `POST /op/pieces/:id/draft-tetrad`: one writer call over the lead passage
+  and up to 12 verified passages; checked with `parseTetrad`; every
+  quotation over 40 chars checked with `locateVerbatim` and marked ⚠ when
+  not found; label lines are HTML comments so the file still parses.
+- **Opened signal** — migration 0063 `pieces.last_opened_at`, written after
+  the operator renders `/p/`; `resurfacePassage` orders by
+  `COALESCE(last_opened_at, updated_at)`.
+- `design-mock.ts` and the `.cmdk-*` CSS are gone. `look.mts` now takes 18
+  shots including the signed-in document page, the upload banner and the
+  review panel.
+
 ## More the operator can configure (all optional, all inert until set)
 
 - `INDEXNOW_KEY` (Worker secret, `openssl rand -hex 16`); then
@@ -164,15 +200,15 @@ not yet shown as a banner right after an upload, only on the row.
 - **Use it** (`CLAUDE.md` "What's next"): process the corpus; note passages;
   follow a bridge with "Has anyone said this?"; publish a brief; open a
   model-drafted essay from a reading and rewrite it.
-- **Then, only if use asks for it:** readings placed in the margin beside
-  their passage; a post-upload consolidation banner; a Lighthouse pass in
-  `look.mts`; the review page reading `metadata.quotes_killed` off a
-  sectioned brief; a signed-in `/p/` shot in `look.mts` so the action bar is
-  screenshotted; an "opened" signal so Resurface can use it instead of
-  `updated_at`.
-- **Housekeeping:** `operator/screens/design-mock.ts` and the `.cmdk-*` CSS
-  are the last dead graph-era bits. Old PRs #165, #128, #117 are stale and
-  can be closed.
+- **Then, only if use asks for it:** a Lighthouse pass in `look.mts`
+  (the sandbox has no Lighthouse; `look.mts` already fails on page errors
+  and horizontal overflow); the margin column is 148px at the shell width,
+  so long notes run tall — widen the shell or truncate with a receipt link
+  if real notes are long; the review panel's warning and published states
+  are unit-tested, not photographed; a seeded `lead_answers` row with
+  `kind="question"` so the search answer is screenshotted.
+- **Housekeeping:** old PRs #165, #128, #117 are superseded (the #117 fix is
+  in `cost/approve.ts`) and can be closed.
 
 ## How to verify anything
 
