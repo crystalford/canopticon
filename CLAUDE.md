@@ -187,7 +187,13 @@ forty near-duplicate buckets); "Everything else" is a real answer.
 
 **Ingest** — `operator/routes.ts`'s `createAndExtract()` is the spine:
 SHA-256 dedup → R2 → `uploaded_files` → `extract.ts` → a published `pieces`
-row. `graph/lib/digestion-typed.ts` pulls verified quotes and typed nodes out
+row — then **the pipeline** (`graph/lib/processing.ts`, migration 0060,
+2026-09-24): `title → digest(i/n) → findings → passage → section → done`, one
+state machine per document, one step per `POST /op/process/advance`, pressed
+by `/library`'s poller while the tab is open (`public/render/process-live.ts`).
+The browser is the scheduler; nothing runs unattended. It replaced five
+separate passes with five triggers, of which only the first tick of the first
+ever ran by itself. `docs/the-record.md` §4 is the definition. `graph/lib/digestion-typed.ts` pulls verified quotes and typed nodes out
 of the text; `graph/lib/aeo-extract.ts` pulls findings (a figure with its
 source and date) and answered questions. `graph/lib/ingestion-receipt.ts`
 reports, per document, what was read (`EXTRACTION_CHAR_CEILING` = 70,400 —

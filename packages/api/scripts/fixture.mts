@@ -394,6 +394,68 @@ const TOPIC_BY_SLUG = new Map<string, string>([
   // pass-7-mini-hardening-dossier deliberately absent.
 ]);
 
+// THE PIPELINE, one row per document in piece_processing, so every state the
+// library's status column can show is in the screenshot: processed, mid-read
+// with a chunk count, queued, failed with a reason — and one document with no
+// row at all, which is what a corpus looks like before "Process everything"
+// has ever been pressed. If a state cannot appear in a screenshot, it is not
+// checked.
+const PROCESSING = [
+  {
+    piece_id: "budget-2026-estimates",
+    status: "done",
+    step: "done",
+    chunks_done: 7,
+    chunk_count: 7,
+    error: null,
+    model: "anthropic/claude-sonnet-4-5",
+    attempts: 0,
+  },
+  {
+    piece_id: "housing-starts-q3",
+    status: "running",
+    step: "digest",
+    chunks_done: 3,
+    chunk_count: 7,
+    error: null,
+    model: "anthropic/claude-sonnet-4-5",
+    attempts: 0,
+  },
+  {
+    piece_id: "transfer-payments-2025",
+    status: "queued",
+    step: "title",
+    chunks_done: 0,
+    chunk_count: 0,
+    error: null,
+    model: null,
+    attempts: 0,
+  },
+  {
+    piece_id: "wealth-estimates-review",
+    status: "failed",
+    step: "findings",
+    chunks_done: 2,
+    chunk_count: 2,
+    error: "model returned no JSON after 3 attempts",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    attempts: 3,
+  },
+  // lobbying-registry-extract and pass-7-mini-hardening-dossier deliberately
+  // absent: "Not processed", and the count on "Process everything".
+].map((r) => ({
+  ...r,
+  user_id: "u1",
+  heartbeat_at: r.status === "running" ? new Date().toISOString() : null,
+  started_at: "2026-09-24T09:00:00.000Z",
+  finished_at: r.status === "done" ? "2026-09-24T09:04:00.000Z" : null,
+  updated_at: "2026-09-24T09:04:00.000Z",
+}));
+
+// A title the pipeline replaced from the document's own words, with the
+// original kept — the row must offer "Put it back".
+const AUTO_TITLED = new Map<string, string>([["housing-starts-q3", "housing_q3_final_v2 (1).md"]]);
+
 const EXTRACTION = new Map<string, { quotes: number; nodes: number; body_chars: number }>([
   ["budget-2026-estimates", { quotes: 47, nodes: 112, body_chars: 145300 }],
   ["housing-starts-q3", { quotes: 12, nodes: 31, body_chars: 8400 }],
@@ -427,6 +489,9 @@ const row = (slug: string, title: string, subtitle: string, kind: string, i: num
   updated_at: "2026-09-10T00:00:00.000Z",
   body_chars: EXTRACTION.get(slug)?.body_chars ?? (kind === "essay" ? BODY : RESEARCH_BODY).length,
   topic: TOPIC_BY_SLUG.get(slug) ?? null,
+  original_title: AUTO_TITLED.get(slug) ?? null,
+  title_auto_at: AUTO_TITLED.has(slug) ? "2026-09-24T09:00:30.000Z" : null,
+  title_approved_at: null,
 });
 
 const ALL = [
@@ -452,6 +517,32 @@ function makeDb(): D1Database {
           return ALL.find((p) => p.slug === bound[1]) ?? null;
         }
         if (/MAX\(/i.test(sql)) return { d: "2026-09-10T00:00:00.000Z" };
+        // The pipeline's totals (processingCounts): one SUM(CASE…) over
+        // piece_processing, then a COUNT of published pieces with no row that
+        // counts, which is what "Process everything (N)" shows.
+        if (/FROM piece_processing/i.test(sql) && /SUM\(CASE/i.test(sql)) {
+          const n = (st: string) => PROCESSING.filter((r) => r.status === st).length;
+          return {
+            queued: n("queued"),
+            running: n("running"),
+            failed: n("failed"),
+            done: n("done"),
+          };
+        }
+        if (/FROM piece_processing/i.test(sql) && /COUNT\(\*\)/i.test(sql)) {
+          return {
+            n: PROCESSING.filter((r) => r.status === "queued" || r.status === "running").length,
+          };
+        }
+        if (/NOT EXISTS/i.test(sql) && /piece_processing/i.test(sql) && /COUNT\(\*\)/i.test(sql)) {
+          const covered = new Set(
+            PROCESSING.filter((r) => r.status !== "failed").map((r) => r.piece_id),
+          );
+          return { n: ALL.filter((p) => !covered.has(p.id)).length };
+        }
+        if (/FROM piece_processing/i.test(sql)) {
+          return PROCESSING.find((r) => r.piece_id === bound[0] || r.piece_id === bound[1]) ?? null;
+        }
         // The counts query asks three different questions with the same
         // COUNT(*) shape, so answer by what each one filters on — otherwise
         // the state strip shows the same number in every cell and looks
@@ -465,6 +556,8 @@ function makeDb(): D1Database {
         return null;
       },
       async all() {
+        // processingRows: every pipeline row for the operator.
+        if (/FROM piece_processing/i.test(sql)) return { results: PROCESSING };
         if (/FROM pieces/i.test(sql) && /publication_status IN/i.test(sql)) {
           const kinds = bound.slice(1).filter((b): b is string => typeof b === "string");
           if (!kinds.length) return { results: ALL };

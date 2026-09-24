@@ -2,16 +2,24 @@
 // archive). The piece page itself is rendered by piece-template.ts, not
 // here — see that file for the public face of a single document.
 
+import type { Env } from "../../env";
 import type { LeadAnswer } from "../../graph/lib/answer-lead";
 import type { IngestionReceipt } from "../../graph/lib/ingestion-receipt";
 import type { Lead } from "../../graph/lib/leads";
+import {
+  type ProcessingRow,
+  describeProcessing,
+  processingCounts,
+  processingRows,
+} from "../../graph/lib/processing";
 import * as GATE from "../../lib/aeo";
 import { looksLikeMachineFilename, looksLikeWorkingTitle } from "../../lib/title";
 import { titleCandidates } from "../../lib/title-candidates";
-import { modelForRole, modelInUse } from "../../llm/router";
+import { modelInUse } from "../../llm/router";
 import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
+import { PROCESS_LIVE_JS } from "./process-live";
 import { renderLiveStatusBanner } from "./status-banner";
 
 // Reader-facing intent labels for signed readings (spec Part 18.2: intents
@@ -293,83 +301,30 @@ interface QuestionReview {
   contested?: number;
 }
 
-/**
- * Models worth trying, as autocomplete hints only — the field takes anything.
- *
- * Measured 2026-09-15 on an AEO-shaped prompt (see aeo-extract.ts): scout
- * answers in ~12s, gpt-oss-120b did not answer at all inside 30s because it
- * spends the budget reasoning. Both are listed anyway: the point of the
- * toggle is to see that for yourself on a real document rather than take a
- * one-chunk benchmark's word for it.
- */
-/** "@cf/meta/llama-4-scout-17b-16e-instruct" -> "llama-4-scout-17b-16e-instruct". */
-function shortModel(model: string): string {
-  return model.split("/").pop() ?? model;
-}
-
-const AEO_MODEL_SUGGESTIONS = [
-  "@cf/meta/llama-4-scout-17b-16e-instruct",
-  "@cf/openai/gpt-oss-120b",
-  "@cf/google/gemma-4-26b-a4b-it",
-  "@cf/nvidia/nemotron-3-120b-a12b",
-];
-
 // What a document produced, and whether each question is allowed to become a
 // page. Operator-only — a proposed question has no URL, so this is the one
 // place it can be seen and judged before it becomes public.
+//
+// The controls that used to live here — "Select lead passage", the model
+// picker, "Extract findings & questions" — are gone. Findings, the passage
+// and the section run on upload now, as steps of the pipeline
+// (graph/lib/processing.ts), and the lead passage is auto-approved: it is a
+// verbatim span of a document the operator already published. The fold keeps
+// what only it can show: the questions and their Draft → Approve → Publish
+// gate, and the passage as a read-only line.
 function renderAtomReview(
-  env: PublicEnv,
-  pieceId: string,
   atoms: { findings: number; questions: QuestionReview[] } | undefined,
-  lede?: { verbatim_text: string; approved_at: string | null } | null,
+  lede?: { verbatim_text: string } | null,
 ): string {
-  // The model picker. A re-run replaces this piece's atoms, so the way to
-  // compare two models is to run one, read it, then run the other — and the
-  // model is recorded on every row, so which produced what survives the page.
-  //
-  // Free text rather than a fixed list on purpose: Cloudflare's catalog churns
-  // faster than this file gets edited, and a hardcoded <select> would quietly
-  // become a list of models that no longer exist. Blank means the role's own.
-  // Name the default rather than saying "default". An empty field that does
-  // something unnamed is a field you cannot reason about: you can't tell
-  // whether you have already run this model, and "blank vs the one I typed"
-  // is not a comparison you can describe afterwards.
-  const fallback = modelForRole("bulk_extraction", env).model;
-  const options = [fallback, ...AEO_MODEL_SUGGESTIONS.filter((m) => m !== fallback)]
-    .map((m) => `<option value="${escapeAttr(m)}">${m === fallback ? "default" : ""}</option>`)
-    .join("");
-  // The lede sits with the other per-document actions: propose a passage, read
-  // it, approve it. Unapproved means nothing renders publicly, so this is the
-  // only place it can be judged.
-  const ledeBlock = lede
-    ? `<div class="atom-lede">
-    <div class="atom-lede-text">${escapeHtml(lede.verbatim_text)}</div>
-    <div class="atom-lede-act">${
-      lede.approved_at
-        ? `<span class="atom-live">live</span>`
-        : `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/lede/approve" style="display:inline"><button type="submit" class="atom-pub">Approve passage</button></form>`
-    }
-    <form method="POST" action="/op/library/${escapeHtml(pieceId)}/lede" style="display:inline"><button type="submit" class="atom-run">Re-select</button></form></div>
-  </div>`
-    : `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/lede" style="display:inline"><button type="submit" class="atom-run">Select lead passage</button></form>`;
-  const extract = `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/extract-atoms" class="atom-form">
-  <input list="aeo-models" name="model" class="atom-model" autocomplete="off"
-         placeholder="${escapeAttr(shortModel(fallback))} (default)"
-         title="${escapeAttr(`Leave blank to use ${fallback}`)}">
-  <datalist id="aeo-models">${options}</datalist>
-  <button type="submit" class="atom-run">${atoms ? "Re-extract" : "Extract findings & questions"}</button>
-</form>`;
-  // FOLDED. Every row carried a lead-passage button, a model override box and
-  // an extract button — three controls times fifty documents, with the model
-  // name truncated mid-word, above the documents themselves. They are real
-  // actions and stay one click away; they are not what the page is for.
-  //
-  // A native <details>, so nothing here needs JavaScript (rule 7).
+  const ledeLine = lede
+    ? `<div class="atom-lede"><span class="atom-lede-k">Lead passage:</span> ${escapeHtml(lede.verbatim_text)}</div>`
+    : "";
+  // FOLDED. A native <details>, so nothing here needs JavaScript (rule 7).
   const fold = (inner: string, label: string) =>
     `<details class="atom-more"><summary>${escapeHtml(label)}</summary>${inner}</details>`;
 
   if (!atoms || (atoms.findings === 0 && atoms.questions.length === 0)) {
-    return fold(`<div class="atoms">${ledeBlock}${extract}</div>`, "Extract");
+    return lede ? fold(`<div class="atoms">${ledeLine}</div>`, "Lead passage") : "";
   }
   const rows = atoms.questions
     .map((q) => {
@@ -406,12 +361,48 @@ function renderAtomReview(
     .join("\n");
   return fold(
     `<div class="atoms">
-  ${ledeBlock}
-  <div class="atom-head"><b>${atoms.findings}</b> finding${atoms.findings === 1 ? "" : "s"} · <b>${atoms.questions.length}</b> question${atoms.questions.length === 1 ? "" : "s"} ${extract}</div>
+  ${ledeLine}
+  <div class="atom-head"><b>${atoms.findings}</b> finding${atoms.findings === 1 ? "" : "s"} · <b>${atoms.questions.length}</b> question${atoms.questions.length === 1 ? "" : "s"}</div>
   ${atoms.questions.length ? `<ul class="atom-list">\n${rows}\n  </ul>` : ""}
 </div>`,
     `${atoms.findings} finding${atoms.findings === 1 ? "" : "s"} · ${atoms.questions.length} question${atoms.questions.length === 1 ? "" : "s"}`,
   );
+}
+
+/**
+ * THE PIPELINE STATUS, per row. One line from describeProcessing(); the
+ * poller (process-live.ts) rewrites the same cell by its data-piece, so the
+ * server and the script paint the one shape.
+ */
+function renderProcessingCell(pieceId: string, row: ProcessingRow | undefined): string {
+  const d = describeProcessing(row);
+  // The model that did the work rides along as a tooltip — it is recorded on
+  // the row so a comparison between two runs survives the page.
+  const model = row?.model ?? "";
+  return `<span class="lib-st lib-st-${d.state}" data-piece="${escapeAttr(pieceId)}"${
+    model ? ` title="${escapeAttr(model)}"` : ""
+  }>${escapeHtml(d.text)}</span>`;
+}
+
+/** Re-process always; Retry only when the row failed. */
+function renderRowActions(pieceId: string, row: ProcessingRow | undefined): string {
+  const retry =
+    row?.status === "failed"
+      ? `<form method="POST" action="/op/library/${escapeAttr(pieceId)}/retry" style="display:inline"><button type="submit" class="atom-pub">Retry</button></form>`
+      : "";
+  const label = row?.status === "queued" || row?.status === "running" ? "Restart" : "Re-process";
+  return `<div class="lib-actions">${retry}<form method="POST" action="/op/library/${escapeAttr(pieceId)}/reprocess" style="display:inline"><button type="submit" class="atom-run">${label}</button></form></div>`;
+}
+
+/**
+ * A title the pipeline replaced. The original is kept on the row and one
+ * click puts it back (docs/the-record.md §4: the rename is reversible from
+ * the row; the slug never changes).
+ */
+function renderAutoTitle(pieceId: string, original: string | null | undefined): string {
+  if (!original) return "";
+  return `<div class="lib-retitled">Renamed from \u201c${escapeHtml(original)}\u201d by the pipeline
+  <form method="POST" action="/op/pieces/${escapeAttr(pieceId)}/title/revert" style="display:inline"><button type="submit" class="atom-run">Put it back</button></form></div>`;
 }
 
 // Essay lint notes, written into the piece's metadata at upload time. Shown
@@ -651,17 +642,11 @@ export async function renderLibraryIndex(
     error?: string;
     importing?: string;
     videoError?: string;
-    /** Count of jobs started by the "Process queue" button. */
-    draining?: string;
-    /** "findings.new.merged.killed" from the atom extraction button. */
-    atoms?: string;
-    /** Which model produced that run, so the banner can name it. */
-    model?: string;
     published?: string;
-    /** Set after a working title was replaced from /op/pieces/:id/title. */
+    /** Set after a title was replaced or put back from /op/pieces/:id/title. */
     renamed?: string;
-    /** "assigned.ungrouped" from the topic pass. */
-    topics?: string;
+    /** How many documents "Process everything" / Re-process just queued. */
+    queued?: string;
   } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
@@ -692,87 +677,51 @@ export async function renderLibraryIndex(
   const uploadBanner = opts.error
     ? `<div class="op-banner op-banner-error">${escapeHtml(opts.error)}</div>`
     : opts.ingested
-      ? `<div class="op-banner">Uploaded ${escapeHtml(opts.ingested)} document${opts.ingested === "1" ? "" : "s"} — extraction started automatically.</div>`
-      : opts.atoms
-        ? (() => {
-            const [f, n, m, k] = opts.atoms.split(".");
-            const by = opts.model ? ` using <b>${escapeHtml(shortModel(opts.model))}</b>` : "";
-            return `<div class="op-banner">Extracted <b>${escapeHtml(f ?? "0")}</b> findings and <b>${escapeHtml(n ?? "0")}</b> new questions (<b>${escapeHtml(m ?? "0")}</b> merged into existing ones)${by}.${Number(k) > 0 ? ` ${escapeHtml(k ?? "0")} span${k === "1" ? " was" : "s were"} discarded for not matching the document verbatim.` : ""} Nothing is public until you publish it.</div>`;
-          })()
-        : opts.topics
-          ? (() => {
-              const [a, u] = opts.topics.split(".");
-              return `<div class="op-banner">Filed <b>${escapeHtml(a ?? "0")}</b> document${a === "1" ? "" : "s"} into sections.${Number(u) > 0 ? ` <b>${escapeHtml(u ?? "0")}</b> fit none of them and sit in Everything else — a real answer, not a failure.` : ""} Press again for the next batch.</div>`;
-            })()
-          : opts.renamed
-            ? `<div class="op-banner">Title updated. The old one is kept on the row.</div>`
-            : opts.published
-              ? `<div class="op-banner">Answer published.</div>`
-              : opts.draining
-                ? `<div class="op-banner">${
-                    opts.draining === "0"
-                      ? "Nothing was waiting in the queue."
-                      : `Started ${escapeHtml(opts.draining)} queued job${opts.draining === "1" ? "" : "s"}. They run in the background — reload in a minute, and press again if more are still queued.`
-                  }</div>`
-                : "";
+      ? `<div class="op-banner">Uploaded ${escapeHtml(opts.ingested)} document${opts.ingested === "1" ? "" : "s"} — processing runs while this tab is open.</div>`
+      : opts.queued
+        ? `<div class="op-banner">${
+            opts.queued === "0"
+              ? "Nothing to queue — every document is processed or already waiting."
+              : `Queued ${escapeHtml(opts.queued)} document${opts.queued === "1" ? "" : "s"}. Processing runs while this tab is open.`
+          }</div>`
+        : opts.renamed
+          ? `<div class="op-banner">Title updated. The old one is kept on the row.</div>`
+          : opts.published
+            ? `<div class="op-banner">Answer published.</div>`
+            : "";
 
   // Operator affordance strip — only rendered when logged in. Surfaces the
   // bulk extract action (the work behind it lives at POST /op/library/extract
   // and is unchanged). Spec v2.5 Part 9: same URL, controls woven in. Visual
   // treatment is deliberately minimal — a band, two buttons. The handoff doc
   // says "implement the model and leave the exact visual treatment for review".
+  // THE PIPELINE, per document and in total. One table (piece_processing),
+  // read once here for the status column, the counts line and the button.
+  const procEnv = env as unknown as Env;
+  const procRows =
+    opts.isOperator && userId
+      ? await processingRows(procEnv, userId)
+      : new Map<string, ProcessingRow>();
+  const procCounts =
+    opts.isOperator && userId
+      ? await processingCounts(procEnv, userId)
+      : { queued: 0, running: 0, failed: 0, done: 0, unprocessed: 0 };
+  const active = procCounts.queued + procCounts.running;
+
   let opStrip = "";
   if (opts.isOperator && userId) {
-    const { one } = await import("../../lib/d1");
-    const counts = await one<{ total: number; unextracted: number; queued: number }>(
-      env.DB,
-      `SELECT
-         (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS total,
-         (SELECT COUNT(*) FROM pieces p
-            WHERE p.user_id = ? AND NOT EXISTS (
-              SELECT 1 FROM digest_jobs j
-               WHERE j.user_id = p.user_id AND j.piece_id = p.id AND j.status = 'completed')
-         ) AS unextracted,
-         (SELECT COUNT(*) FROM digest_jobs
-            WHERE user_id = ? AND status IN ('queued','running')) AS queued`,
-      [userId, userId, userId],
-    ).catch(() => null);
-    const total = counts?.total ?? 0;
-    const unextracted = counts?.unextracted ?? 0;
-    const queued = counts?.queued ?? 0;
-    const extractBtn =
-      unextracted > 0
-        ? `<form method="POST" action="/op/library/extract" style="display:inline;margin-right:8px">
-  <input type="hidden" name="mode" value="all-unextracted" />
-  <button type="submit" class="op-strip-btn op-strip-btn-primary">Extract all (${unextracted})</button>
+    // One button drives the whole queue; the poller presses /op/process/advance
+    // while the tab is open. Hidden when there is nothing left to queue.
+    const processBtn =
+      procCounts.unprocessed > 0
+        ? `<form method="POST" action="/op/process/all" style="display:inline;margin-right:8px">
+  <button type="submit" class="op-strip-btn op-strip-btn-primary">Process everything (${procCounts.unprocessed})</button>
 </form>`
         : "";
-    const reextractBtn =
-      total > 0
-        ? `<form method="POST" action="/op/library/extract" style="display:inline" onsubmit="return confirm('Re-extract all ${total} documents?');">
-  <input type="hidden" name="mode" value="all" />
-  <button type="submit" class="op-strip-btn">Re-extract all (${total})</button>
-</form>`
-        : "";
-    // Queued jobs used to be drained by the every-2-minute cron. The cron is
-    // off (nothing runs unattended any more), so anything enqueued without
-    // being run inline — zip entries past the first three — would otherwise
-    // sit in the queue forever with no way to move it. A button the operator
-    // presses is the whole mechanism, and it costs nothing unpressed.
-    const drainBtn =
-      queued > 0
-        ? `<form method="POST" action="/op/library/drain" style="display:inline;margin-right:8px">
-  <button type="submit" class="op-strip-btn op-strip-btn-primary">Process queue (${queued})</button>
-</form>`
-        : "";
-    // Same reasoning as the drain button above: pass 2 of on-demand research
-    // was dispatched only by the cron, so with the cron off a run that finds
-    // follow-up queries parks at pass2_pending and shows "Researching…"
-    // forever. Shown unconditionally rather than gated on a count, because the
-    // cheap thing to get wrong here is not knowing a run is stuck.
-    const topicsBtn = `<form method="POST" action="/op/library/topics" style="display:inline;margin-right:8px">
-  <button type="submit" class="op-strip-btn">File into sections</button>
-</form>`;
+    // Pass 2 of on-demand research was dispatched only by the cron, so with
+    // the cron off a run that finds follow-up queries parks at pass2_pending.
+    // Shown unconditionally rather than gated on a count, because the cheap
+    // thing to get wrong here is not knowing a run is stuck.
     const advanceBtn = `<form method="POST" action="/op/research/advance" style="display:inline;margin-right:8px">
   <button type="submit" class="op-strip-btn">Advance research</button>
 </form>`;
@@ -845,7 +794,7 @@ export async function renderLibraryIndex(
   ${videoImportForm}
   <details class="op-more">
     <summary>Maintenance</summary>
-    <div class="op-strip-actions">${drainBtn}${topicsBtn}${advanceBtn}${extractBtn}${reextractBtn}</div>
+    <div class="op-strip-actions">${processBtn}${advanceBtn}</div>
   </details>
   <style>
     .op-video-form { display:flex; gap:8px; margin-top:10px; }
@@ -912,7 +861,7 @@ export async function renderLibraryIndex(
   // pass the gate AND the operator publishes them, so this list is the only
   // place they are visible.
   const atomsByPiece = new Map<string, { findings: number; questions: QuestionReview[] }>();
-  const ledeByPiece = new Map<string, { verbatim_text: string; approved_at: string | null }>();
+  const ledeByPiece = new Map<string, { verbatim_text: string }>();
   if (opts.isOperator && userId) {
     const { all: allRows } = await import("../../lib/d1");
     const fRows = await allRows<{ piece_id: string; n: number }>(
@@ -983,7 +932,7 @@ export async function renderLibraryIndex(
   // stored column would only add a backfill and a way to go stale against an
   // edited body. Bodies are fetched for the flagged pieces alone.
   const flagged = opts.isOperator
-    ? pieces.filter((p) => looksLikeWorkingTitle(p.title)).slice(0, 12)
+    ? pieces.filter((p) => !p.title_auto_at && looksLikeWorkingTitle(p.title)).slice(0, 12)
     : [];
   const candidatesByPiece = new Map<string, string[]>();
   if (flagged.length && userId) {
@@ -1058,13 +1007,20 @@ ${open
         .map((p) => {
           const isOnDemandDraft =
             p.publication_status === "working-material" && onDemandDrafts.has(p.id);
-          const status = isOnDemandDraft
-            ? `<span class="chip">draft — awaiting review</span>`
+          const isPublished =
+            p.publication_status === "published" || p.publication_status === "canonical";
+          // The status column is the PIPELINE's status. Publication state is
+          // only worth a chip when it is not the default — upload is
+          // publication, so "published" said nothing.
+          const pubChip = isOnDemandDraft
+            ? ` <span class="chip">draft — awaiting review</span>`
             : p.publication_status === "working-material"
-              ? `<span class="chip">working material</span>`
-              : p.publication_status === "canonical"
-                ? `<span class="chip">canonical</span>`
-                : `<span class="chip">published</span>`;
+              ? ` <span class="chip">working material</span>`
+              : "";
+          const proc = procRows.get(p.id);
+          const status = opts.isOperator
+            ? `${renderProcessingCell(p.id, proc)}${pubChip}`
+            : pubChip.trim() || `<span class="chip">published</span>`;
           const href = isOnDemandDraft
             ? `/op/library/research/${escapeHtml(p.id)}/review`
             : p.publication_status === "working-material"
@@ -1079,30 +1035,39 @@ ${open
             ? `<a href="${href}" class="ac">${escapeHtml(displayTitle)}</a>${rawFilenameLine}`
             : `${escapeHtml(displayTitle)}${rawFilenameLine}`;
           const atoms = atomsByPiece.get(p.id);
-          // The fold's two buttons both need digestion to have run (they read
-          // the piece's source node), so it is shown only once a receipt
-          // exists. Before that it offered actions that could only fail with
-          // "run document extraction first".
           const atomBlock =
-            opts.isOperator &&
-            p.publication_status !== "working-material" &&
-            receipts.get(p.id) !== undefined
-              ? renderAtomReview(env, p.id, atoms, ledeByPiece.get(p.id))
-              : "";
+            opts.isOperator && isPublished ? renderAtomReview(atoms, ledeByPiece.get(p.id)) : "";
           const receiptBlock = opts.isOperator
             ? renderReceipt(receipts.get(p.id), leadAnswers)
             : "";
-          const renameBlock = opts.isOperator
-            ? renderRename(p.id, p.title, candidatesByPiece.get(p.id))
+          const actions = opts.isOperator && isPublished ? renderRowActions(p.id, proc) : "";
+          // A pipeline rename shows the original with a way back; the
+          // suggestion box is only for a working title the pipeline could not
+          // improve on (it had no candidate), so the two never stack.
+          const titleBlock = opts.isOperator
+            ? p.title_auto_at
+              ? renderAutoTitle(p.id, p.original_title)
+              : renderRename(p.id, p.title, candidatesByPiece.get(p.id))
             : "";
           return `<tr>
-  <td>${title}${renameBlock}${renderLintNotes(p.metadata)}${receiptBlock}${atomBlock}</td>
+  <td>${title}${titleBlock}${renderLintNotes(p.metadata)}${receiptBlock}${atomBlock}${actions}</td>
   <td><span class="coord">${escapeHtml(kindLabel(p.kind))}</span></td>
-  <td>${status}</td>
+  <td class="lib-status">${status}</td>
   <td><span class="coord">${p.published_at ? escapeHtml(formatDate(p.published_at)) : "—"}</span></td>
 </tr>`;
         })
         .join("")
+    : "";
+
+  // One line above the table: what the pipeline is doing right now. The
+  // poller writes into it; data-lib-active is what tells the poller to start.
+  const queueParts = [
+    procCounts.queued ? `${procCounts.queued} queued` : "",
+    procCounts.running ? `${procCounts.running} processing` : "",
+    procCounts.failed ? `${procCounts.failed} failed` : "",
+  ].filter(Boolean);
+  const queueLine = opts.isOperator
+    ? `<p id="lib-queue" class="lib-queue" data-lib-active="${active}"${queueParts.length ? "" : " hidden"}>${escapeHtml(queueParts.join(" · "))}</p>`
     : "";
 
   const table = pieces.length
@@ -1151,7 +1116,7 @@ ${open
 </header>
 ${uploadBanner}
 ${opStrip}
-<section>${sectionHeader(`All material (${pieces.length})`)}${table}</section>
+<section>${sectionHeader(`All material (${pieces.length})`)}${queueLine}${table}</section>
 ${queueBlock}
 <style>
   .lib-weight {
@@ -1185,6 +1150,29 @@ ${queueBlock}
   .lib-table tr:hover td { background: rgba(0,0,0,0.015); }
   .lib-title-raw { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); margin-top: 3px; word-break: break-all; }
 
+  /* The pipeline, per row. One line, one colour per state; the poller swaps
+     the class and the text and nothing else, so the server-rendered cell and
+     the live one are the same cell. */
+  /* styles.ts gives every non-first cell width:1% and nowrap, which is right
+     for "essay" and a date and wrong for "Failed at finding figures: <reason>".
+     The status cell gets a real width and wraps at spaces. */
+  .lib-table td.lib-status { width: auto; min-width: 160px; max-width: 300px; white-space: normal; }
+  .lib-st { font-family: var(--mono); font-size: 11.5px; line-height: 1.45; display: block; overflow-wrap: break-word; }
+  .lib-st-none { color: var(--ink-mute); font-style: italic; }
+  .lib-st-queued { color: var(--ink-3); }
+  .lib-st-running { color: var(--accent); }
+  .lib-st-done { color: var(--confirmed, var(--ink-3)); }
+  .lib-st-failed { color: var(--correction, var(--accent)); }
+  .lib-status .chip { margin-top: 4px; }
+  .lib-queue { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); margin: 6px 0 4px; }
+  .lib-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .lib-retitled { font-family: var(--sans); font-size: 12px; color: var(--ink-3); margin-top: 4px;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .atom-lede { font-family: var(--serif); font-size: 13.5px; line-height: 1.5; color: var(--ink-2);
+    margin: 6px 0 8px; padding-left: 10px; border-left: 2px solid var(--rule-bright, var(--rule)); }
+  .atom-lede-k { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-mute); margin-right: 4px; }
+
   /* On a phone the five-column table pushed the page 552px wide inside a
      390px viewport. Nobody had seen it, because /library 401s without a
      session and the screenshot tool could not log in until now. The table
@@ -1198,8 +1186,10 @@ ${queueBlock}
     }
     .lib-table td { border: none; padding: 0 0 4px; }
     .lib-table td.coord { display: inline-block; width: auto; margin-right: 10px; }
+    .lib-table td.lib-status { width: 100%; min-width: 0; max-width: none; }
   }
 </style>
+${opts.isOperator ? PROCESS_LIVE_JS : ""}
 `;
   return renderPage({
     title: "Library",

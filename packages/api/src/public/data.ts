@@ -157,13 +157,21 @@ export async function getPieceBySlug(
 // Library: every piece including working-material, with a status tag so
 // the raw research layer is honest about what's a finished publication
 // vs an interior chain pass.
+export type LibraryRow = PieceSummary & {
+  metadata: string;
+  original_title?: string | null;
+  title_auto_at?: string | null;
+};
+
 export async function listLibrary(
   db: D1Database,
   userId: string,
   opts: { includeUnpublished?: boolean } = {},
-): Promise<Array<PieceSummary & { metadata: string }>> {
+): Promise<Array<LibraryRow>> {
   // metadata comes along so the operator's own view can surface the essay
   // lint notes stored at upload time (operator/routes.ts createAndExtract).
+  // original_title / title_auto_at say whether the pipeline renamed the row
+  // (graph/lib/processing.ts stepTitle), so /library can offer the revert.
   //
   // WORKING-MATERIAL IS OPERATOR-ONLY. This had no status filter at all, so
   // every unpublished draft was listed by title to anyone who opened /library
@@ -179,10 +187,10 @@ export async function listLibrary(
   // moment...", each labelled "research report". The crawler writes `sources`
   // only now (graph/lib/record-builder.ts); this guard keeps any row it left
   // behind out of the operator's view until the purge removes it.
-  return all<PieceSummary & { metadata: string }>(
+  return all<LibraryRow>(
     db,
     `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
-            byline, published_at, signed_by, metadata
+            byline, published_at, signed_by, metadata, original_title, title_auto_at
        FROM pieces WHERE user_id = ?${visibility}
         AND NOT ${WEB_FETCHED_SQL}
       ORDER BY COALESCE(published_at, created_at) DESC`,

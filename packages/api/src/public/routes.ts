@@ -643,12 +643,9 @@ app.get("/library", async (c) => {
   const error = c.req.query("error");
   const importing = c.req.query("importing");
   const videoError = c.req.query("video_error");
-  const draining = c.req.query("draining");
-  const atoms = c.req.query("atoms");
-  const atomsModel = c.req.query("model");
   const published = c.req.query("published");
   const renamed = c.req.query("renamed");
-  const topics = c.req.query("topics");
+  const queued = c.req.query("queued");
   return htmlResponse(
     await renderLibraryIndex(c.env, {
       isOperator: c.get("is_operator"),
@@ -656,12 +653,9 @@ app.get("/library", async (c) => {
       ...(error ? { error } : {}),
       ...(importing ? { importing } : {}),
       ...(videoError ? { videoError } : {}),
-      ...(draining ? { draining } : {}),
-      ...(atoms ? { atoms } : {}),
-      ...(atomsModel ? { model: atomsModel } : {}),
       ...(published ? { published } : {}),
       ...(renamed ? { renamed } : {}),
-      ...(topics ? { topics } : {}),
+      ...(queued ? { queued } : {}),
     }),
   );
 });
