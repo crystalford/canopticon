@@ -159,37 +159,27 @@ app.use("*", async (c, next) => {
     c.res = new Response(html, { status: res.status, headers: res.headers });
     return;
   }
-  // Named op-topbar, not op-strip — investigations.ts's library rendering
-  // already owns .op-strip for an unrelated per-page bulk-extract card;
-  // reusing the name would have collided two different components under
-  // one class in the cascade.
-  // "operator →" always renders, status data or not — the console needs
-  // to be reachable from any page, not conditional on digest_jobs having
-  // rows (a fresh/idle corpus with nothing ever queued yet still needs a
-  // way in without knowing the URL by heart).
+  // ONE nav. The operator used to get a second bar above the public nav (an
+  // "OPERATOR" strip with runtime · citations · sign out) AND a Library link
+  // injected before the nav's inner container — which rendered as a stray
+  // "• Library" line between the two. Three tiers on every page, and the
+  // operator said it looked bolted together. It was. Now the signed-in nav
+  // is the reader's nav plus: Library first, and on the right a small
+  // working indicator and sign out. Same bar, same height, same rules.
   const status = await renderWorkStatusBadge(c.env.DB).catch(() => null);
   const statusHtml = status
-    ? `<span class="op-topbar-status${status.live ? " live" : ""}"><span class="op-topbar-dot"></span><span title="${status.title}">${status.text}</span></span>`
+    ? `<a href="/library" class="nav-op-status${status.live ? " live" : ""}" title="${status.title}"><span class="nav-op-dot"></span>${status.text}</a>`
     : "";
-  // "operator →" was the ONLY route to the upload box from anywhere on the
-  // site, and it is an arrow rather than a noun. The operator reported being
-  // unable to find where to upload three separate times; twice I treated that
-  // as a link-placement problem and moved something. It was not. PRIMARY_NAV
-  // is a fixed constant — Essays, Research, About — with no branch for a
-  // signed-in operator, so THE PLACE THEY WORK HAS NEVER APPEARED IN THE MAIN
-  // NAVIGATION AT ANY AUTH STATE. A link you have to already know about is not
-  // a link.
-  const opTopbar = `<div class="op-topbar"><div class="op-topbar-inner"><span class="op-topbar-tag">Operator</span><a href="/library">Library — upload a document</a>${statusHtml}<div class="op-topbar-right"><a href="/v1/admin/runtime">runtime</a><a href="/citations">citations</a><a href="/auth/logout">sign out</a></div></div></div>\n`;
-  // Library joins the primary nav for the operator only, so a reader's nav is
-  // unchanged and the operator never has to remember a URL or hunt the footer.
-  // Injected here rather than in PRIMARY_NAV because auth state lives in the
-  // middleware, and this is the same seam the topbar already uses.
-  const withNav = html.replace(
-    '<nav class="nav">',
-    '<nav class="nav">\n      <a href="/library" class="nav-op">Library</a>',
-  );
-  const injected = withNav.replace('<nav class="nav">', `${opTopbar}<nav class="nav">`);
-  c.res = new Response(injected, { status: res.status, headers: res.headers });
+  const withNav = html
+    .replace(
+      '<div class="nav-links">\n      ',
+      '<div class="nav-links">\n      <a href="/library" class="nav-op">Library</a>\n      ',
+    )
+    .replace(
+      '<a href="/search" class="nav-search"><span class="q">/</span> Search</a>',
+      `<a href="/search" class="nav-search"><span class="q">/</span> Search</a>${statusHtml}<a href="/auth/logout" class="nav-op-out">Sign out</a>`,
+    );
+  c.res = new Response(withNav, { status: res.status, headers: res.headers });
 });
 
 interface WorkStatus {

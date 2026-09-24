@@ -187,13 +187,18 @@ describe("the operator can find where to upload", () => {
     expect(nav.slice(0, 400)).toContain("Library");
   });
 
-  it("names the operator bar link instead of pointing an arrow at it", async () => {
+  it("gives the operator ONE nav — Library inside it, sign out beside search, no second bar", async () => {
     const dbWithOperator = makeEmptyDb({ withOperator: true });
     const res = await app.fetch(await loggedInRequest("/"), { ...env, DB: dbWithOperator });
     const html = await res.text();
-    expect(html).toContain("Library — upload a document");
-    // The old label said nothing about what was behind it.
+    // The Library link sits INSIDE .nav-links, not as a stray line between
+    // <nav> and its inner container (which is how it used to render).
+    const links = html.slice(html.indexOf('<div class="nav-links">'));
+    expect(links.slice(0, 120)).toContain('<a href="/library" class="nav-op">Library</a>');
+    expect(html).toContain('href="/auth/logout" class="nav-op-out"');
+    expect(html).not.toContain("op-topbar");
     expect(html).not.toContain("operator →");
+    expect(html.match(/<nav class="nav">/g)?.length).toBe(1);
   });
 
   it("leaves a reader's nav completely unchanged", async () => {
