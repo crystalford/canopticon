@@ -1,5 +1,11 @@
 # Handoff — where the record is, and what to do next
 
+> **2026-09-24, end of session:** the operator is taking the redesign to
+> Claude Design. `docs/DESIGN-BRIEF.md` is the briefing written for it —
+> what the product is, what was discussed, what is built and live, how the
+> machinery works, the visual system as it stands. Read that first if the
+> task is design.
+>
 > For the next session (the operator is moving from a cloud session back to
 > regular Claude Code). Read this, then `docs/the-record.md`, then `CLAUDE.md`.
 > Last updated 2026-09-24. Every claim here was true at the commit that
