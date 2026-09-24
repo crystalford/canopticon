@@ -11,8 +11,9 @@ The product is defined in `docs/the-record.md`: **a research record that
 compounds — a mind you can cite.** Upload → published + processed → what it
 connected to and raised → research → publish, each brief a child of the
 document that raised it. Five PRs were planned there (§10). **PR 1 and PR 2
-are merged.** PR 3 is the open PR on `claude/jolly-cerf-2iwnde` (or was just
-merged — check). PR 4 and PR 5 are not started.
+are merged; PR 3 is complete and rides the same open PR (#181) as PR 2**,
+because the session's budget did not allow waiting for a merge between them.
+Check whether #181 has merged. PR 4 and PR 5 are not started.
 
 ## What is merged and live
 
@@ -30,7 +31,7 @@ merged — check). PR 4 and PR 5 are not started.
   per row; Re-process; Retry; auto-title with "Put it back"; the lead
   passage auto-approved. Migration 0060.
 
-## What PR 3 contains (in flight or just landed)
+## What PR 3 contains (complete — on #181)
 
 Migration 0061 (`pieces.parent_piece_id`, `pieces.origin`, `research_runs.
 parent_piece_id/origin_kind`, table `readings`). Then, built in parallel:
@@ -53,8 +54,12 @@ parent_piece_id/origin_kind`, table `readings`). Then, built in parallel:
 - **Ask the record** — verified quotes are embedded (`kind: "quote"`) by a
   new pipeline step `index`; `/search` returns passages with receipts first.
 
-If any of these is missing from the tree, it did not finish in the session:
-`docs/the-record.md` §5b/§5c/§6 says what it should be.
+All of the above is in the tree and tested (674 tests). Known small
+leftovers for PR 3's follow-up: readings render as a block after the body
+rather than in the margin beside the passage; "Note this" takes the
+selection from rendered HTML, so a selection crossing a spliced link can fail
+the verbatim check (the form shows the error); the consolidation summary is
+not yet shown as a banner right after an upload, only on the row.
 
 ## What only the operator can do
 
