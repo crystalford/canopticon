@@ -62,7 +62,7 @@ parent_piece_id/origin_kind`, table `readings`). Then, built in parallel:
 - **Ask the record** — verified quotes are embedded (`kind: "quote"`) by a
   new pipeline step `index`; `/search` returns passages with receipts first.
 
-All of the above is in the tree and tested (749 tests at the last run). Known small
+All of the above is in the tree and tested (798 tests at the last run). Known small
 leftovers for PR 3's follow-up: readings render as a block after the body
 rather than in the margin beside the passage; "Note this" takes the
 selection from rendered HTML, so a selection crossing a spliced link can fail
@@ -189,6 +189,27 @@ not yet shown as a banner right after an upload, only on the row.
 - `design-mock.ts` and the `.cmdk-*` CSS are gone. `look.mts` now takes 18
   shots including the signed-in document page, the upload banner and the
   review panel.
+
+## What the fourth swing added (complete — on #183, late 2026-09-24)
+
+- **A data seam**: `public/models/{document,library,search}.ts`, each a
+  typed model the renderer consumes, served at `/p/<slug>.json`,
+  `/library.json` (operator), `/search.json?q=`. HTML byte-identical to
+  before (diffed). `docs/DESIGN-BRIEF.md` §6b.
+- **Security audit** (`docs/SECURITY-AUDIT-2026-09-24.md`): four fixes, a
+  CORS allow-list, a cross-site POST guard on `/op/*`, and
+  `workers_dev = false` (the operator console has no in-Worker auth;
+  Access on canopticon.com is the gate, so the Worker must have one
+  hostname). Remaining items are LOW with patches in the report; the one
+  the operator should verify is that Access covers `/op/*` and
+  `/v1/admin/*` on canopticon.com.
+- **Modules**: `operator/routes.ts` is a mount plus `operator/routes/
+  {session,upload,processing,leads,readings,research}.ts`; the library
+  renderer is `public/render/library/*` behind the `investigations.ts`
+  shim. Pure moves; every comment travelled.
+- **Screenshot catalogue**: 24 shots, `docs/SCREENSHOTS.md`.
+- **Docs**: `CHANGELOG.md`, `docs/README.md`, superseded docs archived,
+  root README brought current.
 
 ## More the operator can configure (all optional, all inert until set)
 

@@ -6,7 +6,23 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
-## 2026-09-24 — The Record, built (PR #181; #183 open)
+## 2026-09-24, later — The seam, the audit, the tidy (PR #183)
+
+- **One nav for the operator** (three stacked headers → one bar).
+- **A data seam**: typed page models for the document, the library and
+  search, served as JSON beside the HTML (`/p/<slug>.json`,
+  `/library.json`, `/search.json`). HTML unchanged, diffed to prove it.
+  Built so a new front end can be made against real data.
+- **Security audit**: stored XSS on the research review screen fixed; two
+  redirect guards; one ownership filter; a CORS allow-list; a cross-site
+  POST guard; `workers_dev = false`. Report in `docs/`.
+- **Modules**: operator routes and the library renderer split by concern,
+  pure moves.
+- **The screenshot catalogue** (24 states) and `docs/SCREENSHOTS.md`.
+- **Docs**: this changelog, `docs/README.md`, `docs/DESIGN-BRIEF.md` (the
+  briefing for the redesign), superseded docs archived.
+
+## 2026-09-24 — The Record, built (PR #181)
 
 Three swings in one day, one branch, merged as one. Details in
 `docs/HANDOFF.md`; the design briefing that came out of it is

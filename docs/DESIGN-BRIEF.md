@@ -274,6 +274,36 @@ That is the thing a redesign is for.
   re-located at render time); the margin note column is 148px at the shell
   width.
 
+## 6b. Data for a new front end (added late 2026-09-24)
+
+Every page now builds one typed model and renders from it, and the same
+model is served as JSON beside the HTML. A new front end can be built
+against real data without touching the plumbing; the JSON says everything
+the page says and contains no HTML.
+
+| Surface | Model | JSON |
+|---|---|---|
+| Document | `packages/api/src/public/models/document.ts` → `DocumentModel` | `GET /p/<slug>.json` (a reader gets the public model; the operator's copy adds `operator.leads` and `operator.actions` and is `no-store`) |
+| Library | `public/models/library.ts` → `LibraryModel` | `GET /library.json` (operator only; 404 otherwise) |
+| Search | `public/models/search.ts` → `SearchModel` | `GET /search.json?q=` |
+| Research run | `graph/lib/deep-research.ts` → `getResearchStatus` (`ResearchStatus`, incl. `review`) | `GET /op/research-status?…` (what the poller reads) |
+
+Each model file's interface is doc-commented field by field. The renderers
+(`public/render/piece-template.ts` → `renderPieceFromModel`,
+`public/render/library/*` → `renderLibraryFromModel`,
+`public/render/search.ts` → `renderSearchModel`) are pure functions of the
+model, so a replacement renderer is a function with the same signature.
+Actions the operator can take are in the models as `{label, method, action,
+fields}` — the form contract, not markup.
+
+`docs/SCREENSHOTS.md` lists all 24 photographed states and the one command
+that regenerates them against the seeded fixture; every state a design has
+to handle is in that set. `docs/SECURITY-AUDIT-2026-09-24.md` says how the
+operator surface is authenticated (Cloudflare Access at the edge; the
+Worker itself trusts the hostname) — relevant to any new front end that
+posts to `/op/*`: it must be same-origin, and it must carry no credentials
+of its own.
+
 ## 7. Things worth knowing before redesigning
 
 - **The document page is the product.** Everything else exists to get a
