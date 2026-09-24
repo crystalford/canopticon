@@ -139,9 +139,6 @@ v1.route("/monitors", monitorsRoutes);
 v1.route("/posts", postsRoutes);
 v1.route("/characters", charactersRoutes);
 
-import lighthouseRoutes from "./graph/routes/lighthouse.ts";
-v1.route("/lighthouse", lighthouseRoutes);
-
 import adminIngestLibraryRoutes from "./admin/ingest-library.ts";
 import adminRuntimeRoutes from "./admin/runtime.ts";
 import adminSeedRoutes from "./admin/seed-corpus.ts";
