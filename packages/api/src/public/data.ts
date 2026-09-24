@@ -538,4 +538,96 @@ export async function listTimelineEvents(
 }
 
 // Re-export parseJson so renderers can decode tags without importing d1.
+// ---- lineage (docs/the-record.md §5) --------------------------------------
+
+export interface LineageRef {
+  slug: string;
+  title: string;
+  /** The question, lead or contradiction, verbatim, that started the child. */
+  origin: string | null;
+}
+
+export interface Lineage {
+  parent: LineageRef | null;
+  children: LineageRef[];
+}
+
+/**
+ * What a document grew from and what grew out of it. `pieces.parent_piece_id`
+ * has no foreign key (0027 precedent), so a parent that was purged simply
+ * reads as none. Only published relatives are shown: a working-material child
+ * is not a public page and must not be linked as one.
+ */
+export async function lineageForPiece(
+  db: D1Database,
+  userId: string,
+  pieceId: string,
+): Promise<Lineage> {
+  const parent = await one<LineageRef>(
+    db,
+    `SELECT parent.slug AS slug, parent.title AS title, child.origin AS origin
+       FROM pieces child
+       JOIN pieces parent ON parent.id = child.parent_piece_id
+      WHERE child.id = ? AND child.user_id = ? AND parent.user_id = ?
+        AND parent.publication_status IN ('published','canonical')`,
+    [pieceId, userId, userId],
+  );
+  const children = await all<LineageRef>(
+    db,
+    `SELECT slug, title, origin
+       FROM pieces
+      WHERE user_id = ? AND parent_piece_id = ?
+        AND publication_status IN ('published','canonical')
+      ORDER BY published_at DESC, updated_at DESC`,
+    [userId, pieceId],
+  );
+  return { parent: parent ?? null, children };
+}
+
+// ---- related by subject ------------------------------------------------------
+
+/** Below this a label is a bare surname or an acronym (crosslinks.ts agrees). */
+const RELATED_MIN_LABEL_CHARS = 8;
+
+/**
+ * The other published documents that share the most subjects with this one.
+ *
+ * A subject is an entity or theme node label the typed graph filed under both
+ * documents — a query, not a model call, so it is free, deterministic and
+ * current the moment a document extracts. Ordered by how many labels are
+ * shared, then by recency. When the query finds nothing (the document has no
+ * nodes yet, or shares none), the list falls back to the most recent
+ * documents — "related by date" said honestly as a fallback, not a default.
+ */
+export async function relatedBySubject(
+  db: D1Database,
+  userId: string,
+  pieceId: string,
+  limit = 4,
+): Promise<PieceSummary[]> {
+  const shared = await all<PieceSummary & { shared: number }>(
+    db,
+    `WITH mine AS (
+       SELECT DISTINCT label FROM nodes
+        WHERE user_id = ? AND piece_id = ? AND kind IN ('entity','theme')
+          AND LENGTH(label) >= ?
+     )
+     SELECT p.id, p.slug, p.title, p.subtitle, p.kind, p.subtype, p.publication_status,
+            p.byline, p.published_at, p.signed_by, COUNT(DISTINCT n.label) AS shared
+       FROM nodes n
+       JOIN mine ON mine.label = n.label
+       JOIN pieces p ON p.id = n.piece_id
+      WHERE n.user_id = ? AND n.piece_id IS NOT NULL AND n.piece_id != ?
+        AND n.kind IN ('entity','theme')
+        AND p.user_id = ? AND p.publication_status IN ('published','canonical')
+      GROUP BY p.id
+      ORDER BY shared DESC, p.published_at DESC, p.updated_at DESC
+      LIMIT ?`,
+    [userId, pieceId, RELATED_MIN_LABEL_CHARS, userId, pieceId, userId, limit],
+  );
+  if (shared.length > 0) return shared.map(({ shared: _n, ...p }) => p);
+  const recent = await listInvestigations(db, userId);
+  return recent.filter((r) => r.id !== pieceId).slice(0, limit);
+}
+
 export { parseJson };

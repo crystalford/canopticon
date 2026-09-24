@@ -16,12 +16,15 @@ import { type LedeRow, ledeForPiece } from "../../graph/lib/lede";
 import { resolveByline, showsUpdate } from "../../lib/byline";
 import { documentStructure } from "../../lib/document-structure";
 import { parseEssay } from "../../lib/essay";
+import { type ReadingRow, readingsForPiece } from "../../lib/readings";
 import {
+  type Lineage,
   type PieceDetail,
   type PieceSummary,
   type PublicEnv,
   getPieceBySlug,
-  listInvestigations,
+  lineageForPiece,
+  relatedBySubject,
   resolveOperatorId,
   topicsForPiece,
 } from "../data";
@@ -47,7 +50,21 @@ import { type CrossLinkSpan, spliceInline } from "./receipts";
 
 // ---- public entry point -----------------------------------------------
 
-export async function renderPiece(env: PublicEnv, slug: string): Promise<string | null> {
+export interface RenderPieceOptions {
+  /**
+   * The viewer is the signed-in operator. Only then does the page carry the
+   * "Note this" form, the /op/notes.js script and the delete buttons on
+   * readings. The caller (public/routes.ts) knows this from `is_operator`
+   * on the Hono context; the renderer cannot learn it on its own.
+   */
+  isOperator?: boolean;
+}
+
+export async function renderPiece(
+  env: PublicEnv,
+  slug: string,
+  opts: RenderPieceOptions = {},
+): Promise<string | null> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return null;
   const piece = await getPieceBySlug(env.DB, userId, slug);
@@ -56,7 +73,15 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
   if (piece.publication_status === "working-material") return null;
 
   const topics = await topicsForPiece(env.DB, userId, piece.id);
-  const related = await listInvestigations(env.DB, userId);
+  // Related by shared subject, not by date (docs/the-record.md §6): the typed
+  // graph already knows which entity and theme labels two documents share.
+  const related = await relatedBySubject(env.DB, userId, piece.id, 4).catch(() => []);
+  // The operator's readings (§5c) and the document's lineage (§5). Both are
+  // plain queries; both render empty as nothing rather than as a claim.
+  const readings = await readingsForPiece(env.DB, userId, piece.id).catch(() => []);
+  const lineage = await lineageForPiece(env.DB, userId, piece.id).catch(
+    () => ({ parent: null, children: [] }) as Lineage,
+  );
   const fed = await loadWhatItFed(env, userId, piece.id);
   // Findings are the densest thing a research document produces and the only
   // primitive with strong evidence behind it. They live on the document's own
@@ -72,11 +97,14 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
 
   const body = renderPieceBody(piece, {
     topics: topics.map((t) => ({ slug: t.slug, label: t.label })),
-    related: related.filter((r) => r.id !== piece.id).slice(0, 6),
+    related: related.filter((r) => r.id !== piece.id),
     fed,
     findings,
     lede,
     crosslinks,
+    readings,
+    lineage,
+    isOperator: opts.isOperator === true,
   });
 
   // The piece page emitted no structured data at all, while subject pages and
@@ -92,6 +120,9 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
       // Only once approved — the structured data must not carry a passage the
       // page itself is not showing.
       ...(lede?.approved_at ? { lede: lede.verbatim_text } : {}),
+      // Each reading is a Comment on its Quotation — the operator's own
+      // sentences, and the only ones on the page that are not the document's.
+      ...(readings.length ? { readings } : {}),
     })}`,
     activeNav: essay ? "/essays" : "/research",
     zone: essay ? "essays" : "research",
@@ -129,6 +160,12 @@ interface PieceCtx {
    * so it costs nothing, never fails, and returns the same answer every time.
    */
   crosslinks?: Array<CrossLinkSpan & { title: string }>;
+  /** The operator's notes on passages of this document (§5c). */
+  readings?: ReadingRow[];
+  /** What this document grew from and into (§5). */
+  lineage?: Lineage;
+  /** The viewer is the signed-in operator: render the note form and script. */
+  isOperator?: boolean;
 }
 
 /**
@@ -282,10 +319,13 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
 <div class="docgrid">
   <article class="reading">
 ${renderBreadcrumbs(piece)}
-${renderPageHead(piece)}
+${renderPageHead(piece, ctx)}
 ${renderLede(ctx.lede)}
 ${bodyBlock}
+${renderReadings(ctx)}
+${renderNoteForm(piece, ctx)}
 ${renderFindings(ctx.findings, receipts.placed)}
+${renderLineage(ctx.lineage)}
 ${renderCiteBox(piece)}
 ${renderWhatItFed(ctx.fed)}
 ${renderDepositNote(piece, ctx.topics)}
@@ -294,7 +334,30 @@ ${renderDocRail(piece)}
 </div>
 ${renderOnward(piece, ctx)}
 </div>
+${ctx.isOperator ? '<script src="/op/notes.js" defer></script>' : ""}
 <style>
+  .readings { margin-top: 32px; border-top: 1px solid var(--rule); padding-top: 18px; }
+  .readings .ow-h, .lineage .ow-h { margin-bottom: 12px; }
+  .reading-note { margin: 0 0 22px; }
+  .reading-note blockquote { margin: 0 0 8px; padding-left: 14px; border-left: 2px solid var(--accent);
+    font-family: var(--serif); font-style: italic; color: var(--ink-2); }
+  .reading-note blockquote a { color: inherit; text-decoration: none; }
+  .reading-note .note-body { font-family: var(--serif); }
+  .reading-note .note-sig { font-family: var(--mono); font-size: 12px; color: var(--ink-3);
+    display: flex; gap: 12px; align-items: center; }
+  .reading-note .note-sig button { font: inherit; color: var(--ink-3); background: none; border: 0;
+    padding: 0; cursor: pointer; text-decoration: underline; }
+  .lineage { margin-top: 28px; border-top: 1px solid var(--rule); padding-top: 18px; }
+  .lineage ul { list-style: none; margin: 0; padding: 0; }
+  .lineage li { margin: 0 0 10px; }
+  .lineage .origin { display: block; font-family: var(--serif); font-style: italic; color: var(--ink-2); }
+  .note-form { margin-top: 24px; padding: 16px; border: 1px solid var(--rule); }
+  .note-form textarea { width: 100%; box-sizing: border-box; font: inherit; background: transparent;
+    color: var(--ink); border: 1px solid var(--rule); padding: 8px; margin: 6px 0 12px; }
+  .note-form .note-status { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .note-this { position: absolute; z-index: 20; font-family: var(--mono); font-size: 12px;
+    letter-spacing: .06em; text-transform: uppercase; background: var(--accent); color: #fff;
+    border: 0; padding: 6px 10px; cursor: pointer; }
   .video-transcript-fold summary { cursor: pointer; font-family: var(--mono); font-size: 12px;
     letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); padding: 10px 0;
     border-top: 1px solid var(--rule); margin-top: 24px; }
@@ -365,7 +428,7 @@ function renderBreadcrumbs(piece: PieceDetail): string {
 </div>`;
 }
 
-function renderPageHead(piece: PieceDetail): string {
+function renderPageHead(piece: PieceDetail, ctx: PieceCtx): string {
   const label = kindLabel(piece.kind);
   // The tag now appears ONLY as a warning. It used to label every piece
   // ("signed essay", "library entry") — a third restatement of what the
@@ -425,6 +488,9 @@ function renderPageHead(piece: PieceDetail): string {
       ? `<span class="updated">Updated ${escapeHtml(formatDate(piece.updated_at ?? ""))}</span>`
       : "",
     reading ? `<span>${escapeHtml(reading)}</span>` : "",
+    // The one trust signal the machine cannot supply. Said only when a
+    // readings row exists; a document without one does not claim it.
+    ctx.readings?.length ? `<a href="#readings" class="read-by">Read by the operator</a>` : "",
   ].filter(Boolean);
   const dateLine = dateBits.length
     ? `<div class="coord" style="margin-top:18px;gap:12px;flex-wrap:wrap">${dateBits.join('<span class="sep">·</span>')}</div>`
@@ -529,9 +595,76 @@ function renderOnward(piece: PieceDetail, ctx: PieceCtx): string {
   }
   if (pills.length === 0) return "";
   return `<div class="onward">
-  <div class="ow-h">Keep exploring</div>
+  <div class="ow-h">Related documents</div>
   <div class="conn-inline" style="gap:8px">${pills.join("")}</div>
 </div>`;
+}
+
+// ---- readings and lineage ----------------------------------------------------
+
+/**
+ * The operator's notes, each anchored to a passage that carries its own /q/
+ * receipt. Placed after the body as one block rather than spliced into the
+ * prose: the passage is linked, the reader can follow it, and nothing in the
+ * document's own text is rewritten to make room.
+ */
+function renderReadings(ctx: PieceCtx): string {
+  const readings = ctx.readings ?? [];
+  if (readings.length === 0) return "";
+  const items = readings
+    .map(
+      (r) => `<div class="reading-note" id="reading-${escapeAttr(r.id)}">
+  <blockquote><a href="/q/${escapeAttr(r.quote_id)}">${escapeHtml(r.verbatim_text)}</a></blockquote>
+  <div class="note-body prose">${renderMarkdown(r.note_md, { anchors: false })}</div>
+  <div class="note-sig">— the operator, ${escapeHtml(formatDate(r.created_at))}${
+    ctx.isOperator
+      ? `<form method="post" action="/op/readings/${escapeAttr(r.id)}/delete"><button type="submit">delete</button></form><form method="post" action="/op/readings/${escapeAttr(r.id)}/draft-essay"><button type="submit">draft an essay from this</button></form>`
+      : ""
+  }</div>
+</div>`,
+    )
+    .join("\n");
+  return `<section class="readings" id="readings">
+  <div class="ow-h">Readings</div>
+${items}
+</section>`;
+}
+
+/**
+ * The form "Note this" fills. Server-rendered and hidden; /op/notes.js reveals
+ * it with the selected passage in place. Operator only — an anonymous reader
+ * never sees a form that posts to a route Cloudflare Access would refuse.
+ */
+function renderNoteForm(piece: PieceDetail, ctx: PieceCtx): string {
+  if (!ctx.isOperator) return "";
+  return `<form class="note-form" id="note-form" method="post" action="/op/readings" hidden>
+  <input type="hidden" name="piece_id" value="${escapeAttr(piece.id)}">
+  <label class="coord">Passage (verbatim)</label>
+  <textarea name="passage" rows="3" readonly></textarea>
+  <label class="coord">Note</label>
+  <textarea name="note" rows="4" required></textarea>
+  <div class="note-status"></div>
+  <div class="row" style="gap:12px"><button type="submit">Save reading</button><button type="button" class="note-cancel">Cancel</button></div>
+</form>`;
+}
+
+/** "Grew from" and "Grew into" (docs/the-record.md §5). Empty renders nothing. */
+function renderLineage(lineage: Lineage | undefined): string {
+  if (!lineage || (!lineage.parent && lineage.children.length === 0)) return "";
+  const ref = (r: { slug: string; title: string; origin: string | null }) =>
+    `<li><a href="/p/${escapeAttr(r.slug)}">${escapeHtml(r.title)}</a>${
+      r.origin ? `<span class="origin">${escapeHtml(r.origin)}</span>` : ""
+    }</li>`;
+  const from = lineage.parent
+    ? `<div class="ow-h">Grew from</div><ul>${ref(lineage.parent)}</ul>`
+    : "";
+  const into = lineage.children.length
+    ? `<div class="ow-h">Grew into</div><ul>${lineage.children.map(ref).join("")}</ul>`
+    : "";
+  return `<section class="lineage" id="lineage">
+${from}
+${into}
+</section>`;
 }
 
 // ---- per-kind body -----------------------------------------------------

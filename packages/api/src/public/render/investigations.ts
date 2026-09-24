@@ -4,6 +4,13 @@
 
 import type { Env } from "../../env";
 import type { LeadAnswer } from "../../graph/lib/answer-lead";
+import {
+  type ConsolidationSummary,
+  type Lineage,
+  consolidationLine,
+  consolidationSummaries,
+  lineageForPieces,
+} from "../../graph/lib/consolidation";
 import type { IngestionReceipt } from "../../graph/lib/ingestion-receipt";
 import type { Lead } from "../../graph/lib/leads";
 import {
@@ -573,49 +580,138 @@ function discardLine(a: LeadAnswer): string {
 /** Exported for tests: the block is where the answer's honesty is enforced. */
 export const renderLeadAnswerForTest = renderLeadAnswer;
 
-function renderLeads(leads: Lead[], answers?: Map<string, LeadAnswer>): string {
-  if (!leads.length) return "";
-  const items = leads
-    .map((l) => {
-      const answer = answers?.get(l.answer_key ?? "");
-      const label = l.kind === "contradiction" ? "sources disagree" : "no source named";
-      const other =
-        l.kind === "contradiction" && l.other_piece_slug
-          ? ` <a class="lead-other" href="/library/${escapeAttr(l.other_piece_slug)}">${escapeHtml(l.other_piece_title ?? "the other document")}</a>`
-          : "";
-      const receipt = l.quote_id
-        ? ` <a class="lead-receipt" href="/q/${escapeAttr(l.quote_id)}">quote ↗</a>`
-        : "";
-      // The dig button. The seed and angle ride along in the form because a
-      // lead is a query result, not a stored row — and the angle is what
-      // makes the run worth starting: a run seeded with a bare topic returns
-      // a topic's worth of material.
-      // A contradiction is answerable from documents already held, in full,
-      // with no web search — so the button says what it will actually do
-      // rather than promising research it is not going to perform.
-      const verb = answer ? "Dig again" : l.kind === "contradiction" ? "Settle this" : "Dig here";
-      const dig = l.seed
-        ? `
+const LEAD_LABEL: Record<Lead["kind"], string> = {
+  contradiction: "sources disagree",
+  "unsourced-figure": "no source named",
+  bridge: "bridge between sections",
+  reading: "read by the operator",
+};
+
+/**
+ * The novelty check, as a research question. docs/the-record.md §1b: the
+ * research pass for "The Medium Becomes the Ground" checked four literatures
+ * by hand to find that nobody had made the McLuhan–allostasis connection.
+ * This is that check as one button, and its answer — nobody, or these three
+ * people — is itself a document.
+ */
+export const HAS_ANYONE_SAID_THIS_ANGLE =
+  "Has anyone published this connection before? Search the literature for prior statements of it " +
+  "and report who, where, when — or that none was found.";
+
+/**
+ * The dig button. The seed and angle ride along in the form because a lead
+ * is a query result, not a stored row — and the angle is what makes the run
+ * worth starting: a run seeded with a bare topic returns a topic's worth of
+ * material. piece_id becomes the run's parent (§5), kind its origin.
+ */
+function digForm(l: Lead, verb: string, angle: string): string {
+  return `
       <form method="POST" action="/op/leads/dig" class="lead-dig-form">
         <input type="hidden" name="seed" value="${escapeAttr(l.seed)}" />
-        <input type="hidden" name="angle" value="${escapeAttr(l.angle)}" />
+        <input type="hidden" name="angle" value="${escapeAttr(angle)}" />
         <input type="hidden" name="kind" value="${escapeAttr(l.kind)}" />
         <input type="hidden" name="piece_id" value="${escapeAttr(l.piece_id)}" />
         <input type="hidden" name="piece_slug" value="${escapeAttr(l.piece_slug ?? "")}" />
         <input type="hidden" name="other_slug" value="${escapeAttr(l.other_piece_slug ?? "")}" />
         <button type="submit" class="lead-dig">${escapeHtml(verb)} →</button>
         <label class="lead-writer"><input type="checkbox" name="writer" value="anthropic" /> with Claude</label>
-      </form>`
+      </form>`;
+}
+
+function renderLeads(
+  leads: Lead[],
+  answers?: Map<string, LeadAnswer>,
+  opts: { showPiece?: boolean } = {},
+): string {
+  if (!leads.length) return "";
+  const items = leads
+    .map((l) => {
+      const answer = answers?.get(l.answer_key ?? "");
+      const label = LEAD_LABEL[l.kind] ?? l.kind;
+      // In the corpus-wide worklist a lead must say which document it came
+      // out of; under a document's own receipt that is already the row.
+      const piece =
+        opts.showPiece && l.piece_slug
+          ? ` <a class="lead-piece" href="/library/${escapeAttr(l.piece_slug)}">${escapeHtml(l.piece_title ?? l.piece_slug)}</a>`
+          : "";
+      const other =
+        (l.kind === "contradiction" || l.kind === "bridge") && l.other_piece_slug
+          ? ` <a class="lead-other" href="/library/${escapeAttr(l.other_piece_slug)}">${escapeHtml(l.other_piece_title ?? "the other document")}</a>`
+          : "";
+      const receipt = l.quote_id
+        ? ` <a class="lead-receipt" href="/q/${escapeAttr(l.quote_id)}">quote ↗</a>`
         : "";
+      // A contradiction is answerable from documents already held, in full,
+      // with no web search — so the button says what it will actually do
+      // rather than promising research it is not going to perform. A bridge
+      // gets two runs: the connection itself, and whether anyone has made it.
+      let dig = "";
+      if (l.seed && l.kind === "bridge") {
+        dig =
+          digForm(l, "Research", l.angle) +
+          digForm(l, "Has anyone said this?", HAS_ANYONE_SAID_THIS_ANGLE);
+      } else if (l.seed) {
+        const verb = answer ? "Dig again" : l.kind === "contradiction" ? "Settle this" : "Dig here";
+        dig = digForm(l, verb, l.angle);
+      }
       return `    <li class="lead lead-${escapeAttr(l.kind)}">
       <span class="lead-k">${escapeHtml(label)}</span>
-      <span class="lead-sum">${escapeHtml(l.summary)}</span>${other}${receipt}${dig}
+      <span class="lead-sum">${escapeHtml(l.summary)}</span>${piece}${other}${receipt}${dig}
 ${renderLeadAnswer(answer)}    </li>`;
     })
     .join("\n");
   return `<ul class="lead-list">
 ${items}
   </ul>`;
+}
+
+/** Exported for tests: the two-button bridge and the per-kind labels. */
+export const renderLeadsForTest = renderLeads;
+
+/**
+ * WHAT THE RECORD WANTS — the worklist (docs/the-record.md §6, part 3).
+ *
+ * Recent-first and never by frequency. Every entry is a query result with the
+ * document(s) it came out of and the one action that follows it.
+ */
+function renderWorklist(leads: Lead[], answers: Map<string, LeadAnswer>): string {
+  const list = leads.length
+    ? renderLeads(leads, answers, { showPiece: true })
+    : `<p class="op-wants-empty">Nothing yet. Leads appear here once documents have been processed: contradictions between two documents, figures with no source named, and bridges between sections.</p>`;
+  return `<section class="op-queue op-wants" id="op-wants">
+  <div class="op-queue-head">What the record wants
+    <span class="op-queue-note">Recent-first, never by frequency. Contradictions settle from documents already held; the rest start a research run parented to the document that raised them.</span>
+  </div>
+  ${list}
+</section>`;
+}
+
+/**
+ * The consolidation line under a processed row: how the document now sits in
+ * the record. Only for a row the pipeline has finished — before that the
+ * counts would describe a document the record has not read.
+ */
+function renderConsolidation(s: ConsolidationSummary | undefined): string {
+  if (!s) return "";
+  return `<div class="rcpt-line rcpt-consol">${escapeHtml(consolidationLine(s))}</div>`;
+}
+
+/** Lineage (§5): where a document grew from, and how many grew from it. */
+function renderLineage(l: Lineage | undefined): string {
+  if (!l) return "";
+  const parts: string[] = [];
+  if (l.parent_id) {
+    const name = escapeHtml(l.parent_title ?? l.parent_slug ?? "a document");
+    parts.push(
+      l.parent_slug
+        ? `Grew from <a class="ac" href="/library/${escapeAttr(l.parent_slug)}">${name}</a>`
+        : `Grew from ${name}`,
+    );
+  }
+  if (l.branches > 0) parts.push(`${l.branches} branch${l.branches === 1 ? "" : "es"}`);
+  if (!parts.length) return "";
+  const origin = l.origin ? ` <span class="lib-lineage-origin">${escapeHtml(l.origin)}</span>` : "";
+  return `<div class="lib-lineage">${parts.join(" · ")}${origin}</div>`;
 }
 
 function renderLintNotes(metadataJson: string | null | undefined): string {
@@ -914,10 +1010,25 @@ export async function renderLibraryIndex(
           .catch(() => new Map<string, IngestionReceipt>())
       : new Map<string, IngestionReceipt>();
 
+  // The corpus-wide worklist: every lead, newest first, capped so the page
+  // stays a page. Readings (docs/the-record.md §5c) — what the operator
+  // noticed — sit in the same list as what the record noticed.
+  let worklist: Lead[] = [];
+  if (opts.isOperator && userId) {
+    const [leads, readings] = await Promise.all([
+      (await import("../../graph/lib/leads"))
+        .leadsForCorpus(env.DB, userId, { limit: 30 })
+        .catch(() => [] as Lead[]),
+      (await import("../../lib/readings"))
+        .readingsAsLeads(env.DB, userId, { limit: 20 })
+        .catch(() => [] as Lead[]),
+    ]);
+    worklist = [...leads, ...readings].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
   // Stored answers for whatever leads those receipts carry. One query for all
   // of them, keyed by the lead's own identity — see leads.ts's answer_key.
-  const leadKeys = [...receipts.values()]
-    .flatMap((r) => r.leads)
+  const leadKeys = [...[...receipts.values()].flatMap((r) => r.leads), ...worklist]
     .map((l) => l.answer_key)
     .filter((k): k is string => !!k);
   const leadAnswers =
@@ -926,6 +1037,20 @@ export async function renderLibraryIndex(
           .answersForLeads(env.DB, userId, leadKeys)
           .catch(() => new Map<string, LeadAnswer>())
       : new Map<string, LeadAnswer>();
+
+  // CONSOLIDATION, per processed row, and LINEAGE for the tree. Both are
+  // queries over what is already stored; each is one batch for the page.
+  const doneIds = [...procRows.values()].filter((r) => r.status === "done").map((r) => r.piece_id);
+  const consolidation =
+    opts.isOperator && userId && doneIds.length
+      ? await consolidationSummaries(env.DB, userId, doneIds).catch(
+          () => new Map<string, ConsolidationSummary>(),
+        )
+      : new Map<string, ConsolidationSummary>();
+  const lineage =
+    opts.isOperator && userId
+      ? await lineageForPieces(env.DB, userId).catch(() => new Map<string, Lineage>())
+      : new Map<string, Lineage>();
 
   // WORKING TITLES. Candidates are computed here rather than stored, for the
   // handful of rows that need them: the function is pure and cheap, so a
@@ -1038,8 +1163,10 @@ ${open
           const atomBlock =
             opts.isOperator && isPublished ? renderAtomReview(atoms, ledeByPiece.get(p.id)) : "";
           const receiptBlock = opts.isOperator
-            ? renderReceipt(receipts.get(p.id), leadAnswers)
+            ? renderReceipt(receipts.get(p.id), leadAnswers) +
+              (proc?.status === "done" ? renderConsolidation(consolidation.get(p.id)) : "")
             : "";
+          const lineageBlock = opts.isOperator ? renderLineage(lineage.get(p.id)) : "";
           const actions = opts.isOperator && isPublished ? renderRowActions(p.id, proc) : "";
           // A pipeline rename shows the original with a way back; the
           // suggestion box is only for a working title the pipeline could not
@@ -1050,7 +1177,7 @@ ${open
               : renderRename(p.id, p.title, candidatesByPiece.get(p.id))
             : "";
           return `<tr>
-  <td>${title}${titleBlock}${renderLintNotes(p.metadata)}${receiptBlock}${atomBlock}${actions}</td>
+  <td>${title}${lineageBlock}${titleBlock}${renderLintNotes(p.metadata)}${receiptBlock}${atomBlock}${actions}</td>
   <td><span class="coord">${escapeHtml(kindLabel(p.kind))}</span></td>
   <td class="lib-status">${status}</td>
   <td><span class="coord">${p.published_at ? escapeHtml(formatDate(p.published_at)) : "—"}</span></td>
@@ -1117,6 +1244,7 @@ ${open
 ${uploadBanner}
 ${opStrip}
 <section>${sectionHeader(`All material (${pieces.length})`)}${queueLine}${table}</section>
+${opts.isOperator ? renderWorklist(worklist, leadAnswers) : ""}
 ${queueBlock}
 <style>
   .lib-weight {
@@ -1165,6 +1293,14 @@ ${queueBlock}
   .lib-st-failed { color: var(--correction, var(--accent)); }
   .lib-status .chip { margin-top: 4px; }
   .lib-queue { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); margin: 6px 0 4px; }
+  .rcpt-consol { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); margin-top: 4px; }
+  .lib-lineage { font-family: var(--sans); font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+  .lib-lineage-origin { font-family: var(--serif); font-style: italic; color: var(--ink-mute); }
+  .lead-piece { font-family: var(--mono); font-size: 10px; color: var(--ink-2); text-decoration: none; }
+  .lead-piece:hover { color: var(--accent); }
+  .op-wants { margin-top: 36px; }
+  .op-wants .lead-list { margin-top: 12px; }
+  .op-wants-empty { font-family: var(--sans); font-size: 13px; color: var(--ink-3); margin: 10px 0 0; }
   .lib-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
   .lib-retitled { font-family: var(--sans); font-size: 12px; color: var(--ink-3); margin-top: 4px;
     display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

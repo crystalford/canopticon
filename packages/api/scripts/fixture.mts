@@ -462,6 +462,35 @@ const EXTRACTION = new Map<string, { quotes: number; nodes: number; body_chars: 
   ["transfer-payments-2025", { quotes: 9, nodes: 22, body_chars: 15200 }],
 ]);
 
+const LINEAGE = new Map<string, { parent: string; origin: string }>([
+  [
+    "wealth-estimates-review",
+    {
+      parent: "budget-2026-estimates",
+      origin: "Housing rose 32.3% year over year — which document is right?",
+    },
+  ],
+]);
+
+// A BRIDGE (docs/the-record.md §5b): one subject label, two documents filed
+// under different sections. "Reprofiling accounts" is in Money & markets
+// (the estimates) and Housing & cities (the starts series). The newer
+// document is piece_id, so a run started from it is parented there.
+const BRIDGES = [
+  {
+    label: "Reprofiling accounts",
+    piece_id: "housing-starts-q3",
+    piece_slug: "housing-starts-q3",
+    piece_title: "Housing Starts, Q3",
+    piece_topic: "Housing & cities",
+    other_id: "budget-2026-estimates",
+    other_slug: "budget-2026-estimates",
+    other_title: "Budget 2026: Main Estimates",
+    other_topic: "Money & markets",
+    created_at: "2026-05-14T00:00:00.000Z",
+  },
+];
+
 const row = (slug: string, title: string, subtitle: string, kind: string, i: number) => ({
   id: slug,
   slug,
@@ -492,6 +521,10 @@ const row = (slug: string, title: string, subtitle: string, kind: string, i: num
   original_title: AUTO_TITLED.get(slug) ?? null,
   title_auto_at: AUTO_TITLED.has(slug) ? "2026-09-24T09:00:30.000Z" : null,
   title_approved_at: null,
+  // LINEAGE (docs/the-record.md §5). One document grew from another, so the
+  // row can photograph "Grew from" and the parent "1 branch".
+  parent_piece_id: LINEAGE.get(slug)?.parent ?? null,
+  origin: LINEAGE.get(slug)?.origin ?? null,
 });
 
 const ALL = [
@@ -558,6 +591,72 @@ function makeDb(): D1Database {
       async all() {
         // processingRows: every pipeline row for the operator.
         if (/FROM piece_processing/i.test(sql)) return { results: PROCESSING };
+        // Bridge leads (leads.ts bridgeLeads): label x topic across sections.
+        if (/pa\.topic <> pb\.topic/i.test(sql)) return { results: BRIDGES };
+        // Consolidation's link pairs (consolidation.ts): every (source,
+        // target) sharing a subject, in crosslinks order.
+        if (/AS src_id/i.test(sql) && /AS dst_id/i.test(sql)) {
+          return {
+            results: [
+              {
+                label: "Reprofiling accounts",
+                src_id: "budget-2026-estimates",
+                dst_id: "housing-starts-q3",
+                slug: "housing-starts-q3",
+                title: "Housing Starts, Q3",
+                pieces: 2,
+              },
+              {
+                label: "supplementary estimates",
+                src_id: "budget-2026-estimates",
+                dst_id: "transfer-payments-2025",
+                slug: "transfer-payments-2025",
+                title: "Transfer Payments 2025",
+                pieces: 3,
+              },
+              {
+                label: "supplementary estimates",
+                src_id: "transfer-payments-2025",
+                dst_id: "budget-2026-estimates",
+                slug: "budget-2026-estimates",
+                title: "Budget 2026: Main Estimates",
+                pieces: 3,
+              },
+            ],
+          };
+        }
+        // A document's children (data.ts lineageForPiece): only the pieces
+        // whose parent is the bound id — not the whole tree.
+        if (/FROM pieces/i.test(sql) && /parent_piece_id = \?/i.test(sql)) {
+          const parentId = bound[1];
+          return {
+            results: ALL.filter((p) => p.parent_piece_id === parentId).map((p) => ({
+              slug: p.slug,
+              title: p.title,
+              origin: p.origin,
+            })),
+          };
+        }
+        // Lineage: the tree, keyed by piece id (consolidation.ts).
+        if (/FROM pieces/i.test(sql) && /parent_piece_id/i.test(sql)) {
+          return {
+            results: ALL.map((p) => ({
+              id: p.id,
+              slug: p.slug,
+              title: p.title,
+              parent_piece_id: p.parent_piece_id,
+              origin: p.origin,
+            })),
+          };
+        }
+        // The id-to-slug map consolidation uses to credit a lead's other side.
+        if (/SELECT id, slug FROM pieces/i.test(sql)) {
+          return { results: ALL.map((p) => ({ id: p.id, slug: p.slug })) };
+        }
+        // Questions answered, per document (consolidation.ts).
+        if (/FROM aeo_question_evidence/i.test(sql) && /GROUP BY piece_id/i.test(sql)) {
+          return { results: [{ piece_id: "budget-2026-estimates", n: 2 }] };
+        }
         if (/FROM pieces/i.test(sql) && /publication_status IN/i.test(sql)) {
           const kinds = bound.slice(1).filter((b): b is string => typeof b === "string");
           if (!kinds.length) return { results: ALL };

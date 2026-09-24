@@ -83,6 +83,18 @@ export interface PieceLdOptions {
   lede?: string;
   /** Question/answer pairs for FAQPage, when the piece has them. */
   faq?: Array<{ question: string; answer: string; anchor: string }>;
+  /**
+   * The operator's readings (docs/the-record.md §5c): each a Comment whose
+   * `about` is the Quotation it is anchored to. The note is the operator's
+   * own words, so the author is the same Person the page's byline names.
+   */
+  readings?: Array<{
+    id: string;
+    quote_id: string;
+    verbatim_text: string;
+    note_md: string;
+    created_at: string;
+  }>;
 }
 
 // An essay's question headings and their answer-first opening paragraphs are
@@ -151,6 +163,23 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
   // with what a crawler finds on the page rather than paraphrasing it.
   if (opts.lede) base.abstract = opts.lede;
   if (citations.length) base.citation = citations;
+  if (opts.readings?.length) {
+    const author = { "@type": "Person", name: resolveByline(piece.byline) };
+    base.comment = opts.readings.map((r) => ({
+      "@type": "Comment",
+      "@id": `${url}#reading-${r.id}`,
+      text: r.note_md,
+      dateCreated: dateOnly(r.created_at),
+      author,
+      about: {
+        "@type": "Quotation",
+        text: r.verbatim_text,
+        url: `${SITE}/q/${r.quote_id}`,
+        isPartOf: { "@type": essay ? "Article" : "DigitalDocument", "@id": url },
+      },
+    }));
+    base.commentCount = opts.readings.length;
+  }
   if (essay) {
     base.speakable = {
       "@type": "SpeakableSpecification",

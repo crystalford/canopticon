@@ -405,7 +405,7 @@ app.get("/p/:slug", async (c) => {
   }
   const slug = raw;
   // Try the piece renderer first (original semantics).
-  const html = await renderPiece(c.env, slug);
+  const html = await renderPiece(c.env, slug, { isOperator: c.get("is_operator") === true });
   if (html) return htmlResponse(html);
 
   // A retired slug. Every document published before migration 0052 had a
@@ -572,7 +572,9 @@ app.get("/feed.json", async (c) => {
 
 // Library piece page — same renderer.
 app.get("/library/:slug", async (c) => {
-  const html = await renderPiece(c.env, c.req.param("slug"));
+  const html = await renderPiece(c.env, c.req.param("slug"), {
+    isOperator: c.get("is_operator") === true,
+  });
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);
 });
