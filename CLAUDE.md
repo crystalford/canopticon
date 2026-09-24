@@ -17,30 +17,39 @@
 
 ---
 
-# THE PRIMARY PRODUCT — the publication
+# THE PRIMARY PRODUCT — the record
 
-**Document in, published page out.** Drop a `.md`, `.txt`, `.pdf` or `.zip`
-on `/library` and it is live at `/p/<slug>` — upload *is* publication, with
-no draft step and no approval gauntlet. Two kinds of thing get published and
-nothing else:
+> **`docs/the-record.md` is the product definition; `docs/HANDOFF.md` is where
+> the build stands.** This file is the engineering source of truth and is
+> being brought into line with them (2026-09-24).
 
-- **Research** — a primary document, kept whole and published as itself
-  rather than summarised away. Indexed at `/research`.
+**A research record that compounds — a mind you can cite.** Drop a `.md`,
+`.txt`, `.pdf`, `.docx` or `.zip` on `/library` and it is live at `/p/<slug>`
+at once — upload *is* publication. Then the pipeline reads it, one step per
+request while the library tab is open, and the record says what it noticed:
+contradictions, unsourced figures, open questions, **bridges** (a subject
+shared by documents filed under different sections), and the operator's own
+**readings**. Each is a button that starts research; the brief it produces is
+a child of the document that raised it. Two kinds of thing get published:
+
+- **Research** — a primary document, kept whole. Indexed at `/research` and
+  under its section hub `/research/<section>`.
 - **Essays** — arguments written to the convention below. Indexed at `/essays`.
+  A model may *draft* one from a reading; the draft is a labelled file the
+  operator rewrites and uploads under their own name.
 
 ```
-UPLOAD  ──▶  extract  ──▶  pieces row (published)  ──▶  /p/<slug>
-                                   │
-                                   ├──▶  /p/<slug>.md      the plain-text twin
-                                   ├──▶  JSON-LD            Article / DigitalDocument / FAQPage
-                                   ├──▶  /sitemap.xml · /llms.txt · /feed.json
-                                   └──▶  /q/<id>            verified quote receipts
+UPLOAD ──▶ pieces row (published) ──▶ /p/<slug>
+             │
+             ├─ pipeline: title → digest → findings → passage → section → og → index → done
+             │            (graph/lib/processing.ts, one step per POST /op/process/advance)
+             ├─ /p/<slug>.md · JSON-LD · /sitemap.xml · /llms.txt · /llms-full.txt · /feed.json
+             ├─ /q/<id>      verified quote receipts (readings are quotes too)
+             └─ /search      "Ask the record": passages with receipts, then documents
 ```
 
-**The goal is citability.** Not traffic for its own sake — being quotable,
-by people and by answer engines, with the provenance intact. That is the one
-thing this publication can do that a Substack cannot, and every design
-decision should be read against it.
+**The goal is citability** — by people and by answer engines, with the
+provenance intact. `docs/the-record.md` §1b names this NEO.
 
 ## The essay convention
 
@@ -223,9 +232,14 @@ workspace's poller presses it while the tab is open. **The browser is the
 scheduler**: attended by construction, nothing when idle. The writer is
 `@cf/openai/gpt-oss-120b` unless `RESEARCH_LLM_PROVIDER=anthropic` +
 `ANTHROPIC_API_KEY` + a `cost_whitelists` row for `anthropic.research_writer`,
-in which case it is Opus 5. Its budget is the honest limit: 5,000 chars per
-source, 12 sources, 4,000 output tokens. Deeper than that means more calls,
-not a bigger one.
+in which case it is Opus 5. **Since 2026-09-24 the preferred writer — and the
+model for every judgement step in the pipeline — is Claude through
+Cloudflare AI Gateway Unified Billing (`llm/claude-gateway.ts`) whenever
+`AI_GATEWAY_ID` is set; Workers AI otherwise, and `/library` names which.**
+Its budget is the honest limit: 5,000 chars per source, 12 sources, 4,000
+output tokens. Deeper than that means more calls, not a bigger one. A run
+records the document that started it (`research_runs.parent_piece_id`); the
+brief is that document's child.
 
 **The operator surface** — `/library` is the working page: upload first, the
 documents, each with its receipt and its leads, the answered-questions index
@@ -358,24 +372,13 @@ document behind it. `purgeTypedGraphForPiece()` is the correct primitive.
 
 ## What's next
 
-1. **Use it.** Upload documents, press "File into sections" (the topic pass
-   has never run on the live corpus), settle a contradiction, run one research
-   question with `RESEARCH_LLM_PROVIDER=anthropic` on and compare it to the
-   Workers AI writer on the same question. Every remaining decision is
-   downstream of whether those four things are pleasant.
-2. **Unsourced-figure leads still use the broad pipeline.** A contradiction
-   is settled from documents already held; a missing attribution genuinely
-   needs the web. The narrow-answer shape (three sentences, verbatim quotes,
-   discards shown) should apply to it too, over a focused search rather than
-   twelve sources.
-3. **A sectioned writer, if the built-in research is worth having at all.**
-   Outline → one section per execution → assemble. It is the only path where
-   Canopticon's own briefs get deep, and it is the biggest build here. Decide
-   it after step 1, not before.
-4. Arrangement routes: deferred, reason measured — 8 of 13 now have inbound
-   links, and the sitemap announces one subject page. Code hygiene, not risk.
-5. Then measure: `/citations` logs GPTBot, ClaudeBot and PerplexityBot, so
-   whether any of this worked is answerable.
+`docs/HANDOFF.md` is current. In short: merge what is open; press *Process
+everything* in `/library` with the tab open; create the AI Gateway with
+Unified Billing and set `AI_GATEWAY_ID` / `CLAUDE_MODEL`; then use it —
+upload, note passages, follow a bridge, publish a brief — before building
+more. After that: "resurface" (an old passage shown again), the tetrad as a
+Markdown shape, and the sectioned research writer, in that order and only if
+real use asks for them.
 
 ---
 
@@ -426,8 +429,9 @@ stalled the project twice.** Leave it alone.
 
 - **Runtime**: Cloudflare Workers + **Hono**, TypeScript.
 - **Storage**: **D1** (SQLite) · **R2** · **Vectorize** (search).
-- **AI**: **Workers AI** only, and only at authoring time (extraction, TTS),
-  never at render time. (`packages/video` calls MiniMax directly for voice
+- **AI**: **Claude via Cloudflare AI Gateway (Unified Billing)** when
+  configured, **Workers AI** otherwise — and only at authoring time
+  (the pipeline, research), never at render time. (`packages/video` calls MiniMax directly for voice
   cloning with its own key — compartmentalized, not a precedent.)
 - **Rendering**: server-rendered HTML by string concatenation. No JSX, no
   React, no client framework, no frontend build step.
