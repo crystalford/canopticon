@@ -104,20 +104,125 @@ const RESEARCH_PLAN = [
   "retail media network incrementality measurement gaps",
 ];
 
+// The sectioned brief (migration 0062): every search has run, the outline is
+// written, and two of its five sections have landed — one with a killed
+// quote, so the red count is in the screenshot. This is the state a Claude
+// run spends most of its presses in.
+const RESEARCH_OUTLINE = [
+  "Where attribution vendors actually compete",
+  "What retail media networks measure, and what they cannot",
+  "The post-cookie identity layer",
+  "Incrementality: the method, and the gap in the tooling",
+  "Standards bodies and who follows them",
+].map((heading, i) => ({
+  heading,
+  brief_of_section: `What section ${i + 1} must establish.`,
+  source_ids: i % 2 === 0 ? ["s1", "s2", "s3"] : ["s4", "s5", "s6"],
+}));
+
+const RESEARCH_SECTIONS_DONE = [
+  {
+    heading: RESEARCH_OUTLINE[0]?.heading,
+    body_md: "Section one, as written.",
+    quotes_ok: 3,
+    quotes_killed: 0,
+  },
+  {
+    heading: RESEARCH_OUTLINE[1]?.heading,
+    body_md: "Section two, as written.",
+    quotes_ok: 2,
+    quotes_killed: 1,
+  },
+];
+
 const RESEARCH_RUN = {
   id: "run-1",
   label: RESEARCH_LABEL,
   angle: null,
-  status: "pass2_pending",
+  status: "section_pending",
+  mode: "sectioned",
+  outline: JSON.stringify(RESEARCH_OUTLINE),
+  sections_done: JSON.stringify(RESEARCH_SECTIONS_DONE),
   pass1_source_ids: JSON.stringify(["s1", "s2", "s3", "s4", "s5"]),
   pass2_source_ids: JSON.stringify(["s6"]),
   followup_queries: JSON.stringify(RESEARCH_PLAN),
-  followups_done: JSON.stringify([RESEARCH_PLAN[0]]),
+  followups_done: JSON.stringify(RESEARCH_PLAN),
   writer: "anthropic",
   final_piece_id: null,
   error: null,
   created_at: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
 };
+
+// A FINISHED sectioned run (the review panel): three sections written, one
+// of them with a killed quote, assembled into a working-material brief that
+// grew from a document already in the fixture. This is the state in which
+// the loop closes — document → lead → research → brief → publish — and it
+// is the state that could not be photographed until this run existed.
+const REVIEW_LABEL =
+  "Does reprofiling explain the gap between the estimates and the starts series?";
+const REVIEW_SECTIONS_DONE = [
+  {
+    heading: "What the estimates call reprofiling",
+    body_md:
+      "The Main Estimates use *reprofiling* for money moved between fiscal years without a change in the authority to spend it. The two documents disagree on how much of the housing line this covers.\n\nOne reads it as a timing artefact; the other as a cut by another name.",
+    quotes_ok: 3,
+    quotes_killed: 0,
+  },
+  {
+    heading: "How the starts series is counted",
+    body_md:
+      "The starts series counts a start when the footing is poured, not when a unit is funded, so a reprofiled dollar shows up in it one to three quarters later — if it shows up at all.\n\nA figure the writer proposed for the lag was not found verbatim in any source and was dropped.",
+    quotes_ok: 1,
+    quotes_killed: 1,
+  },
+  {
+    heading: "Where the two series can be reconciled",
+    body_md:
+      "Only at the programme level. Neither document publishes a crosswalk, and the one that comes closest stops at the departmental total.",
+    quotes_ok: 2,
+    quotes_killed: 0,
+  },
+];
+const REVIEW_BRIEF_ID = "brief-reprofiling";
+const REVIEW_BRIEF = {
+  id: REVIEW_BRIEF_ID,
+  slug: "reprofiling-and-the-starts-gap",
+  title: "Reprofiling and the gap in the starts series",
+  body_md: [
+    "Reprofiling explains part of the gap, and the part it explains is the part that arrives late. The two documents measure different moments — the funded dollar and the poured footing — and neither publishes the crosswalk that would let a reader net one against the other.",
+    ...REVIEW_SECTIONS_DONE.map((x) => `## ${x.heading}\n\n${x.body_md}`),
+    "## What this brief could not establish\n\n- The size of the lag between a reprofiled dollar and a counted start.\n- Whether the estimates' housing line and the starts series use the same programme boundary.",
+  ].join("\n\n"),
+  publication_status: "working-material",
+  kind: "research-report",
+  byline: "Canopticon research agent",
+  parent_piece_id: "budget-2026-estimates",
+  origin: REVIEW_LABEL,
+  metadata: JSON.stringify({
+    ingested_from: "deep-research",
+    label: REVIEW_LABEL,
+    mode: "sectioned",
+    sections: REVIEW_SECTIONS_DONE.length,
+    quotes_ok: 6,
+    quotes_killed: 1,
+    source_id: "src-brief",
+  }),
+};
+const REVIEW_RUN = {
+  ...RESEARCH_RUN,
+  id: "run-2",
+  label: REVIEW_LABEL,
+  status: "done",
+  outline: JSON.stringify(
+    REVIEW_SECTIONS_DONE.map((x) => ({ heading: x.heading, brief_of_section: "", source_ids: [] })),
+  ),
+  sections_done: JSON.stringify(REVIEW_SECTIONS_DONE),
+  followup_queries: "[]",
+  followups_done: "[]",
+  final_piece_id: REVIEW_BRIEF_ID,
+  created_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+};
+const RESEARCH_RUNS = [RESEARCH_RUN, REVIEW_RUN];
 
 const RESEARCH_SOURCES: Array<[string, string, string, number]> = [
   [
@@ -394,11 +499,102 @@ const TOPIC_BY_SLUG = new Map<string, string>([
   // pass-7-mini-hardening-dossier deliberately absent.
 ]);
 
+// THE PIPELINE, one row per document in piece_processing, so every state the
+// library's status column can show is in the screenshot: processed, mid-read
+// with a chunk count, queued, failed with a reason — and one document with no
+// row at all, which is what a corpus looks like before "Process everything"
+// has ever been pressed. If a state cannot appear in a screenshot, it is not
+// checked.
+const PROCESSING = [
+  {
+    piece_id: "budget-2026-estimates",
+    status: "done",
+    step: "done",
+    chunks_done: 7,
+    chunk_count: 7,
+    error: null,
+    model: "anthropic/claude-sonnet-4-5",
+    attempts: 0,
+  },
+  {
+    piece_id: "housing-starts-q3",
+    status: "running",
+    step: "digest",
+    chunks_done: 3,
+    chunk_count: 7,
+    error: null,
+    model: "anthropic/claude-sonnet-4-5",
+    attempts: 0,
+  },
+  {
+    piece_id: "transfer-payments-2025",
+    status: "queued",
+    step: "title",
+    chunks_done: 0,
+    chunk_count: 0,
+    error: null,
+    model: null,
+    attempts: 0,
+  },
+  {
+    piece_id: "wealth-estimates-review",
+    status: "failed",
+    step: "findings",
+    chunks_done: 2,
+    chunk_count: 2,
+    error: "model returned no JSON after 3 attempts",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    attempts: 3,
+  },
+  // lobbying-registry-extract and pass-7-mini-hardening-dossier deliberately
+  // absent: "Not processed", and the count on "Process everything".
+].map((r) => ({
+  ...r,
+  user_id: "u1",
+  heartbeat_at: r.status === "running" ? new Date().toISOString() : null,
+  started_at: "2026-09-24T09:00:00.000Z",
+  finished_at: r.status === "done" ? "2026-09-24T09:04:00.000Z" : null,
+  updated_at: "2026-09-24T09:04:00.000Z",
+}));
+
+// A title the pipeline replaced from the document's own words, with the
+// original kept — the row must offer "Put it back".
+const AUTO_TITLED = new Map<string, string>([["housing-starts-q3", "housing_q3_final_v2 (1).md"]]);
+
 const EXTRACTION = new Map<string, { quotes: number; nodes: number; body_chars: number }>([
   ["budget-2026-estimates", { quotes: 47, nodes: 112, body_chars: 145300 }],
   ["housing-starts-q3", { quotes: 12, nodes: 31, body_chars: 8400 }],
   ["transfer-payments-2025", { quotes: 9, nodes: 22, body_chars: 15200 }],
 ]);
+
+const LINEAGE = new Map<string, { parent: string; origin: string }>([
+  [
+    "wealth-estimates-review",
+    {
+      parent: "budget-2026-estimates",
+      origin: "Housing rose 32.3% year over year — which document is right?",
+    },
+  ],
+]);
+
+// A BRIDGE (docs/the-record.md §5b): one subject label, two documents filed
+// under different sections. "Reprofiling accounts" is in Money & markets
+// (the estimates) and Housing & cities (the starts series). The newer
+// document is piece_id, so a run started from it is parented there.
+const BRIDGES = [
+  {
+    label: "Reprofiling accounts",
+    piece_id: "housing-starts-q3",
+    piece_slug: "housing-starts-q3",
+    piece_title: "Housing Starts, Q3",
+    piece_topic: "Housing & cities",
+    other_id: "budget-2026-estimates",
+    other_slug: "budget-2026-estimates",
+    other_title: "Budget 2026: Main Estimates",
+    other_topic: "Money & markets",
+    created_at: "2026-05-14T00:00:00.000Z",
+  },
+];
 
 const row = (slug: string, title: string, subtitle: string, kind: string, i: number) => ({
   id: slug,
@@ -425,9 +621,56 @@ const row = (slug: string, title: string, subtitle: string, kind: string, i: num
   argument_summary_md: null,
   created_at: `2026-0${(i % 9) + 1}-1${i % 9}T00:00:00.000Z`,
   updated_at: "2026-09-10T00:00:00.000Z",
+  // Migration 0063: when the operator last opened the document. Null is a
+  // real state ("never since the column existed") and resurface must handle it.
+  last_opened_at: i % 2 === 0 ? "2026-09-20T00:00:00.000Z" : null,
   body_chars: EXTRACTION.get(slug)?.body_chars ?? (kind === "essay" ? BODY : RESEARCH_BODY).length,
   topic: TOPIC_BY_SLUG.get(slug) ?? null,
+  original_title: AUTO_TITLED.get(slug) ?? null,
+  title_auto_at: AUTO_TITLED.has(slug) ? "2026-09-24T09:00:30.000Z" : null,
+  title_approved_at: null,
+  // LINEAGE (docs/the-record.md §5). One document grew from another, so the
+  // row can photograph "Grew from" and the parent "1 branch".
+  parent_piece_id: LINEAGE.get(slug)?.parent ?? null,
+  origin: LINEAGE.get(slug)?.origin ?? null,
 });
+
+// READINGS (docs/the-record.md §5c): the operator's notes on passages. Two
+// states must both photograph. The first two passages are verbatim in their
+// documents (one hard-wrapped, in a list item), so they render in the margin
+// beside the block; the third is NOT in the current text — the document was
+// replaced after the note — so the page must say so rather than pin the note
+// to the wrong paragraph.
+const READINGS = [
+  {
+    id: "rd-1",
+    piece_id: "the-logic-costume",
+    quote_id: "q-rd-1",
+    verbatim_text:
+      "Checking takes time; the signal is instant. A live audience cannot pause to verify a syllogism, so the performance is judged on affect.",
+    note_md:
+      "This is the whole mechanism in two sentences. Worth checking whether the **attention** literature has a name for it — the gap between signal and verification.",
+    created_at: "2026-09-22T10:00:00.000Z",
+  },
+  {
+    id: "rd-2",
+    piece_id: "the-logic-costume",
+    quote_id: "q-rd-2",
+    verbatim_text:
+      "The costume is a claim about method that the method itself would reject on inspection, and the audience never inspects.",
+    note_md: "Cut from the second draft, but the note still stands: who *does* inspect, and when?",
+    created_at: "2026-09-18T09:00:00.000Z",
+  },
+  {
+    id: "rd-3",
+    piece_id: "budget-2026-estimates",
+    quote_id: "q-rd-3",
+    verbatim_text:
+      "Percentages are computed from the unrounded source values, so they will not always reproduce exactly from the rounded columns shown above.",
+    note_md: "Ask for the unrounded table. The rounded one cannot be re-derived.",
+    created_at: "2026-09-23T14:00:00.000Z",
+  },
+];
 
 const ALL = [
   ...ESSAYS.map(([s, t, d], i) => row(s as string, t as string, d as string, "essay", i)),
@@ -445,13 +688,52 @@ function makeDb(): D1Database {
         return stmt;
       },
       async first() {
-        if (/FROM research_runs/i.test(sql)) return RESEARCH_RUN;
+        // getResearchStatus binds [userId, label]; the brief download binds
+        // [userId, final_piece_id]. Anything else gets the run in flight.
+        if (/FROM research_runs/i.test(sql)) {
+          return (
+            RESEARCH_RUNS.find((r) => r.label === bound[1] || r.final_piece_id === bound[1]) ??
+            RESEARCH_RUN
+          );
+        }
+        // The finished brief (loadResearchReview, the .md download) and the
+        // parent document it grew from, both by id.
+        if (/FROM pieces WHERE id = \?/i.test(sql)) {
+          if (bound[0] === REVIEW_BRIEF_ID) return REVIEW_BRIEF;
+          return ALL.find((p) => p.id === bound[0]) ?? null;
+        }
         if (/FROM nodes/i.test(sql) && /neutral_fact/i.test(sql)) return { n: 273 };
         if (/FROM users/i.test(sql)) return { id: "u1" };
         if (/FROM pieces WHERE user_id = \? AND slug = \?/i.test(sql)) {
           return ALL.find((p) => p.slug === bound[1]) ?? null;
         }
         if (/MAX\(/i.test(sql)) return { d: "2026-09-10T00:00:00.000Z" };
+        // The pipeline's totals (processingCounts): one SUM(CASE…) over
+        // piece_processing, then a COUNT of published pieces with no row that
+        // counts, which is what "Process everything (N)" shows.
+        if (/FROM piece_processing/i.test(sql) && /SUM\(CASE/i.test(sql)) {
+          const n = (st: string) => PROCESSING.filter((r) => r.status === st).length;
+          return {
+            queued: n("queued"),
+            running: n("running"),
+            failed: n("failed"),
+            done: n("done"),
+          };
+        }
+        if (/FROM piece_processing/i.test(sql) && /COUNT\(\*\)/i.test(sql)) {
+          return {
+            n: PROCESSING.filter((r) => r.status === "queued" || r.status === "running").length,
+          };
+        }
+        if (/NOT EXISTS/i.test(sql) && /piece_processing/i.test(sql) && /COUNT\(\*\)/i.test(sql)) {
+          const covered = new Set(
+            PROCESSING.filter((r) => r.status !== "failed").map((r) => r.piece_id),
+          );
+          return { n: ALL.filter((p) => !covered.has(p.id)).length };
+        }
+        if (/FROM piece_processing/i.test(sql)) {
+          return PROCESSING.find((r) => r.piece_id === bound[0] || r.piece_id === bound[1]) ?? null;
+        }
         // The counts query asks three different questions with the same
         // COUNT(*) shape, so answer by what each one filters on — otherwise
         // the state strip shows the same number in every cell and looks
@@ -465,6 +747,89 @@ function makeDb(): D1Database {
         return null;
       },
       async all() {
+        // processingRows: every pipeline row for the operator.
+        if (/FROM piece_processing/i.test(sql)) return { results: PROCESSING };
+        // Readings: as leads for the worklist (readingsAsLeads selects the
+        // piece's slug and title), or one document's (readingsForPiece binds
+        // the piece id second).
+        if (/FROM readings r/i.test(sql)) {
+          if (/piece_slug/i.test(sql)) {
+            return {
+              results: READINGS.map((r) => ({
+                ...r,
+                piece_slug: r.piece_id,
+                piece_title: ALL.find((p) => p.id === r.piece_id)?.title ?? null,
+              })),
+            };
+          }
+          return { results: READINGS.filter((r) => r.piece_id === bound[1]) };
+        }
+        // Bridge leads (leads.ts bridgeLeads): label x topic across sections.
+        if (/pa\.topic <> pb\.topic/i.test(sql)) return { results: BRIDGES };
+        // Consolidation's link pairs (consolidation.ts): every (source,
+        // target) sharing a subject, in crosslinks order.
+        if (/AS src_id/i.test(sql) && /AS dst_id/i.test(sql)) {
+          return {
+            results: [
+              {
+                label: "Reprofiling accounts",
+                src_id: "budget-2026-estimates",
+                dst_id: "housing-starts-q3",
+                slug: "housing-starts-q3",
+                title: "Housing Starts, Q3",
+                pieces: 2,
+              },
+              {
+                label: "supplementary estimates",
+                src_id: "budget-2026-estimates",
+                dst_id: "transfer-payments-2025",
+                slug: "transfer-payments-2025",
+                title: "Transfer Payments 2025",
+                pieces: 3,
+              },
+              {
+                label: "supplementary estimates",
+                src_id: "transfer-payments-2025",
+                dst_id: "budget-2026-estimates",
+                slug: "budget-2026-estimates",
+                title: "Budget 2026: Main Estimates",
+                pieces: 3,
+              },
+            ],
+          };
+        }
+        // A document's children (data.ts lineageForPiece): only the pieces
+        // whose parent is the bound id — not the whole tree.
+        if (/FROM pieces/i.test(sql) && /parent_piece_id = \?/i.test(sql)) {
+          const parentId = bound[1];
+          return {
+            results: ALL.filter((p) => p.parent_piece_id === parentId).map((p) => ({
+              slug: p.slug,
+              title: p.title,
+              origin: p.origin,
+            })),
+          };
+        }
+        // Lineage: the tree, keyed by piece id (consolidation.ts).
+        if (/FROM pieces/i.test(sql) && /parent_piece_id/i.test(sql)) {
+          return {
+            results: ALL.map((p) => ({
+              id: p.id,
+              slug: p.slug,
+              title: p.title,
+              parent_piece_id: p.parent_piece_id,
+              origin: p.origin,
+            })),
+          };
+        }
+        // The id-to-slug map consolidation uses to credit a lead's other side.
+        if (/SELECT id, slug FROM pieces/i.test(sql)) {
+          return { results: ALL.map((p) => ({ id: p.id, slug: p.slug })) };
+        }
+        // Questions answered, per document (consolidation.ts).
+        if (/FROM aeo_question_evidence/i.test(sql) && /GROUP BY piece_id/i.test(sql)) {
+          return { results: [{ piece_id: "budget-2026-estimates", n: 2 }] };
+        }
         if (/FROM pieces/i.test(sql) && /publication_status IN/i.test(sql)) {
           const kinds = bound.slice(1).filter((b): b is string => typeof b === "string");
           if (!kinds.length) return { results: ALL };
@@ -563,7 +928,7 @@ function makeDb(): D1Database {
           return { results: RESEARCH_EVENTS };
         }
         if (/FROM research_runs/i.test(sql)) {
-          return { results: [RESEARCH_RUN] };
+          return { results: RESEARCH_RUNS };
         }
         // The run's extraction jobs. factsAdded is counted off these, not off
         // the event payload, so without them the workspace photographs
@@ -618,6 +983,10 @@ function makeDb(): D1Database {
         return { results: [] };
       },
       async run() {
+        // Every write is a no-op — including the UPDATE of pieces.last_opened_at
+        // that /p/<slug> fires for the operator after rendering (migration
+        // 0063). The fixture has nothing to update, and a write must never
+        // make a screenshot fail.
         return { results: [], meta: { changes: 0 } };
       },
     };
@@ -654,4 +1023,4 @@ export const FIXTURE = {
   researchSlug: RESEARCH[0]?.[0] as string,
 };
 
-export { env, ESSAYS, RESEARCH, ALL };
+export { env, ESSAYS, RESEARCH, ALL, REVIEW_LABEL };

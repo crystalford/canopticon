@@ -209,3 +209,113 @@ export function lintEssay(essay: ParsedEssay): LintNote[] {
   }
   return notes;
 }
+
+// ---- the tetrad ------------------------------------------------------------
+//
+// McLuhan's four questions, as a Markdown shape (docs/the-record.md §1b): a
+// file whose `##` headings are exactly Enhances · Obsolesces · Retrieves ·
+// Reverses, in any order, each followed by prose. Like the Q&A convention,
+// the structure is derived from the file and nothing calls a model. It is
+// NOT an essay by the question rule — none of its headings is a question —
+// so the classifier below names it separately and the piece is filed as
+// kind "essay" with `metadata.classification = "tetrad"`.
+
+export type TetradQuadrant = "enhances" | "obsolesces" | "retrieves" | "reverses";
+
+export const TETRAD_QUADRANTS: readonly TetradQuadrant[] = [
+  "enhances",
+  "obsolesces",
+  "retrieves",
+  "reverses",
+];
+
+export interface ParsedTetrad {
+  /** The H1 — the medium, artefact or idea the four questions are asked of. */
+  subject: string;
+  dek: string;
+  /** Preamble paragraphs after the dek, verbatim Markdown. */
+  intro: string[];
+  /** Each quadrant's prose, verbatim Markdown, in the file's own order of lines. */
+  quadrants: Record<TetradQuadrant, string>;
+  /** A `## Sources` list, when the file has one. */
+  sources: string[];
+}
+
+const QUADRANT_HEADING: Record<string, TetradQuadrant> = {
+  enhances: "enhances",
+  enhance: "enhances",
+  obsolesces: "obsolesces",
+  obsolesce: "obsolesces",
+  retrieves: "retrieves",
+  retrieve: "retrieves",
+  reverses: "reverses",
+  reverse: "reverses",
+  "reverses into": "reverses",
+  "flips into": "reverses",
+};
+
+function quadrantOf(heading: string): TetradQuadrant | null {
+  const key = heading
+    .trim()
+    .replace(/[:?.]+$/, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  return QUADRANT_HEADING[key] ?? null;
+}
+
+/**
+ * The four `##` headings of a file, or null when they are not exactly the
+ * tetrad. `## Sources` is allowed alongside; any other heading disqualifies.
+ */
+function tetradHeadings(bodyMd: string): Map<TetradQuadrant, string> | null {
+  const found = new Map<TetradQuadrant, string>();
+  for (const line of (bodyMd ?? "").replace(/\r/g, "").split("\n")) {
+    const h2 = line.match(/^##\s+(.+?)\s*$/)?.[1];
+    if (!h2) continue;
+    if (SOURCES_HEADING.test(h2.trim())) continue;
+    const q = quadrantOf(h2);
+    if (!q || found.has(q)) return null;
+    found.set(q, h2);
+  }
+  return found.size === 4 ? found : null;
+}
+
+export function looksLikeTetrad(bodyMd: string): boolean {
+  return tetradHeadings(bodyMd) !== null;
+}
+
+export function parseTetrad(bodyMd: string): ParsedTetrad | null {
+  if (!tetradHeadings(bodyMd)) return null;
+  // The essay parser gives the title, dek, preamble and sources; the
+  // quadrants are re-read raw because it folds a section's lines into
+  // single-line paragraphs, and a quadrant's lists and emphasis are wanted
+  // as written.
+  const essay = parseEssay(bodyMd);
+  const raw = rawSections(bodyMd);
+  const quadrants = {} as Record<TetradQuadrant, string>;
+  for (const q of TETRAD_QUADRANTS) quadrants[q] = raw.get(q) ?? "";
+  const intro = essay.summary ? [essay.summary] : [];
+  return { subject: essay.title, dek: essay.dek, intro, quadrants, sources: essay.sources };
+}
+
+/** The verbatim Markdown under each quadrant heading, trimmed. */
+function rawSections(bodyMd: string): Map<TetradQuadrant, string> {
+  const out = new Map<TetradQuadrant, string>();
+  let current: TetradQuadrant | null = null;
+  let buf: string[] = [];
+  const flush = () => {
+    if (current) out.set(current, buf.join("\n").trim());
+    buf = [];
+  };
+  for (const line of (bodyMd ?? "").replace(/\r/g, "").split("\n")) {
+    const h2 = line.match(/^##\s+(.+?)\s*$/)?.[1];
+    if (h2 !== undefined) {
+      flush();
+      current = quadrantOf(h2);
+      continue;
+    }
+    if (current) buf.push(line);
+  }
+  flush();
+  return out;
+}

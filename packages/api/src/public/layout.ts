@@ -54,6 +54,16 @@ export interface RenderPageArgs {
   /** ISO dates for article metadata, emitted as OpenGraph article:* tags. */
   publishedTime?: string;
   modifiedTime?: string;
+  /** Absolute URL of the 1200×630 share card (`/og/<slug>.png`). Emitted as
+   *  og:image with its dimensions; omitted when the page has none. */
+  ogImage?: string;
+  /** Cloudflare Web Analytics token (env.CF_WEB_ANALYTICS_TOKEN). When set,
+   *  the beacon script goes before </body>; when empty, nothing is emitted. */
+  analyticsToken?: string;
+  /** Keep this page out of indexes. A search result page with a query is
+   *  the one public page that must never compete with the documents it
+   *  lists (CLAUDE.md: a site's own pages displace each other). */
+  noindex?: boolean;
 }
 
 const SITE_ORIGIN = "https://canopticon.com";
@@ -84,10 +94,14 @@ export function renderPage(args: RenderPageArgs): string {
     `<meta property="og:title" content="${escapeAttr(args.title || "Canopticon")}" />`,
     `<meta property="og:description" content="${description}" />`,
     canonical ? `<meta property="og:url" content="${escapeAttr(canonical)}" />` : "",
+    args.ogImage ? `<meta property="og:image" content="${escapeAttr(args.ogImage)}" />` : "",
+    args.ogImage ? `<meta property="og:image:width" content="1200" />` : "",
+    args.ogImage ? `<meta property="og:image:height" content="630" />` : "",
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<meta name="twitter:site" content="@canoptics" />`,
     `<meta name="twitter:title" content="${escapeAttr(args.title || "Canopticon")}" />`,
     `<meta name="twitter:description" content="${description}" />`,
+    args.ogImage ? `<meta name="twitter:image" content="${escapeAttr(args.ogImage)}" />` : "",
     args.publishedTime
       ? `<meta property="article:published_time" content="${escapeAttr(args.publishedTime)}" />`
       : "",
@@ -109,6 +123,7 @@ export function renderPage(args: RenderPageArgs): string {
 <title>${fullTitle}</title>
 <meta name="description" content="${description}" />
 ${canonical ? `<link rel="canonical" href="${escapeAttr(canonical)}" />` : ""}
+${args.noindex ? '<meta name="robots" content="noindex,follow" />' : ""}
 ${social}
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -123,8 +138,19 @@ ${renderNav(args.activeNav)}
 ${args.bare ? args.body : `<div class="container">${args.body}</div>`}
 </main>
 ${renderFooter(mode === "public")}
-</body>
+${renderAnalyticsBeacon(args.analyticsToken)}</body>
 </html>`;
+}
+
+/** Cloudflare Web Analytics: free, cookieless, optional. Nothing on the
+ *  page depends on it, so an empty token emits nothing at all. */
+export function renderAnalyticsBeacon(token: string | undefined): string {
+  if (!token) return "";
+  // The token is a hex id from the dashboard; anything else is dropped so
+  // the single-quoted JSON attribute can never be broken out of.
+  const safe = token.replace(/[^A-Za-z0-9_-]/g, "");
+  if (!safe) return "";
+  return `<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "${safe}"}'></script>\n`;
 }
 
 function renderNav(activeHref?: string): string {

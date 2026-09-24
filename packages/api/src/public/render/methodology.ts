@@ -113,6 +113,30 @@ export function renderMethodology(): string {
 </section>
 
 <section class="meth-section">
+  <h2 class="meth-h2">What happens to a document</h2>
+  <p>
+    Uploading is publishing. The document is live at its own address at once, whole.
+    Then the record reads it, one step at a time, while the operator's library page is
+    open — nothing runs unattended, and nothing here calls a model when a page is
+    rendered: whatever a model proposed was checked and frozen into a row first.
+  </p>
+  <ul class="meth-list">
+    <li><b>Title</b> — a filename or a working title is replaced with a line lifted verbatim from the document; the original is kept.</li>
+    <li><b>Read</b> — facts, events, entities and quotes are read out; every quote is checked word for word before it is stored.</li>
+    <li><b>Figures</b> — the numbers with a named source and a date, each checked the same way.</li>
+    <li><b>Passage</b> — one lead passage, selected from the document, never written for it.</li>
+    <li><b>Section</b> — filed under one of eight sections; "everything else" is a real answer.</li>
+    <li><b>Card and index</b> — a share card is drawn, and the verified passages are indexed so search can return them.</li>
+  </ul>
+  <p>
+    A draft essay may be opened from a reading and written by a model. It is never
+    published as such: it is handed to the operator as a file whose first line names the
+    model and the reading it came from, to be rewritten and uploaded under the operator's
+    own name — or not.
+  </p>
+</section>
+
+<section class="meth-section">
   <h2 class="meth-h2">Disputed stays disputed</h2>
   <p>
     A claim someone made ("X said Y") is <b>never silently shown</b> as an
@@ -143,8 +167,15 @@ export function renderMethodology(): string {
     <li><b>Verified quotes</b> — every span read out of a document, checked as a literal match against the stored text. Each has a receipt at its own address.</li>
     <li><b>Findings</b> — a figure with what it measures, when, and who reported it. The best-evidenced shape a document can carry, and the one this site is built to be cited for.</li>
     <li><b>Links between documents</b> — a subject appearing in two documents is a link from one to the other. Found by a query over the record, never composed.</li>
-    <li><b>Leads</b> — where the record is strange: two documents that contradict each other, a figure no document sources. A lead is a question for the operator, not a page for a reader.</li>
+    <li><b>Leads</b> — where the record is strange: two documents that contradict each other, a figure no document sources, a question the documents raise and do not answer. A lead is a question for the operator, not a page for a reader.</li>
+    <li><b>Bridges</b> — a subject that appears in two documents filed under different sections. Found by a query, never by a model, and never ranked by how often it recurs. The record cannot make the connection; it can put the two documents side by side and ask whether anyone has made it before.</li>
+    <li><b>Readings</b> — a short note the operator wrote on a passage of a document. The passage is verified like any quote; the note is the operator's own words, signed and dated. A document with a reading is marked <i>read by the operator</i>: the one thing the machine cannot supply.</li>
+    <li><b>Lineage</b> — what a document grew from and what grew from it. A brief researched from a question one document raised is that document's child, and says so.</li>
   </ul>
+  <p>
+    Search asks the record, not a model: a question returns passages from documents on
+    file, word for word, each with its receipt.
+  </p>
   <p>
     A page, its plain-text twin, its structured data, the sitemap and the feed are
     all generated from the same rows. They cannot drift apart because there is only

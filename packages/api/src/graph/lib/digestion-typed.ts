@@ -27,9 +27,9 @@
 // references them, so ordering within the batch satisfies foreign keys.
 
 import type { Env } from "../../env";
-import { insertOne, run, serialize } from "../../lib/d1";
+import { all, insertOne, run, serialize } from "../../lib/d1";
 import { TIMEOUTS, withTimeout } from "../../lib/timeout";
-import { callRole } from "../../llm/router";
+import { callRole, gatewayConfigured } from "../../llm/router";
 import type { AssertionStance, EdgeFamily, NodeKind } from "./typed-graph";
 
 const MAX_CHUNKS = 3;
@@ -38,6 +38,10 @@ const MAX_CHUNKS = 3;
 // regression that wrongly blamed Gemma ran it at 512 tokens — a budget far
 // too small to complete one extraction. 4000 lets the factual layer finish.
 const EXTRACTION_MAX_TOKENS = 4000;
+// Through the gateway a chunk is eight times longer and the answer can be
+// too; the gateway adapter's own ceiling is 90s, so the wrap sits just above.
+const CLAUDE_EXTRACTION_MAX_TOKENS = 16_000;
+const CLAUDE_CALL_MS = 100_000;
 const HARD_MAX_TOKENS = 2600;
 
 // ---------------------------------------------------------------------------
@@ -320,17 +324,24 @@ export async function extractTypedChunk(
   chunkIndex: number,
   chunkText: string,
 ): Promise<TypedExtraction> {
-  // PASS 1 — bulk (Gemma): the factual layer + aboutness. This is the
-  // backbone; if it fails the chunk is empty.
+  // Claude through the gateway reads a 24KB chunk in one call that can run
+  // most of a minute and answer at length; Workers AI reads 3KB inside 25s.
+  // The budgets follow the transport, not a constant.
+  const claude = gatewayConfigured(env);
+  const callMs = claude ? CLAUDE_CALL_MS : TIMEOUTS.LLM_CALL_MS;
+  const bulkTokens = claude ? CLAUDE_EXTRACTION_MAX_TOKENS : EXTRACTION_MAX_TOKENS;
+  const hardTokens = claude ? CLAUDE_EXTRACTION_MAX_TOKENS : HARD_MAX_TOKENS;
+  // PASS 1 — bulk: the factual layer + aboutness. This is the backbone; if it
+  // fails the chunk is empty.
   const bulkOut = await withTimeout(
     callRole(env, "bulk_extraction", {
       userId,
       system: BULK_EXTRACTION_PROMPT,
       messages: [{ role: "user", content: [{ type: "text", text: chunkText }] }],
-      max_tokens: EXTRACTION_MAX_TOKENS,
+      max_tokens: bulkTokens,
       idempotency_key: `${pieceId}:bulk:${chunkIndex}`,
     }),
-    TIMEOUTS.LLM_CALL_MS,
+    callMs,
     `extractTypedChunk.bulk[${chunkIndex}]`,
   );
   const extraction = parseTypedExtraction(bulkOut.structured ?? bulkOut.text);
@@ -353,10 +364,10 @@ export async function extractTypedChunk(
               ],
             },
           ],
-          max_tokens: HARD_MAX_TOKENS,
+          max_tokens: hardTokens,
           idempotency_key: `${pieceId}:hard:${chunkIndex}`,
         }),
-        TIMEOUTS.LLM_CALL_MS,
+        callMs,
         `extractTypedChunk.hard[${chunkIndex}]`,
       );
       const hard = parseTypedExtraction(hardOut.structured ?? hardOut.text);
@@ -657,7 +668,35 @@ export async function purgeTypedGraphForPiece(
   userId: string,
   pieceId: string,
 ): Promise<void> {
-  await run(env.DB, "DELETE FROM nodes WHERE user_id = ? AND piece_id = ?", [userId, pieceId]);
+  // The operator's readings (lib/readings.ts) are anchored to quotes on this
+  // piece's source node, and quotes cascade from nodes as readings cascade
+  // from quotes — so a blanket delete would silently erase every note the
+  // operator wrote the moment the pipeline re-read the document. Keep the
+  // source node(s) a reading hangs on and clear only the machine's quotes
+  // from them; the pipeline's ensureSourceNode() reuses the kept node.
+  const anchored = await all<{ source_id: string | null }>(
+    env.DB,
+    `SELECT DISTINCT q.source_id FROM readings r JOIN quotes q ON q.id = r.quote_id
+      WHERE r.user_id = ? AND r.piece_id = ?`,
+    [userId, pieceId],
+  ).catch(() => [] as Array<{ source_id: string | null }>);
+  const keep = anchored.map((r) => r.source_id).filter((id): id is string => Boolean(id));
+  if (keep.length === 0) {
+    await run(env.DB, "DELETE FROM nodes WHERE user_id = ? AND piece_id = ?", [userId, pieceId]);
+    return;
+  }
+  const ph = keep.map(() => "?").join(",");
+  await run(env.DB, `DELETE FROM nodes WHERE user_id = ? AND piece_id = ? AND id NOT IN (${ph})`, [
+    userId,
+    pieceId,
+    ...keep,
+  ]);
+  await run(
+    env.DB,
+    `DELETE FROM quotes WHERE user_id = ? AND source_id IN (${ph})
+        AND id NOT IN (SELECT quote_id FROM readings)`,
+    [userId, ...keep],
+  );
 }
 
 // ---------------------------------------------------------------------------

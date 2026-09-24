@@ -1,0 +1,12 @@
+-- WHEN THE OPERATOR LAST OPENED A DOCUMENT.
+--
+-- Resurface (lib/resurface.ts) shows one verified passage a day from the
+-- document the operator has looked at least recently. It had nothing to
+-- measure that by and used `pieces.updated_at` — the last WRITE standing in
+-- for the last LOOK, so a document re-processed yesterday counted as fresh in
+-- the operator's mind whether or not they had read a line of it. This is the
+-- missing signal: set when the operator, signed in, renders /p/<slug>; never
+-- for a reader, never in the request's critical path. NULL means "never
+-- opened since this column existed", and resurface falls back to updated_at
+-- for those rows (COALESCE), so the old ordering survives for the old rows.
+ALTER TABLE pieces ADD COLUMN last_opened_at TEXT;

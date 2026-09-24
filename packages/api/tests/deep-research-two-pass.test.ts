@@ -145,7 +145,15 @@ describe("a run waiting on a press says so, and carries the press", () => {
   };
 
   // Every state that cannot move without a person, and what each must say.
-  const WAITING = ["synth_pending", "pass2_pending", "pass2_synth_pending"];
+  const WAITING = [
+    "synth_pending",
+    "pass2_pending",
+    "pass2_synth_pending",
+    // The sectioned brief (migration 0062): each is one press, one call.
+    "outline_pending",
+    "section_pending",
+    "assemble_pending",
+  ];
 
   it.each(WAITING)("%s does not report itself as still running", (status) => {
     // terminal:false made the banner poll every 1.5s forever against a state

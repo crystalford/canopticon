@@ -46,10 +46,25 @@ export function renderAbout(): string {
   const body = `<header class="phead">
   <div class="eyebrow">About</div>
   <h1>A record, kept in public</h1>
-  <p class="phead-dek">Canopticon publishes two things: research documents, kept whole, and
-  essays that argue from them. Both are free to read, free to quote, and built to be
-  cited by people and machines alike.</p>
+  <p class="phead-dek">Canopticon is one person's research record, published as it grows:
+  documents kept whole, essays that argue from them, and the connections between them.
+  Free to read, free to quote, and built to be cited by people and machines alike.</p>
 </header>
+
+<section class="sec">
+  <h2>What it is for</h2>
+  <p class="lead">A mind you can cite.</p>
+  <p>Everything here began as a document the operator read or wrote. The record keeps it
+  whole, checks every quote drawn from it word for word, files it, and wires it to the
+  other documents that share its subjects. Then it says what it noticed: where two
+  documents disagree, where a figure has no source, where a subject bridges two fields,
+  what the documents raise and cannot answer. Each of those becomes the next piece of
+  research, and that research becomes the next document, which says what it grew from.</p>
+  <p>The record is an extension of the operator's thinking onto the web — its memory, its
+  pattern-finding, its questions — made citable. Being quoted by a person, or by the
+  answer engines people now think through, is the extension reaching furthest. That is
+  the whole reason for the receipts.</p>
+</section>
 
 <section class="sec">
   <h2>What's published here</h2>
@@ -111,8 +126,10 @@ ${standards}
 <section class="sec">
   <h2>How verification works</h2>
   <p>Quotes drawn from stored documents are checked mechanically: the quoted text must
-  appear, character for character, in the source on file, and its position in that file is
-  recorded. Quotes that fail are removed. Each one has its own citable address.
+  appear, character for character, in the source on file. Quotes that fail are removed.
+  Each one has its own citable address. The other half of verification is human: a
+  document the operator has read and annotated says so — <em>read by the operator</em> —
+  and the note is shown, signed and dated.
   <a href="/method">The full method →</a></p>
 </section>
 
@@ -125,7 +142,7 @@ ${standards}
   return renderPage({
     title: "About",
     description:
-      "Canopticon publishes research documents kept whole and essays that argue from them — CC BY 4.0, machine-readable, and citable by people and answer engines alike.",
+      "Canopticon is one person's research record published as it grows: documents kept whole, essays that argue from them, and the connections between them — CC BY 4.0, machine-readable, citable by people and answer engines alike.",
     body,
     activeNav: "/about",
     zone: "about",

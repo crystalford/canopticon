@@ -24,6 +24,7 @@
 // The signals below are about QUALITY, and none of them is a count:
 //   · two stored sources that contradict each other
 //   · a figure nobody in the corpus sources
+//   · a subject that appears in two documents filed under different sections
 //
 // More types can be added — an entity appearing in documents that otherwise
 // share nothing, a chain of events with a hole in it — and each one is a
@@ -32,7 +33,9 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { all } from "../../lib/d1";
 
-export type LeadKind = "contradiction" | "unsourced-figure";
+// "reading" is the operator's own note on a passage (docs/the-record.md §5c);
+// its query lives in lib/readings.ts, not here.
+export type LeadKind = "contradiction" | "unsourced-figure" | "bridge" | "reading";
 
 export interface Lead {
   kind: LeadKind;
@@ -218,6 +221,91 @@ export async function unsourcedFigureLeads(
 }
 
 /**
+ * A bridge: one subject, two sections (docs/the-record.md §5b).
+ *
+ * An entity or theme label carried by two published documents whose
+ * `pieces.topic` differ. The model case is the record's own: McLuhan's
+ * figure/ground sitting in "Media & mind" and the allostatic model of
+ * addiction sitting wherever the neuroscience is filed — a synthesis the
+ * operator made by hand that the graph could have put side by side first.
+ *
+ * Pure query, label × topic. It is NOT a count: a label on two documents is a
+ * bridge and a label on ten is ten bridges, each listed on its own, newest
+ * pair first. The record can put the two documents beside each other; it
+ * cannot make the leap, and it does not pretend to.
+ *
+ * `piece_id` is the NEWER of the two documents, so a research run started
+ * from the lead is parented to the document that most recently raised it.
+ */
+export async function bridgeLeads(
+  db: D1Database,
+  userId: string,
+  opts: { pieceId?: string; limit?: number } = {},
+): Promise<Lead[]> {
+  const limit = opts.limit ?? 12;
+  const scope = opts.pieceId ? "AND (pa.id = ? OR pb.id = ?)" : "";
+  const params: unknown[] = [userId];
+  if (opts.pieceId) params.push(opts.pieceId, opts.pieceId);
+  params.push(limit);
+
+  const rows = await all<{
+    label: string;
+    piece_id: string;
+    piece_slug: string | null;
+    piece_title: string | null;
+    piece_topic: string;
+    other_id: string;
+    other_slug: string | null;
+    other_title: string | null;
+    other_topic: string;
+    created_at: string;
+  }>(
+    db,
+    `WITH subj AS (
+       SELECT DISTINCT piece_id, label FROM nodes
+        WHERE user_id = ? AND piece_id IS NOT NULL
+          AND kind IN ('entity','theme') AND LENGTH(label) >= 8
+     )
+     SELECT a.label AS label,
+            pa.id AS piece_id, pa.slug AS piece_slug, pa.title AS piece_title, pa.topic AS piece_topic,
+            pb.id AS other_id, pb.slug AS other_slug, pb.title AS other_title, pb.topic AS other_topic,
+            COALESCE(pa.published_at, pa.created_at) AS created_at
+       FROM subj a
+       JOIN subj b ON b.label = a.label AND b.piece_id <> a.piece_id
+       JOIN pieces pa ON pa.id = a.piece_id
+       JOIN pieces pb ON pb.id = b.piece_id
+      WHERE pa.topic IS NOT NULL AND pb.topic IS NOT NULL
+        AND pa.topic <> pb.topic
+        AND pa.publication_status IN ('published','canonical')
+        AND pb.publication_status IN ('published','canonical')
+        AND (COALESCE(pa.published_at, pa.created_at) > COALESCE(pb.published_at, pb.created_at)
+             OR (COALESCE(pa.published_at, pa.created_at) = COALESCE(pb.published_at, pb.created_at)
+                 AND pa.id > pb.id))
+        ${scope}
+      ORDER BY created_at DESC, a.label ASC, pb.id ASC
+      LIMIT ?`,
+    params,
+  ).catch(() => []);
+
+  return rows.map((r) => ({
+    kind: "bridge" as const,
+    summary: `${r.label} — in ${r.piece_topic} and ${r.other_topic}`,
+    detail: r.label,
+    seed: `What connects "${r.label}" in "${r.piece_title ?? r.piece_slug ?? "one document"}" and "${
+      r.other_title ?? r.other_slug ?? "another"
+    }"?`,
+    angle: `Two documents on the record share the subject "${r.label}" and are filed under different sections (${r.piece_topic}; ${r.other_topic}). Find what, if anything, connects the two treatments of it, and whether the connection has been made before.`,
+    quote_id: null,
+    piece_id: r.piece_id,
+    piece_slug: r.piece_slug,
+    piece_title: r.piece_title,
+    other_piece_slug: r.other_slug,
+    other_piece_title: r.other_title,
+    created_at: r.created_at,
+  }));
+}
+
+/**
  * Every lead, newest first.
  *
  * Recency is a LIST ORDER, not a ranking. Nothing here scores a lead against
@@ -229,11 +317,12 @@ export async function leadsForCorpus(
   userId: string,
   opts: { pieceId?: string; limit?: number } = {},
 ): Promise<Lead[]> {
-  const [contradictions, unsourced] = await Promise.all([
+  const [contradictions, unsourced, bridges] = await Promise.all([
     contradictionLeads(db, userId, opts),
     unsourcedFigureLeads(db, userId, opts),
+    bridgeLeads(db, userId, opts),
   ]);
-  const leads = [...contradictions, ...unsourced].sort((a, b) =>
+  const leads = [...contradictions, ...unsourced, ...bridges].sort((a, b) =>
     b.created_at.localeCompare(a.created_at),
   );
   // Attached here, once, because leadKey is async (crypto.subtle) and a

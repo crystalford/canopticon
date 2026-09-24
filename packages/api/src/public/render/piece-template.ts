@@ -12,24 +12,32 @@
 // design build); this file is template + section-parser only.
 
 import { type FindingRow, findingsForPiece } from "../../graph/lib/aeo-extract";
+import type { Lead } from "../../graph/lib/leads";
 import { type LedeRow, ledeForPiece } from "../../graph/lib/lede";
 import { resolveByline, showsUpdate } from "../../lib/byline";
 import { documentStructure } from "../../lib/document-structure";
-import { parseEssay } from "../../lib/essay";
+import { type ParsedTetrad, TETRAD_QUADRANTS, parseEssay, parseTetrad } from "../../lib/essay";
+import { type ReadingRow, readingsForPiece } from "../../lib/readings";
 import {
+  type Lineage,
   type PieceDetail,
   type PieceSummary,
   type PublicEnv,
   getPieceBySlug,
-  listInvestigations,
+  lineageForPiece,
+  relatedBySubject,
   resolveOperatorId,
+  topicForPiece,
+  topicSlug,
   topicsForPiece,
 } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
 import {
+  TETRAD_LABELS,
   citeApa,
   citeBibtex,
   essayFaq,
+  essayTetradLd,
   isEssay,
   pieceJsonLd,
   pieceMarkdownUrl,
@@ -40,6 +48,7 @@ import {
 // it arrives as an uploaded file carrying tables, nested lists and
 // hard-wrapped prose, none of which the CMS renderer handles — which is what
 // made a research dossier render as a wall of text. See render/markdown.ts.
+import { markReadingPassages, placeReadings } from "./margin-readings";
 import { renderInlineMarkdown, renderMarkdown } from "./markdown";
 import { type CrossLinkSpan, spliceInline } from "./receipts";
 
@@ -47,7 +56,21 @@ import { type CrossLinkSpan, spliceInline } from "./receipts";
 
 // ---- public entry point -----------------------------------------------
 
-export async function renderPiece(env: PublicEnv, slug: string): Promise<string | null> {
+export interface RenderPieceOptions {
+  /**
+   * The viewer is the signed-in operator. Only then does the page carry the
+   * "Note this" form, the /op/notes.js script and the delete buttons on
+   * readings. The caller (public/routes.ts) knows this from `is_operator`
+   * on the Hono context; the renderer cannot learn it on its own.
+   */
+  isOperator?: boolean;
+}
+
+export async function renderPiece(
+  env: PublicEnv,
+  slug: string,
+  opts: RenderPieceOptions = {},
+): Promise<string | null> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return null;
   const piece = await getPieceBySlug(env.DB, userId, slug);
@@ -56,7 +79,15 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
   if (piece.publication_status === "working-material") return null;
 
   const topics = await topicsForPiece(env.DB, userId, piece.id);
-  const related = await listInvestigations(env.DB, userId);
+  // Related by shared subject, not by date (docs/the-record.md §6): the typed
+  // graph already knows which entity and theme labels two documents share.
+  const related = await relatedBySubject(env.DB, userId, piece.id, 4).catch(() => []);
+  // The operator's readings (§5c) and the document's lineage (§5). Both are
+  // plain queries; both render empty as nothing rather than as a claim.
+  const readings = await readingsForPiece(env.DB, userId, piece.id).catch(() => []);
+  const lineage = await lineageForPiece(env.DB, userId, piece.id).catch(
+    () => ({ parent: null, children: [] }) as Lineage,
+  );
   const fed = await loadWhatItFed(env, userId, piece.id);
   // Findings are the densest thing a research document produces and the only
   // primitive with strong evidence behind it. They live on the document's own
@@ -69,29 +100,62 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
   // and always current — a new document joins the web the moment it extracts.
   const { crossDocumentLinks } = await import("../../graph/lib/crosslinks");
   const crosslinks = await crossDocumentLinks(env.DB, userId, piece.id).catch(() => []);
+  // The closed section (graph/lib/topics.ts) this document is filed in — the
+  // third crumb, and the hub the page belongs to. Null when not yet filed.
+  const section = await topicForPiece(env.DB, userId, piece.id).catch(() => null);
+  // The operator's action bar (docs/the-record.md §6): this document's own
+  // leads. A query, operator-only, never fetched for a reader.
+  const leads = opts.isOperator
+    ? await (await import("../../graph/lib/leads"))
+        .leadsForCorpus(env.DB, userId, { pieceId: piece.id, limit: 6 })
+        .catch(() => [] as Lead[])
+    : [];
 
   const body = renderPieceBody(piece, {
     topics: topics.map((t) => ({ slug: t.slug, label: t.label })),
-    related: related.filter((r) => r.id !== piece.id).slice(0, 6),
+    related: related.filter((r) => r.id !== piece.id),
     fed,
     findings,
     lede,
     crosslinks,
+    readings,
+    lineage,
+    section,
+    leads,
+    isOperator: opts.isOperator === true,
   });
 
   // The piece page emitted no structured data at all, while subject pages and
   // every arrangement did — the page type the publication is actually made of
   // was the least machine-legible one on the site.
   const essay = isEssay(piece.kind);
-  const faq = essay ? essayFaq(piece.body_md ?? "") : undefined;
+  // A tetrad is filed as an essay but has no question headings, so it gets
+  // `about` and `hasPart` in place of a FAQPage.
+  const tetrad = essay ? essayTetradLd(piece.body_md ?? "") : null;
+  const faq = essay && !tetrad ? essayFaq(piece.body_md ?? "") : undefined;
+  // The share card exists once the pipeline's og step has drawn it; the
+  // route 404s until then, and a 404 og:image is worse than none, so it is
+  // named only when the object is there.
+  const ogKey = `og/${piece.slug}.png`;
+  const hasCard = await env.FILES?.head(ogKey)
+    .then((h) => Boolean(h))
+    .catch(() => false);
   return renderPage({
     title: pieceTitle(piece),
     description: piece.subtitle ?? `${pieceTitle(piece)} — a Canopticon piece.`,
+    ...(hasCard ? { ogImage: `https://canopticon.com/og/${piece.slug}.png` } : {}),
     body: `${body}\n${pieceJsonLd(piece, {
       ...(faq?.length ? { faq } : {}),
+      ...(tetrad ? { tetrad } : {}),
       // Only once approved — the structured data must not carry a passage the
       // page itself is not showing.
       ...(lede?.approved_at ? { lede: lede.verbatim_text } : {}),
+      // Each reading is a Comment on its Quotation — the operator's own
+      // sentences, and the only ones on the page that are not the document's.
+      ...(readings.length ? { readings } : {}),
+      section,
+      // Lineage (§5): the document this one grew from, as `isBasedOn`.
+      basedOn: lineage.parent ? { slug: lineage.parent.slug, title: lineage.parent.title } : null,
     })}`,
     activeNav: essay ? "/essays" : "/research",
     zone: essay ? "essays" : "research",
@@ -129,6 +193,16 @@ interface PieceCtx {
    * so it costs nothing, never fails, and returns the same answer every time.
    */
   crosslinks?: Array<CrossLinkSpan & { title: string }>;
+  /** The operator's notes on passages of this document (§5c). */
+  readings?: ReadingRow[];
+  /** What this document grew from and into (§5). */
+  lineage?: Lineage;
+  /** The closed section this document is filed in, or null. */
+  section?: string | null;
+  /** This document's own leads, for the operator's action bar (§6). */
+  leads?: Lead[];
+  /** The viewer is the signed-in operator: render the note form and script. */
+  isOperator?: boolean;
 }
 
 /**
@@ -152,48 +226,58 @@ function renderLede(lede: LedeRow | null | undefined): string {
 // beside its named source and date is the single best-evidenced shape for
 // being cited, and it is exactly what the verification layer already produces.
 //
-// THE QUOTE ITSELF IS NO LONGER REPEATED HERE. It used to be: the same
-// sentence appeared once in the document body and again in a blockquote at
-// the bottom, which is the thing standing rule 3 exists to prevent. Now that
-// the span is linked in the passage it came from, this block's job is to be
-// the scannable structured index of what the document establishes, and to
-// point back into the prose — so "in context" goes to the sentence, and the
-// receipt link goes to the proof.
+// ABOVE THE FOLD (docs/the-record.md §6, item 4): this is the block answer
+// engines lift, so it sits directly under the lead passage and before the
+// document's own promoted summary — compact, a table, six rows. Any further
+// figures are listed under a fold in the same block, so the page never says
+// "6" when it holds 20. There is no second copy lower down.
+//
+// THE QUOTE ITSELF IS NOT REPEATED HERE. The span is linked in the passage it
+// came from; this block's job is to be the scannable index of what the
+// document establishes and to point back into the prose — so "in context"
+// goes to the sentence, and the receipt link goes to the proof.
+const KEY_FIGURES_ABOVE_FOLD = 6;
+
 function renderFindings(findings: FindingRow[] | undefined, placed: Set<string>): string {
   if (!findings?.length) return "";
-  const rows = findings
-    .map(
-      (f) => `  <li class="finding">
-    <div class="finding-head">
-      <span class="finding-figure">${escapeHtml(f.figure)}</span>
-      <span class="finding-measures">${escapeHtml(f.measures)}</span>
-    </div>
-    <div class="finding-meta">${[f.period, f.attributed_to]
-      .filter(Boolean)
-      .map((x) => escapeHtml(String(x)))
-      .join(' <span class="sep">·</span> ')}</div>
-    <div class="finding-links">
-      ${
+  const row = (f: FindingRow) => `    <tr class="kf-row">
+      <td class="kf-figure">${escapeHtml(f.figure)}</td>
+      <td class="kf-measures">${escapeHtml(f.measures)}</td>
+      <td class="kf-meta">${[f.period, f.attributed_to]
+        .filter(Boolean)
+        .map((x) => escapeHtml(String(x)))
+        .join(' <span class="sep">·</span> ')}</td>
+      <td class="kf-links">${
         // Only when the span was actually placed in the prose. A finding whose
         // quote no longer appears in the body (the document was edited after
         // extraction) has no anchor to jump to, and a dead link on the
         // provenance surface is worse than no link.
         placed.has(f.quote_id)
-          ? `<a class="finding-context" href="#q-${escapeAttr(f.quote_id)}">in context ↓</a>`
+          ? `<a class="finding-context" href="#q-${escapeAttr(f.quote_id)}">in context ↓</a> `
           : ""
-      }
-      <a class="finding-receipt" href="/q/${escapeAttr(f.quote_id)}">verified quote ↗</a>
-    </div>
-  </li>`,
-    )
-    .join("\n");
-  return `<section class="findings">
-  <h2>What this document establishes</h2>
-  <p class="note">Every figure below is quoted word-for-word from this document
-  and checked against it by machine. Follow one to the sentence it came from.</p>
-  <ol class="finding-list">
-${rows}
-  </ol>
+      }<a class="finding-receipt" href="/q/${escapeAttr(f.quote_id)}">verified quote ↗</a></td>
+    </tr>`;
+  const lead = findings.slice(0, KEY_FIGURES_ABOVE_FOLD);
+  const rest = findings.slice(KEY_FIGURES_ABOVE_FOLD);
+  const table = (rows: FindingRow[]) => `  <table class="key-figures">
+    <thead><tr><th>Figure</th><th>What it measures</th><th>Period · source</th><th></th></tr></thead>
+    <tbody>
+${rows.map(row).join("\n")}
+    </tbody>
+  </table>`;
+  return `<section class="findings key-figures-block">
+  <h2>Key figures</h2>
+  <p class="note">Every figure is quoted word-for-word from this document and checked
+  against it by machine. Follow one to the sentence it came from.</p>
+${table(lead)}
+${
+  rest.length
+    ? `  <details class="key-figures-more">
+    <summary>${rest.length} more figure${rest.length === 1 ? "" : "s"}</summary>
+${table(rest)}
+  </details>`
+    : ""
+}
 </section>`;
 }
 
@@ -256,7 +340,14 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
   // prose, and splicing them separately would let the second pass match inside
   // the markdown the first just wrote — a link nested in a link. Receipts win
   // any contested span (see spliceInline): proof before navigation.
-  const receipts = spliceInline(piece.body_md ?? "", ctx.findings ?? [], ctx.crosslinks ?? []);
+  // The operator's readings go first (margin-readings.ts): a marker at the
+  // end of each located passage, so the aside can be attached to the block
+  // that contains it once the body is HTML. Before receipts, because the
+  // marker must sit in the document's own text, not inside a link a receipt
+  // just wrote; the price is that a finding whose span runs across a
+  // reading's end is not linked, which is rare and silent.
+  const marked = markReadingPassages(piece.body_md ?? "", ctx.readings ?? []);
+  const receipts = spliceInline(marked.markdown, ctx.findings ?? [], ctx.crosslinks ?? []);
   const withReceipts = receipts.markdown;
   const sections = parseSections(withReceipts);
   const videoMeta = parseVideoMetadata(piece);
@@ -274,6 +365,14 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
 </details>`
     : renderBodyForKind(piece, sections, ctx, withReceipts);
 
+  // Each reading beside its passage (§5c: "rendered in the margin of the
+  // passage on wide screens, inline under it on narrow ones"). Whatever
+  // could not be placed keeps the block after the body, and says why.
+  const margin = placeReadings(bodyBlock, ctx.readings ?? [], (id) => {
+    const r = (ctx.readings ?? []).find((x) => x.id === id);
+    return r ? renderReadingAside(r, ctx) : "";
+  });
+
   // The rail sits OUTSIDE the reading card, not inside it. It was inside,
   // which meant 300px of sidebar came out of the document's own measure and
   // squeezed the prose to roughly 570px. The card now holds only the
@@ -281,11 +380,15 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
   return `<div class="container docpage">
 <div class="docgrid">
   <article class="reading">
-${renderBreadcrumbs(piece)}
-${renderPageHead(piece)}
+${renderBreadcrumbs(piece, ctx.section)}
+${renderPageHead(piece, ctx)}
+${renderActionBar(piece, ctx)}
 ${renderLede(ctx.lede)}
-${bodyBlock}
 ${renderFindings(ctx.findings, receipts.placed)}
+${margin.html}
+${renderReadings(ctx, margin.placed)}
+${renderNoteForm(piece, ctx)}
+${renderLineage(ctx.lineage)}
 ${renderCiteBox(piece)}
 ${renderWhatItFed(ctx.fed)}
 ${renderDepositNote(piece, ctx.topics)}
@@ -294,7 +397,64 @@ ${renderDocRail(piece)}
 </div>
 ${renderOnward(piece, ctx)}
 </div>
+${ctx.isOperator ? '<script src="/op/notes.js" defer></script>' : ""}
 <style>
+  .key-figures-block { margin: 26px 0 0; padding-top: 18px; }
+  .key-figures-block h2 { font-size: 15px; letter-spacing: 0.02em; text-transform: uppercase; }
+  .key-figures-block .note { margin: 0 0 10px; }
+  .key-figures { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 14px;
+    border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
+  .key-figures th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-mute); padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+  .key-figures td { padding: 9px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; background: var(--paper-2); }
+  .key-figures tr:last-child td { border-bottom: 0; }
+  .kf-figure { font-weight: 700; color: var(--accent); white-space: nowrap; letter-spacing: -0.01em; }
+  .kf-measures { color: var(--ink); }
+  .kf-meta { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-mute); }
+  .kf-links { white-space: nowrap; }
+  .kf-links .finding-receipt, .kf-links .finding-context { margin-top: 0; }
+  .key-figures-more { margin-top: 10px; }
+  .key-figures-more summary { cursor: pointer; font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 8px; }
+  @media (max-width: 640px) {
+    .key-figures thead { display: none; }
+    .key-figures tr { display: block; padding: 8px 0; }
+    .key-figures td { display: block; border: 0; padding: 2px 10px; }
+    .kf-figure { white-space: normal; }
+  }
+  .readings { margin-top: 32px; border-top: 1px solid var(--rule); padding-top: 18px; }
+  .readings .ow-h, .lineage .ow-h { margin-bottom: 12px; }
+  .reading-note { margin: 0 0 22px; }
+  .reading-note blockquote { margin: 0 0 8px; padding-left: 14px; border-left: 2px solid var(--accent);
+    font-family: var(--serif); font-style: italic; color: var(--ink-2); }
+  .reading-note blockquote a { color: inherit; text-decoration: none; }
+  .reading-note .note-body { font-family: var(--serif); }
+  .reading-note .note-sig { font-family: var(--mono); font-size: 12px; color: var(--ink-3);
+    display: flex; gap: 12px; align-items: center; }
+  .reading-note .note-sig button { font: inherit; color: var(--ink-3); background: none; border: 0;
+    padding: 0; cursor: pointer; text-decoration: underline; }
+  .lineage { margin-top: 28px; border-top: 1px solid var(--rule); padding-top: 18px; }
+  .lineage ul { list-style: none; margin: 0; padding: 0; }
+  .lineage li { margin: 0 0 10px; }
+  .lineage .origin { display: block; font-family: var(--serif); font-style: italic; color: var(--ink-2); }
+  .note-form { margin-top: 24px; padding: 16px; border: 1px solid var(--rule); }
+  .note-form textarea { width: 100%; box-sizing: border-box; font: inherit; background: transparent;
+    color: var(--ink); border: 1px solid var(--rule); padding: 8px; margin: 6px 0 12px; }
+  .note-form .note-status { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .note-this { position: absolute; z-index: 20; font-family: var(--mono); font-size: 12px;
+    letter-spacing: .06em; text-transform: uppercase; background: var(--accent); color: #fff;
+    border: 0; padding: 6px 10px; cursor: pointer; display: flex; gap: 1px; }
+  .note-this button { font: inherit; color: inherit; background: none; border: 0; padding: 0 4px; cursor: pointer; }
+  .note-this[hidden] { display: none; }
+  .op-bar { margin: 14px 0 6px; padding: 12px 14px; border: 1px solid var(--rule); font-family: var(--sans); font-size: 13px; }
+  .op-bar .ow-h { margin-bottom: 8px; }
+  .op-bar ul { list-style: none; margin: 0 0 10px; padding: 0; }
+  .op-bar li { margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+  .op-bar .lead-k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+  .op-bar .lead-dig-form { display: inline-flex; gap: 8px; align-items: baseline; }
+  .op-bar .lead-dig { font: inherit; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+  .op-bar .op-ask { display: flex; gap: 8px; }
+  .op-bar .op-ask input[name=seed] { flex: 1; font: inherit; background: transparent; color: var(--ink); border: 1px solid var(--rule); padding: 6px 8px; }
   .video-transcript-fold summary { cursor: pointer; font-family: var(--mono); font-size: 12px;
     letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); padding: 10px 0;
     border-top: 1px solid var(--rule); margin-top: 24px; }
@@ -350,22 +510,32 @@ function renderArgumentSummary(piece: PieceDetail, meta: VideoMeta): string {
 
 // ---- scaffolding -------------------------------------------------------
 
-function renderBreadcrumbs(piece: PieceDetail): string {
-  const section = isEssay(piece.kind)
+function renderBreadcrumbs(piece: PieceDetail, topic?: string | null): string {
+  const essay = isEssay(piece.kind);
+  const section = essay
     ? { name: "Essays", href: "/essays" }
     : { name: "Research", href: "/research" };
+  // Home › Research › Section › Title (docs/the-record.md §6). The section
+  // crumb appears only for a filed research document: it links to a hub that
+  // exists. The same trail is emitted as BreadcrumbList in machine.ts.
+  const hub =
+    !essay && topic
+      ? `
+  <span class="arr">›</span>
+  <a href="/research/${escapeAttr(topicSlug(topic))}">${escapeHtml(topic)}</a>`
+      : "";
   // The last crumb was the kind ("essay"), which the eyebrow directly above
   // it already says. The title is what a breadcrumb is for.
   return `<div class="scope crumbs">
   <a href="/">Home</a>
   <span class="arr">›</span>
-  <a href="${escapeAttr(section.href)}">${escapeHtml(section.name)}</a>
+  <a href="${escapeAttr(section.href)}">${escapeHtml(section.name)}</a>${hub}
   <span class="arr">›</span>
   <span class="cur">${escapeHtml(pieceTitle(piece))}</span>
 </div>`;
 }
 
-function renderPageHead(piece: PieceDetail): string {
+function renderPageHead(piece: PieceDetail, ctx: PieceCtx): string {
   const label = kindLabel(piece.kind);
   // The tag now appears ONLY as a warning. It used to label every piece
   // ("signed essay", "library entry") — a third restatement of what the
@@ -425,6 +595,13 @@ function renderPageHead(piece: PieceDetail): string {
       ? `<span class="updated">Updated ${escapeHtml(formatDate(piece.updated_at ?? ""))}</span>`
       : "",
     reading ? `<span>${escapeHtml(reading)}</span>` : "",
+    // The one trust signal the machine cannot supply. Said only when a
+    // readings row exists; a document without one does not claim it.
+    // Points at the first reading, wherever it landed: beside its passage, or
+    // in the after-body block when the passage could not be found.
+    ctx.readings?.length
+      ? `<a href="#reading-${escapeAttr(ctx.readings[0]?.id ?? "")}" class="read-by">Read by the operator</a>`
+      : "",
   ].filter(Boolean);
   const dateLine = dateBits.length
     ? `<div class="coord" style="margin-top:18px;gap:12px;flex-wrap:wrap">${dateBits.join('<span class="sep">·</span>')}</div>`
@@ -529,9 +706,140 @@ function renderOnward(piece: PieceDetail, ctx: PieceCtx): string {
   }
   if (pills.length === 0) return "";
   return `<div class="onward">
-  <div class="ow-h">Keep exploring</div>
+  <div class="ow-h">Related documents</div>
   <div class="conn-inline" style="gap:8px">${pills.join("")}</div>
 </div>`;
+}
+
+// ---- readings and lineage ----------------------------------------------------
+
+/** The operator's affordances on a reading: delete, and draft an essay from it. */
+function readingOps(r: ReadingRow, ctx: PieceCtx): string {
+  if (!ctx.isOperator) return "";
+  return `<form method="post" action="/op/readings/${escapeAttr(r.id)}/delete"><button type="submit">delete</button></form><form method="post" action="/op/readings/${escapeAttr(r.id)}/draft-essay"><button type="submit">draft an essay from this</button></form>`;
+}
+
+/**
+ * One reading, beside its passage (margin-readings.ts). The passage itself
+ * is not repeated — it is the block this aside sits next to — so the aside
+ * carries the note, the signature and the passage's own /q/ receipt.
+ */
+function renderReadingAside(r: ReadingRow, ctx: PieceCtx): string {
+  return `<aside class="reading" id="reading-${escapeAttr(r.id)}">
+  <div class="note-body">${renderMarkdown(r.note_md, { anchors: false })}</div>
+  <div class="note-sig">— the operator, ${escapeHtml(formatDate(r.created_at))} <a href="/q/${escapeAttr(r.quote_id)}">receipt ↗</a>${readingOps(r, ctx)}</div>
+</aside>`;
+}
+
+/**
+ * The readings that could NOT be placed beside their passage: the passage is
+ * not verbatim in the current text (a document can be replaced after a note
+ * is written; lib/readings.ts re-anchors what it can and this is the rest),
+ * or its end fell in a heading. Rendered after the body as before, with the
+ * passage quoted and the gap stated (rule 6), never dropped. Empty when every
+ * reading landed in the margin.
+ */
+function renderReadings(ctx: PieceCtx, placed: Set<string>): string {
+  const readings = (ctx.readings ?? []).filter((r) => !placed.has(r.id));
+  if (readings.length === 0) return "";
+  const items = readings
+    .map(
+      (r) => `<div class="reading-note" id="reading-${escapeAttr(r.id)}">
+  <blockquote><a href="/q/${escapeAttr(r.quote_id)}">${escapeHtml(r.verbatim_text)}</a></blockquote>
+  <p class="note-gap">Passage not found in the current text — the note is kept here, with its receipt.</p>
+  <div class="note-body prose">${renderMarkdown(r.note_md, { anchors: false })}</div>
+  <div class="note-sig">— the operator, ${escapeHtml(formatDate(r.created_at))}${readingOps(r, ctx)}</div>
+</div>`,
+    )
+    .join("\n");
+  return `<section class="readings" id="readings">
+  <div class="ow-h">Readings</div>
+${items}
+</section>`;
+}
+
+/**
+ * The form "Note this" fills. Server-rendered and hidden; /op/notes.js reveals
+ * it with the selected passage in place. Operator only — an anonymous reader
+ * never sees a form that posts to a route Cloudflare Access would refuse.
+ */
+function renderNoteForm(piece: PieceDetail, ctx: PieceCtx): string {
+  if (!ctx.isOperator) return "";
+  return `<form class="note-form" id="note-form" method="post" action="/op/readings" hidden>
+  <input type="hidden" name="piece_id" value="${escapeAttr(piece.id)}">
+  <label class="coord">Passage (verbatim)</label>
+  <textarea name="passage" rows="3" readonly></textarea>
+  <label class="coord">Note</label>
+  <textarea name="note" rows="4" required></textarea>
+  <div class="note-status"></div>
+  <div class="row" style="gap:12px"><button type="submit">Save reading</button><button type="button" class="note-cancel">Cancel</button></div>
+</form>`;
+}
+
+const LEAD_LABEL: Record<string, string> = {
+  contradiction: "Contradiction",
+  "unsourced-figure": "Unsourced figure",
+  bridge: "Bridge",
+  reading: "Reading",
+};
+
+/**
+ * The operator's action bar (docs/the-record.md §6): this document's own
+ * leads with the same dig form /library uses, and a free question box. Both
+ * post to /op/leads/dig carrying piece_id, so the brief a run produces is
+ * this document's child (§5). "Research this" (notes-live.ts) prefills the
+ * question box from a selection — no new route.
+ */
+function renderActionBar(piece: PieceDetail, ctx: PieceCtx): string {
+  if (!ctx.isOperator) return "";
+  const hidden = (name: string, value: string) =>
+    `<input type="hidden" name="${name}" value="${escapeAttr(value)}">`;
+  const items = (ctx.leads ?? [])
+    .map((l) => {
+      const verb = l.kind === "contradiction" ? "Settle this" : "Dig here";
+      const other =
+        l.other_piece_slug && l.other_piece_slug !== piece.slug
+          ? ` <a href="/p/${escapeAttr(l.other_piece_slug)}">${escapeHtml(l.other_piece_title ?? "the other document")}</a>`
+          : "";
+      const receipt = l.quote_id ? ` <a href="/q/${escapeAttr(l.quote_id)}">quote ↗</a>` : "";
+      const dig = l.seed
+        ? `<form method="post" action="/op/leads/dig" class="lead-dig-form">${hidden("seed", l.seed)}${hidden("angle", l.angle)}${hidden("kind", l.kind)}${hidden("piece_id", l.piece_id)}${hidden("piece_slug", l.piece_slug ?? "")}${hidden("other_slug", l.other_piece_slug ?? "")}<button type="submit" class="lead-dig">${verb} →</button></form>`
+        : "";
+      return `<li class="lead lead-${escapeAttr(l.kind)}"><span class="lead-k">${escapeHtml(LEAD_LABEL[l.kind] ?? l.kind)}</span> <span class="lead-sum">${escapeHtml(l.summary)}</span>${other}${receipt} ${dig}</li>`;
+    })
+    .join("");
+  return `<section class="op-bar" id="op-bar">
+  <div class="ow-h">This document's leads</div>
+  ${items ? `<ul>${items}</ul>` : `<p class="note">Nothing yet — leads appear once the pipeline has processed this document.</p>`}
+  <form method="post" action="/op/leads/dig" class="op-ask" id="op-ask">
+    ${hidden("kind", "question")}${hidden("piece_id", piece.id)}${hidden("piece_slug", piece.slug)}
+    <input type="text" name="seed" placeholder="Ask the record a question — the brief becomes this document's child" required>
+    <button type="submit" class="lead-dig">Research →</button>
+  </form>
+  <form method="post" action="/op/pieces/${escapeAttr(piece.id)}/draft-tetrad" class="op-draft-tetrad" id="op-draft-tetrad">
+    <button type="submit" class="lead-dig">Draft a tetrad (labelled)</button>
+    <label class="lead-writer"><input type="checkbox" name="writer" value="anthropic"> with Claude</label>
+  </form>
+</section>`;
+}
+
+/** "Grew from" and "Grew into" (docs/the-record.md §5). Empty renders nothing. */
+function renderLineage(lineage: Lineage | undefined): string {
+  if (!lineage || (!lineage.parent && lineage.children.length === 0)) return "";
+  const ref = (r: { slug: string; title: string; origin: string | null }) =>
+    `<li><a href="/p/${escapeAttr(r.slug)}">${escapeHtml(r.title)}</a>${
+      r.origin ? `<span class="origin">${escapeHtml(r.origin)}</span>` : ""
+    }</li>`;
+  const from = lineage.parent
+    ? `<div class="ow-h">Grew from</div><ul>${ref(lineage.parent)}</ul>`
+    : "";
+  const into = lineage.children.length
+    ? `<div class="ow-h">Grew into</div><ul>${lineage.children.map(ref).join("")}</ul>`
+    : "";
+  return `<section class="lineage" id="lineage">
+${from}
+${into}
+</section>`;
 }
 
 // ---- per-kind body -----------------------------------------------------
@@ -547,7 +855,14 @@ function renderBodyForKind(
       // The essay path parses body_md itself rather than using `sections`,
       // so it needs the spliced copy handed to it explicitly — otherwise an
       // essay would be the one kind that silently never showed a receipt.
-      return renderEssayBody(bodyMd);
+      //
+      // A tetrad (docs/the-record.md §1b) is filed as an essay — the
+      // classifier marks it `metadata.classification = "tetrad"` — but its
+      // shape is four quadrants, not a run of questions. The parse is the
+      // test: if the body has the four headings it renders as the grid, and
+      // if it has been edited out of that shape it falls back to the essay
+      // layout rather than to a broken grid.
+      return renderTetradBody(parseTetrad(bodyMd)) ?? renderEssayBody(bodyMd);
     case "research-report":
     case "brief":
       return renderResearchReportBody(piece, sections);
@@ -612,6 +927,49 @@ ${essay.sources.map((s, i) => `    <li id="src-${i + 1}">${renderInline(s)}</li>
 ${tldr}
 ${toc}
 ${body}
+${sources}
+</div>`;
+}
+
+// The tetrad: four quadrants in a 2×2 grid, after the intro and before any
+// sources. Each cell is anchored by its quadrant name, which is also what the
+// page's `hasPart` structured data points at. No Q&A layout, no FAQ — a
+// tetrad's headings are labels, not questions. The grid is inline CSS so the
+// stylesheet gains no rule for one page shape; auto-fit collapses it to one
+// column at phone width.
+function renderTetradBody(t: ParsedTetrad | null): string | null {
+  if (!t) return null;
+  const intro = t.intro.length
+    ? `<div class="tldr">
+  <div class="tldr-k">In one paragraph</div>
+  ${t.intro.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n  ")}
+</div>`
+    : "";
+  const cells = TETRAD_QUADRANTS.map(
+    (
+      q,
+    ) => `  <div class="tetrad-cell" id="${q}" style="border:1px solid var(--rule);border-radius:var(--r);padding:var(--s-4) var(--s-5);background:var(--paper-2)">
+    <h2 style="font-family:var(--mono);font-size:var(--t-3);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-mute);margin:0 0 var(--s-3)"><a href="#${q}" class="anchor-link">${escapeHtml(TETRAD_LABELS[q])}</a></h2>
+    ${
+      t.quadrants[q]
+        ? renderMarkdown(t.quadrants[q], { headingBase: 3, anchors: false })
+        : `<p><em style="color:var(--ink-mute)">Nothing written here yet.</em></p>`
+    }
+  </div>`,
+  ).join("\n");
+  const sources = t.sources.length
+    ? `<section class="essay-sources">
+  <h2>Sources</h2>
+  <ol>
+${t.sources.map((s, i) => `    <li id="src-${i + 1}">${renderInline(s)}</li>`).join("\n")}
+  </ol>
+</section>`
+    : "";
+  return `<div class="essay-body">
+${intro}
+<section class="tetrad" aria-label="Tetrad" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--s-5);margin:0 0 var(--s-6)">
+${cells}
+</section>
 ${sources}
 </div>`;
 }

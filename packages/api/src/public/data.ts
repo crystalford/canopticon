@@ -8,6 +8,7 @@
 // exception is the Library, which lists working-material too (it's the
 // raw research layer) but marks it as such.
 
+import { TOPICS, type Topic } from "../graph/lib/topics";
 import { WEB_FETCHED_SQL } from "../lib/corpus-guards";
 import { all, one, parseJson } from "../lib/d1";
 
@@ -20,6 +21,8 @@ export interface PublicEnv {
   /** Which model reads for the record — see llm/router.ts modelInUse(). */
   AI_GATEWAY_ID?: string;
   CLAUDE_MODEL?: string;
+  /** R2, for the share card a document page names only once it exists. */
+  FILES?: R2Bucket;
 }
 
 // The public site is single-operator. Resolve "the operator" as the
@@ -157,13 +160,21 @@ export async function getPieceBySlug(
 // Library: every piece including working-material, with a status tag so
 // the raw research layer is honest about what's a finished publication
 // vs an interior chain pass.
+export type LibraryRow = PieceSummary & {
+  metadata: string;
+  original_title?: string | null;
+  title_auto_at?: string | null;
+};
+
 export async function listLibrary(
   db: D1Database,
   userId: string,
   opts: { includeUnpublished?: boolean } = {},
-): Promise<Array<PieceSummary & { metadata: string }>> {
+): Promise<Array<LibraryRow>> {
   // metadata comes along so the operator's own view can surface the essay
   // lint notes stored at upload time (operator/routes.ts createAndExtract).
+  // original_title / title_auto_at say whether the pipeline renamed the row
+  // (graph/lib/processing.ts stepTitle), so /library can offer the revert.
   //
   // WORKING-MATERIAL IS OPERATOR-ONLY. This had no status filter at all, so
   // every unpublished draft was listed by title to anyone who opened /library
@@ -179,10 +190,10 @@ export async function listLibrary(
   // moment...", each labelled "research report". The crawler writes `sources`
   // only now (graph/lib/record-builder.ts); this guard keeps any row it left
   // behind out of the operator's view until the purge removes it.
-  return all<PieceSummary & { metadata: string }>(
+  return all<LibraryRow>(
     db,
     `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
-            byline, published_at, signed_by, metadata
+            byline, published_at, signed_by, metadata, original_title, title_auto_at
        FROM pieces WHERE user_id = ?${visibility}
         AND NOT ${WEB_FETCHED_SQL}
       ORDER BY COALESCE(published_at, created_at) DESC`,
@@ -530,4 +541,167 @@ export async function listTimelineEvents(
 }
 
 // Re-export parseJson so renderers can decode tags without importing d1.
+// ---- lineage (docs/the-record.md §5) --------------------------------------
+
+export interface LineageRef {
+  slug: string;
+  title: string;
+  /** The question, lead or contradiction, verbatim, that started the child. */
+  origin: string | null;
+}
+
+export interface Lineage {
+  parent: LineageRef | null;
+  children: LineageRef[];
+}
+
+/**
+ * What a document grew from and what grew out of it. `pieces.parent_piece_id`
+ * has no foreign key (0027 precedent), so a parent that was purged simply
+ * reads as none. Only published relatives are shown: a working-material child
+ * is not a public page and must not be linked as one.
+ */
+export async function lineageForPiece(
+  db: D1Database,
+  userId: string,
+  pieceId: string,
+): Promise<Lineage> {
+  const parent = await one<LineageRef>(
+    db,
+    `SELECT parent.slug AS slug, parent.title AS title, child.origin AS origin
+       FROM pieces child
+       JOIN pieces parent ON parent.id = child.parent_piece_id
+      WHERE child.id = ? AND child.user_id = ? AND parent.user_id = ?
+        AND parent.publication_status IN ('published','canonical')`,
+    [pieceId, userId, userId],
+  );
+  const children = await all<LineageRef>(
+    db,
+    `SELECT slug, title, origin
+       FROM pieces
+      WHERE user_id = ? AND parent_piece_id = ?
+        AND publication_status IN ('published','canonical')
+      ORDER BY published_at DESC, updated_at DESC`,
+    [userId, pieceId],
+  );
+  return { parent: parent ?? null, children };
+}
+
+// ---- related by subject ------------------------------------------------------
+
+/** Below this a label is a bare surname or an acronym (crosslinks.ts agrees). */
+const RELATED_MIN_LABEL_CHARS = 8;
+
+/**
+ * The other published documents that share the most subjects with this one.
+ *
+ * A subject is an entity or theme node label the typed graph filed under both
+ * documents — a query, not a model call, so it is free, deterministic and
+ * current the moment a document extracts. Ordered by how many labels are
+ * shared, then by recency. When the query finds nothing (the document has no
+ * nodes yet, or shares none), the list falls back to the most recent
+ * documents — "related by date" said honestly as a fallback, not a default.
+ */
+export async function relatedBySubject(
+  db: D1Database,
+  userId: string,
+  pieceId: string,
+  limit = 4,
+): Promise<PieceSummary[]> {
+  const shared = await all<PieceSummary & { shared: number }>(
+    db,
+    `WITH mine AS (
+       SELECT DISTINCT label FROM nodes
+        WHERE user_id = ? AND piece_id = ? AND kind IN ('entity','theme')
+          AND LENGTH(label) >= ?
+     )
+     SELECT p.id, p.slug, p.title, p.subtitle, p.kind, p.subtype, p.publication_status,
+            p.byline, p.published_at, p.signed_by, COUNT(DISTINCT n.label) AS shared
+       FROM nodes n
+       JOIN mine ON mine.label = n.label
+       JOIN pieces p ON p.id = n.piece_id
+      WHERE n.user_id = ? AND n.piece_id IS NOT NULL AND n.piece_id != ?
+        AND n.kind IN ('entity','theme')
+        AND p.user_id = ? AND p.publication_status IN ('published','canonical')
+      GROUP BY p.id
+      ORDER BY shared DESC, p.published_at DESC, p.updated_at DESC
+      LIMIT ?`,
+    [userId, pieceId, RELATED_MIN_LABEL_CHARS, userId, pieceId, userId, limit],
+  );
+  if (shared.length > 0) return shared.map(({ shared: _n, ...p }) => p);
+  const recent = await listInvestigations(db, userId);
+  return recent.filter((r) => r.id !== pieceId).slice(0, limit);
+}
+
 export { parseJson };
+
+// ---- section hubs (docs/the-record.md §6: /research/<section>) -------------
+
+/** "Politics & government" → "politics-government". Deterministic, so a hub
+ *  URL is derived from the closed list and never stored. */
+export function topicSlug(topic: string): string {
+  return topic
+    .toLowerCase()
+    .replace(/&/g, " ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** The closed section a hub slug names, or null: an unknown slug is a 404,
+ *  never a guessed section. */
+export function topicFromSlug(slug: string): Topic | null {
+  return TOPICS.find((t) => topicSlug(t) === slug) ?? null;
+}
+
+/** Two lines per section — plain, factual, written once. */
+export const TOPIC_DESCRIPTIONS: Record<Topic, string> = {
+  "Politics & government":
+    "Elections, parties, legislatures and the public bodies that answer to them. Polling, procedure and the record of what was decided.",
+  "Media & information":
+    "How news, platforms and attention work, and what they do to the people who use them. Media theory and the measurement of it.",
+  "Public health":
+    "Illness, drugs, care and the systems that deliver or fail to deliver it. Figures with a named source and a date, kept whole.",
+  "Housing & cities":
+    "Homes, rents, land, zoning and the cities they make. Supply, prices and who is priced out.",
+  "Money & markets":
+    "Banks, budgets, prices, trade and the instruments that move them. Carbon finance sits here too.",
+  "Climate & energy":
+    "Emissions, grids, fuels and the policy built around them. What is measured and what is promised.",
+  "Technology & systems":
+    "Software, platforms, models and the infrastructure under them. How systems behave and what they are for.",
+  "Method & measurement":
+    "How research is done: sampling, polling method, statistics and the ways a number can mislead.",
+};
+
+/** A piece's frozen section (migration 0055), or null when ungrouped. */
+export async function topicForPiece(
+  db: D1Database,
+  userId: string,
+  pieceId: string,
+): Promise<string | null> {
+  const row = await one<{ topic: string | null }>(
+    db,
+    "SELECT topic FROM pieces WHERE id = ? AND user_id = ?",
+    [pieceId, userId],
+  );
+  return row?.topic?.trim() || null;
+}
+
+/** Everything published, with its full body — for /llms-full.txt. Same
+ *  predicate as listPublishedPieces so the two cannot disagree. */
+export async function listPublishedPiecesFull(
+  db: D1Database,
+  userId: string,
+): Promise<PieceDetail[]> {
+  return all<PieceDetail>(
+    db,
+    `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
+            byline, published_at, signed_by, body_md, body_html, chain_id,
+            tags, metadata, argument_summary_md, created_at, updated_at
+       FROM pieces
+      WHERE user_id = ? AND publication_status IN ('published','canonical')
+      ORDER BY COALESCE(published_at, created_at) DESC
+      LIMIT 5000`,
+    [userId],
+  );
+}

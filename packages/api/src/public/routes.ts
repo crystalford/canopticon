@@ -8,14 +8,23 @@
 
 import { Hono } from "hono";
 import type { AuthContext } from "../auth/middleware";
+import { TOPICS } from "../graph/lib/topics";
 import { one } from "../lib/d1";
-import { getPieceBySlug, listPublishedPieces, resolveOperatorId } from "./data";
+import { indexNowKey } from "../lib/indexnow";
+import {
+  getPieceBySlug,
+  listPublishedPieces,
+  listPublishedPiecesFull,
+  listResearch,
+  resolveOperatorId,
+  topicSlug,
+} from "./data";
 import { htmlResponse } from "./layout";
-import { feedJson, llmsTxt, pieceMarkdown } from "./machine";
+import { feedJson, llmsFullTxt, llmsTxt, pieceMarkdown } from "./machine";
 import { renderAbout } from "./render/about";
 import { renderCitationsPage } from "./render/citations";
 import { renderFront } from "./render/front";
-import { renderEssaysIndex, renderResearchIndex } from "./render/indexes";
+import { renderEssaysIndex, renderResearchIndex, renderSectionHub } from "./render/indexes";
 import { renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
 import { renderPiece } from "./render/piece-template";
@@ -107,6 +116,35 @@ app.use("*", async (c, next) => {
 // public, not an operator tool — it moved to the public footer instead of
 // living here.
 //
+// Cloudflare Web Analytics, on every public HTML page, only when the token
+// is set. Free, cookie-free, and optional: the page reads without it (rule 7).
+app.use("*", async (c, next) => {
+  await next();
+  const token = c.env.CF_WEB_ANALYTICS_TOKEN;
+  if (!token) return;
+  const res = c.res;
+  if (!res || !(res.headers.get("content-type") ?? "").includes("text/html")) return;
+  const html = await res.text();
+  const { renderAnalyticsBeacon } = await import("./layout");
+  const out = html.includes("</body>")
+    ? html.replace("</body>", `${renderAnalyticsBeacon(token)}</body>`)
+    : html;
+  c.res = new Response(out, { status: res.status, headers: res.headers });
+});
+
+// The share card the pipeline drew for a document (graph/lib/og-image.ts),
+// stored in R2 at og/<slug>.png. A document without one 404s here and its
+// page simply carries no og:image.
+app.get("/og/:file", async (c) => {
+  const file = c.req.param("file");
+  if (!file.endsWith(".png")) return c.notFound();
+  const obj = await c.env.FILES.get(`og/${file}`).catch(() => null);
+  if (!obj) return c.notFound();
+  return new Response(obj.body, {
+    headers: { "content-type": "image/png", "cache-control": "public, max-age=86400" },
+  });
+});
+
 // The status badge answers "the record has no idea whether it's still
 // doing anything" — extraction and the settle pipeline run in the
 // background with zero UI signal otherwise. digest_jobs already tracks
@@ -279,16 +317,22 @@ app.get("/sitemap.xml", async (c) => {
   // "thin pages are a ranking liability rather than a neutral one" — and a
   // sitemap entry is the same promise made to a crawler. /numbers joins this
   // list below, once it actually has rows.
-  const staticUrls = ["/", "/essays", "/research", "/about", "/method"];
+  const staticUrls = ["/", "/essays", "/research", "/search", "/about", "/method"];
   let pageUrls: Array<{ loc: string; lastmod: string }> = [];
+  let hubUrls: Array<{ loc: string; lastmod: string }> = [];
   if (userId) {
     const pieces = await listPublishedPieces(c.env.DB, userId).catch(() => []);
     pageUrls = pieces.map((p) => ({
       loc: `/p/${p.slug}`,
       lastmod: (p.updated_at || p.published_at || "").slice(0, 10),
     }));
+    // Section hubs (/research/<section>) — only those holding a document,
+    // dated by the newest document in them.
+    hubUrls = sectionsWithDocuments(await listResearch(c.env.DB, userId).catch(() => [])).map(
+      (s) => ({ loc: `/research/${topicSlug(s.topic)}`, lastmod: s.lastmod }),
+    );
   }
-  const urlEntries = [...staticUrls.map((loc) => ({ loc, lastmod: "" })), ...pageUrls]
+  const urlEntries = [...staticUrls.map((loc) => ({ loc, lastmod: "" })), ...hubUrls, ...pageUrls]
     .map(
       (u) =>
         `  <url><loc>https://canopticon.com${u.loc}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ""}</url>`,
@@ -340,6 +384,34 @@ app.get("/essays", async (c) => htmlResponse(await renderEssaysIndex(c.env)));
 app.get("/numbers", (c) => c.redirect("/research", 301));
 app.get("/figures", (c) => c.redirect("/research", 301));
 app.get("/research", async (c) => htmlResponse(await renderResearchIndex(c.env)));
+
+// Section hubs — one per entry of the closed list in graph/lib/topics.ts
+// (docs/the-record.md §6). An unknown slug is a 404: the list is closed and
+// there is nothing to guess. Registered before the retired-prefix redirects
+// so nothing further down can shadow it.
+app.get("/research/:section", async (c) => {
+  const html = await renderSectionHub(c.env, c.req.param("section"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+/** The closed sections that hold at least one published document, each with
+ *  the date of its newest one. Shared by the sitemap and llms.txt so the two
+ *  announce the same hubs. */
+function sectionsWithDocuments(
+  docs: Array<{ topic: string | null; updated_at: string; published_at: string | null }>,
+): Array<{ topic: string; lastmod: string }> {
+  const seen = new Map<string, string>();
+  for (const d of docs) {
+    const topic = d.topic?.trim();
+    // Only the closed list: an unrecognised value has no hub to announce.
+    if (!topic || !TOPICS.includes(topic as (typeof TOPICS)[number])) continue;
+    const date = (d.updated_at || d.published_at || "").slice(0, 10);
+    const prev = seen.get(topic);
+    if (prev === undefined || date > prev) seen.set(topic, date);
+  }
+  return TOPICS.filter((t) => seen.has(t)).map((t) => ({ topic: t, lastmod: seen.get(t) ?? "" }));
+}
 
 // RETIRED ROOMS — redirected, never rendered.
 //
@@ -405,8 +477,29 @@ app.get("/p/:slug", async (c) => {
   }
   const slug = raw;
   // Try the piece renderer first (original semantics).
-  const html = await renderPiece(c.env, slug);
-  if (html) return htmlResponse(html);
+  const html = await renderPiece(c.env, slug, { isOperator: c.get("is_operator") === true });
+  if (html) {
+    // The "opened" signal resurface reads (migration 0063): the operator,
+    // signed in, looked at this document. After the render, off the critical
+    // path, never for a reader — and guarded, because c.executionCtx THROWS
+    // where there is no ExecutionContext (tests), and a page must never fail
+    // to serve because its bookkeeping could not run.
+    const operatorId = c.get("operator_id");
+    if (c.get("is_operator") === true && operatorId) {
+      try {
+        c.executionCtx.waitUntil(
+          c.env.DB.prepare("UPDATE pieces SET last_opened_at = ? WHERE slug = ? AND user_id = ?")
+            .bind(new Date().toISOString(), slug, operatorId)
+            .run()
+            .then(() => {})
+            .catch(() => {}),
+        );
+      } catch {
+        // No execution context — the page still serves.
+      }
+    }
+    return htmlResponse(html);
+  }
 
   // A retired slug. Every document published before migration 0052 had a
   // filename-with-a-UUID for a URL; /v1/admin/reslug renamed them and banked
@@ -551,10 +644,45 @@ app.get("/unsubscribe", async (c) => {
 app.get("/llms.txt", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   const pieces = userId ? await listPublishedPieces(c.env.DB, userId).catch(() => []) : [];
-  return new Response(llmsTxt(pieces), {
+  const sections = userId
+    ? sectionsWithDocuments(await listResearch(c.env.DB, userId).catch(() => [])).map(
+        (s) => s.topic,
+      )
+    : [];
+  return new Response(llmsTxt(pieces, sections), {
     headers: {
       "content-type": "text/plain; charset=utf-8",
       "cache-control": "public, max-age=3600",
+    },
+  });
+});
+
+// Every published document's plain-text twin in one file, for a crawler that
+// would rather take the corpus whole than follow fifty links. Same rows, same
+// pieceMarkdown() as each /p/<slug>.md — one query, one rendering, so it can
+// never disagree with the pages.
+app.get("/llms-full.txt", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  const pieces = userId ? await listPublishedPiecesFull(c.env.DB, userId).catch(() => []) : [];
+  return new Response(llmsFullTxt(pieces), {
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "public, max-age=3600",
+    },
+  });
+});
+
+// IndexNow key file — lib/indexnow.ts POSTs `keyLocation` pointing here, and
+// the search engines fetch it to prove the ping came from this host. Only
+// served when a key is configured; any other `/<something>.txt` falls through.
+app.get("/:key{[A-Za-z0-9-]{8,128}\\.txt}", async (c, next) => {
+  const key = indexNowKey(c.env);
+  const asked = c.req.param("key").slice(0, -4);
+  if (!key || asked !== key) return next();
+  return new Response(`${key}\n`, {
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "public, max-age=86400",
     },
   });
 });
@@ -572,7 +700,9 @@ app.get("/feed.json", async (c) => {
 
 // Library piece page — same renderer.
 app.get("/library/:slug", async (c) => {
-  const html = await renderPiece(c.env, c.req.param("slug"));
+  const html = await renderPiece(c.env, c.req.param("slug"), {
+    isOperator: c.get("is_operator") === true,
+  });
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);
 });
@@ -643,25 +773,23 @@ app.get("/library", async (c) => {
   const error = c.req.query("error");
   const importing = c.req.query("importing");
   const videoError = c.req.query("video_error");
-  const draining = c.req.query("draining");
-  const atoms = c.req.query("atoms");
-  const atomsModel = c.req.query("model");
   const published = c.req.query("published");
   const renamed = c.req.query("renamed");
-  const topics = c.req.query("topics");
+  const queued = c.req.query("queued");
+  // The upload just made: POST /op/feed/upload redirects here carrying the
+  // new piece ids (comma-separated for a zip), and the page opens on them.
+  const uploaded = c.req.query("uploaded");
   return htmlResponse(
     await renderLibraryIndex(c.env, {
       isOperator: c.get("is_operator"),
+      ...(uploaded ? { uploaded } : {}),
       ...(ingested ? { ingested } : {}),
       ...(error ? { error } : {}),
       ...(importing ? { importing } : {}),
       ...(videoError ? { videoError } : {}),
-      ...(draining ? { draining } : {}),
-      ...(atoms ? { atoms } : {}),
-      ...(atomsModel ? { model: atomsModel } : {}),
       ...(published ? { published } : {}),
       ...(renamed ? { renamed } : {}),
-      ...(topics ? { topics } : {}),
+      ...(queued ? { queued } : {}),
     }),
   );
 });
@@ -699,6 +827,7 @@ app.get("/search", async (c) => {
   return htmlResponse(
     await renderSearchPage(c.env, q, {
       isOperator: c.get("is_operator"),
+      asked: c.req.query("asked") === "1",
     }),
   );
 });

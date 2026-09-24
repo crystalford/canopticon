@@ -11,17 +11,18 @@
 import { unzipSync } from "fflate";
 import { Hono } from "hono";
 import type { Env } from "../env";
+import { jobStatusForPiece } from "../graph/lib/digest-jobs";
+import { type ExtractResult, extractUpload, readFullExtractedText } from "../graph/lib/extract";
+import { enqueueProcessing, ensureProcessingTable } from "../graph/lib/processing";
+import { insertOne, one, run } from "../lib/d1";
 import {
-  drainDigestJobs,
-  enqueueDigest,
-  ensureJobsTable,
-  jobStatusForPiece,
-  runDigestJob,
-} from "../graph/lib/digest-jobs";
-import { extractUpload, readFullExtractedText } from "../graph/lib/extract";
-import { WEB_FETCHED_SQL } from "../lib/corpus-guards";
-import { all, insertOne, one, run } from "../lib/d1";
-import { type LintNote, lintEssay, looksLikeEssay, parseEssay } from "../lib/essay";
+  type LintNote,
+  lintEssay,
+  looksLikeEssay,
+  looksLikeTetrad,
+  parseEssay,
+} from "../lib/essay";
+import { pingIndexNow } from "../lib/indexnow";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { opHtml } from "./layout";
@@ -72,7 +73,7 @@ app.post("/feed/upload", async (c) => {
     if (!userId) {
       return c.redirect(`/op/library?error=${encodeURIComponent("No operator user")}`);
     }
-    await ensureJobsTable(c.env);
+    await ensureProcessingTable(c.env);
     const form = await c.req.formData();
     const file = form.get("file");
     if (!file || typeof file === "string") {
@@ -99,17 +100,11 @@ app.post("/feed/upload", async (c) => {
           `/op/library?error=${encodeURIComponent("No .md/.txt/.pdf/.docx files in the zip")}`,
         );
       }
-      // For zips: create + bank every entry synchronously (fast), then
-      // enqueue each new piece into the typed-graph digest queue — the
-      // drop itself starts reading the document into the record, rather
-      // than requiring a second manual "Extract" click in Library
-      // (previously the only trigger). Kick a few jobs inline via
-      // waitUntil so the first pieces of a batch don't wait for the next
-      // cron tick; the rest drain on the every-minute cron as before.
-      const ZIP_INLINE_KICKS = 3;
+      // For zips: create + bank every entry synchronously (fast), then queue
+      // each new piece for the pipeline. The library page the operator lands
+      // on presses the pipeline forward while it is open.
       const pieceIds: string[] = [];
       let zipDupes = 0;
-      let zipKicked = 0;
       for (const name of names.slice(0, ZIP_MAX_ENTRIES)) {
         const bytes = entries[name];
         if (!bytes) continue;
@@ -127,45 +122,37 @@ app.post("/feed/upload", async (c) => {
           if (p.duplicate) {
             zipDupes++;
           } else if (p.sourceId) {
-            const jobId = await enqueueDigest(c.env, {
-              userId,
-              pieceId: p.pieceId,
-              slug: p.slug,
-              title: p.title,
-              sourceId: p.sourceId,
-            });
-            if (zipKicked < ZIP_INLINE_KICKS) {
-              zipKicked++;
-              c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
-            }
+            await enqueueProcessing(c.env, userId, p.pieceId);
           }
         } catch {
           // skip a bad entry; keep ingesting the rest
         }
       }
-      return c.redirect(`/op/library?ingested=${pieceIds.length}&dupes=${zipDupes}`);
+      return c.redirect(
+        `/op/library?ingested=${pieceIds.length}&dupes=${zipDupes}&uploaded=${encodeURIComponent(pieceIds.slice(0, 5).join(","))}`,
+      );
     }
 
-    // Single-file: store in Vault, then enqueue the typed-graph digest
-    // immediately (kicked inline via waitUntil) — the drop is the trigger,
-    // not a separate Extract click. A duplicate upload is already banked
-    // and was either extracted before or is queued from that earlier drop;
-    // don't double-enqueue it.
+    // Single-file: store, publish, queue the pipeline. The drop is the
+    // trigger; the library page it lands on does the rest while open. A
+    // duplicate upload is already banked and already queued or processed.
     const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size);
     if (p.duplicate) {
       return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}&dedup=1`);
     }
-    if (p.sourceId) {
-      const jobId = await enqueueDigest(c.env, {
-        userId,
-        pieceId: p.pieceId,
-        slug: p.slug,
-        title: p.title,
-        sourceId: p.sourceId,
-      });
-      c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
+    if (p.sourceId) await enqueueProcessing(c.env, userId, p.pieceId);
+    // Upload IS publication, so this is the moment to tell the engines that
+    // honour IndexNow. Fire-and-forget; inert without INDEXNOW_KEY. Guarded
+    // like the dig route: c.executionCtx throws where there is none (tests).
+    const ping = pingIndexNow(c.env, [`/p/${p.slug}`, "/research", "/sitemap.xml"]).catch(() => {});
+    try {
+      c.executionCtx.waitUntil(ping);
+    } catch {
+      // No execution context — the promise is already running.
     }
-    return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}`);
+    return c.redirect(
+      `/op/library?piece=${encodeURIComponent(p.pieceId)}&uploaded=${encodeURIComponent(p.pieceId)}`,
+    );
   } catch (err) {
     const message = (err as Error).message ?? "unknown error";
     // Durable breadcrumb: the failure path otherwise leaves nothing readable
@@ -273,24 +260,11 @@ export async function createAndExtract(
     };
   }
 
-  const r2_key = `uploads/${userId}/${crypto.randomUUID()}-${safeName(filename)}`;
-  await env.FILES.put(r2_key, bytes, {
-    httpMetadata: { contentType: mime || "application/octet-stream" },
+  const { extracted, body_md, title } = await bankUpload(env, userId, bytes, sha256, {
+    filename,
+    mime,
+    size,
   });
-  const fileId = await insertOne(env.DB, "uploaded_files", {
-    user_id: userId,
-    r2_key,
-    original_filename: filename,
-    mime: mime || "application/octet-stream",
-    size_bytes: size,
-    sha256,
-    classification: classify(mime, filename),
-  });
-
-  const extracted = await extractUpload(env, fileId);
-  const full = await readFullExtractedText(env, extracted.source_id, userId);
-  const body_md = full.text;
-  const title = full.title || filename;
 
   const slug = await ensureUniqueSlug(env.DB, userId, slugify(title || `piece-${Date.now()}`));
   const nowIso = new Date().toISOString();
@@ -298,7 +272,8 @@ export async function createAndExtract(
   // them apart is the essay convention itself — a majority of `##` headings
   // phrased as questions — because that contract is exactly what the essay
   // template and its Q&A structured data need. See lib/essay.ts.
-  const essay = looksLikeEssay(body_md);
+  const tetrad = looksLikeTetrad(body_md);
+  const essay = tetrad || looksLikeEssay(body_md);
   const parsedEssay = essay ? parseEssay(body_md) : null;
   const pieceId = await insertOne(env.DB, "pieces", {
     user_id: userId,
@@ -334,7 +309,7 @@ export async function createAndExtract(
       source_id: extracted.source_id,
       original_filename: filename,
       extracted_chars: extracted.extracted_chars,
-      classification: extracted.classification,
+      classification: tetrad ? "tetrad" : extracted.classification,
       content_sha256: sha256,
       // Stored, not just flashed on the redirect: an upload confirmation is
       // seen once and then gone, and these notes are worth having next to
@@ -351,6 +326,38 @@ export async function createAndExtract(
     sourceId: extracted.source_id,
     ...(parsedEssay ? { lint: lintEssay(parsedEssay) } : {}),
   };
+}
+
+/**
+ * The deterministic middle of ingest, shared by a first upload and a new
+ * version of an existing document: R2 → `uploaded_files` → `extract.ts` →
+ * the full text. No `pieces` row is touched here; the caller decides whether
+ * to create one or update one.
+ */
+async function bankUpload(
+  env: Env,
+  userId: string,
+  bytes: Uint8Array,
+  sha256: string,
+  file: { filename: string; mime: string; size: number },
+): Promise<{ extracted: ExtractResult; body_md: string; title: string }> {
+  const { filename, mime, size } = file;
+  const r2_key = `uploads/${userId}/${crypto.randomUUID()}-${safeName(filename)}`;
+  await env.FILES.put(r2_key, bytes, {
+    httpMetadata: { contentType: mime || "application/octet-stream" },
+  });
+  const fileId = await insertOne(env.DB, "uploaded_files", {
+    user_id: userId,
+    r2_key,
+    original_filename: filename,
+    mime: mime || "application/octet-stream",
+    size_bytes: size,
+    sha256,
+    classification: classify(mime, filename),
+  });
+  const extracted = await extractUpload(env, fileId);
+  const full = await readFullExtractedText(env, extracted.source_id, userId);
+  return { extracted, body_md: full.text, title: full.title || filename };
 }
 
 async function contentSha256(bytes: Uint8Array): Promise<string> {
@@ -507,24 +514,6 @@ app.get("/login", async (c) => {
   return handleLogin(c as never);
 });
 
-// FILE EVERY UNTOPICED DOCUMENT.
-//
-// Push-button, never scheduled (rule 4). Bounded per press, so one click
-// cannot spend an unbounded amount on a corpus that grew overnight — press it
-// again for the next batch.
-//
-// The model CHOOSES from a closed list rather than naming a topic, because
-// free naming across fifty documents produces forty near-duplicate labels and
-// groups nothing. See graph/lib/topics.ts.
-app.post("/library/topics", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
-  const { assignTopics } = await import("../graph/lib/topics");
-  const r = await assignTopics(c.env, userId, { limit: 25 }).catch(() => null);
-  if (!r) return c.redirect("/library?error=topic+pass+failed");
-  return c.redirect(`/library?topics=${r.assigned}.${r.ungrouped}`);
-});
-
 // ACCEPT A TITLE.
 //
 // A document published under the name its research session gave itself —
@@ -604,10 +593,14 @@ app.post("/leads/dig", async (c) => {
   // Both documents are read whole, the answer is three sentences, and every
   // quote is located verbatim in one of them before it is stored. Nothing is
   // fetched, nothing is banked, no new population appears in `pieces`.
-  if (kind === "contradiction") {
-    const { answerLead } = await import("../graph/lib/answer-lead");
+  // An unsourced figure is one question wide too, but the answer is not in
+  // the corpus — the corpus is what failed to name a source. Three pages are
+  // fetched, at most; the answer says who published the number, where and
+  // when; and only quotes located verbatim in a fetched page survive.
+  if (kind === "contradiction" || kind === "unsourced-figure") {
+    const { answerLead, answerUnsourcedFigure } = await import("../graph/lib/answer-lead");
     const lead = {
-      kind: "contradiction" as const,
+      kind: kind as "contradiction" | "unsourced-figure",
       summary: seed,
       detail: seed,
       quote_id: null,
@@ -620,7 +613,11 @@ app.post("/leads/dig", async (c) => {
       seed,
       angle: angle ?? "",
     };
-    const work = answerLead(c.env, userId, lead, { writer }).catch(() => {});
+    const work = (
+      kind === "unsourced-figure"
+        ? answerUnsourcedFigure(c.env, userId, lead, { writer })
+        : answerLead(c.env, userId, lead, { writer })
+    ).catch(() => {});
     try {
       c.executionCtx.waitUntil(work);
     } catch {
@@ -638,7 +635,17 @@ app.post("/leads/dig", async (c) => {
   // no ExecutionContext, and an unguarded access here would 500 the request
   // that started a perfectly good run. Same bug, same fix, as the subscribe
   // route.
-  const run = researchOnDemand(c.env, userId, seed, angle, { writer }).catch(() => {});
+  // Lineage (docs/the-record.md §5): the run remembers which document's lead,
+  // question, bridge or reading started it, so the brief it produces is that
+  // document's child. "novelty" is the bridge's second button — "Has anyone
+  // said this?" — and only changes the angle the writer is given.
+  const parentPieceId = str("piece_id") || null;
+  const originKind = kind || "free";
+  const run = researchOnDemand(c.env, userId, seed, angle, {
+    writer,
+    parentPieceId,
+    originKind,
+  }).catch(() => {});
   try {
     c.executionCtx.waitUntil(run);
   } catch {
@@ -821,13 +828,20 @@ app.post("/library/research/:id/publish", async (c) => {
   } catch {
     meta = {};
   }
-  await enqueueDigest(c.env, {
-    userId,
-    pieceId: c.req.param("id"),
-    slug: row.slug,
-    title: row.title,
-    sourceId: meta.source_id ?? "",
-  });
+  // Published like an upload: the same pipeline reads it (docs/the-record.md
+  // §6). meta.source_id is what the digest step reads the text from.
+  if (meta.source_id) {
+    await ensureProcessingTable(c.env);
+    await enqueueProcessing(c.env, userId, c.req.param("id"));
+  }
+  // A published brief is a new public URL: one IndexNow ping, fire-and-forget,
+  // inert without INDEXNOW_KEY (lib/indexnow.ts).
+  const ping = pingIndexNow(c.env, [`/p/${row.slug}`, "/research", "/sitemap.xml"]).catch(() => {});
+  try {
+    c.executionCtx.waitUntil(ping);
+  } catch {
+    // No execution context — the promise is already running.
+  }
   return c.redirect(`/p/${row.slug}`);
 });
 
@@ -857,182 +871,69 @@ app.post("/library/research/:id/discard", async (c) => {
 //     a pipeline change to refill the typed graph; mirrors /v1/admin/reextract)
 // Either way: enqueue durable jobs + kick each off via waitUntil for instant
 // start. The every-minute cron drain catches anything killed mid-run.
-// Drain the digest queue, by hand.
-//
-// drainDigestJobs() was previously only ever called from the every-2-minute
-// cron in index.ts's scheduled(). With the cron disabled, this function had
-// no caller at all and anything left queued — zip entries past the first
-// three, chiefly — was stranded permanently and silently. This is the
-// replacement: the operator presses a button, a bounded batch runs.
-// Build the citable atoms for one document: findings and questions.
-//
-// Explicitly a button, not a hook on upload. It costs several model calls, and
-// the operator should see what a document produced before any of it acquires a
-// URL — human review at the document level is one of the properties that keeps
-// generated pages on the right side of the scaled-content line.
-app.post("/library/:id/extract-atoms", async (c) => {
+// THE PIPELINE — one step per request; the library page presses this while
+// it is open (docs/the-record.md §4). A form POST lands back on /library; the
+// poller asks for JSON and updates the row in place. Nothing schedules it.
+app.post("/process/advance", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
-  const pieceId = c.req.param("id");
-  const { extractAeoAtoms } = await import("../graph/lib/aeo-extract");
-  // Optional model override, so the same document can be run under several
-  // models and the results compared. Which model produced which row is stored
-  // (migration 0051) — without that the comparison would not outlive the page.
-  const body = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
-  const picked = typeof body.model === "string" ? body.model : (c.req.query("model") ?? "");
-  try {
-    const stats = await extractAeoAtoms(c.env, userId, pieceId, { model: picked });
-    return c.redirect(
-      `/library?atoms=${stats.findings}.${stats.questions_new}.${stats.questions_merged}.${stats.killed}&model=${encodeURIComponent(stats.model)}`,
-    );
-  } catch (e) {
-    return c.redirect(`/library?error=${encodeURIComponent(String(e).slice(0, 180))}`);
-  }
+  if (!userId) return c.json({ ok: false, error: "no operator" }, 401);
+  const wantsJson = (c.req.header("accept") ?? "").includes("application/json");
+  const piece = c.req.query("piece") ?? undefined;
+  const { advanceProcessing, describeProcessing } = await import("../graph/lib/processing");
+  const r = await advanceProcessing(c.env, userId, piece);
+  if (!wantsJson) return c.redirect("/library");
+  return c.json({
+    ok: true,
+    piece_id: r.piece_id,
+    remaining: r.remaining,
+    note: r.note,
+    status: describeProcessing(r.row ?? undefined),
+    row: r.row,
+  });
 });
 
-// Propose the passage a retriever should lift. Selection, not composition —
-// see graph/lib/lede.ts for why that distinction is the whole design.
-app.post("/library/:id/lede", async (c) => {
+// Queue every published document that has never been processed to the end.
+app.post("/process/all", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");
-  const { proposeLede } = await import("../graph/lib/lede");
-  const res = await proposeLede(c.env, userId, c.req.param("id"));
-  return c.redirect(
-    res.ok
-      ? "/library?lede=proposed"
-      : `/library?error=${encodeURIComponent(res.reason ?? "could not select a passage")}`,
-  );
+  const { enqueueEverything, ensureProcessingTable } = await import("../graph/lib/processing");
+  await ensureProcessingTable(c.env);
+  const n = await enqueueEverything(c.env, userId);
+  return c.redirect(`/library?queued=${n}`);
 });
 
-// Nothing renders until a person has read it: a passage can be perfectly
-// verbatim and still misrepresent what the document weighs.
-app.post("/library/:id/lede/approve", async (c) => {
+// Re-process one document from the start (a new version, a new model, or a
+// row that never finished). Retry resumes a failed row at the step it failed.
+app.post("/library/:id/reprocess", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");
-  const { approveLede } = await import("../graph/lib/lede");
-  const ok = await approveLede(c.env, userId, c.req.param("id"));
-  return c.redirect(ok ? "/library?lede=approved" : "/library?error=no+proposed+passage");
+  const { enqueueProcessing, ensureProcessingTable } = await import("../graph/lib/processing");
+  await ensureProcessingTable(c.env);
+  await enqueueProcessing(c.env, userId, c.req.param("id"), { restart: true });
+  return c.redirect("/library?queued=1");
 });
-
-// Draft what the corpus establishes about one question, from its verified
-// evidence and nothing else. Stored unapproved — prose cannot be
-// substring-checked, so a person is the only honest gate.
-app.post("/answers/:id/draft", async (c) => {
+app.post("/library/:id/retry", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");
-  const { draftStandingAnswer } = await import("../graph/lib/standing-answer");
-  const res = await draftStandingAnswer(c.env, userId, c.req.param("id"));
-  return c.redirect(
-    res.ok
-      ? `/library?drafted=1${res.contested ? "&contested=1" : ""}`
-      : `/library?error=${encodeURIComponent(res.reason ?? "could not draft")}`,
-  );
+  const { retryProcessing } = await import("../graph/lib/processing");
+  await retryProcessing(c.env, userId, c.req.param("id"));
+  return c.redirect("/library?queued=1");
 });
 
-app.post("/answers/:id/draft/approve", async (c) => {
+// Put a machine-chosen title back. original_title has the name the document
+// arrived with; title_approved_at marks that a person decided this time.
+app.post("/pieces/:id/title/revert", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");
-  const { approveStandingAnswer } = await import("../graph/lib/standing-answer");
-  const ok = await approveStandingAnswer(c.env, userId, c.req.param("id"));
-  return c.redirect(ok ? "/library?drafted=approved" : "/library?error=no+draft+to+approve");
-});
-
-// Promote one proposed question to a public page. The gate runs here, inside
-// publishQuestion, and refuses rather than publishing something thin.
-app.post("/answers/:id/publish", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
-  const { publishQuestion } = await import("../graph/lib/aeo-extract");
-  const res = await publishQuestion(c.env, userId, c.req.param("id"));
-  return c.redirect(
-    res.ok
-      ? "/library?published=1"
-      : `/library?error=${encodeURIComponent(res.reason ?? "refused")}`,
-  );
-});
-
-app.post("/library/drain", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
-  await ensureJobsTable(c.env);
-  // Bounded deliberately. Each job is several LLM calls against a shared D1
-  // CPU budget, and the account has thrown "exceeded its CPU time limit" under
-  // exactly this kind of concurrent load before. Press it again for more.
-  const jobIds = await drainDigestJobs(c.env, 3).catch(() => []);
-  for (const id of jobIds) c.executionCtx.waitUntil(runDigestJob(c.env, id));
-  return c.redirect(`/library?draining=${jobIds.length}`);
-});
-
-app.post("/library/extract", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/library");
-  await ensureJobsTable(c.env);
-  const form = await c.req.formData();
-  const mode = String(form.get("mode") ?? "selected");
-
-  // Resolve the set of pieces to extract.
-  let pieces: Array<{ id: string; slug: string; title: string; source_id: string | null }>;
-  if (mode === "all-unextracted") {
-    pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
-      c.env.DB,
-      `SELECT p.id, p.slug, p.title,
-              json_extract(p.metadata, '$.source_id') AS source_id
-         FROM pieces p
-        WHERE p.user_id = ?
-          AND NOT ${WEB_FETCHED_SQL}
-          AND NOT EXISTS (
-            SELECT 1 FROM digest_jobs j
-             WHERE j.user_id = p.user_id AND j.piece_id = p.id
-               AND j.status = 'completed'
-          )
-        ORDER BY p.created_at`,
-      [userId],
-    );
-  } else if (mode === "all") {
-    pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
-      c.env.DB,
-      `SELECT id, slug, title, json_extract(metadata, '$.source_id') AS source_id
-         FROM pieces WHERE user_id = ? AND NOT ${WEB_FETCHED_SQL} ORDER BY created_at`,
-      [userId],
-    );
-    // Clear prior jobs so enqueue starts each piece fresh at chunk 0 (the
-    // prior run may have completed-but-hollow; we want a real do-over).
-    await run(c.env.DB, "DELETE FROM digest_jobs WHERE user_id = ?", [userId]);
-  } else {
-    const ids = form
-      .getAll("piece_ids")
-      .map((v) => String(v))
-      .filter((v) => v.length > 0);
-    if (ids.length === 0) return c.redirect("/op/library");
-    const placeholders = ids.map(() => "?").join(",");
-    pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
-      c.env.DB,
-      `SELECT id, slug, title, json_extract(metadata, '$.source_id') AS source_id
-         FROM pieces WHERE user_id = ? AND id IN (${placeholders})`,
-      [userId, ...ids],
-    );
-  }
-
-  // Enqueue everything; kick only the first few inline. Kicking 50 jobs in
-  // one request is a self-DoS (each runs LLM calls via waitUntil); the
-  // every-minute cron drain works through the rest at a steady 8/tick.
-  const INLINE_KICKS = 3;
-  let kicked = 0;
-  for (const p of pieces) {
-    if (!p.source_id) continue; // can't extract without a source row
-    const jobId = await enqueueDigest(c.env, {
-      userId,
-      pieceId: p.id,
-      slug: p.slug,
-      title: p.title,
-      sourceId: p.source_id,
-    });
-    if (kicked < INLINE_KICKS) {
-      c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
-    }
-    kicked++;
-  }
-  return c.redirect(`/op/library?extracting=${kicked}`);
+  await run(
+    c.env.DB,
+    `UPDATE pieces
+        SET title = COALESCE(original_title, title), title_auto_at = NULL,
+            title_approved_at = ?, updated_at = ?
+      WHERE id = ? AND user_id = ? AND original_title IS NOT NULL`,
+    [new Date().toISOString(), new Date().toISOString(), c.req.param("id"), userId],
+  ).catch(() => {});
+  return c.redirect("/library?renamed=1");
 });
 
 // Bulk-delete from Library. Two modes:
@@ -1132,5 +1033,412 @@ for (const [from, to] of Object.entries(redirects)) {
   app.get(from, (c) => c.redirect(to, 301));
   app.get(`${from}/:rest{.*}`, (c) => c.redirect(to, 301));
 }
+
+// ---- readings (docs/the-record.md §5c) ----------------------------------------
+//
+// The operator's half of verification: a note anchored to a passage, the
+// passage a quotes row like any receipt. Written from the /p/ page ("Note
+// this", public/render/notes-live.ts), rendered by piece-template.ts. No
+// model is involved in creating or deleting one. Imports are dynamic so this
+// block stays append-only, as the deep-research handlers above already are.
+
+async function readingRedirect(db: D1Database, userId: string, pieceId: string): Promise<string> {
+  const p = await one<{ slug: string }>(
+    db,
+    "SELECT slug FROM pieces WHERE id = ? AND user_id = ?",
+    [pieceId, userId],
+  );
+  return p ? `/p/${p.slug}` : "/library";
+}
+
+// form: piece_id, passage (verbatim, ≥40 chars), note (markdown)
+app.post("/readings", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library?error=No%20operator%20user");
+  const form = await c.req.parseBody();
+  const pieceId = typeof form.piece_id === "string" ? form.piece_id.trim() : "";
+  const passage = typeof form.passage === "string" ? form.passage : "";
+  const note = typeof form.note === "string" ? form.note : "";
+  if (!pieceId) return c.redirect("/library?error=No%20document");
+  const back = await readingRedirect(c.env.DB, userId, pieceId);
+  const { createReading } = await import("../lib/readings");
+  const result = await createReading(c.env, userId, pieceId, passage, note);
+  if (!result.ok) return c.redirect(`${back}?error=${encodeURIComponent(result.reason)}`);
+  return c.redirect(`${back}#reading-${result.id}`);
+});
+
+app.post("/readings/:id/delete", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library?error=No%20operator%20user");
+  const id = c.req.param("id");
+  const row = await one<{ piece_id: string }>(
+    c.env.DB,
+    "SELECT piece_id FROM readings WHERE id = ? AND user_id = ?",
+    [id, userId],
+  );
+  const back = row ? await readingRedirect(c.env.DB, userId, row.piece_id) : "/library";
+  const { deleteReading } = await import("../lib/readings");
+  await deleteReading(c.env.DB, userId, id);
+  return c.redirect(`${back}#readings`);
+});
+
+// The "Note this" client, operator-only by virtue of living under /op.
+app.get("/notes.js", async () => {
+  const { NOTES_LIVE_JS } = await import("../public/render/notes-live");
+  return new Response(NOTES_LIVE_JS, {
+    headers: {
+      "content-type": "text/javascript; charset=utf-8",
+      "cache-control": "private, max-age=3600",
+    },
+  });
+});
+
+// A MODEL-DRAFTED essay from a reading, CLEARLY LABELLED as such, returned as
+// a file and never stored. The operator edits it and uploads it like any
+// document; the byline is theirs because the words will be. The passage is
+// quoted with its receipt so the one verified thing in the draft is marked
+// as the one verified thing.
+app.post("/readings/:id/draft-essay", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.text("No operator user", 401);
+  const id = c.req.param("id");
+  const reading = await one<{
+    note_md: string;
+    quote_id: string;
+    verbatim_text: string;
+    piece_id: string;
+    slug: string;
+    title: string;
+  }>(
+    c.env.DB,
+    `SELECT r.note_md, r.quote_id, q.verbatim_text, r.piece_id, p.slug, p.title
+       FROM readings r
+       JOIN quotes q ON q.id = r.quote_id
+       JOIN pieces p ON p.id = r.piece_id
+      WHERE r.id = ? AND r.user_id = ?`,
+    [id, userId],
+  );
+  if (!reading) return c.text("No such reading", 404);
+  const { findingsForPiece } = await import("../graph/lib/aeo-extract");
+  const findings = (
+    await findingsForPiece(c.env.DB, userId, reading.piece_id).catch(() => [])
+  ).slice(0, 6);
+  const findingLines = findings.map(
+    (f) =>
+      `- ${f.figure} — ${f.measures}${f.period ? ` (${f.period})` : ""}${
+        f.attributed_to ? `, per ${f.attributed_to}` : ""
+      }`,
+  );
+  const { callRole } = await import("../llm/router");
+  const out = await callRole(c.env, "writer", {
+    userId,
+    system: [
+      "You draft essays for a research publication. Write in Markdown, in exactly this shape and nothing else:",
+      "",
+      "# Title",
+      "A one-line dek.",
+      "",
+      "A summary paragraph that stands alone.",
+      "",
+      "## A question ending in a question mark?",
+      "The answer in the first sentence or two, then supporting paragraphs citing sources as [1].",
+      "",
+      "(three to five such question sections)",
+      "",
+      "## Sources",
+      "1. Author. Title. Publisher, year.",
+      "",
+      "Rules: every ## heading except Sources is a question ending in '?'. Open each section with the answer.",
+      "Do not invent figures; use only the findings supplied, and cite the document as source [1].",
+      "Do not include any preamble or commentary outside the essay.",
+    ].join("\n"),
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: [
+              `Document: "${reading.title}" (source [1]: Canopticon, https://canopticon.com/p/${reading.slug})`,
+              "",
+              "The passage the operator read:",
+              `> ${reading.verbatim_text}`,
+              "",
+              "The operator's note on it (this is the essay's argument):",
+              reading.note_md,
+              "",
+              findingLines.length
+                ? `Verified findings from the document:\n${findingLines.join("\n")}`
+                : "The document has no verified findings yet; make no numerical claims.",
+            ].join("\n"),
+          },
+        ],
+      },
+    ],
+    max_tokens: 2500,
+    idempotency_key: `${id}:draft-essay:${Date.now()}`,
+  });
+  let body = out.text
+    .trim()
+    .replace(/^```[a-z]*\n?/i, "")
+    .replace(/\n?```$/, "");
+  // The passage, as a blockquote with its receipt, straight after the title
+  // and dek — so the verified thing in the draft is marked as such.
+  const quoteBlock = `> ${reading.verbatim_text.replace(/\n/g, "\n> ")}\n>\n> — *${reading.title}*, [verified](/q/${reading.quote_id})`;
+  const lines = body.split("\n");
+  const h1 = lines.findIndex((l) => l.startsWith("# "));
+  if (h1 >= 0) {
+    let at = h1 + 1;
+    while (at < lines.length && (lines[at] ?? "").trim() !== "") at++;
+    lines.splice(at, 0, "", quoteBlock);
+    body = lines.join("\n");
+  } else {
+    body = `${quoteBlock}\n\n${body}`;
+  }
+  const date = new Date().toISOString().slice(0, 10);
+  const file = `<!-- DRAFTED BY ${out.model} from a reading on "${reading.title}" on ${date}. Not published. Edit before uploading; the byline will be yours. -->\n\n${body}\n`;
+  return new Response(file, {
+    headers: {
+      "content-type": "text/markdown; charset=utf-8",
+      "content-disposition": `attachment; filename="essay-draft-${reading.slug}.md"`,
+      "cache-control": "no-store",
+    },
+  });
+});
+
+// A NEW VERSION of a document (docs/the-record.md §4): the body is replaced,
+// the slug and published_at stay, the pipeline re-runs, and nothing is
+// deleted — the previous source id is appended to metadata. The typed graph
+// and the findings for the old body are purged so no stale quote survives a
+// body change; the operator's READINGS are the one thing kept: each passage
+// is re-located verbatim in the new body and re-anchored, and the ones the
+// new body no longer contains are dropped and counted on the redirect.
+// form: multipart `file`. Redirects with ?replaced=1&readings_lost=N, or
+// ?error=same+file when the upload is byte-identical to the current source.
+app.post("/library/:id/replace", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library?error=No%20operator%20user");
+  const pieceId = c.req.param("id");
+  const piece = await one<{
+    id: string;
+    slug: string;
+    title: string;
+    body_md: string | null;
+    metadata: string | null;
+  }>(
+    c.env.DB,
+    "SELECT id, slug, title, body_md, metadata FROM pieces WHERE id = ? AND user_id = ?",
+    [pieceId, userId],
+  );
+  if (!piece) return c.redirect("/library?error=No%20document");
+  const form = await c.req.formData();
+  const file = form.get("file");
+  if (!file || typeof file === "string") {
+    return c.redirect(`/library?error=${encodeURIComponent("No file in form data")}`);
+  }
+  const f = file as unknown as File;
+  const bytes = new Uint8Array(await f.arrayBuffer());
+  const sha256 = await contentSha256(bytes);
+  let meta: Record<string, unknown> = {};
+  try {
+    meta = JSON.parse(piece.metadata ?? "{}") ?? {};
+  } catch {
+    meta = {};
+  }
+  const oldSourceId = typeof meta.source_id === "string" ? meta.source_id : null;
+  // The current source's hash: on the piece for every upload since content_sha256 was recorded; older rows
+  // carry it only on uploaded_files, reached through the source.
+  let currentSha = typeof meta.content_sha256 === "string" ? meta.content_sha256 : null;
+  if (!currentSha && oldSourceId) {
+    const u = await one<{ sha256: string | null }>(
+      c.env.DB,
+      "SELECT sha256 FROM uploaded_files WHERE user_id = ? AND created_source_id = ? LIMIT 1",
+      [userId, oldSourceId],
+    );
+    currentSha = u?.sha256 ?? null;
+  }
+  if (currentSha && currentSha === sha256) {
+    return c.redirect("/library?error=same+file");
+  }
+
+  // Readings are read BEFORE the purge: their quotes cascade away with the
+  // source node, and the note is the operator's own words — the one thing a
+  // new version must not lose silently.
+  const { createReading, readingsForPiece } = await import("../lib/readings");
+  const readings = await readingsForPiece(c.env.DB, userId, pieceId).catch(() => []);
+
+  await ensureProcessingTable(c.env);
+  const { extracted, body_md } = await bankUpload(c.env, userId, bytes, sha256, {
+    filename: f.name,
+    mime: f.type,
+    size: f.size,
+  });
+  const tetrad = looksLikeTetrad(body_md);
+  const essay = tetrad || looksLikeEssay(body_md);
+  const parsedEssay = essay ? parseEssay(body_md) : null;
+  const previous = Array.isArray(meta.previous_source_ids) ? meta.previous_source_ids : [];
+  const nowIso = new Date().toISOString();
+  const metadata = {
+    ...meta,
+    source_id: extracted.source_id,
+    original_filename: f.name,
+    extracted_chars: extracted.extracted_chars,
+    classification: tetrad ? "tetrad" : extracted.classification,
+    content_sha256: sha256,
+    previous_source_ids: oldSourceId ? [...previous, oldSourceId] : previous,
+    ...(parsedEssay ? { essay_lint: lintEssay(parsedEssay) } : {}),
+  };
+  await run(
+    c.env.DB,
+    `UPDATE pieces SET body_md = ?, kind = ?, subtitle = COALESCE(?, subtitle), metadata = ?, updated_at = ?
+      WHERE id = ? AND user_id = ?`,
+    [
+      body_md,
+      essay ? "essay" : "research-report",
+      parsedEssay?.dek ?? null,
+      JSON.stringify(metadata),
+      nowIso,
+      pieceId,
+      userId,
+    ],
+  );
+
+  // Stale quotes never survive a body change. Both purges are keyed on the
+  // piece, and the readings' quotes go with the source node.
+  const { purgeTypedGraphForPiece } = await import("../graph/lib/digestion-typed");
+  const { clearAeoAtoms } = await import("../graph/lib/aeo-extract");
+  await purgeTypedGraphForPiece(c.env, userId, pieceId);
+  await clearAeoAtoms(c.env, userId, pieceId).catch(() => {});
+  await run(c.env.DB, "DELETE FROM readings WHERE user_id = ? AND piece_id = ?", [userId, pieceId]);
+
+  let lost = 0;
+  for (const r of readings) {
+    const re = await createReading(c.env, userId, pieceId, r.verbatim_text, r.note_md);
+    if (!re.ok) {
+      lost++;
+      continue;
+    }
+    // The note was written when it was written; a re-anchor is not a new reading.
+    await run(c.env.DB, "UPDATE readings SET created_at = ? WHERE id = ? AND user_id = ?", [
+      r.created_at,
+      re.id,
+      userId,
+    ]);
+  }
+
+  await enqueueProcessing(c.env, userId, pieceId, { restart: true });
+  return c.redirect(`/library?replaced=1&readings_lost=${lost}`);
+});
+
+// ---- Ask the record ---------------------------------------------------------
+//
+// /search retrieves the passages; this makes the record ANSWER — at most four
+// sentences, from the documents those passages came out of, every quote
+// located verbatim or dropped and counted, frozen into a lead_answers row
+// under kind "question" (graph/lib/answer-question.ts). One press, one writer
+// call, nothing scheduled (standing rule 4); the row renders for every
+// reader on the search page for that question, and nothing calls a model to
+// render it (rule 5). Questions get no URL of their own — this redirects
+// back to /search, where the answer lives above the passages.
+app.post("/ask", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/search");
+  const form = await c.req.parseBody();
+  const q = typeof form.q === "string" ? form.q.replace(/\s+/g, " ").trim() : "";
+  if (!q) return c.redirect("/search");
+  // Same per-run writer as /leads/dig: ticked means Claude for THIS answer.
+  const writer = form.writer === "anthropic" ? "anthropic" : null;
+  const { answerQuestion } = await import("../graph/lib/answer-question");
+  const work = answerQuestion(c.env, userId, q, { writer }).catch(() => {});
+  try {
+    c.executionCtx.waitUntil(work);
+  } catch {
+    // No execution context (tests) — already running, just not kept alive.
+  }
+  return c.redirect(`/search?q=${encodeURIComponent(q)}&asked=1`);
+});
+
+// A MODEL-DRAFTED TETRAD from a document (docs/the-record.md §1b), CLEARLY
+// LABELLED as such, returned as a file and never stored — the same rule as
+// /readings/:id/draft-essay. graph/lib/draft-tetrad.ts asks the writer once,
+// checks the shape with parseTetrad and every quotation with locateVerbatim,
+// and says in the file what it found. form: optional `writer=anthropic`.
+app.post("/pieces/:id/draft-tetrad", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.text("No operator user", 401);
+  const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
+  const writer = form.writer === "anthropic" ? "anthropic" : null;
+  const { draftTetrad } = await import("../graph/lib/draft-tetrad");
+  const draft = await draftTetrad(c.env, userId, c.req.param("id"), { writer });
+  if (!draft.ok) return c.text(draft.reason, draft.reason === "no such document" ? 404 : 400);
+  return new Response(draft.markdown, {
+    headers: {
+      "content-type": "text/markdown; charset=utf-8",
+      "content-disposition": `attachment; filename="${draft.filename}"`,
+      "cache-control": "no-store",
+    },
+  });
+});
+
+// THE BRIEF AS A FILE. The other way out of the review panel on the research
+// workspace (public/render/research-workspace.ts): instead of publishing the
+// brief under the research agent's byline, the operator takes the Markdown,
+// rewrites it and uploads it as their own essay. The first line says which
+// model wrote it, from which question and which parent document — the same
+// label /readings/:id/draft-essay puts on its file — so a file on a disk
+// never loses its provenance. No model is called; the file is the row.
+// A GET, because it spends nothing and writes nothing.
+app.get("/library/research/:id/brief.md", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.text("No operator user", 401);
+  const row = await one<{
+    id: string;
+    slug: string;
+    title: string;
+    body_md: string | null;
+    publication_status: string;
+    parent_piece_id: string | null;
+    origin: string | null;
+  }>(
+    c.env.DB,
+    `SELECT id, slug, title, body_md, publication_status, parent_piece_id, origin
+       FROM pieces WHERE id = ? AND user_id = ?`,
+    [c.req.param("id"), userId],
+  );
+  if (!row) return c.text("No such brief", 404);
+  const parent = row.parent_piece_id
+    ? await one<{ slug: string; title: string }>(
+        c.env.DB,
+        "SELECT slug, title FROM pieces WHERE id = ? AND user_id = ?",
+        [row.parent_piece_id, userId],
+      ).catch(() => null)
+    : null;
+  const runRow = await one<{ writer: string | null }>(
+    c.env.DB,
+    "SELECT writer FROM research_runs WHERE user_id = ? AND final_piece_id = ? ORDER BY created_at DESC LIMIT 1",
+    [userId, row.id],
+  ).catch(() => null);
+  const { writerName } = await import("../graph/lib/deep-research");
+  const model = writerName(c.env, runRow?.writer ?? null);
+  const date = new Date().toISOString().slice(0, 10);
+  const question = row.origin?.trim() || row.title;
+  const from = parent
+    ? ` and the document "${parent.title}" (https://canopticon.com/p/${parent.slug})`
+    : "";
+  const state =
+    row.publication_status === "published"
+      ? `Published at https://canopticon.com/p/${row.slug}.`
+      : "Not published.";
+  const body = (row.body_md ?? "").trim();
+  const text = body.startsWith("# ") ? body : `# ${row.title}\n\n${body}`;
+  const file = `<!-- WRITTEN BY ${model} from the question "${question.replace(/"/g, "'")}"${from} on ${date}. ${state} Edit before uploading; the byline will be yours. -->\n\n${text}\n`;
+  return new Response(file, {
+    headers: {
+      "content-type": "text/markdown; charset=utf-8",
+      "content-disposition": `attachment; filename="brief-${row.slug}.md"`,
+      "cache-control": "no-store",
+    },
+  });
+});
 
 export default app;

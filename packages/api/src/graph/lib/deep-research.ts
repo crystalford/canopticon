@@ -46,7 +46,8 @@
 
 import type { Env } from "../../env";
 import { all, insertOne, one, run, updateById } from "../../lib/d1";
-import { callResearchWriter } from "../../llm/router";
+import { callResearchWriter, resolveWriter } from "../../llm/router";
+import { locateVerbatim } from "./digestion-typed";
 import { readFullExtractedText } from "./extract";
 
 const EXCERPT_CHARS_PER_SOURCE = 5000; // was 3000 — more raw material now that the writer is gpt-oss-120b, not Scout
@@ -63,6 +64,56 @@ const MAX_TOTAL_SOURCES_FOR_SYNTHESIS = 12; // hard cap on sources any one synth
 // stuck at 'pass1_pending' forever — the execution died mid-flight before
 // ever updating it, with no error recorded anywhere.
 const EXPAND_BUDGET_MS = 45_000;
+
+// ---- the sectioned writer ------------------------------------------------
+//
+// "Deeper than that means more calls, not a bigger one." When the run's
+// writer is Claude (1M context, its own 90s budget per call) the final brief
+// is written in sections, one per press, instead of one 4,000-token call over
+// 5,000-char excerpts. Workers AI's 25s window cannot write a thousand-word
+// section reliably, so a Workers AI run keeps the single call above.
+const OUTLINE_CHARS_PER_SOURCE = 8_000; // the outline call reads EVERY source, this much of each
+const SECTION_CHARS_PER_SOURCE = 20_000; // a section reads its own sources near-whole
+const OUTLINE_MIN_SECTIONS = 4;
+const OUTLINE_MAX_SECTIONS = 7;
+const SECTION_MAX_TOKENS = 3_000; // 600–1,200 words plus its quotes
+const SECTION_MIN_CHARS = 1_200; // under this the writer did not write a section
+const SECTION_MAX_QUOTES = 5;
+const ASSEMBLE_MAX_TOKENS = 1_500; // a title, a paragraph and a list — no new claims
+
+export type ResearchMode = "single" | "sectioned";
+
+/** One planned section of a sectioned brief (research_runs.outline). */
+export interface OutlineSection {
+  heading: string;
+  brief_of_section: string;
+  /** `sources.id` rows this section draws on. Empty means "all of them". */
+  source_ids: string[];
+}
+
+/** One written section (research_runs.sections_done). `body_md` already
+ *  carries its verified quotes; the counts are what the review shows. */
+export interface DoneSection {
+  heading: string;
+  body_md: string;
+  quotes_ok: number;
+  quotes_killed: number;
+}
+
+/**
+ * Which way THIS run finishes. Sectioned when the resolved writer is Claude
+ * by either transport; single otherwise. resolveWriter throws for a run that
+ * asked for Claude and cannot have it — that run fails loudly at its first
+ * writer call, exactly as before, so here it simply is not sectioned.
+ */
+export function decideResearchMode(env: Env, writer: string | null | undefined): ResearchMode {
+  try {
+    const p = resolveWriter(env, writer).provider;
+    return p === "claude_gateway" || p === "anthropic" ? "sectioned" : "single";
+  } catch {
+    return "single";
+  }
+}
 
 export interface SynthesisReport {
   synthesized: boolean;
@@ -98,6 +149,8 @@ export interface BankedIds {
 }
 
 interface BankedText {
+  /** `sources.id`; a legacy piece read has none. */
+  id?: string;
   title: string;
   text: string;
 }
@@ -111,8 +164,12 @@ async function loadBankedSources(
   env: Env,
   userId: string,
   banked: BankedIds,
+  // The single-call synthesis keeps its cap; the sectioned writer reads every
+  // source the run banked, because the context allows it and the outline is
+  // only as good as what it saw.
+  cap: number = MAX_TOTAL_SOURCES_FOR_SYNTHESIS,
 ): Promise<{ excerpts: BankedText[]; reason?: string }> {
-  const cappedSourceIds = banked.sourceIds.slice(0, MAX_TOTAL_SOURCES_FOR_SYNTHESIS);
+  const cappedSourceIds = banked.sourceIds.slice(0, cap);
   const excerpts: BankedText[] = [];
   for (const id of cappedSourceIds) {
     // readFullExtractedText honours the 8KB-inline / R2-overflow rule
@@ -122,7 +179,7 @@ async function loadBankedSources(
       text: "",
       title: "",
     }));
-    if (text) excerpts.push({ title: title || "Untitled source", text });
+    if (text) excerpts.push({ id, title: title || "Untitled source", text });
   }
 
   // Legacy piece ids fill whatever room the cap leaves after the sources.
@@ -255,7 +312,15 @@ async function persistBrief(
   title: string,
   bodyMd: string,
   banked: BankedIds,
-  opts: { publish: boolean; angleHint?: string | undefined },
+  opts: {
+    publish: boolean;
+    angleHint?: string | undefined;
+    /** Lineage (docs/the-record.md §5): the document this run grew from. */
+    parentPieceId?: string | null | undefined;
+    /** The sectioned writer's receipt: mode, section count, quotes kept and
+     *  killed. Merged into the piece's metadata, never into the body. */
+    extraMetadata?: Record<string, unknown> | undefined;
+  },
 ): Promise<PersistResult> {
   const sourceId = await insertOne(env.DB, "sources", {
     user_id: userId,
@@ -277,6 +342,10 @@ async function persistBrief(
     publication_status: opts.publish ? "published" : "working-material",
     body_md: bodyMd,
     byline: "Canopticon research agent",
+    // Lineage: a brief is a child of the document whose lead started the run,
+    // and `origin` is the question, verbatim. A free question has no parent.
+    parent_piece_id: opts.parentPieceId ?? null,
+    origin: label,
     tags: JSON.stringify(["auto-research", opts.publish ? "beat" : "on-demand"]),
     metadata: JSON.stringify({
       ingested_from: "deep-research",
@@ -287,6 +356,7 @@ async function persistBrief(
       source_ids: banked.sourceIds,
       source_piece_ids: banked.pieceIds,
       source_id: sourceId,
+      ...(opts.extraMetadata ?? {}),
     }),
   });
   return { pieceId, slug, sourceId, title };
@@ -300,7 +370,12 @@ async function writeResearchBrief(
   userId: string,
   label: string,
   banked: BankedIds,
-  opts: { publish: boolean; angleHint?: string | undefined },
+  opts: {
+    publish: boolean;
+    angleHint?: string | undefined;
+    /** Lineage (docs/the-record.md §5): the document this run grew from. */
+    parentPieceId?: string | null | undefined;
+  },
 ): Promise<WriteBriefResult> {
   const synth = await synthesizeBrief(env, userId, label, banked, {
     angleHint: opts.angleHint,
@@ -409,7 +484,12 @@ export async function researchOnDemand(
   userId: string,
   label: string,
   angleHint?: string,
-  opts: { writer?: string | null } = {},
+  opts: {
+    writer?: string | null;
+    /** Lineage: the document whose lead/question/bridge/reading started this. */
+    parentPieceId?: string | null;
+    originKind?: string | null;
+  } = {},
 ): Promise<WriteBriefResult> {
   const runId = await insertOne(env.DB, "research_runs", {
     user_id: userId,
@@ -419,6 +499,10 @@ export async function researchOnDemand(
     // Chosen per run and stored, so every later step — dispatched from a
     // different execution — writes with the same model as the first.
     writer: opts.writer ?? null,
+    // Decided once, here, from the same writer choice every step reads back.
+    mode: decideResearchMode(env, opts.writer ?? null),
+    parent_piece_id: opts.parentPieceId ?? null,
+    origin_kind: opts.originKind ?? "free",
   });
 
   const { expandRecord } = await import("./record-builder");
@@ -479,14 +563,19 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     followup_queries: string | null;
     followups_done: string | null;
     writer: string | null;
+    parent_piece_id: string | null;
+    mode: string | null;
+    outline: string | null;
+    sections_done: string | null;
   }>(
     env.DB,
-    `SELECT id, label, angle, status, pass1_source_ids, pass2_source_ids,
+    `SELECT id, label, angle, status, pass1_source_ids, pass2_source_ids, parent_piece_id,
             pass1_piece_ids, pass2_piece_ids,
-            followup_queries, followups_done, writer
+            followup_queries, followups_done, writer, mode, outline, sections_done
        FROM research_runs
       WHERE user_id = ?
-        AND status IN ('synth_pending', 'pass2_pending', 'pass2_synth_pending')
+        AND status IN ('synth_pending', 'pass2_pending', 'pass2_synth_pending',
+                       'outline_pending', 'section_pending', 'assemble_pending')
       ORDER BY created_at ASC LIMIT 1`,
     [userId],
   ).catch(() => null);
@@ -501,6 +590,15 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
   const pass1PieceIds = parseJsonArray(runRow.pass1_piece_ids);
   const pass2PieceIds = parseJsonArray(runRow.pass2_piece_ids);
   const pass1Banked: BankedIds = { sourceIds: pass1Ids, pieceIds: pass1PieceIds };
+  // A run from before migration 0062 has no mode; it is decided now, from the
+  // same stored writer choice, and written back so every later press agrees.
+  const mode: ResearchMode =
+    runRow.mode === "sectioned" || runRow.mode === "single"
+      ? runRow.mode
+      : decideResearchMode(env, runRow.writer);
+  // Where a run goes once every planned search has run: the one-call final
+  // synthesis, or the outline that starts the sectioned brief.
+  const finalStatus = mode === "sectioned" ? "outline_pending" : "pass2_synth_pending";
 
   // ---- step: the first synthesis --------------------------------------
   if (runRow.status === "synth_pending") {
@@ -519,6 +617,13 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     }
 
     const followups = synth.followupQueries ?? [];
+    if (followups.length === 0 && mode === "sectioned") {
+      // Nothing left to chase; the sectioned brief is written from here, one
+      // section per press. The first synthesis was the planning pass and is
+      // not kept — the sections read the sources whole.
+      await updateById(env.DB, "research_runs", runRow.id, { status: "outline_pending", mode });
+      return { advanced: true, label: runRow.label };
+    }
     if (followups.length === 0) {
       // Nothing left to chase, so this synthesis IS the draft.
       const persisted = await persistBrief(
@@ -528,7 +633,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
         synth.title,
         synth.bodyMd,
         pass1Banked,
-        { publish: false, angleHint },
+        { publish: false, angleHint, parentPieceId: runRow.parent_piece_id ?? null },
       );
       await updateById(env.DB, "research_runs", runRow.id, {
         status: "done",
@@ -540,6 +645,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
 
     await updateById(env.DB, "research_runs", runRow.id, {
       status: "pass2_pending",
+      mode,
       followup_queries: JSON.stringify(followups),
     });
     await insertOne(env.DB, "orchestrator_events", {
@@ -571,7 +677,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     if (!next) {
       // Everything planned has run (or there was never a plan). Go to the
       // final write rather than failing a run that has all it needs.
-      await updateById(env.DB, "research_runs", runRow.id, { status: "pass2_synth_pending" });
+      await updateById(env.DB, "research_runs", runRow.id, { status: finalStatus });
       return { advanced: true, label: runRow.label };
     }
 
@@ -583,7 +689,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     await updateById(env.DB, "research_runs", runRow.id, {
       // An expand that banks nothing is not a failure — the query simply had
       // no usable sources, and the remaining ones may still.
-      status: nowDone.length < plan.length ? "pass2_pending" : "pass2_synth_pending",
+      status: nowDone.length < plan.length ? "pass2_pending" : finalStatus,
       followups_done: JSON.stringify(nowDone),
       // A legacy run's pass2_piece_ids is left as it was; new banks are
       // sources and go in the source column, and the final read merges both.
@@ -592,12 +698,120 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     return { advanced: true, label: runRow.label };
   }
 
-  // ---- step: the final synthesis ---------------------------------------
   const combinedIds = [...new Set([...pass1Ids, ...pass2Ids])];
   const combined: BankedIds = {
     sourceIds: combinedIds,
     pieceIds: [...new Set([...pass1PieceIds, ...pass2PieceIds])],
   };
+
+  // ---- step: the outline (sectioned) -----------------------------------
+  if (runRow.status === "outline_pending") {
+    const outline = await proposeOutline(env, userId, runRow.label, combined, {
+      angleHint,
+      writer: runRow.writer,
+    });
+    if (!outline.ok || !outline.outline) {
+      await updateById(env.DB, "research_runs", runRow.id, {
+        status: "failed",
+        error: outline.reason ?? "outline failed",
+      });
+      await emitDraftFailed(env, userId, runRow.label, angleHint, outline.reason);
+      return { advanced: false, label: runRow.label, reason: outline.reason };
+    }
+    await updateById(env.DB, "research_runs", runRow.id, {
+      status: "section_pending",
+      outline: JSON.stringify(outline.outline),
+      sections_done: JSON.stringify([]),
+    });
+    return { advanced: true, label: runRow.label };
+  }
+
+  // ---- step: ONE section (sectioned) -----------------------------------
+  //
+  // One per press, like the follow-up searches: the outline is the plan and
+  // is never rewritten; sections_done is what has landed. The next section
+  // is the first heading not yet in sections_done.
+  if (runRow.status === "section_pending") {
+    const outline = parseOutline(runRow.outline);
+    const done = parseSections(runRow.sections_done);
+    const next = outline[done.length];
+    if (!next) {
+      await updateById(env.DB, "research_runs", runRow.id, { status: "assemble_pending" });
+      return { advanced: true, label: runRow.label };
+    }
+    const section = await writeSection(env, userId, runRow.label, combined, next, {
+      angleHint,
+      writer: runRow.writer,
+      position: done.length + 1,
+      total: outline.length,
+    });
+    if (!section.ok || !section.section) {
+      await updateById(env.DB, "research_runs", runRow.id, {
+        status: "failed",
+        error: section.reason ?? `section ${done.length + 1} failed`,
+      });
+      await emitDraftFailed(env, userId, runRow.label, angleHint, section.reason);
+      return { advanced: false, label: runRow.label, reason: section.reason };
+    }
+    const nowDone = [...done, section.section];
+    await updateById(env.DB, "research_runs", runRow.id, {
+      status: nowDone.length < outline.length ? "section_pending" : "assemble_pending",
+      sections_done: JSON.stringify(nowDone),
+    });
+    return { advanced: true, label: runRow.label };
+  }
+
+  // ---- step: assemble (sectioned) --------------------------------------
+  if (runRow.status === "assemble_pending") {
+    const sections = parseSections(runRow.sections_done);
+    if (sections.length === 0) {
+      const reason = "no sections were written";
+      await updateById(env.DB, "research_runs", runRow.id, { status: "failed", error: reason });
+      await emitDraftFailed(env, userId, runRow.label, angleHint, reason);
+      return { advanced: false, label: runRow.label, reason };
+    }
+    const assembled = await assembleBrief(env, userId, runRow.label, sections, {
+      angleHint,
+      writer: runRow.writer,
+    });
+    if (!assembled.ok || !assembled.bodyMd || !assembled.title) {
+      await updateById(env.DB, "research_runs", runRow.id, {
+        status: "failed",
+        error: assembled.reason ?? "assembly failed",
+      });
+      await emitDraftFailed(env, userId, runRow.label, angleHint, assembled.reason);
+      return { advanced: false, label: runRow.label, reason: assembled.reason };
+    }
+    const quotesOk = sections.reduce((n, x) => n + x.quotes_ok, 0);
+    const quotesKilled = sections.reduce((n, x) => n + x.quotes_killed, 0);
+    const persisted = await persistBrief(
+      env,
+      userId,
+      runRow.label,
+      assembled.title,
+      assembled.bodyMd,
+      combined,
+      {
+        publish: false,
+        angleHint,
+        parentPieceId: runRow.parent_piece_id ?? null,
+        extraMetadata: {
+          mode: "sectioned",
+          sections: sections.length,
+          quotes_ok: quotesOk,
+          quotes_killed: quotesKilled,
+        },
+      },
+    );
+    await updateById(env.DB, "research_runs", runRow.id, {
+      status: "done",
+      final_piece_id: persisted.pieceId,
+    });
+    await emitDrafted(env, userId, runRow.label, angleHint, persisted.pieceId);
+    return { advanced: true, label: runRow.label };
+  }
+
+  // ---- step: the final synthesis (single) -----------------------------
   const synth = await synthesizeBrief(env, userId, runRow.label, combined, {
     angleHint,
     wantFollowups: false,
@@ -619,7 +833,7 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
     synth.title,
     synth.bodyMd,
     combined,
-    { publish: false, angleHint },
+    { publish: false, angleHint, parentPieceId: runRow.parent_piece_id ?? null },
   );
   await updateById(env.DB, "research_runs", runRow.id, {
     status: "done",
@@ -627,6 +841,350 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
   });
   await emitDrafted(env, userId, runRow.label, angleHint, persisted.pieceId);
   return { advanced: true, label: runRow.label };
+}
+
+// ---- the sectioned writer's three calls ----------------------------------
+
+/** Sources labelled S1…Sn for the writer, and the map back to real ids. A
+ *  model is reliable with short labels and unreliable with UUIDs. */
+function labelSources(excerpts: BankedText[]): {
+  labelled: Array<{ label: string; src: BankedText }>;
+  idOf: Map<string, string>;
+} {
+  const labelled = excerpts.map((src, i) => ({ label: `S${i + 1}`, src }));
+  const idOf = new Map<string, string>();
+  for (const { label, src } of labelled) if (src.id) idOf.set(label, src.id);
+  return { labelled, idOf };
+}
+
+/** ONE call: every source, OUTLINE_CHARS_PER_SOURCE of each, in → 4–7
+ *  sections out, each naming the sources it should draw on. */
+async function proposeOutline(
+  env: Env,
+  userId: string,
+  label: string,
+  banked: BankedIds,
+  opts: { angleHint?: string | undefined; writer?: string | null },
+): Promise<{ ok: boolean; outline?: OutlineSection[]; reason?: string }> {
+  const loaded = await loadBankedSources(env, userId, banked, Number.POSITIVE_INFINITY);
+  if (loaded.reason) return { ok: false, reason: loaded.reason };
+  const { labelled, idOf } = labelSources(loaded.excerpts);
+  const material = labelled
+    .map(
+      ({ label: l, src }) =>
+        `### [${l}] ${src.title}\n${src.text.slice(0, OUTLINE_CHARS_PER_SOURCE)}`,
+    )
+    .join("\n\n");
+  const angleLine = opts.angleHint
+    ? `\n\nTHE OPERATOR ASKED SPECIFICALLY ABOUT: "${opts.angleHint.slice(0, 300)}"\nShape the outline around this where the sources support it; if they do not, one section should say so.`
+    : "";
+
+  const out = await callResearchWriter(
+    env,
+    {
+      userId,
+      system: `You are planning a RESEARCH BRIEF that will be written one section at a time from the supplied sources. Your only job now is the OUTLINE.
+
+RULES:
+- Propose between ${OUTLINE_MIN_SECTIONS} and ${OUTLINE_MAX_SECTIONS} sections, organised by theme, not by source. Together they should cover what these sources can actually establish about the subject, in an order a reader can follow.
+- Each section gets a heading (short, specific, no numbering), a one-line brief saying what that section must establish, and the labels of the sources it should draw on (e.g. ["S1", "S4"]). Name only sources that actually bear on it; a section may have several.
+- Do not propose a section the sources cannot support. Gaps are reported at assembly, not planned as sections.
+- No introduction or conclusion sections: the summary and the gaps are written separately after every section exists.${angleLine}
+
+Return ONLY JSON:
+{
+  "sections": [
+    { "heading": "…", "brief_of_section": "…", "sources": ["S1", "S2"] }
+  ]
+}`,
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: `Subject: ${label}\n\nSOURCES:\n${material}` }],
+        },
+      ],
+      max_tokens: 1_500,
+      response_schema: {
+        type: "object",
+        properties: {
+          sections: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                heading: { type: "string" },
+                brief_of_section: { type: "string" },
+                sources: { type: "array", items: { type: "string" } },
+              },
+              required: ["heading", "brief_of_section"],
+            },
+          },
+        },
+        required: ["sections"],
+      },
+    },
+    { writer: opts.writer ?? null },
+  );
+
+  const parsed = (out.structured ?? safeParseJson(out.text)) as {
+    sections?: Array<{ heading?: string; brief_of_section?: string; sources?: string[] }>;
+  } | null;
+  const outline: OutlineSection[] = (parsed?.sections ?? [])
+    .filter((x) => typeof x?.heading === "string" && x.heading.trim().length > 0)
+    .slice(0, OUTLINE_MAX_SECTIONS)
+    .map((x) => ({
+      heading: (x.heading as string).trim(),
+      brief_of_section: (x.brief_of_section ?? "").trim(),
+      // Unknown labels are dropped, not guessed; a section left with no
+      // sources reads all of them (writeSection treats empty as "all").
+      source_ids: (x.sources ?? [])
+        .map((l) => idOf.get(String(l).trim().toUpperCase()))
+        .filter((id): id is string => Boolean(id)),
+    }));
+  if (outline.length < 2) return { ok: false, reason: "writer proposed no usable outline" };
+  return { ok: true, outline };
+}
+
+/** ONE call: one section from ITS sources, near-whole. The prose is the
+ *  writer's; every quote is the SOURCE'S substring at the located offset or it
+ *  is killed and counted — the same firewall answer-lead.ts runs. */
+async function writeSection(
+  env: Env,
+  userId: string,
+  label: string,
+  banked: BankedIds,
+  section: OutlineSection,
+  opts: { angleHint?: string | undefined; writer?: string | null; position: number; total: number },
+): Promise<{ ok: boolean; section?: DoneSection; reason?: string }> {
+  const loaded = await loadBankedSources(env, userId, banked, Number.POSITIVE_INFINITY);
+  if (loaded.reason) return { ok: false, reason: loaded.reason };
+  const wanted = new Set(section.source_ids);
+  const own = loaded.excerpts.filter((x) => x.id && wanted.has(x.id));
+  // The outline named sources that no longer resolve (or none): read all.
+  const excerpts = own.length > 0 ? own : loaded.excerpts;
+  const { labelled } = labelSources(excerpts);
+  const material = labelled
+    .map(
+      ({ label: l, src }) =>
+        `### [${l}] ${src.title}\n${src.text.slice(0, SECTION_CHARS_PER_SOURCE)}`,
+    )
+    .join("\n\n");
+  const angleLine = opts.angleHint
+    ? `\n\nTHE OPERATOR ASKED SPECIFICALLY ABOUT: "${opts.angleHint.slice(0, 300)}"`
+    : "";
+
+  const out = await callResearchWriter(
+    env,
+    {
+      userId,
+      system: `You are writing ONE SECTION of a research brief. Other sections are written separately from the same plan; do not cover their ground, do not introduce the brief, do not conclude it.
+
+THIS SECTION
+Heading: ${section.heading}
+What it must establish: ${section.brief_of_section || "(see heading)"}
+Section ${opts.position} of ${opts.total}.
+
+RULES:
+- 600 to 1,200 words of plain, direct prose in Markdown. Sub-headings (###) only if they help. No preamble.
+- Every substantive claim must be traceable to the supplied sources. Do not invent facts they do not support. Where the sources disagree, say so.
+- Name the source in the prose where it matters ("the IAB guidance says…"), but DO NOT quote the sources in the prose. Put every quotation in "quotes" instead: 2 to ${SECTION_MAX_QUOTES} passages copied EXACTLY, character for character, from the source text, each at least one full sentence, with the source label. They will be checked mechanically against the source and any that do not match word for word will be dropped.${angleLine}
+
+Return ONLY JSON:
+{
+  "body_md": "the section's prose, without the heading",
+  "quotes": [ { "text": "…exact passage…", "source": "S1" } ]
+}`,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: `Subject: ${label}\n\nSOURCES FOR THIS SECTION:\n${material}` },
+          ],
+        },
+      ],
+      max_tokens: SECTION_MAX_TOKENS,
+      response_schema: {
+        type: "object",
+        properties: {
+          body_md: { type: "string" },
+          quotes: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { text: { type: "string" }, source: { type: "string" } },
+              required: ["text"],
+            },
+          },
+        },
+        required: ["body_md"],
+      },
+    },
+    { writer: opts.writer ?? null },
+  );
+
+  const parsed = (out.structured ?? safeParseJson(out.text)) as {
+    body_md?: string;
+    quotes?: unknown[];
+  } | null;
+  const bodyMd = (parsed?.body_md ?? "").trim();
+  if (bodyMd.length < SECTION_MIN_CHARS) {
+    return { ok: false, reason: `writer produced too little text for "${section.heading}"` };
+  }
+  const verified = verifySectionQuotes(
+    Array.isArray(parsed?.quotes) ? parsed.quotes : [],
+    excerpts,
+  );
+  const quoteBlock = verified.quotes
+    .map((q) => `> ${q.text.replace(/\s*\n\s*/g, " ")}\n>\n> — ${q.title}`)
+    .join("\n\n");
+  return {
+    ok: true,
+    section: {
+      heading: section.heading,
+      body_md: quoteBlock ? `${bodyMd}\n\n${quoteBlock}` : bodyMd,
+      quotes_ok: verified.quotes.length,
+      quotes_killed: verified.killed,
+    },
+  };
+}
+
+/**
+ * The verbatim firewall for a section, as answer-lead.ts's verify(): the
+ * model PROPOSES a span, locateVerbatim decides, and what is kept is the
+ * source's own substring — never the model's string. The source label the
+ * model gave is not trusted either; every source is searched. Exported for
+ * the test that matters most.
+ */
+export function verifySectionQuotes(
+  proposed: unknown[],
+  sources: Array<{ title: string; text: string }>,
+): { quotes: Array<{ text: string; title: string }>; killed: number } {
+  const quotes: Array<{ text: string; title: string }> = [];
+  let killed = 0;
+  for (const raw of proposed) {
+    if (quotes.length >= SECTION_MAX_QUOTES) break;
+    const text =
+      typeof (raw as { text?: unknown })?.text === "string" ? (raw as { text: string }).text : "";
+    if (!text.trim()) {
+      killed++;
+      continue;
+    }
+    let found: { text: string; title: string } | null = null;
+    for (const src of sources) {
+      const hit = locateVerbatim(src.text, text);
+      if (hit) {
+        found = { text: hit.text, title: src.title };
+        break;
+      }
+    }
+    if (!found) {
+      killed++;
+      continue;
+    }
+    if (quotes.some((q) => q.text === found.text)) continue;
+    quotes.push(found);
+  }
+  return { quotes, killed };
+}
+
+/** ONE call over the finished sections: a title, a one-paragraph summary and
+ *  the list of what the brief could not establish — no new claims. The body
+ *  is assembled here by code: summary, the sections in outline order, gaps. */
+async function assembleBrief(
+  env: Env,
+  userId: string,
+  label: string,
+  sections: DoneSection[],
+  opts: { angleHint?: string | undefined; writer?: string | null },
+): Promise<{ ok: boolean; title?: string; bodyMd?: string; reason?: string }> {
+  const text = sections.map((s) => `## ${s.heading}\n\n${s.body_md}`).join("\n\n");
+  const angleLine = opts.angleHint
+    ? `\n\nTHE OPERATOR ASKED SPECIFICALLY ABOUT: "${opts.angleHint.slice(0, 300)}"`
+    : "";
+  const out = await callResearchWriter(
+    env,
+    {
+      userId,
+      system: `The sections of a research brief are finished. Write ONLY what frames them.
+
+RULES:
+- "title": a short title for the brief.
+- "summary": ONE paragraph that stands alone, stating what the sections establish. Every sentence must be supported by a section below; introduce NO claim, figure or source the sections do not already contain.
+- "gaps": a list of what this brief could not establish — questions the sections raise and leave open, points where the sources disagree, and figures given without a named source. Each item one sentence. Drawn from the sections only.
+- Plain, direct prose. No throat-clearing.${angleLine}
+
+Return ONLY JSON:
+{ "title": "…", "summary": "…", "gaps": ["…", "…"] }`,
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: `Subject: ${label}\n\nSECTIONS:\n${text}` }],
+        },
+      ],
+      max_tokens: ASSEMBLE_MAX_TOKENS,
+      response_schema: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          summary: { type: "string" },
+          gaps: { type: "array", items: { type: "string" } },
+        },
+        required: ["title", "summary"],
+      },
+    },
+    { writer: opts.writer ?? null },
+  );
+  const parsed = (out.structured ?? safeParseJson(out.text)) as {
+    title?: string;
+    summary?: string;
+    gaps?: string[];
+  } | null;
+  const summary = (parsed?.summary ?? "").trim();
+  if (summary.length < 80) return { ok: false, reason: "writer produced no usable summary" };
+  const gaps = (parsed?.gaps ?? []).map((g) => String(g).trim()).filter(Boolean);
+  const gapsBlock = `## What this brief could not establish\n\n${
+    gaps.length ? gaps.map((g) => `- ${g}`).join("\n") : "- Nothing the sections flagged as open."
+  }`;
+  return {
+    ok: true,
+    title: parsed?.title?.trim() || label,
+    bodyMd: [summary, text, gapsBlock].join("\n\n"),
+  };
+}
+
+function parseOutline(s: string | null): OutlineSection[] {
+  if (!s) return [];
+  try {
+    const parsed = JSON.parse(s);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((x) => x && typeof x.heading === "string")
+      .map((x) => ({
+        heading: x.heading,
+        brief_of_section: typeof x.brief_of_section === "string" ? x.brief_of_section : "",
+        source_ids: Array.isArray(x.source_ids) ? x.source_ids.filter(Boolean) : [],
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function parseSections(s: string | null): DoneSection[] {
+  if (!s) return [];
+  try {
+    const parsed = JSON.parse(s);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((x) => x && typeof x.heading === "string" && typeof x.body_md === "string")
+      .map((x) => ({
+        heading: x.heading,
+        body_md: x.body_md,
+        quotes_ok: Number(x.quotes_ok) || 0,
+        quotes_killed: Number(x.quotes_killed) || 0,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 /** The host, for a source line the eye can scan. Never throws on a bad URL. */
@@ -753,10 +1311,73 @@ export interface ResearchSource {
   reason?: string;
 }
 
+/** One planned section, as the checklist under the plan shows it. */
+export interface ResearchOutlineItem {
+  heading: string;
+  state: "done" | "writing" | "queued";
+  /** Set once the section has landed. */
+  quotesOk?: number;
+  quotesKilled?: number;
+}
+
+/**
+ * The finished brief, ready to be read on the workspace before it is
+ * published (docs/the-record.md §6: "Read the draft, then Publish"). This is
+ * what closes the loop on one screen: the document the run grew from, the
+ * question, every section with the quotes that survived and the quotes that
+ * were KILLED, the body, the gaps, and the two things the operator can do.
+ * Everything here is read from rows the run already wrote — nothing is
+ * composed at status time.
+ */
+export interface ResearchReviewSection {
+  heading: string;
+  bodyMd: string;
+  quotesOk: number;
+  quotesKilled: number;
+}
+
+export interface ResearchReview {
+  pieceId: string;
+  slug: string;
+  title: string;
+  /** The question, verbatim (`pieces.origin`, falling back to the run label). */
+  question: string;
+  /** The document the run grew from (`pieces.parent_piece_id`), if any. */
+  parent: { id: string; slug: string; title: string } | null;
+  mode: ResearchMode;
+  /** Per section for a sectioned brief; EMPTY for a single-call brief, whose
+   *  whole is `bodyMd` and whose counts are the totals. */
+  sections: ResearchReviewSection[];
+  bodyMd: string;
+  /** The assembled "What this brief could not establish" block, as Markdown,
+   *  when the body carries one; null when the writer produced none. */
+  gapsMd: string | null;
+  quotesOk: number;
+  quotesKilled: number;
+  /** The writer, in words: which model wrote this brief. */
+  writer: string;
+  /** True once the operator has published it; `url` is then its public page. */
+  published: boolean;
+  url: string | null;
+  publishUrl: string;
+  downloadUrl: string;
+}
+
 export interface ResearchStatus {
   terminal: boolean;
   warn: boolean;
   action?: ResearchAction;
+  /** 'single' or 'sectioned' (migration 0062); absent on a run from before. */
+  mode?: string | null;
+  /**
+   * The sectioned brief's plan, once the outline exists: every heading, with
+   * the ones written ticked. Like `plan`, it is the run taking shape and is
+   * shown as it fills in.
+   */
+  outline?: ResearchOutlineItem[];
+  /** How many sections have landed, and how many the outline planned. */
+  sectionsDone?: number;
+  sectionsTotal?: number;
   /**
    * The searches this investigation is made of, in order.
    *
@@ -782,9 +1403,135 @@ export interface ResearchStatus {
   writer?: string | null;
   /** The finished draft, once there is one. */
   draft?: { title: string; slug: string; reviewUrl: string };
+  /** The finished brief, read in full, with its counts and its two actions.
+   *  Present only on a done run whose piece still exists. */
+  review?: ResearchReview;
   headline: string;
   steps: ResearchStep[];
   reviewUrl?: string;
+}
+
+/** The heading assembleBrief() writes the gaps under. Split out of the body
+ *  for the review so the operator sees what the brief admits it could not
+ *  establish before deciding to publish it. */
+const GAPS_HEADING = "## What this brief could not establish";
+
+/** Split the assembled body into the prose and its gaps block. A single-call
+ *  brief, or one the writer left without a gaps block, has null gaps and the
+ *  whole body as prose. */
+export function splitGaps(bodyMd: string): { bodyMd: string; gapsMd: string | null } {
+  const at = bodyMd.indexOf(`\n${GAPS_HEADING}`);
+  if (at < 0) return { bodyMd, gapsMd: null };
+  const rest = bodyMd.slice(at + 1);
+  // The gaps block runs to the next "## " heading or the end of the body.
+  const next = rest.indexOf("\n## ", GAPS_HEADING.length);
+  const gaps = next < 0 ? rest : rest.slice(0, next);
+  const body = `${bodyMd.slice(0, at)}${next < 0 ? "" : rest.slice(next)}`;
+  return {
+    bodyMd: body.trim(),
+    gapsMd: gaps.slice(GAPS_HEADING.length).trim() || null,
+  };
+}
+
+/** Which model wrote a run, in words. resolveWriter throws when a run asked
+ *  for Claude and cannot have it — that run never wrote anything, so a name
+ *  by request is the honest fallback here, never a guess at a model id. */
+export function writerName(env: Env, writer: string | null): string {
+  try {
+    const w = resolveWriter(env, writer);
+    return w.model;
+  } catch {
+    return writer === "anthropic"
+      ? "Claude"
+      : writer === "workers_ai"
+        ? "Workers AI"
+        : "the default writer";
+  }
+}
+
+/**
+ * The finished brief, read from its `pieces` row — plus the parent document
+ * it grew from and the per-section receipt the run kept in `sections_done`.
+ * Null when the piece is gone (discarded), so the status says "draft ready"
+ * with nothing under it rather than inventing one.
+ */
+export async function loadResearchReview(
+  env: Env,
+  userId: string,
+  args: {
+    pieceId: string;
+    label: string;
+    mode: string | null;
+    sections: DoneSection[];
+    writer: string | null;
+  },
+): Promise<ResearchReview | null> {
+  const piece = await one<{
+    id: string;
+    slug: string;
+    title: string;
+    body_md: string | null;
+    publication_status: string;
+    parent_piece_id: string | null;
+    origin: string | null;
+    metadata: string | null;
+  }>(
+    env.DB,
+    `SELECT id, slug, title, body_md, publication_status, parent_piece_id, origin, metadata
+       FROM pieces WHERE id = ? AND user_id = ?`,
+    [args.pieceId, userId],
+  );
+  if (!piece) return null;
+  const parent = piece.parent_piece_id
+    ? await one<{ id: string; slug: string; title: string }>(
+        env.DB,
+        "SELECT id, slug, title FROM pieces WHERE id = ? AND user_id = ?",
+        [piece.parent_piece_id, userId],
+      ).catch(() => null)
+    : null;
+  const meta = (safeParseJson(piece.metadata ?? "{}") ?? {}) as {
+    mode?: string;
+    quotes_ok?: number;
+    quotes_killed?: number;
+  };
+  const mode: ResearchMode = (meta.mode ?? args.mode) === "sectioned" ? "sectioned" : "single";
+  const sections: ResearchReviewSection[] =
+    mode === "sectioned"
+      ? args.sections.map((x) => ({
+          heading: x.heading,
+          bodyMd: x.body_md,
+          quotesOk: x.quotes_ok,
+          quotesKilled: x.quotes_killed,
+        }))
+      : [];
+  const quotesOk =
+    typeof meta.quotes_ok === "number"
+      ? meta.quotes_ok
+      : sections.reduce((n, x) => n + x.quotesOk, 0);
+  const quotesKilled =
+    typeof meta.quotes_killed === "number"
+      ? meta.quotes_killed
+      : sections.reduce((n, x) => n + x.quotesKilled, 0);
+  const split = splitGaps(piece.body_md ?? "");
+  const published = piece.publication_status === "published";
+  return {
+    pieceId: piece.id,
+    slug: piece.slug,
+    title: piece.title,
+    question: piece.origin || args.label,
+    parent: parent ?? null,
+    mode,
+    sections,
+    bodyMd: split.bodyMd,
+    gapsMd: split.gapsMd,
+    quotesOk,
+    quotesKilled,
+    writer: writerName(env, args.writer),
+    published,
+    url: published ? `/p/${piece.slug}` : null,
+    publishUrl: `/op/library/research/${piece.id}/publish`,
+    downloadUrl: `/op/library/research/${piece.id}/brief.md`,
+  };
 }
 
 /** The richer status researchOnDemand's callers poll — getExpandStatus
@@ -820,9 +1567,13 @@ export async function getResearchStatus(
     followups_done: string | null;
     created_at: string;
     writer: string | null;
+    mode: string | null;
+    outline: string | null;
+    sections_done: string | null;
   }>(
     env.DB,
-    `SELECT id, status, final_piece_id, error, followup_queries, followups_done, created_at, writer
+    `SELECT id, status, final_piece_id, error, followup_queries, followups_done, created_at, writer,
+            mode, outline, sections_done
        FROM research_runs
       WHERE user_id = ? AND label = ? AND created_at > datetime('now','-1 day')
       ORDER BY created_at DESC LIMIT 1`,
@@ -956,10 +1707,28 @@ export async function getResearchStatus(
     // `material` is attached to every return rather than to some of them: a
     // source list that vanished the moment the run finished would be the
     // worst possible time to lose it.
+    // The sectioned brief's checklist. Present only once an outline exists;
+    // a single-mode run never has one and the panel stays hidden.
+    const outlinePlan = parseOutline(run?.outline ?? null);
+    const sectionsDone = parseSections(run?.sections_done ?? null);
+    const outline: ResearchOutlineItem[] = outlinePlan.map((o, i) => {
+      const landed = sectionsDone[i];
+      return landed
+        ? {
+            heading: o.heading,
+            state: "done",
+            quotesOk: landed.quotes_ok,
+            quotesKilled: landed.quotes_killed,
+          }
+        : { heading: o.heading, state: "queued" };
+    });
     const material = {
       plan,
       sources,
-      ...(run ? { startedAt: run.created_at, writer: run.writer } : {}),
+      ...(run ? { startedAt: run.created_at, writer: run.writer, mode: run.mode ?? null } : {}),
+      ...(outline.length > 0
+        ? { outline, sectionsDone: sectionsDone.length, sectionsTotal: outline.length }
+        : {}),
     };
     const advance = (label_: string) => ({
       label: label_,
@@ -1039,14 +1808,90 @@ export async function getResearchStatus(
       };
     }
 
-    if (runRow.status === "done" && runRow.final_piece_id) {
-      steps.push({ label: "Write a synthesis", state: "done", detail: "draft ready" });
+    if (runRow.status === "outline_pending") {
+      steps.push({ label: "Write a synthesis", state: "done", detail: "first pass done" });
+      steps.push({ label: "Dig deeper", state: "done", detail: "follow-up sources banked" });
+      steps.push({
+        label: "Outline the brief",
+        state: "pending",
+        detail: "every source read whole — needs a press",
+      });
       return {
         terminal: true,
         warn: false,
-        headline: "Draft brief ready — review it before it can publish.",
+        headline: "Everything is banked. Next: outline the brief from every source.",
+        steps,
+        action: advance("Outline the brief"),
+        ...material,
+      };
+    }
+
+    if (runRow.status === "section_pending") {
+      const n = sectionsDone.length;
+      const total = outline.length;
+      steps.push({ label: "Write a synthesis", state: "done", detail: "first pass done" });
+      steps.push({ label: "Dig deeper", state: "done", detail: "follow-up sources banked" });
+      steps.push({ label: "Outline the brief", state: "done", detail: `${total} sections` });
+      steps.push({
+        label: `Write the sections (${n} of ${total} written)`,
+        state: "pending",
+        detail: "one per press",
+      });
+      const next = outline[n]?.heading ?? "the next section";
+      return {
+        terminal: true,
+        warn: false,
+        headline: `Writing · ${n} of ${total} sections. Next: ${next}.`,
+        steps,
+        // A distinct label per section: the live layer will not press the
+        // same labelled action twice, which is right for every other state.
+        action: advance(`Write section ${n + 1} of ${total}`),
+        ...material,
+      };
+    }
+
+    if (runRow.status === "assemble_pending") {
+      steps.push({ label: "Write a synthesis", state: "done", detail: "first pass done" });
+      steps.push({ label: "Dig deeper", state: "done", detail: "follow-up sources banked" });
+      steps.push({ label: "Outline the brief", state: "done" });
+      steps.push({
+        label: "Write the sections",
+        state: "done",
+        detail: `${sectionsDone.length} written`,
+      });
+      steps.push({
+        label: "Assemble the brief",
+        state: "pending",
+        detail: "summary and gaps — needs a press",
+      });
+      return {
+        terminal: true,
+        warn: false,
+        headline: "Every section is written. One step left: assemble the brief.",
+        steps,
+        action: advance("Assemble the brief"),
+        ...material,
+      };
+    }
+
+    if (runRow.status === "done" && runRow.final_piece_id) {
+      steps.push({ label: "Write a synthesis", state: "done", detail: "draft ready" });
+      const review = await loadResearchReview(env, userId, {
+        pieceId: runRow.final_piece_id,
+        label,
+        mode: runRow.mode ?? null,
+        sections: sectionsDone,
+        writer: runRow.writer ?? null,
+      }).catch(() => null);
+      return {
+        terminal: true,
+        warn: false,
+        headline: review?.published
+          ? "Published. This brief is in the record."
+          : "Draft brief ready — read it below, then publish it or take the file.",
         steps,
         reviewUrl: `/op/library/research/${runRow.final_piece_id}/review`,
+        ...(review ? { review } : {}),
         ...material,
       };
     }

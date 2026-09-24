@@ -79,6 +79,12 @@ export interface DigestOptions {
   /** Called after each chunk persists, with the cumulative node count for the
    *  piece. Lets the job runner checkpoint chunks_done + claims_count. */
   onProgress?: (chunksDone: number, chunkCount: number, nodeCount: number) => Promise<void>;
+  /** Chunk size. 3,000 chars fits a Workers AI call inside 25s; with Claude
+   *  through the gateway (a 1M-token context, its own 90s budget) the
+   *  pipeline passes 24,000 so a document is a few calls, not dozens. */
+  chunkChars?: number;
+  /** Chunks extracted concurrently per wave. */
+  chunkConcurrency?: number;
 }
 
 const STEP_ORDER = [
@@ -138,7 +144,9 @@ export async function digest(
   const softBudget = opts.softBudgetMs ?? DEFAULT_SOFT_BUDGET_MS;
   const t0 = Date.now();
 
-  const chunks = chunkText(args.body_md, { maxChars: CHUNK_CHARS }).slice(0, MAX_CHUNKS);
+  const chunkChars = opts.chunkChars ?? CHUNK_CHARS;
+  const concurrency = Math.max(1, opts.chunkConcurrency ?? CHUNK_CONCURRENCY);
+  const chunks = chunkText(args.body_md, { maxChars: chunkChars }).slice(0, MAX_CHUNKS);
   result.chunk_count = chunks.length;
 
   // First tick only: log extract_text, open the step, and purge prior graph.
@@ -167,9 +175,9 @@ export async function digest(
   // never holds the whole job past the wall-clock budget. Persist still
   // happens per chunk (independent D1 batches) — only the LLM calls overlap.
   let i = startChunk;
-  for (; i < chunks.length; i += CHUNK_CONCURRENCY) {
+  for (; i < chunks.length; i += concurrency) {
     const waveStart = i;
-    const waveEnd = Math.min(i + CHUNK_CONCURRENCY, chunks.length);
+    const waveEnd = Math.min(i + concurrency, chunks.length);
     const waveIndices = Array.from({ length: waveEnd - waveStart }, (_, k) => waveStart + k);
 
     const waveResults = await Promise.all(

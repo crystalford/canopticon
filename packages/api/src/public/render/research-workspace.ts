@@ -25,8 +25,9 @@
 // that is already complete, which is the same contract every public page
 // holds.
 
-import type { ResearchStatus } from "../../graph/lib/deep-research";
+import type { ResearchReview, ResearchStatus } from "../../graph/lib/deep-research";
 import { escapeAttr, escapeHtml } from "../layout";
+import { renderMarkdown } from "./markdown";
 
 /**
  * The workspace body.
@@ -59,12 +60,19 @@ export function renderResearchWorkspace(args: {
         <ol class="rw-plan" data-rw="plan">${renderPlan(status)}</ol>
       </div>
 
+      <div class="rw-panel" data-rw="outline-panel"${status?.outline?.length ? "" : " hidden"}>
+        <div class="rw-panel-h" data-rw="outline-h">${renderOutlineHeading(status)}</div>
+        <ol class="rw-plan rw-outline" data-rw="outline">${renderOutline(status)}</ol>
+      </div>
+
       <div class="rw-panel">
         <div class="rw-panel-h">Sources read<span class="rw-count" data-rw="src-count">${
           status?.sources?.length ?? 0
         }</span></div>
         <ul class="rw-sources" data-rw="sources">${renderSources(status)}</ul>
       </div>
+
+      ${status?.review ? renderReview(status.review) : ""}
     </div>
 
     <aside class="rw-side">
@@ -110,6 +118,47 @@ export function renderPlan(s: ResearchStatus | null): string {
     .join("");
 }
 
+/**
+ * The sectioned brief's checklist heading: "Writing · 3 of 6 sections" while
+ * it is being written, "Written · 6 sections" once every one has landed.
+ */
+export function renderOutlineHeading(s: ResearchStatus | null): string {
+  const total = s?.sectionsTotal ?? s?.outline?.length ?? 0;
+  const done = s?.sectionsDone ?? 0;
+  if (!total) return "Outline";
+  const label = done >= total ? "Written" : "Writing";
+  const count = done >= total ? `${total} sections` : `${done} of ${total} sections`;
+  return `${escapeHtml(label)}<span class="rw-count">${escapeHtml(count)}</span>`;
+}
+
+/**
+ * The outline as a checklist, each section ticking as it lands. A written
+ * section shows how many of its proposed quotes survived the verbatim check
+ * and, in red, how many were killed — the number that makes a section worth
+ * trusting or not, and the one a reader would otherwise never see.
+ */
+export function renderOutline(s: ResearchStatus | null): string {
+  const outline = s?.outline ?? [];
+  if (!outline.length) return "";
+  return outline
+    .map((o) => {
+      const cls = o.state === "done" ? "done" : o.state === "writing" ? "running" : "queued";
+      const receipt =
+        o.state === "done"
+          ? `<span class="rw-src-meta">${o.quotesOk ?? 0} quote${
+              (o.quotesOk ?? 0) === 1 ? "" : "s"
+            } verified${
+              o.quotesKilled ? ` · <span class="lead-ans-disc">${o.quotesKilled} killed</span>` : ""
+            }</span>`
+          : "";
+      return `<li class="rw-step rw-step-${cls}">
+      <span class="rw-mark"></span>
+      <span class="rw-step-q">${escapeHtml(o.heading)}${receipt}</span>
+    </li>`;
+    })
+    .join("");
+}
+
 /** Every page the run actually read. Newest first, so new ones appear on top. */
 export function renderSources(s: ResearchStatus | null): string {
   const sources = s?.sources ?? [];
@@ -151,6 +200,13 @@ export function renderMetrics(s: ResearchStatus | null): string {
  * operable with the poller dead.
  */
 export function renderAction(s: ResearchStatus | null): string {
+  if (s?.review) {
+    // The brief is on this page. Publishing is the review panel's own button,
+    // beside the counts that say whether it deserves to be pressed.
+    return s.review.published
+      ? `<a class="rw-btn rw-btn-primary" href="${escapeAttr(s.review.url ?? "#review")}">Read it in the record →</a>`
+      : `<a class="rw-btn rw-btn-primary" href="#review">Read the draft ↓</a>`;
+  }
   if (s?.draft) {
     return `<a class="rw-btn rw-btn-primary" href="${escapeAttr(
       s.draft.reviewUrl,
@@ -179,4 +235,81 @@ export function writerLabel(w: string | null | undefined): string {
   if (w === "anthropic") return "Claude";
   if (w === "workers_ai") return "Workers AI";
   return "default";
+}
+
+/**
+ * THE REVIEW — the finished brief, on the workspace, before it is published.
+ *
+ * What the operator needs to decide is on one screen: where the brief came
+ * from (the parent document and the question), what survived verification
+ * and what was KILLED, section by section; the body at a reading measure;
+ * what the brief admits it could not establish; and the two things to do
+ * with it. Publish is one press — upload is authorization (rule 2), and this
+ * is the upload. The killed count is the honest signal and it is advisory:
+ * a warning line, never a gate.
+ *
+ * Rendered complete on the server; the live layer only reloads the page once
+ * when a run it is watching finishes, so this panel is never composed twice.
+ */
+export function renderReview(r: ResearchReview): string {
+  const isSectioned = r.mode === "sectioned" && r.sections.length > 0;
+  const receipt = (ok: number, killed: number) =>
+    `<span class="rw-src-meta">${ok} quote${ok === 1 ? "" : "s"} verified${
+      killed ? ` · <span class="lead-ans-disc">${killed} killed</span>` : ""
+    }</span>`;
+  const lineage = r.parent
+    ? `<p class="rw-review-from">Grew from <a href="/p/${escapeAttr(r.parent.slug)}">${escapeHtml(
+        r.parent.title,
+      )}</a></p>`
+    : `<p class="rw-review-from">A root brief — started from a free question, not from a document.</p>`;
+  const sectionList = isSectioned
+    ? `<ol class="rw-plan rw-review-sections">${r.sections
+        .map(
+          (x) => `<li class="rw-step rw-step-done">
+      <span class="rw-mark"></span>
+      <span class="rw-step-q">${escapeHtml(x.heading)}${receipt(x.quotesOk, x.quotesKilled)}</span>
+    </li>`,
+        )
+        .join("")}</ol>`
+    : "";
+  const total = `<p class="rw-review-total">${
+    isSectioned ? `${r.sections.length} sections · ` : "Written in one call · "
+  }${receipt(r.quotesOk, r.quotesKilled)}</p>`;
+  const warning =
+    r.quotesKilled > r.quotesOk
+      ? `<p class="lead-ans-disc rw-review-warn">More quotes failed verification than survived — read before publishing.</p>`
+      : "";
+  const actions = r.published
+    ? `<p class="rw-review-published">Published — <a href="${escapeAttr(r.url ?? "")}">${escapeHtml(
+        r.url ?? "",
+      )}</a></p>
+    <a class="rw-btn" href="${escapeAttr(r.downloadUrl)}" download>Download .md</a>`
+    : `<form method="POST" action="${escapeAttr(r.publishUrl)}" class="rw-review-publish">
+      <button type="submit" class="rw-btn rw-btn-primary">Publish to the record</button>
+    </form>
+    <a class="rw-btn" href="${escapeAttr(r.downloadUrl)}" download>Download .md</a>`;
+  return `<div class="rw-panel rw-review" id="review" data-rw="review">
+    <div class="rw-panel-h">Review<span class="rw-count">${escapeHtml(
+      r.published ? "published" : "draft",
+    )}</span></div>
+    <div class="rw-review-body">
+      <h2 class="rw-review-title">${escapeHtml(r.title)}</h2>
+      ${lineage}
+      <p class="rw-review-q">${escapeHtml(r.question)}</p>
+      ${sectionList}
+      ${total}
+      <div class="prose rw-review-prose">${renderMarkdown(r.bodyMd, { anchors: false })}</div>
+      ${
+        r.gapsMd
+          ? `<div class="rw-review-gaps"><h3>What this brief could not establish</h3><div class="prose">${renderMarkdown(
+              r.gapsMd,
+              { anchors: false },
+            )}</div></div>`
+          : ""
+      }
+      <p class="rw-review-writer">Written by ${escapeHtml(r.writer)}. Nothing in it has been edited by a person.</p>
+      ${warning}
+      <div class="rw-review-actions">${actions}</div>
+    </div>
+  </div>`;
 }
