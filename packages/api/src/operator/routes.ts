@@ -12,10 +12,16 @@ import { unzipSync } from "fflate";
 import { Hono } from "hono";
 import type { Env } from "../env";
 import { jobStatusForPiece } from "../graph/lib/digest-jobs";
-import { extractUpload, readFullExtractedText } from "../graph/lib/extract";
+import { type ExtractResult, extractUpload, readFullExtractedText } from "../graph/lib/extract";
 import { enqueueProcessing, ensureProcessingTable } from "../graph/lib/processing";
 import { insertOne, one, run } from "../lib/d1";
-import { type LintNote, lintEssay, looksLikeEssay, parseEssay } from "../lib/essay";
+import {
+  type LintNote,
+  lintEssay,
+  looksLikeEssay,
+  looksLikeTetrad,
+  parseEssay,
+} from "../lib/essay";
 import { pingIndexNow } from "../lib/indexnow";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
@@ -250,24 +256,11 @@ export async function createAndExtract(
     };
   }
 
-  const r2_key = `uploads/${userId}/${crypto.randomUUID()}-${safeName(filename)}`;
-  await env.FILES.put(r2_key, bytes, {
-    httpMetadata: { contentType: mime || "application/octet-stream" },
+  const { extracted, body_md, title } = await bankUpload(env, userId, bytes, sha256, {
+    filename,
+    mime,
+    size,
   });
-  const fileId = await insertOne(env.DB, "uploaded_files", {
-    user_id: userId,
-    r2_key,
-    original_filename: filename,
-    mime: mime || "application/octet-stream",
-    size_bytes: size,
-    sha256,
-    classification: classify(mime, filename),
-  });
-
-  const extracted = await extractUpload(env, fileId);
-  const full = await readFullExtractedText(env, extracted.source_id, userId);
-  const body_md = full.text;
-  const title = full.title || filename;
 
   const slug = await ensureUniqueSlug(env.DB, userId, slugify(title || `piece-${Date.now()}`));
   const nowIso = new Date().toISOString();
@@ -275,7 +268,8 @@ export async function createAndExtract(
   // them apart is the essay convention itself — a majority of `##` headings
   // phrased as questions — because that contract is exactly what the essay
   // template and its Q&A structured data need. See lib/essay.ts.
-  const essay = looksLikeEssay(body_md);
+  const tetrad = looksLikeTetrad(body_md);
+  const essay = tetrad || looksLikeEssay(body_md);
   const parsedEssay = essay ? parseEssay(body_md) : null;
   const pieceId = await insertOne(env.DB, "pieces", {
     user_id: userId,
@@ -311,7 +305,7 @@ export async function createAndExtract(
       source_id: extracted.source_id,
       original_filename: filename,
       extracted_chars: extracted.extracted_chars,
-      classification: extracted.classification,
+      classification: tetrad ? "tetrad" : extracted.classification,
       content_sha256: sha256,
       // Stored, not just flashed on the redirect: an upload confirmation is
       // seen once and then gone, and these notes are worth having next to
@@ -328,6 +322,38 @@ export async function createAndExtract(
     sourceId: extracted.source_id,
     ...(parsedEssay ? { lint: lintEssay(parsedEssay) } : {}),
   };
+}
+
+/**
+ * The deterministic middle of ingest, shared by a first upload and a new
+ * version of an existing document: R2 → `uploaded_files` → `extract.ts` →
+ * the full text. No `pieces` row is touched here; the caller decides whether
+ * to create one or update one.
+ */
+async function bankUpload(
+  env: Env,
+  userId: string,
+  bytes: Uint8Array,
+  sha256: string,
+  file: { filename: string; mime: string; size: number },
+): Promise<{ extracted: ExtractResult; body_md: string; title: string }> {
+  const { filename, mime, size } = file;
+  const r2_key = `uploads/${userId}/${crypto.randomUUID()}-${safeName(filename)}`;
+  await env.FILES.put(r2_key, bytes, {
+    httpMetadata: { contentType: mime || "application/octet-stream" },
+  });
+  const fileId = await insertOne(env.DB, "uploaded_files", {
+    user_id: userId,
+    r2_key,
+    original_filename: filename,
+    mime: mime || "application/octet-stream",
+    size_bytes: size,
+    sha256,
+    classification: classify(mime, filename),
+  });
+  const extracted = await extractUpload(env, fileId);
+  const full = await readFullExtractedText(env, extracted.source_id, userId);
+  return { extracted, body_md: full.text, title: full.title || filename };
 }
 
 async function contentSha256(bytes: Uint8Array): Promise<string> {
@@ -563,10 +589,14 @@ app.post("/leads/dig", async (c) => {
   // Both documents are read whole, the answer is three sentences, and every
   // quote is located verbatim in one of them before it is stored. Nothing is
   // fetched, nothing is banked, no new population appears in `pieces`.
-  if (kind === "contradiction") {
-    const { answerLead } = await import("../graph/lib/answer-lead");
+  // An unsourced figure is one question wide too, but the answer is not in
+  // the corpus — the corpus is what failed to name a source. Three pages are
+  // fetched, at most; the answer says who published the number, where and
+  // when; and only quotes located verbatim in a fetched page survive.
+  if (kind === "contradiction" || kind === "unsourced-figure") {
+    const { answerLead, answerUnsourcedFigure } = await import("../graph/lib/answer-lead");
     const lead = {
-      kind: "contradiction" as const,
+      kind: kind as "contradiction" | "unsourced-figure",
       summary: seed,
       detail: seed,
       quote_id: null,
@@ -579,7 +609,11 @@ app.post("/leads/dig", async (c) => {
       seed,
       angle: angle ?? "",
     };
-    const work = answerLead(c.env, userId, lead, { writer }).catch(() => {});
+    const work = (
+      kind === "unsourced-figure"
+        ? answerUnsourcedFigure(c.env, userId, lead, { writer })
+        : answerLead(c.env, userId, lead, { writer })
+    ).catch(() => {});
     try {
       c.executionCtx.waitUntil(work);
     } catch {
@@ -1166,6 +1200,130 @@ app.post("/readings/:id/draft-essay", async (c) => {
       "cache-control": "no-store",
     },
   });
+});
+
+// A NEW VERSION of a document (docs/the-record.md §4): the body is replaced,
+// the slug and published_at stay, the pipeline re-runs, and nothing is
+// deleted — the previous source id is appended to metadata. The typed graph
+// and the findings for the old body are purged so no stale quote survives a
+// body change; the operator's READINGS are the one thing kept: each passage
+// is re-located verbatim in the new body and re-anchored, and the ones the
+// new body no longer contains are dropped and counted on the redirect.
+// form: multipart `file`. Redirects with ?replaced=1&readings_lost=N, or
+// ?error=same+file when the upload is byte-identical to the current source.
+app.post("/library/:id/replace", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library?error=No%20operator%20user");
+  const pieceId = c.req.param("id");
+  const piece = await one<{
+    id: string;
+    slug: string;
+    title: string;
+    body_md: string | null;
+    metadata: string | null;
+  }>(
+    c.env.DB,
+    "SELECT id, slug, title, body_md, metadata FROM pieces WHERE id = ? AND user_id = ?",
+    [pieceId, userId],
+  );
+  if (!piece) return c.redirect("/library?error=No%20document");
+  const form = await c.req.formData();
+  const file = form.get("file");
+  if (!file || typeof file === "string") {
+    return c.redirect(`/library?error=${encodeURIComponent("No file in form data")}`);
+  }
+  const f = file as unknown as File;
+  const bytes = new Uint8Array(await f.arrayBuffer());
+  const sha256 = await contentSha256(bytes);
+  let meta: Record<string, unknown> = {};
+  try {
+    meta = JSON.parse(piece.metadata ?? "{}") ?? {};
+  } catch {
+    meta = {};
+  }
+  const oldSourceId = typeof meta.source_id === "string" ? meta.source_id : null;
+  // The current source's hash: on the piece for every upload since content_sha256 was recorded; older rows
+  // carry it only on uploaded_files, reached through the source.
+  let currentSha = typeof meta.content_sha256 === "string" ? meta.content_sha256 : null;
+  if (!currentSha && oldSourceId) {
+    const u = await one<{ sha256: string | null }>(
+      c.env.DB,
+      "SELECT sha256 FROM uploaded_files WHERE user_id = ? AND created_source_id = ? LIMIT 1",
+      [userId, oldSourceId],
+    );
+    currentSha = u?.sha256 ?? null;
+  }
+  if (currentSha && currentSha === sha256) {
+    return c.redirect("/library?error=same+file");
+  }
+
+  // Readings are read BEFORE the purge: their quotes cascade away with the
+  // source node, and the note is the operator's own words — the one thing a
+  // new version must not lose silently.
+  const { createReading, readingsForPiece } = await import("../lib/readings");
+  const readings = await readingsForPiece(c.env.DB, userId, pieceId).catch(() => []);
+
+  await ensureProcessingTable(c.env);
+  const { extracted, body_md } = await bankUpload(c.env, userId, bytes, sha256, {
+    filename: f.name,
+    mime: f.type,
+    size: f.size,
+  });
+  const tetrad = looksLikeTetrad(body_md);
+  const essay = tetrad || looksLikeEssay(body_md);
+  const parsedEssay = essay ? parseEssay(body_md) : null;
+  const previous = Array.isArray(meta.previous_source_ids) ? meta.previous_source_ids : [];
+  const nowIso = new Date().toISOString();
+  const metadata = {
+    ...meta,
+    source_id: extracted.source_id,
+    original_filename: f.name,
+    extracted_chars: extracted.extracted_chars,
+    classification: tetrad ? "tetrad" : extracted.classification,
+    content_sha256: sha256,
+    previous_source_ids: oldSourceId ? [...previous, oldSourceId] : previous,
+    ...(parsedEssay ? { essay_lint: lintEssay(parsedEssay) } : {}),
+  };
+  await run(
+    c.env.DB,
+    `UPDATE pieces SET body_md = ?, kind = ?, subtitle = COALESCE(?, subtitle), metadata = ?, updated_at = ?
+      WHERE id = ? AND user_id = ?`,
+    [
+      body_md,
+      essay ? "essay" : "research-report",
+      parsedEssay?.dek ?? null,
+      JSON.stringify(metadata),
+      nowIso,
+      pieceId,
+      userId,
+    ],
+  );
+
+  // Stale quotes never survive a body change. Both purges are keyed on the
+  // piece, and the readings' quotes go with the source node.
+  const { purgeTypedGraphForPiece } = await import("../graph/lib/digestion-typed");
+  const { clearAeoAtoms } = await import("../graph/lib/aeo-extract");
+  await purgeTypedGraphForPiece(c.env, userId, pieceId);
+  await clearAeoAtoms(c.env, userId, pieceId).catch(() => {});
+  await run(c.env.DB, "DELETE FROM readings WHERE user_id = ? AND piece_id = ?", [userId, pieceId]);
+
+  let lost = 0;
+  for (const r of readings) {
+    const re = await createReading(c.env, userId, pieceId, r.verbatim_text, r.note_md);
+    if (!re.ok) {
+      lost++;
+      continue;
+    }
+    // The note was written when it was written; a re-anchor is not a new reading.
+    await run(c.env.DB, "UPDATE readings SET created_at = ? WHERE id = ? AND user_id = ?", [
+      r.created_at,
+      re.id,
+      userId,
+    ]);
+  }
+
+  await enqueueProcessing(c.env, userId, pieceId, { restart: true });
+  return c.redirect(`/library?replaced=1&readings_lost=${lost}`);
 });
 
 export default app;

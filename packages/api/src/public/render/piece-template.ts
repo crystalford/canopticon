@@ -12,10 +12,11 @@
 // design build); this file is template + section-parser only.
 
 import { type FindingRow, findingsForPiece } from "../../graph/lib/aeo-extract";
+import type { Lead } from "../../graph/lib/leads";
 import { type LedeRow, ledeForPiece } from "../../graph/lib/lede";
 import { resolveByline, showsUpdate } from "../../lib/byline";
 import { documentStructure } from "../../lib/document-structure";
-import { parseEssay } from "../../lib/essay";
+import { type ParsedTetrad, TETRAD_QUADRANTS, parseEssay, parseTetrad } from "../../lib/essay";
 import { type ReadingRow, readingsForPiece } from "../../lib/readings";
 import {
   type Lineage,
@@ -32,9 +33,11 @@ import {
 } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
 import {
+  TETRAD_LABELS,
   citeApa,
   citeBibtex,
   essayFaq,
+  essayTetradLd,
   isEssay,
   pieceJsonLd,
   pieceMarkdownUrl,
@@ -99,6 +102,13 @@ export async function renderPiece(
   // The closed section (graph/lib/topics.ts) this document is filed in — the
   // third crumb, and the hub the page belongs to. Null when not yet filed.
   const section = await topicForPiece(env.DB, userId, piece.id).catch(() => null);
+  // The operator's action bar (docs/the-record.md §6): this document's own
+  // leads. A query, operator-only, never fetched for a reader.
+  const leads = opts.isOperator
+    ? await (await import("../../graph/lib/leads"))
+        .leadsForCorpus(env.DB, userId, { pieceId: piece.id, limit: 6 })
+        .catch(() => [] as Lead[])
+    : [];
 
   const body = renderPieceBody(piece, {
     topics: topics.map((t) => ({ slug: t.slug, label: t.label })),
@@ -110,6 +120,7 @@ export async function renderPiece(
     readings,
     lineage,
     section,
+    leads,
     isOperator: opts.isOperator === true,
   });
 
@@ -117,7 +128,10 @@ export async function renderPiece(
   // every arrangement did — the page type the publication is actually made of
   // was the least machine-legible one on the site.
   const essay = isEssay(piece.kind);
-  const faq = essay ? essayFaq(piece.body_md ?? "") : undefined;
+  // A tetrad is filed as an essay but has no question headings, so it gets
+  // `about` and `hasPart` in place of a FAQPage.
+  const tetrad = essay ? essayTetradLd(piece.body_md ?? "") : null;
+  const faq = essay && !tetrad ? essayFaq(piece.body_md ?? "") : undefined;
   // The share card exists once the pipeline's og step has drawn it; the
   // route 404s until then, and a 404 og:image is worse than none, so it is
   // named only when the object is there.
@@ -131,6 +145,7 @@ export async function renderPiece(
     ...(hasCard ? { ogImage: `https://canopticon.com/og/${piece.slug}.png` } : {}),
     body: `${body}\n${pieceJsonLd(piece, {
       ...(faq?.length ? { faq } : {}),
+      ...(tetrad ? { tetrad } : {}),
       // Only once approved — the structured data must not carry a passage the
       // page itself is not showing.
       ...(lede?.approved_at ? { lede: lede.verbatim_text } : {}),
@@ -183,6 +198,8 @@ interface PieceCtx {
   lineage?: Lineage;
   /** The closed section this document is filed in, or null. */
   section?: string | null;
+  /** This document's own leads, for the operator's action bar (§6). */
+  leads?: Lead[];
   /** The viewer is the signed-in operator: render the note form and script. */
   isOperator?: boolean;
 }
@@ -349,6 +366,7 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
   <article class="reading">
 ${renderBreadcrumbs(piece, ctx.section)}
 ${renderPageHead(piece, ctx)}
+${renderActionBar(piece, ctx)}
 ${renderLede(ctx.lede)}
 ${renderFindings(ctx.findings, receipts.placed)}
 ${bodyBlock}
@@ -409,7 +427,17 @@ ${ctx.isOperator ? '<script src="/op/notes.js" defer></script>' : ""}
   .note-form .note-status { font-family: var(--mono); font-size: 12px; color: var(--accent); }
   .note-this { position: absolute; z-index: 20; font-family: var(--mono); font-size: 12px;
     letter-spacing: .06em; text-transform: uppercase; background: var(--accent); color: #fff;
-    border: 0; padding: 6px 10px; cursor: pointer; }
+    border: 0; padding: 6px 10px; cursor: pointer; display: flex; gap: 1px; }
+  .note-this button { font: inherit; color: inherit; background: none; border: 0; padding: 0 4px; cursor: pointer; }
+  .op-bar { margin: 14px 0 6px; padding: 12px 14px; border: 1px solid var(--rule); font-family: var(--sans); font-size: 13px; }
+  .op-bar .ow-h { margin-bottom: 8px; }
+  .op-bar ul { list-style: none; margin: 0 0 10px; padding: 0; }
+  .op-bar li { margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+  .op-bar .lead-k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+  .op-bar .lead-dig-form { display: inline-flex; gap: 8px; align-items: baseline; }
+  .op-bar .lead-dig { font: inherit; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+  .op-bar .op-ask { display: flex; gap: 8px; }
+  .op-bar .op-ask input[name=seed] { flex: 1; font: inherit; background: transparent; color: var(--ink); border: 1px solid var(--rule); padding: 6px 8px; }
   .video-transcript-fold summary { cursor: pointer; font-family: var(--mono); font-size: 12px;
     letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); padding: 10px 0;
     border-top: 1px solid var(--rule); margin-top: 24px; }
@@ -710,6 +738,49 @@ function renderNoteForm(piece: PieceDetail, ctx: PieceCtx): string {
 </form>`;
 }
 
+const LEAD_LABEL: Record<string, string> = {
+  contradiction: "Contradiction",
+  "unsourced-figure": "Unsourced figure",
+  bridge: "Bridge",
+  reading: "Reading",
+};
+
+/**
+ * The operator's action bar (docs/the-record.md §6): this document's own
+ * leads with the same dig form /library uses, and a free question box. Both
+ * post to /op/leads/dig carrying piece_id, so the brief a run produces is
+ * this document's child (§5). "Research this" (notes-live.ts) prefills the
+ * question box from a selection — no new route.
+ */
+function renderActionBar(piece: PieceDetail, ctx: PieceCtx): string {
+  if (!ctx.isOperator) return "";
+  const hidden = (name: string, value: string) =>
+    `<input type="hidden" name="${name}" value="${escapeAttr(value)}">`;
+  const items = (ctx.leads ?? [])
+    .map((l) => {
+      const verb = l.kind === "contradiction" ? "Settle this" : "Dig here";
+      const other =
+        l.other_piece_slug && l.other_piece_slug !== piece.slug
+          ? ` <a href="/p/${escapeAttr(l.other_piece_slug)}">${escapeHtml(l.other_piece_title ?? "the other document")}</a>`
+          : "";
+      const receipt = l.quote_id ? ` <a href="/q/${escapeAttr(l.quote_id)}">quote ↗</a>` : "";
+      const dig = l.seed
+        ? `<form method="post" action="/op/leads/dig" class="lead-dig-form">${hidden("seed", l.seed)}${hidden("angle", l.angle)}${hidden("kind", l.kind)}${hidden("piece_id", l.piece_id)}${hidden("piece_slug", l.piece_slug ?? "")}${hidden("other_slug", l.other_piece_slug ?? "")}<button type="submit" class="lead-dig">${verb} →</button></form>`
+        : "";
+      return `<li class="lead lead-${escapeAttr(l.kind)}"><span class="lead-k">${escapeHtml(LEAD_LABEL[l.kind] ?? l.kind)}</span> <span class="lead-sum">${escapeHtml(l.summary)}</span>${other}${receipt} ${dig}</li>`;
+    })
+    .join("");
+  return `<section class="op-bar" id="op-bar">
+  <div class="ow-h">This document's leads</div>
+  ${items ? `<ul>${items}</ul>` : `<p class="note">Nothing yet — leads appear once the pipeline has processed this document.</p>`}
+  <form method="post" action="/op/leads/dig" class="op-ask" id="op-ask">
+    ${hidden("kind", "question")}${hidden("piece_id", piece.id)}${hidden("piece_slug", piece.slug)}
+    <input type="text" name="seed" placeholder="Ask the record a question — the brief becomes this document's child" required>
+    <button type="submit" class="lead-dig">Research →</button>
+  </form>
+</section>`;
+}
+
 /** "Grew from" and "Grew into" (docs/the-record.md §5). Empty renders nothing. */
 function renderLineage(lineage: Lineage | undefined): string {
   if (!lineage || (!lineage.parent && lineage.children.length === 0)) return "";
@@ -742,7 +813,14 @@ function renderBodyForKind(
       // The essay path parses body_md itself rather than using `sections`,
       // so it needs the spliced copy handed to it explicitly — otherwise an
       // essay would be the one kind that silently never showed a receipt.
-      return renderEssayBody(bodyMd);
+      //
+      // A tetrad (docs/the-record.md §1b) is filed as an essay — the
+      // classifier marks it `metadata.classification = "tetrad"` — but its
+      // shape is four quadrants, not a run of questions. The parse is the
+      // test: if the body has the four headings it renders as the grid, and
+      // if it has been edited out of that shape it falls back to the essay
+      // layout rather than to a broken grid.
+      return renderTetradBody(parseTetrad(bodyMd)) ?? renderEssayBody(bodyMd);
     case "research-report":
     case "brief":
       return renderResearchReportBody(piece, sections);
@@ -807,6 +885,49 @@ ${essay.sources.map((s, i) => `    <li id="src-${i + 1}">${renderInline(s)}</li>
 ${tldr}
 ${toc}
 ${body}
+${sources}
+</div>`;
+}
+
+// The tetrad: four quadrants in a 2×2 grid, after the intro and before any
+// sources. Each cell is anchored by its quadrant name, which is also what the
+// page's `hasPart` structured data points at. No Q&A layout, no FAQ — a
+// tetrad's headings are labels, not questions. The grid is inline CSS so the
+// stylesheet gains no rule for one page shape; auto-fit collapses it to one
+// column at phone width.
+function renderTetradBody(t: ParsedTetrad | null): string | null {
+  if (!t) return null;
+  const intro = t.intro.length
+    ? `<div class="tldr">
+  <div class="tldr-k">In one paragraph</div>
+  ${t.intro.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n  ")}
+</div>`
+    : "";
+  const cells = TETRAD_QUADRANTS.map(
+    (
+      q,
+    ) => `  <div class="tetrad-cell" id="${q}" style="border:1px solid var(--rule);border-radius:var(--r);padding:var(--s-4) var(--s-5);background:var(--paper-2)">
+    <h2 style="font-family:var(--mono);font-size:var(--t-3);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-mute);margin:0 0 var(--s-3)"><a href="#${q}" class="anchor-link">${escapeHtml(TETRAD_LABELS[q])}</a></h2>
+    ${
+      t.quadrants[q]
+        ? renderMarkdown(t.quadrants[q], { headingBase: 3, anchors: false })
+        : `<p><em style="color:var(--ink-mute)">Nothing written here yet.</em></p>`
+    }
+  </div>`,
+  ).join("\n");
+  const sources = t.sources.length
+    ? `<section class="essay-sources">
+  <h2>Sources</h2>
+  <ol>
+${t.sources.map((s, i) => `    <li id="src-${i + 1}">${renderInline(s)}</li>`).join("\n")}
+  </ol>
+</section>`
+    : "";
+  return `<div class="essay-body">
+${intro}
+<section class="tetrad" aria-label="Tetrad" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--s-5);margin:0 0 var(--s-6)">
+${cells}
+</section>
 ${sources}
 </div>`;
 }

@@ -10,7 +10,7 @@
 // emitted.
 
 import { resolveByline } from "../lib/byline";
-import { parseEssay } from "../lib/essay";
+import { TETRAD_QUADRANTS, type TetradQuadrant, parseEssay, parseTetrad } from "../lib/essay";
 import { displayTitle } from "../lib/title";
 import { type PieceDetail, type PublishedPieceRef, TOPIC_DESCRIPTIONS, topicSlug } from "./data";
 
@@ -151,6 +151,38 @@ export interface PieceLdOptions {
   section?: string | null;
   /** The document this one grew from (docs/the-record.md §5), for `isBasedOn`. */
   basedOn?: { slug: string; title: string } | null;
+  /**
+   * A tetrad (docs/the-record.md §1b): the H1 is the thing the four
+   * questions are asked of (`about`), and each quadrant is a named part of
+   * the page (`hasPart`). Derived from the file by essayTetradLd; no FAQ.
+   */
+  tetrad?: TetradLd | null;
+}
+
+export interface TetradLd {
+  subject: string;
+  quadrants: Array<{ quadrant: TetradQuadrant; name: string; anchor: string }>;
+}
+
+export const TETRAD_LABELS: Record<TetradQuadrant, string> = {
+  enhances: "Enhances",
+  obsolesces: "Obsolesces",
+  retrieves: "Retrieves",
+  reverses: "Reverses into",
+};
+
+/** The four quadrants as page parts, or null when the body is not a tetrad. */
+export function essayTetradLd(bodyMd: string): TetradLd | null {
+  const t = parseTetrad(bodyMd);
+  if (!t) return null;
+  return {
+    subject: t.subject,
+    quadrants: TETRAD_QUADRANTS.map((q) => ({
+      quadrant: q,
+      name: TETRAD_LABELS[q],
+      anchor: `#${q}`,
+    })),
+  };
 }
 
 // An essay's question headings and their answer-first opening paragraphs are
@@ -246,6 +278,15 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
       },
     }));
     base.commentCount = opts.readings.length;
+  }
+  if (opts.tetrad) {
+    base.about = [{ "@type": "Thing", name: opts.tetrad.subject }];
+    base.hasPart = opts.tetrad.quadrants.map((q) => ({
+      "@type": "WebPageElement",
+      name: q.name,
+      cssSelector: `.tetrad-cell${q.anchor}`,
+      url: `${url}${q.anchor}`,
+    }));
   }
   if (essay) {
     base.speakable = {

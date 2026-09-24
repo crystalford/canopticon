@@ -20,6 +20,7 @@ import {
   processingRows,
 } from "../../graph/lib/processing";
 import * as GATE from "../../lib/aeo";
+import type { ResurfacedPassage } from "../../lib/resurface";
 import { looksLikeMachineFilename, looksLikeWorkingTitle } from "../../lib/title";
 import { titleCandidates } from "../../lib/title-candidates";
 import { modelInUse } from "../../llm/router";
@@ -398,7 +399,10 @@ function renderRowActions(pieceId: string, row: ProcessingRow | undefined): stri
       ? `<form method="POST" action="/op/library/${escapeAttr(pieceId)}/retry" style="display:inline"><button type="submit" class="atom-pub">Retry</button></form>`
       : "";
   const label = row?.status === "queued" || row?.status === "running" ? "Restart" : "Re-process";
-  return `<div class="lib-actions">${retry}<form method="POST" action="/op/library/${escapeAttr(pieceId)}/reprocess" style="display:inline"><button type="submit" class="atom-run">${label}</button></form></div>`;
+  // A new version (docs/the-record.md §4): the body is replaced, the slug
+  // and date stay, the pipeline re-runs, the previous source is kept.
+  const replace = `<details class="lib-replace" style="display:inline"><summary>New version</summary><form method="POST" action="/op/library/${escapeAttr(pieceId)}/replace" enctype="multipart/form-data" style="display:inline"><input type="file" name="file" accept=".md,.txt,.html,.pdf,.docx" required> <button type="submit" class="atom-run">Replace</button></form></details>`;
+  return `<div class="lib-actions">${retry}<form method="POST" action="/op/library/${escapeAttr(pieceId)}/reprocess" style="display:inline"><button type="submit" class="atom-run">${label}</button></form>${replace}</div>`;
 }
 
 /**
@@ -536,11 +540,15 @@ function renderLeadAnswer(a: LeadAnswer | undefined): string {
       (q) => `          <li>
             <span class="lead-ans-q">${escapeHtml(q.text)}</span>
             ${
-              q.slug
-                ? `<a class="lead-ans-src" href="/library/${escapeAttr(q.slug)}">${escapeHtml(
-                    q.title ?? q.slug,
+              q.url
+                ? `<a class="lead-ans-src" href="${escapeAttr(q.url)}" rel="nofollow noopener">${escapeHtml(
+                    q.title ?? q.url,
                   )}</a>`
-                : `<span class="lead-ans-src">${escapeHtml(q.title ?? "a stored document")}</span>`
+                : q.slug
+                  ? `<a class="lead-ans-src" href="/library/${escapeAttr(q.slug)}">${escapeHtml(
+                      q.title ?? q.slug,
+                    )}</a>`
+                  : `<span class="lead-ans-src">${escapeHtml(q.title ?? "a stored document")}</span>`
             }
           </li>`,
     )
@@ -674,7 +682,11 @@ export const renderLeadsForTest = renderLeads;
  * Recent-first and never by frequency. Every entry is a query result with the
  * document(s) it came out of and the one action that follows it.
  */
-function renderWorklist(leads: Lead[], answers: Map<string, LeadAnswer>): string {
+function renderWorklist(
+  leads: Lead[],
+  answers: Map<string, LeadAnswer>,
+  resurfaced: ResurfacedPassage | null = null,
+): string {
   const list = leads.length
     ? renderLeads(leads, answers, { showPiece: true })
     : `<p class="op-wants-empty">Nothing yet. Leads appear here once documents have been processed: contradictions between two documents, figures with no source named, and bridges between sections.</p>`;
@@ -682,8 +694,41 @@ function renderWorklist(leads: Lead[], answers: Map<string, LeadAnswer>): string
   <div class="op-queue-head">What the record wants
     <span class="op-queue-note">Recent-first, never by frequency. Contradictions settle from documents already held; the rest start a research run parented to the document that raised them.</span>
   </div>
+  ${renderResurfaced(resurfaced)}
   ${list}
 </section>`;
+}
+
+/**
+ * RESURFACED TODAY (lib/resurface.ts): one verified passage from a document
+ * without a recent reading, chosen by the oldest update and a daily rotation
+ * — a rehearsal of the record, never a ranking. Nothing when there is no
+ * candidate. Two actions, both ordinary forms: a note (§5c) and a research
+ * run parented to the document (§5).
+ */
+function renderResurfaced(r: ResurfacedPassage | null): string {
+  if (!r) return "";
+  const angle =
+    "The operator is re-reading this passage of a document already on the record. Answer the question against the passage: what it asks for, what it doubts, what it says is missing.";
+  return `<div class="resurfaced" id="resurfaced">
+    <div class="op-queue-head">Resurfaced today</div>
+    <blockquote><a href="/q/${escapeAttr(r.quote_id)}">${escapeHtml(r.verbatim_text)}</a></blockquote>
+    <p class="resurfaced-from">from <a href="/p/${escapeAttr(r.piece_slug)}">${escapeHtml(r.piece_title)}</a></p>
+    <form method="POST" action="/op/readings" class="resurfaced-note">
+      <input type="hidden" name="piece_id" value="${escapeAttr(r.piece_id)}" />
+      <input type="hidden" name="passage" value="${escapeAttr(r.verbatim_text)}" />
+      <textarea name="note" rows="2" placeholder="Note this — what it asks for, doubts, or is missing" required></textarea>
+      <button type="submit" class="atom-run">Note this</button>
+    </form>
+    <form method="POST" action="/op/leads/dig" class="lead-dig-form">
+      <input type="hidden" name="seed" value="${escapeAttr(r.verbatim_text)}" />
+      <input type="hidden" name="angle" value="${escapeAttr(angle)}" />
+      <input type="hidden" name="kind" value="question" />
+      <input type="hidden" name="piece_id" value="${escapeAttr(r.piece_id)}" />
+      <input type="hidden" name="piece_slug" value="${escapeAttr(r.piece_slug)}" />
+      <button type="submit" class="lead-dig">Research this →</button>
+    </form>
+  </div>`;
 }
 
 /**
@@ -956,7 +1001,11 @@ export async function renderLibraryIndex(
   // stays a page. Readings (docs/the-record.md §5c) — what the operator
   // noticed — sit in the same list as what the record noticed.
   let worklist: Lead[] = [];
+  let resurfaced: ResurfacedPassage | null = null;
   if (opts.isOperator && userId) {
+    resurfaced = await (await import("../../lib/resurface"))
+      .resurfacePassage(env.DB, userId)
+      .catch(() => null);
     const [leads, readings] = await Promise.all([
       (await import("../../graph/lib/leads"))
         .leadsForCorpus(env.DB, userId, { limit: 30 })
@@ -1196,7 +1245,7 @@ ${uploadBanner}
 ${opStrip}
 </section>
 <section class="wb-sec" id="documents">${sectionHeader(`All material (${pieces.length})`)}${queueLine}${table}</section>
-${opts.isOperator ? renderWorklist(worklist, leadAnswers) : ""}
+${opts.isOperator ? renderWorklist(worklist, leadAnswers, resurfaced) : ""}
 ${queueBlock}
 </div>
 </div>

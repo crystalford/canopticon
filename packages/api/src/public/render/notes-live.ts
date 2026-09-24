@@ -4,9 +4,12 @@
 // operator. The reader page needs none of this: the readings themselves are
 // server-rendered, and the form this script fills is an ordinary POST.
 //
-// Select text inside the article → a small floating "Note this" button →
-// the note form, passage prefilled read-only, one textarea for the note.
-// Vanilla, no framework, and nothing here talks to a model.
+// Select text inside the article → a small floating pair of buttons:
+// "Note this" → the note form, passage prefilled read-only, one textarea for
+// the note; "Research this" → the action bar's free question box, prefilled
+// with the selection and focused (docs/the-record.md §6). No new route:
+// both are ordinary forms the server already rendered. Vanilla, no
+// framework, and nothing here talks to a model.
 
 export const NOTES_LIVE_JS = `(function () {
   var article = document.querySelector("article.reading");
@@ -15,11 +18,18 @@ export const NOTES_LIVE_JS = `(function () {
   var passage = form.querySelector("[name=passage]");
   var note = form.querySelector("[name=note]");
   var status = form.querySelector(".note-status");
-  var btn = document.createElement("button");
-  btn.type = "button";
+  var ask = document.querySelector("#op-ask [name=seed]");
+  var btn = document.createElement("div");
   btn.className = "note-this";
-  btn.textContent = "Note this";
   btn.hidden = true;
+  var noteBtn = document.createElement("button");
+  noteBtn.type = "button";
+  noteBtn.textContent = "Note this";
+  btn.appendChild(noteBtn);
+  var askBtn = document.createElement("button");
+  askBtn.type = "button";
+  askBtn.textContent = "Research this";
+  if (ask) btn.appendChild(askBtn);
   document.body.appendChild(btn);
 
   function selectedText() {
@@ -40,7 +50,7 @@ export const NOTES_LIVE_JS = `(function () {
   document.addEventListener("mouseup", function () { setTimeout(place, 0); });
   document.addEventListener("keyup", function (e) { if (e.shiftKey) place(); });
   btn.addEventListener("mousedown", function (e) { e.preventDefault(); });
-  btn.addEventListener("click", function () {
+  noteBtn.addEventListener("click", function () {
     var text = selectedText();
     if (text.length < 40) return;
     passage.value = text;
@@ -48,6 +58,14 @@ export const NOTES_LIVE_JS = `(function () {
     btn.hidden = true;
     form.scrollIntoView({ behavior: "smooth", block: "center" });
     note.focus();
+  });
+  askBtn.addEventListener("click", function () {
+    var text = selectedText();
+    if (!ask || !text) return;
+    ask.value = text;
+    btn.hidden = true;
+    ask.scrollIntoView({ behavior: "smooth", block: "center" });
+    ask.focus();
   });
   form.querySelector(".note-cancel").addEventListener("click", function () {
     form.hidden = true;
