@@ -44,6 +44,49 @@ That is the reason to upload the next one. It is also the honest version of
 "GEO": a site whose pages cite each other, carry verified figures with named
 sources and dates, and visibly grow.
 
+## 1b. What it is for — the extension
+
+*Added 2026-09-24 from the operator's note. This is the purpose the loop
+serves; the sections after it are unchanged in mechanism and gain two
+features from it (bridges, §5b; readings, §5c).*
+
+**Canopticon is neuronal extension software.** The record is the operator's
+mind extended onto the web: uploading is externalising memory; processing is
+the record's own pattern recognition; the worklist is inquiry; an essay is
+synthesis; a published page is the thought made citable — by people, and by
+the answer engines everyone else now thinks through. That last part is what
+"NEO" (neural engine optimisation) names: being cited by a model is the
+extension reaching the furthest it can. §7's checklist is NEO's mechanics.
+
+**The model case is a bridge.** The operator's best contribution so far was
+noticing that a set of McLuhan's ideas mapped onto findings in neuroscience —
+two domains the record files in different sections — and then checking that
+nobody had made that connection before. That is what the record exists to
+provoke and to catch: it cannot make the leap, but it can put the two
+documents side by side, say "these share a subject and sit in different
+sections", and make "has anyone said this?" one button. §5b.
+
+**Verification has a human half.** Every quote is checked by code (rule 1).
+But the other proof that a document has entered the record is that a person
+read it and noticed something — which is what happened with McLuhan, and
+what the model missed. So a document can carry the operator's **reading**: a
+short note anchored to a passage, kept as a first-class artifact, shown on
+the page as the operator's, and marking the document *read by a person* —
+a trust signal the machine cannot fake. §5c. This is also the learning loop:
+the record shows what it found; the operator adds what they found; both are
+kept, and either can start the next branch.
+
+**Framing.** Not the attention economy. The output of this system is a
+personal course of study made public: education, feedback, inspiration —
+and when video or audio come, they come as readings of the record, not as a
+show. Studio stays parked until the loop above is pleasant to use.
+
+**The tetrad**, and lenses like it, are Markdown shapes the parser can
+recognise (`## Enhances · ## Obsolesces · ## Retrieves · ## Reverses`), the
+way the Q&A essay convention already is: structure derived from the file,
+nothing calling a model. If the tetrad proves incomplete, the shape grows.
+Later than PR 3.
+
 ## 2. Why it feels like a mess — the actual causes
 
 These are what the code does today, not impressions.
@@ -198,6 +241,46 @@ a reader follows. It also makes the loop visible to *you*: an upload whose
 row says "raised 2 questions · settled 1 contradiction · 0 branches yet" is
 asking for its next move.
 
+## 5b. Bridges — the fourth lead
+
+A **bridge** is a subject (an entity or theme node with the same label) that
+appears in two documents filed under *different* sections. It is a pure
+query over the typed graph — label × `pieces.topic` — no model, no count,
+recent-first like every other lead. The McLuhan–neuroscience synthesis is a
+bridge between "Media & mind" and whatever section the neuroscience material
+sits in; the record could have shown it before the operator noticed it.
+
+It joins contradictions, unsourced figures and open questions in "What the
+record wants", with two buttons: **Research** (a run on "what connects X in
+A and B?", parented to the newer document) and **Has anyone said this?** (a
+run whose question is the novelty check, so the answer — nobody, or these
+three people — is itself a document). A bridge with a reading on it (§5c) is
+shown first in the list, not because it is more frequent but because a person
+marked it.
+
+## 5c. Readings — the operator's half of verification
+
+A **reading** is a short note the operator writes on a document, anchored to
+a passage the way a receipt is: the passage is selected verbatim
+(`locateVerbatim`), the note is the operator's own words, both are stored.
+
+- Table `readings`: `piece_id, quote_id, note_md, created_at`. The passage
+  is a `quotes` row like any receipt, so `/q/<id>` works for it.
+- Written from the `/p/` page when signed in: select a passage → "Note
+  this". No model is involved at any point.
+- Public: rendered in the margin of the passage on wide screens, inline under
+  it on narrow ones, signed and dated. A document with at least one reading
+  carries **"Read by the operator"** beside its receipt line; a document
+  without one does not claim it.
+- A reading is a lead: it appears in "What the record wants" with
+  **Research** and **Draft an essay from this** (which opens a new `.md`
+  with the passage quoted and the note as the opening paragraph — a file the
+  operator then writes, not a model).
+- JSON-LD: a `Comment` on the `Quotation`, `author` the operator.
+
+This replaces nothing and gates nothing. It is the one place on the site
+where the operator's own sentences appear that are not a whole essay.
+
 ## 6. The surfaces
 
 ### Public — canopticon.com
@@ -247,7 +330,8 @@ One page, four parts, in this order:
    · Unpublish.
 3. **What the record wants.** The worklist, recent-first, never by
    frequency: contradictions between two documents, figures with no source
-   named, questions raised and not answered. Each has **Research**.
+   named, questions raised and not answered, **bridges** between sections
+   (§5b), and the operator's **readings** (§5c). Each has **Research**.
    Contradictions settle from documents already held (as now); the rest
    start a run, parented to the document that raised them.
 4. **Research.** Every run, its state, its one next action; runs advance
@@ -255,8 +339,9 @@ One page, four parts, in this order:
    (which processes it like an upload) or Discard.
 
 On any `/p/` page when signed in: an action bar — this document's own
-leads, a free question box, and "Research this" on a selected phrase.
-(Operator-only JavaScript; the reader page needs none.)
+leads, a free question box, "Research this" on a selected phrase, and "Note
+this" on a selected passage (§5c). (Operator-only JavaScript; the reader
+page needs none.)
 
 Header line, always: the model in use and this month's spend.
 
@@ -272,9 +357,12 @@ As built in #177–#178, with three changes:
   per-run alternative for comparison, as the toggle from #178 already
   allows.
 
-## 7. Findable, quotable, provenance intact — the checklist
+## 7. Findable, quotable, provenance intact — the checklist (NEO)
 
 Everything here is server-rendered from the same rows as the page (rule 3).
+This is the mechanics of §1b's "neural engine optimisation": the same work
+the trade calls GEO/AEO, framed as what it is for — the operator's thinking
+reaching the models other people think through.
 
 | Item | State | What changes |
 |---|---|---|
@@ -356,11 +444,14 @@ cost. Run it over the live corpus from the library tab and watch it finish.
 *You will see:* every document Processed; every `/p/` page with its passage,
 key figures, receipts and links.
 
-**PR 3 — Lineage and the worklist.** §5; "What the record wants" and
-"Research" sections; "Research this" on `/p/`; Related by shared subjects;
-the post-upload summary; runs parented and briefs citing their parent.
+**PR 3 — Lineage, bridges, readings, the worklist.** §5, §5b, §5c; "What
+the record wants" and "Research" sections; "Research this" and "Note this"
+on `/p/`; Related by shared subjects; the post-upload summary; runs parented
+and briefs citing their parent; "Read by the operator" on the page.
 *You will see:* an upload produce visible consequences with a button on
-each, and a branch appear under a document when its research publishes.
+each; a bridge between two sections appear without anyone asking; a note you
+write show up beside its passage; and a branch appear under a document when
+its research publishes.
 
 **PR 4 — Findable.** §7: section hubs, key figures up top, JSON-LD
 additions, OG images, `llms-full.txt`, IndexNow, analytics beacon,
@@ -388,3 +479,5 @@ has to exist before the pipeline uses it.
 - Not autonomous. Nothing runs without the tab open. The idle cost is zero.
 - Not a summariser. Every public sentence that is not the operator's own is
   a verbatim passage from a stored document, located by code.
+- Not a content machine. §1b: the output is a course of study made public,
+  and the measure is whether the operator learned and was cited — not reach.
