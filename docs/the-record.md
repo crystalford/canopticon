@@ -58,13 +58,20 @@ the answer engines everyone else now thinks through. That last part is what
 "NEO" (neural engine optimisation) names: being cited by a model is the
 extension reaching the furthest it can. §7's checklist is NEO's mechanics.
 
-**The model case is a bridge.** The operator's best contribution so far was
-noticing that a set of McLuhan's ideas mapped onto findings in neuroscience —
-two domains the record files in different sections — and then checking that
-nobody had made that connection before. That is what the record exists to
-provoke and to catch: it cannot make the leap, but it can put the two
-documents side by side, say "these share a subject and sit in different
-sections", and make "has anyone said this?" one button. §5b.
+**The model case is a bridge.** The operator's best contribution so far is
+in the record: *Research Pass for "The Medium Becomes the Ground"* (published
+2026-07-22), §2, "McLuhan and Addiction Neuroscience: An Apparent
+Theoretical Gap" — McLuhan's figure/ground mapped onto Koob & Le Moal's
+allostatic model of addiction: "allostasis *is* the McLuhanian mechanism
+described in neurobiological terms." The pass checked four literatures and
+found no one had made the connection; it rates the move "novel theoretical
+contribution … potentially the manuscript's signature original idea." The
+same document names six more syntheses it rates novel. Media theory and
+addiction neuroscience sit in different sections of this record; that is what
+the record exists to provoke and to catch. It cannot make the leap, but it
+can put the two documents side by side, say "these share a subject and sit in
+different sections", and make "has anyone said this?" one button — the check
+that pass did by hand. §5b.
 
 **Verification has a human half.** Every quote is checked by code (rule 1).
 But the other proof that a document has entered the record is that a person
