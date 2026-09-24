@@ -42,6 +42,9 @@ vi.mock("../src/llm/router", () => ({
   callResearchWriter: (...a: unknown[]) => writer(...a),
   callRole: async () => ({ text: "" }),
   modelForRole: () => ({ model: "test-model" }),
+  // Workers AI writes this run, so it finishes the single way — one call.
+  // The sectioned walk is tests/research-sections-walk.test.ts.
+  resolveWriter: () => ({ provider: "workers_ai", model: "test-model" }),
 }));
 
 import { advanceResearchRun, researchOnDemand } from "../src/graph/lib/deep-research";
@@ -165,6 +168,7 @@ describe("a research run reaches a draft", () => {
       "done", // final brief written
     ]);
     expect(only(runs).final_piece_id).toBeTruthy();
+    expect(only(runs).mode).toBe("single");
     // The run recorded source ids in the new columns and left the legacy
     // piece-id columns alone.
     expect(JSON.parse(only(runs).pass1_source_ids as string)).toHaveLength(1);

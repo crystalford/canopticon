@@ -41,6 +41,32 @@ export const RESEARCH_LIVE_JS = `<script>
     }).join("");
   }
 
+  function outlineHeading(s) {
+    var total = s.sectionsTotal || (s.outline || []).length || 0;
+    var done = s.sectionsDone || 0;
+    if (!total) return "Outline";
+    var label = done >= total ? "Written" : "Writing";
+    var count = done >= total ? total + " sections" : done + " of " + total + " sections";
+    return esc(label) + '<span class="rw-count">' + esc(count) + "</span>";
+  }
+
+  function outline(s) {
+    var list = s.outline || [];
+    return list.map(function (o) {
+      var cls = o.state === "done" ? "done" : o.state === "writing" ? "running" : "queued";
+      var receipt = "";
+      if (o.state === "done") {
+        var ok = o.quotesOk || 0;
+        receipt = '<span class="rw-src-meta">' + ok + " quote" + (ok === 1 ? "" : "s") + " verified" +
+          (o.quotesKilled ? '<span class="lead-ans-disc">' + o.quotesKilled + " killed</span>" : "") +
+          "</span>";
+      }
+      return '<li class="rw-step rw-step-' + cls + '">' +
+        '<span class="rw-mark"></span>' +
+        '<span class="rw-step-q">' + esc(o.heading) + receipt + "</span></li>";
+    }).join("");
+  }
+
   function sources(s) {
     var list = s.sources || [];
     if (!list.length) {
@@ -87,6 +113,10 @@ export const RESEARCH_LIVE_JS = `<script>
     var set = function (k, html) { var el = at(k); if (el) el.innerHTML = html; };
     set("state", state(s));
     set("plan", plan(s));
+    set("outline-h", outlineHeading(s));
+    set("outline", outline(s));
+    var op = at("outline-panel");
+    if (op) { if ((s.outline || []).length) op.removeAttribute("hidden"); else op.setAttribute("hidden", ""); }
     set("sources", sources(s));
     set("metrics", metrics(s));
     set("actions", actions(s));
@@ -94,13 +124,18 @@ export const RESEARCH_LIVE_JS = `<script>
     var sc = at("src-count"); if (sc) sc.textContent = String((s.sources || []).length);
   }
 
-  // THE BROWSER IS THE SCHEDULER. A research run is four model-heavy steps and
-  // each must be its own Worker execution or it exceeds Cloudflare's ceiling.
+  // THE BROWSER IS THE SCHEDULER. A research run is a handful of model-heavy
+  // steps — up to a dozen when the brief is written in sections, one section
+  // per press — and each must be its own Worker execution or it exceeds
+  // Cloudflare's ceiling.
   // Standing rule 4 forbids a cron and is right to: an idle site should cost
   // nothing. But a person who started this run and is watching it IS the
   // attendance the rule means, so the page takes the next step for them.
   // Close the tab and it stops. The button stays on screen either way.
-  var autoLeft = 6;
+  // Enough for the longest honest run: synthesis, two searches, an outline,
+  // seven sections and the assembly. A run needing more has gone wrong, and
+  // the button is on screen for the operator to decide.
+  var autoLeft = 14;
   var lastAuto = "";
   function poll() {
     fetch(url, { headers: { Accept: "application/json" } })

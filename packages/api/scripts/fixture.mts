@@ -104,15 +104,49 @@ const RESEARCH_PLAN = [
   "retail media network incrementality measurement gaps",
 ];
 
+// The sectioned brief (migration 0062): every search has run, the outline is
+// written, and two of its five sections have landed — one with a killed
+// quote, so the red count is in the screenshot. This is the state a Claude
+// run spends most of its presses in.
+const RESEARCH_OUTLINE = [
+  "Where attribution vendors actually compete",
+  "What retail media networks measure, and what they cannot",
+  "The post-cookie identity layer",
+  "Incrementality: the method, and the gap in the tooling",
+  "Standards bodies and who follows them",
+].map((heading, i) => ({
+  heading,
+  brief_of_section: `What section ${i + 1} must establish.`,
+  source_ids: i % 2 === 0 ? ["s1", "s2", "s3"] : ["s4", "s5", "s6"],
+}));
+
+const RESEARCH_SECTIONS_DONE = [
+  {
+    heading: RESEARCH_OUTLINE[0]?.heading,
+    body_md: "Section one, as written.",
+    quotes_ok: 3,
+    quotes_killed: 0,
+  },
+  {
+    heading: RESEARCH_OUTLINE[1]?.heading,
+    body_md: "Section two, as written.",
+    quotes_ok: 2,
+    quotes_killed: 1,
+  },
+];
+
 const RESEARCH_RUN = {
   id: "run-1",
   label: RESEARCH_LABEL,
   angle: null,
-  status: "pass2_pending",
+  status: "section_pending",
+  mode: "sectioned",
+  outline: JSON.stringify(RESEARCH_OUTLINE),
+  sections_done: JSON.stringify(RESEARCH_SECTIONS_DONE),
   pass1_source_ids: JSON.stringify(["s1", "s2", "s3", "s4", "s5"]),
   pass2_source_ids: JSON.stringify(["s6"]),
   followup_queries: JSON.stringify(RESEARCH_PLAN),
-  followups_done: JSON.stringify([RESEARCH_PLAN[0]]),
+  followups_done: JSON.stringify(RESEARCH_PLAN),
   writer: "anthropic",
   final_piece_id: null,
   error: null,

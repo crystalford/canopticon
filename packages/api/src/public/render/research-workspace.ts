@@ -59,6 +59,11 @@ export function renderResearchWorkspace(args: {
         <ol class="rw-plan" data-rw="plan">${renderPlan(status)}</ol>
       </div>
 
+      <div class="rw-panel" data-rw="outline-panel"${status?.outline?.length ? "" : " hidden"}>
+        <div class="rw-panel-h" data-rw="outline-h">${renderOutlineHeading(status)}</div>
+        <ol class="rw-plan rw-outline" data-rw="outline">${renderOutline(status)}</ol>
+      </div>
+
       <div class="rw-panel">
         <div class="rw-panel-h">Sources read<span class="rw-count" data-rw="src-count">${
           status?.sources?.length ?? 0
@@ -107,6 +112,47 @@ export function renderPlan(s: ResearchStatus | null): string {
       ${q.opening ? `<span class="rw-tag">your question</span>` : ""}
     </li>`,
     )
+    .join("");
+}
+
+/**
+ * The sectioned brief's checklist heading: "Writing · 3 of 6 sections" while
+ * it is being written, "Written · 6 sections" once every one has landed.
+ */
+export function renderOutlineHeading(s: ResearchStatus | null): string {
+  const total = s?.sectionsTotal ?? s?.outline?.length ?? 0;
+  const done = s?.sectionsDone ?? 0;
+  if (!total) return "Outline";
+  const label = done >= total ? "Written" : "Writing";
+  const count = done >= total ? `${total} sections` : `${done} of ${total} sections`;
+  return `${escapeHtml(label)}<span class="rw-count">${escapeHtml(count)}</span>`;
+}
+
+/**
+ * The outline as a checklist, each section ticking as it lands. A written
+ * section shows how many of its proposed quotes survived the verbatim check
+ * and, in red, how many were killed — the number that makes a section worth
+ * trusting or not, and the one a reader would otherwise never see.
+ */
+export function renderOutline(s: ResearchStatus | null): string {
+  const outline = s?.outline ?? [];
+  if (!outline.length) return "";
+  return outline
+    .map((o) => {
+      const cls = o.state === "done" ? "done" : o.state === "writing" ? "running" : "queued";
+      const receipt =
+        o.state === "done"
+          ? `<span class="rw-src-meta">${o.quotesOk ?? 0} quote${
+              (o.quotesOk ?? 0) === 1 ? "" : "s"
+            } verified${
+              o.quotesKilled ? `<span class="lead-ans-disc">${o.quotesKilled} killed</span>` : ""
+            }</span>`
+          : "";
+      return `<li class="rw-step rw-step-${cls}">
+      <span class="rw-mark"></span>
+      <span class="rw-step-q">${escapeHtml(o.heading)}${receipt}</span>
+    </li>`;
+    })
     .join("");
 }
 
