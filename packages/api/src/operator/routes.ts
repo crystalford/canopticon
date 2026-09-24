@@ -11,16 +11,10 @@
 import { unzipSync } from "fflate";
 import { Hono } from "hono";
 import type { Env } from "../env";
-import {
-  drainDigestJobs,
-  enqueueDigest,
-  ensureJobsTable,
-  jobStatusForPiece,
-  runDigestJob,
-} from "../graph/lib/digest-jobs";
+import { jobStatusForPiece } from "../graph/lib/digest-jobs";
 import { extractUpload, readFullExtractedText } from "../graph/lib/extract";
-import { WEB_FETCHED_SQL } from "../lib/corpus-guards";
-import { all, insertOne, one, run } from "../lib/d1";
+import { enqueueProcessing, ensureProcessingTable } from "../graph/lib/processing";
+import { insertOne, one, run } from "../lib/d1";
 import { type LintNote, lintEssay, looksLikeEssay, parseEssay } from "../lib/essay";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
@@ -72,7 +66,7 @@ app.post("/feed/upload", async (c) => {
     if (!userId) {
       return c.redirect(`/op/library?error=${encodeURIComponent("No operator user")}`);
     }
-    await ensureJobsTable(c.env);
+    await ensureProcessingTable(c.env);
     const form = await c.req.formData();
     const file = form.get("file");
     if (!file || typeof file === "string") {
@@ -99,17 +93,11 @@ app.post("/feed/upload", async (c) => {
           `/op/library?error=${encodeURIComponent("No .md/.txt/.pdf/.docx files in the zip")}`,
         );
       }
-      // For zips: create + bank every entry synchronously (fast), then
-      // enqueue each new piece into the typed-graph digest queue — the
-      // drop itself starts reading the document into the record, rather
-      // than requiring a second manual "Extract" click in Library
-      // (previously the only trigger). Kick a few jobs inline via
-      // waitUntil so the first pieces of a batch don't wait for the next
-      // cron tick; the rest drain on the every-minute cron as before.
-      const ZIP_INLINE_KICKS = 3;
+      // For zips: create + bank every entry synchronously (fast), then queue
+      // each new piece for the pipeline. The library page the operator lands
+      // on presses the pipeline forward while it is open.
       const pieceIds: string[] = [];
       let zipDupes = 0;
-      let zipKicked = 0;
       for (const name of names.slice(0, ZIP_MAX_ENTRIES)) {
         const bytes = entries[name];
         if (!bytes) continue;
@@ -127,17 +115,7 @@ app.post("/feed/upload", async (c) => {
           if (p.duplicate) {
             zipDupes++;
           } else if (p.sourceId) {
-            const jobId = await enqueueDigest(c.env, {
-              userId,
-              pieceId: p.pieceId,
-              slug: p.slug,
-              title: p.title,
-              sourceId: p.sourceId,
-            });
-            if (zipKicked < ZIP_INLINE_KICKS) {
-              zipKicked++;
-              c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
-            }
+            await enqueueProcessing(c.env, userId, p.pieceId);
           }
         } catch {
           // skip a bad entry; keep ingesting the rest
@@ -146,25 +124,14 @@ app.post("/feed/upload", async (c) => {
       return c.redirect(`/op/library?ingested=${pieceIds.length}&dupes=${zipDupes}`);
     }
 
-    // Single-file: store in Vault, then enqueue the typed-graph digest
-    // immediately (kicked inline via waitUntil) — the drop is the trigger,
-    // not a separate Extract click. A duplicate upload is already banked
-    // and was either extracted before or is queued from that earlier drop;
-    // don't double-enqueue it.
+    // Single-file: store, publish, queue the pipeline. The drop is the
+    // trigger; the library page it lands on does the rest while open. A
+    // duplicate upload is already banked and already queued or processed.
     const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size);
     if (p.duplicate) {
       return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}&dedup=1`);
     }
-    if (p.sourceId) {
-      const jobId = await enqueueDigest(c.env, {
-        userId,
-        pieceId: p.pieceId,
-        slug: p.slug,
-        title: p.title,
-        sourceId: p.sourceId,
-      });
-      c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
-    }
+    if (p.sourceId) await enqueueProcessing(c.env, userId, p.pieceId);
     return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}`);
   } catch (err) {
     const message = (err as Error).message ?? "unknown error";
@@ -507,24 +474,6 @@ app.get("/login", async (c) => {
   return handleLogin(c as never);
 });
 
-// FILE EVERY UNTOPICED DOCUMENT.
-//
-// Push-button, never scheduled (rule 4). Bounded per press, so one click
-// cannot spend an unbounded amount on a corpus that grew overnight — press it
-// again for the next batch.
-//
-// The model CHOOSES from a closed list rather than naming a topic, because
-// free naming across fifty documents produces forty near-duplicate labels and
-// groups nothing. See graph/lib/topics.ts.
-app.post("/library/topics", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
-  const { assignTopics } = await import("../graph/lib/topics");
-  const r = await assignTopics(c.env, userId, { limit: 25 }).catch(() => null);
-  if (!r) return c.redirect("/library?error=topic+pass+failed");
-  return c.redirect(`/library?topics=${r.assigned}.${r.ungrouped}`);
-});
-
 // ACCEPT A TITLE.
 //
 // A document published under the name its research session gave itself —
@@ -821,13 +770,12 @@ app.post("/library/research/:id/publish", async (c) => {
   } catch {
     meta = {};
   }
-  await enqueueDigest(c.env, {
-    userId,
-    pieceId: c.req.param("id"),
-    slug: row.slug,
-    title: row.title,
-    sourceId: meta.source_id ?? "",
-  });
+  // Published like an upload: the same pipeline reads it (docs/the-record.md
+  // §6). meta.source_id is what the digest step reads the text from.
+  if (meta.source_id) {
+    await ensureProcessingTable(c.env);
+    await enqueueProcessing(c.env, userId, c.req.param("id"));
+  }
   return c.redirect(`/p/${row.slug}`);
 });
 
@@ -857,182 +805,69 @@ app.post("/library/research/:id/discard", async (c) => {
 //     a pipeline change to refill the typed graph; mirrors /v1/admin/reextract)
 // Either way: enqueue durable jobs + kick each off via waitUntil for instant
 // start. The every-minute cron drain catches anything killed mid-run.
-// Drain the digest queue, by hand.
-//
-// drainDigestJobs() was previously only ever called from the every-2-minute
-// cron in index.ts's scheduled(). With the cron disabled, this function had
-// no caller at all and anything left queued — zip entries past the first
-// three, chiefly — was stranded permanently and silently. This is the
-// replacement: the operator presses a button, a bounded batch runs.
-// Build the citable atoms for one document: findings and questions.
-//
-// Explicitly a button, not a hook on upload. It costs several model calls, and
-// the operator should see what a document produced before any of it acquires a
-// URL — human review at the document level is one of the properties that keeps
-// generated pages on the right side of the scaled-content line.
-app.post("/library/:id/extract-atoms", async (c) => {
+// THE PIPELINE — one step per request; the library page presses this while
+// it is open (docs/the-record.md §4). A form POST lands back on /library; the
+// poller asks for JSON and updates the row in place. Nothing schedules it.
+app.post("/process/advance", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
-  const pieceId = c.req.param("id");
-  const { extractAeoAtoms } = await import("../graph/lib/aeo-extract");
-  // Optional model override, so the same document can be run under several
-  // models and the results compared. Which model produced which row is stored
-  // (migration 0051) — without that the comparison would not outlive the page.
-  const body = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
-  const picked = typeof body.model === "string" ? body.model : (c.req.query("model") ?? "");
-  try {
-    const stats = await extractAeoAtoms(c.env, userId, pieceId, { model: picked });
-    return c.redirect(
-      `/library?atoms=${stats.findings}.${stats.questions_new}.${stats.questions_merged}.${stats.killed}&model=${encodeURIComponent(stats.model)}`,
-    );
-  } catch (e) {
-    return c.redirect(`/library?error=${encodeURIComponent(String(e).slice(0, 180))}`);
-  }
+  if (!userId) return c.json({ ok: false, error: "no operator" }, 401);
+  const wantsJson = (c.req.header("accept") ?? "").includes("application/json");
+  const piece = c.req.query("piece") ?? undefined;
+  const { advanceProcessing, describeProcessing } = await import("../graph/lib/processing");
+  const r = await advanceProcessing(c.env, userId, piece);
+  if (!wantsJson) return c.redirect("/library");
+  return c.json({
+    ok: true,
+    piece_id: r.piece_id,
+    remaining: r.remaining,
+    note: r.note,
+    status: describeProcessing(r.row ?? undefined),
+    row: r.row,
+  });
 });
 
-// Propose the passage a retriever should lift. Selection, not composition —
-// see graph/lib/lede.ts for why that distinction is the whole design.
-app.post("/library/:id/lede", async (c) => {
+// Queue every published document that has never been processed to the end.
+app.post("/process/all", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");
-  const { proposeLede } = await import("../graph/lib/lede");
-  const res = await proposeLede(c.env, userId, c.req.param("id"));
-  return c.redirect(
-    res.ok
-      ? "/library?lede=proposed"
-      : `/library?error=${encodeURIComponent(res.reason ?? "could not select a passage")}`,
-  );
+  const { enqueueEverything, ensureProcessingTable } = await import("../graph/lib/processing");
+  await ensureProcessingTable(c.env);
+  const n = await enqueueEverything(c.env, userId);
+  return c.redirect(`/library?queued=${n}`);
 });
 
-// Nothing renders until a person has read it: a passage can be perfectly
-// verbatim and still misrepresent what the document weighs.
-app.post("/library/:id/lede/approve", async (c) => {
+// Re-process one document from the start (a new version, a new model, or a
+// row that never finished). Retry resumes a failed row at the step it failed.
+app.post("/library/:id/reprocess", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");
-  const { approveLede } = await import("../graph/lib/lede");
-  const ok = await approveLede(c.env, userId, c.req.param("id"));
-  return c.redirect(ok ? "/library?lede=approved" : "/library?error=no+proposed+passage");
+  const { enqueueProcessing, ensureProcessingTable } = await import("../graph/lib/processing");
+  await ensureProcessingTable(c.env);
+  await enqueueProcessing(c.env, userId, c.req.param("id"), { restart: true });
+  return c.redirect("/library?queued=1");
 });
-
-// Draft what the corpus establishes about one question, from its verified
-// evidence and nothing else. Stored unapproved — prose cannot be
-// substring-checked, so a person is the only honest gate.
-app.post("/answers/:id/draft", async (c) => {
+app.post("/library/:id/retry", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");
-  const { draftStandingAnswer } = await import("../graph/lib/standing-answer");
-  const res = await draftStandingAnswer(c.env, userId, c.req.param("id"));
-  return c.redirect(
-    res.ok
-      ? `/library?drafted=1${res.contested ? "&contested=1" : ""}`
-      : `/library?error=${encodeURIComponent(res.reason ?? "could not draft")}`,
-  );
+  const { retryProcessing } = await import("../graph/lib/processing");
+  await retryProcessing(c.env, userId, c.req.param("id"));
+  return c.redirect("/library?queued=1");
 });
 
-app.post("/answers/:id/draft/approve", async (c) => {
+// Put a machine-chosen title back. original_title has the name the document
+// arrived with; title_approved_at marks that a person decided this time.
+app.post("/pieces/:id/title/revert", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");
-  const { approveStandingAnswer } = await import("../graph/lib/standing-answer");
-  const ok = await approveStandingAnswer(c.env, userId, c.req.param("id"));
-  return c.redirect(ok ? "/library?drafted=approved" : "/library?error=no+draft+to+approve");
-});
-
-// Promote one proposed question to a public page. The gate runs here, inside
-// publishQuestion, and refuses rather than publishing something thin.
-app.post("/answers/:id/publish", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
-  const { publishQuestion } = await import("../graph/lib/aeo-extract");
-  const res = await publishQuestion(c.env, userId, c.req.param("id"));
-  return c.redirect(
-    res.ok
-      ? "/library?published=1"
-      : `/library?error=${encodeURIComponent(res.reason ?? "refused")}`,
-  );
-});
-
-app.post("/library/drain", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
-  await ensureJobsTable(c.env);
-  // Bounded deliberately. Each job is several LLM calls against a shared D1
-  // CPU budget, and the account has thrown "exceeded its CPU time limit" under
-  // exactly this kind of concurrent load before. Press it again for more.
-  const jobIds = await drainDigestJobs(c.env, 3).catch(() => []);
-  for (const id of jobIds) c.executionCtx.waitUntil(runDigestJob(c.env, id));
-  return c.redirect(`/library?draining=${jobIds.length}`);
-});
-
-app.post("/library/extract", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/library");
-  await ensureJobsTable(c.env);
-  const form = await c.req.formData();
-  const mode = String(form.get("mode") ?? "selected");
-
-  // Resolve the set of pieces to extract.
-  let pieces: Array<{ id: string; slug: string; title: string; source_id: string | null }>;
-  if (mode === "all-unextracted") {
-    pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
-      c.env.DB,
-      `SELECT p.id, p.slug, p.title,
-              json_extract(p.metadata, '$.source_id') AS source_id
-         FROM pieces p
-        WHERE p.user_id = ?
-          AND NOT ${WEB_FETCHED_SQL}
-          AND NOT EXISTS (
-            SELECT 1 FROM digest_jobs j
-             WHERE j.user_id = p.user_id AND j.piece_id = p.id
-               AND j.status = 'completed'
-          )
-        ORDER BY p.created_at`,
-      [userId],
-    );
-  } else if (mode === "all") {
-    pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
-      c.env.DB,
-      `SELECT id, slug, title, json_extract(metadata, '$.source_id') AS source_id
-         FROM pieces WHERE user_id = ? AND NOT ${WEB_FETCHED_SQL} ORDER BY created_at`,
-      [userId],
-    );
-    // Clear prior jobs so enqueue starts each piece fresh at chunk 0 (the
-    // prior run may have completed-but-hollow; we want a real do-over).
-    await run(c.env.DB, "DELETE FROM digest_jobs WHERE user_id = ?", [userId]);
-  } else {
-    const ids = form
-      .getAll("piece_ids")
-      .map((v) => String(v))
-      .filter((v) => v.length > 0);
-    if (ids.length === 0) return c.redirect("/op/library");
-    const placeholders = ids.map(() => "?").join(",");
-    pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
-      c.env.DB,
-      `SELECT id, slug, title, json_extract(metadata, '$.source_id') AS source_id
-         FROM pieces WHERE user_id = ? AND id IN (${placeholders})`,
-      [userId, ...ids],
-    );
-  }
-
-  // Enqueue everything; kick only the first few inline. Kicking 50 jobs in
-  // one request is a self-DoS (each runs LLM calls via waitUntil); the
-  // every-minute cron drain works through the rest at a steady 8/tick.
-  const INLINE_KICKS = 3;
-  let kicked = 0;
-  for (const p of pieces) {
-    if (!p.source_id) continue; // can't extract without a source row
-    const jobId = await enqueueDigest(c.env, {
-      userId,
-      pieceId: p.id,
-      slug: p.slug,
-      title: p.title,
-      sourceId: p.source_id,
-    });
-    if (kicked < INLINE_KICKS) {
-      c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
-    }
-    kicked++;
-  }
-  return c.redirect(`/op/library?extracting=${kicked}`);
+  await run(
+    c.env.DB,
+    `UPDATE pieces
+        SET title = COALESCE(original_title, title), title_auto_at = NULL,
+            title_approved_at = ?, updated_at = ?
+      WHERE id = ? AND user_id = ? AND original_title IS NOT NULL`,
+    [new Date().toISOString(), new Date().toISOString(), c.req.param("id"), userId],
+  ).catch(() => {});
+  return c.redirect("/library?renamed=1");
 });
 
 // Bulk-delete from Library. Two modes:

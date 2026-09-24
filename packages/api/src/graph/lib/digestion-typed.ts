@@ -29,7 +29,7 @@
 import type { Env } from "../../env";
 import { insertOne, run, serialize } from "../../lib/d1";
 import { TIMEOUTS, withTimeout } from "../../lib/timeout";
-import { callRole } from "../../llm/router";
+import { callRole, gatewayConfigured } from "../../llm/router";
 import type { AssertionStance, EdgeFamily, NodeKind } from "./typed-graph";
 
 const MAX_CHUNKS = 3;
@@ -38,6 +38,10 @@ const MAX_CHUNKS = 3;
 // regression that wrongly blamed Gemma ran it at 512 tokens — a budget far
 // too small to complete one extraction. 4000 lets the factual layer finish.
 const EXTRACTION_MAX_TOKENS = 4000;
+// Through the gateway a chunk is eight times longer and the answer can be
+// too; the gateway adapter's own ceiling is 90s, so the wrap sits just above.
+const CLAUDE_EXTRACTION_MAX_TOKENS = 16_000;
+const CLAUDE_CALL_MS = 100_000;
 const HARD_MAX_TOKENS = 2600;
 
 // ---------------------------------------------------------------------------
@@ -320,17 +324,24 @@ export async function extractTypedChunk(
   chunkIndex: number,
   chunkText: string,
 ): Promise<TypedExtraction> {
-  // PASS 1 — bulk (Gemma): the factual layer + aboutness. This is the
-  // backbone; if it fails the chunk is empty.
+  // Claude through the gateway reads a 24KB chunk in one call that can run
+  // most of a minute and answer at length; Workers AI reads 3KB inside 25s.
+  // The budgets follow the transport, not a constant.
+  const claude = gatewayConfigured(env);
+  const callMs = claude ? CLAUDE_CALL_MS : TIMEOUTS.LLM_CALL_MS;
+  const bulkTokens = claude ? CLAUDE_EXTRACTION_MAX_TOKENS : EXTRACTION_MAX_TOKENS;
+  const hardTokens = claude ? CLAUDE_EXTRACTION_MAX_TOKENS : HARD_MAX_TOKENS;
+  // PASS 1 — bulk: the factual layer + aboutness. This is the backbone; if it
+  // fails the chunk is empty.
   const bulkOut = await withTimeout(
     callRole(env, "bulk_extraction", {
       userId,
       system: BULK_EXTRACTION_PROMPT,
       messages: [{ role: "user", content: [{ type: "text", text: chunkText }] }],
-      max_tokens: EXTRACTION_MAX_TOKENS,
+      max_tokens: bulkTokens,
       idempotency_key: `${pieceId}:bulk:${chunkIndex}`,
     }),
-    TIMEOUTS.LLM_CALL_MS,
+    callMs,
     `extractTypedChunk.bulk[${chunkIndex}]`,
   );
   const extraction = parseTypedExtraction(bulkOut.structured ?? bulkOut.text);
@@ -353,10 +364,10 @@ export async function extractTypedChunk(
               ],
             },
           ],
-          max_tokens: HARD_MAX_TOKENS,
+          max_tokens: hardTokens,
           idempotency_key: `${pieceId}:hard:${chunkIndex}`,
         }),
-        TIMEOUTS.LLM_CALL_MS,
+        callMs,
         `extractTypedChunk.hard[${chunkIndex}]`,
       );
       const hard = parseTypedExtraction(hardOut.structured ?? hardOut.text);

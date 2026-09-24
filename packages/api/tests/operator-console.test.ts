@@ -55,16 +55,26 @@ describe("one site, permission layers — /op/* GET dissolves into public routes
     });
   }
 
-  it("/op/library/extract POST still works (operator affordances post here)", async () => {
+  it("/op/process/all POST still works (operator affordances post here)", async () => {
     const res = await app.fetch(
-      new Request("http://test/op/library/extract", {
+      new Request("http://test/op/process/all", { method: "POST", body: new URLSearchParams({}) }),
+      env,
+    );
+    // No operator user in the empty DB → the handler redirects without throwing.
+    expect(res.status).toBe(302);
+  });
+
+  it("/op/process/advance answers the poller with JSON and a form with a redirect", async () => {
+    const asJson = await app.fetch(
+      new Request("http://test/op/process/advance", {
         method: "POST",
-        body: new URLSearchParams({}),
+        headers: { accept: "application/json" },
       }),
       env,
     );
-    // No piece_ids and no mode → handler redirects without throwing.
-    expect(res.status).toBe(302);
+    // No operator → 401 JSON, never an HTML page the poller cannot read.
+    expect(asJson.status).toBe(401);
+    expect(asJson.headers.get("content-type") ?? "").toContain("application/json");
   });
 
   it("/op/feed/upload POST still works (zip path, action endpoint kept)", async () => {
