@@ -20,7 +20,9 @@
 # THE PRIMARY PRODUCT — the record
 
 > **`docs/the-record.md` is the product definition; `docs/HANDOFF.md` is where
-> the build stands.** This file is the engineering source of truth and is
+> the build stands; `docs/DESIGN-BRIEF.md` is the briefing for the redesign;
+> `CHANGELOG.md` says what changed when; `docs/README.md` says which
+> documents are current and which are history.** This file is the engineering source of truth and is
 > being brought into line with them (2026-09-24).
 
 **A research record that compounds — a mind you can cite.** Drop a `.md`,
@@ -311,7 +313,7 @@ workflow; the sandbox cannot.
   half-working.
 - **The graph is real, not scaffolding.** Measured live 2026-09-14:
   **13,075 nodes · 18,774 edges · 6,137 verified quotes · 1,902 assertions**
-  over 116 pieces. `docs/canopticon-renovation.md` says it "has never eaten a
+  over 116 pieces. `docs/archive/canopticon-renovation.md` says it "has never eaten a
   real corpus" and an earlier version of this file repeated that — both are
   out of date. The legacy flat tables (`entities`, `topics`, `claims`) are at
   zero; the typed graph is what carries content.

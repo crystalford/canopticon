@@ -4,7 +4,7 @@
 // THE RECORD shell (approved product design, design/the-record-mockup.html):
 // one dark register for everyone — the brand is the instrument. Nav is three
 // doors + the search affordance. The words on every public surface follow
-// the plain-words rule (docs/site-design.md): no internal vocabulary, every
+// the plain-words rule (docs/archive/site-design.md): no internal vocabulary, every
 // term self-explanatory to a first-time reader.
 //
 // Strict no-JS contract: nothing here requires JavaScript to read.

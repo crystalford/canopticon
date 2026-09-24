@@ -486,8 +486,8 @@ has to exist before the pipeline uses it.
 
 ## 11. What this is not
 
-- Not the dossier / "files on power" product in `docs/site-design.md` and
-  `docs/canopticon-renovation.md`. The graph stays as machinery under the
+- Not the dossier / "files on power" product in `docs/archive/site-design.md` and
+  `docs/archive/canopticon-renovation.md`. The graph stays as machinery under the
   documents; it is not a destination.
 - Not an analytics or SEO tool. An outside review read the site as a static
   blog and proposed building a rank-tracker; that is a different business.

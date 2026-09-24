@@ -13,7 +13,7 @@ was deliberately stopped.
 ## What actually happened
 
 The graph was built and, by the project's own assessment in
-`docs/canopticon-renovation.md`, "has never eaten a real corpus." The
+`docs/archive/canopticon-renovation.md`, "has never eaten a real corpus." The
 autonomous machinery was retired in stages — the expand sweep first (it
 published unreviewed research reports with a fabricated confidence badge),
 then reading auto-drafting, then the cron itself. What survived because it

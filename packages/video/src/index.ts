@@ -4,7 +4,7 @@
 // cast → promote) that used to drive this Worker has been CUT — a
 // fully separate "what's newsworthy today" engine, its own database,
 // zero connection to the publication's typed graph. See CLAUDE.md's
-// "Two other Workers exist" section and docs/canopticon-renovation.md
+// "Two other Workers exist" section and docs/archive/canopticon-renovation.md
 // for the full reasoning. routes/queue.ts now only carries what's
 // genuinely shared: the render-job review/approve/publish lifecycle,
 // kept because routes/from-reading.ts's reading-sourced segments
