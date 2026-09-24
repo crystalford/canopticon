@@ -1320,6 +1320,49 @@ export interface ResearchOutlineItem {
   quotesKilled?: number;
 }
 
+/**
+ * The finished brief, ready to be read on the workspace before it is
+ * published (docs/the-record.md §6: "Read the draft, then Publish"). This is
+ * what closes the loop on one screen: the document the run grew from, the
+ * question, every section with the quotes that survived and the quotes that
+ * were KILLED, the body, the gaps, and the two things the operator can do.
+ * Everything here is read from rows the run already wrote — nothing is
+ * composed at status time.
+ */
+export interface ResearchReviewSection {
+  heading: string;
+  bodyMd: string;
+  quotesOk: number;
+  quotesKilled: number;
+}
+
+export interface ResearchReview {
+  pieceId: string;
+  slug: string;
+  title: string;
+  /** The question, verbatim (`pieces.origin`, falling back to the run label). */
+  question: string;
+  /** The document the run grew from (`pieces.parent_piece_id`), if any. */
+  parent: { id: string; slug: string; title: string } | null;
+  mode: ResearchMode;
+  /** Per section for a sectioned brief; EMPTY for a single-call brief, whose
+   *  whole is `bodyMd` and whose counts are the totals. */
+  sections: ResearchReviewSection[];
+  bodyMd: string;
+  /** The assembled "What this brief could not establish" block, as Markdown,
+   *  when the body carries one; null when the writer produced none. */
+  gapsMd: string | null;
+  quotesOk: number;
+  quotesKilled: number;
+  /** The writer, in words: which model wrote this brief. */
+  writer: string;
+  /** True once the operator has published it; `url` is then its public page. */
+  published: boolean;
+  url: string | null;
+  publishUrl: string;
+  downloadUrl: string;
+}
+
 export interface ResearchStatus {
   terminal: boolean;
   warn: boolean;
@@ -1360,9 +1403,135 @@ export interface ResearchStatus {
   writer?: string | null;
   /** The finished draft, once there is one. */
   draft?: { title: string; slug: string; reviewUrl: string };
+  /** The finished brief, read in full, with its counts and its two actions.
+   *  Present only on a done run whose piece still exists. */
+  review?: ResearchReview;
   headline: string;
   steps: ResearchStep[];
   reviewUrl?: string;
+}
+
+/** The heading assembleBrief() writes the gaps under. Split out of the body
+ *  for the review so the operator sees what the brief admits it could not
+ *  establish before deciding to publish it. */
+const GAPS_HEADING = "## What this brief could not establish";
+
+/** Split the assembled body into the prose and its gaps block. A single-call
+ *  brief, or one the writer left without a gaps block, has null gaps and the
+ *  whole body as prose. */
+export function splitGaps(bodyMd: string): { bodyMd: string; gapsMd: string | null } {
+  const at = bodyMd.indexOf(`\n${GAPS_HEADING}`);
+  if (at < 0) return { bodyMd, gapsMd: null };
+  const rest = bodyMd.slice(at + 1);
+  // The gaps block runs to the next "## " heading or the end of the body.
+  const next = rest.indexOf("\n## ", GAPS_HEADING.length);
+  const gaps = next < 0 ? rest : rest.slice(0, next);
+  const body = `${bodyMd.slice(0, at)}${next < 0 ? "" : rest.slice(next)}`;
+  return {
+    bodyMd: body.trim(),
+    gapsMd: gaps.slice(GAPS_HEADING.length).trim() || null,
+  };
+}
+
+/** Which model wrote a run, in words. resolveWriter throws when a run asked
+ *  for Claude and cannot have it — that run never wrote anything, so a name
+ *  by request is the honest fallback here, never a guess at a model id. */
+export function writerName(env: Env, writer: string | null): string {
+  try {
+    const w = resolveWriter(env, writer);
+    return w.model;
+  } catch {
+    return writer === "anthropic"
+      ? "Claude"
+      : writer === "workers_ai"
+        ? "Workers AI"
+        : "the default writer";
+  }
+}
+
+/**
+ * The finished brief, read from its `pieces` row — plus the parent document
+ * it grew from and the per-section receipt the run kept in `sections_done`.
+ * Null when the piece is gone (discarded), so the status says "draft ready"
+ * with nothing under it rather than inventing one.
+ */
+export async function loadResearchReview(
+  env: Env,
+  userId: string,
+  args: {
+    pieceId: string;
+    label: string;
+    mode: string | null;
+    sections: DoneSection[];
+    writer: string | null;
+  },
+): Promise<ResearchReview | null> {
+  const piece = await one<{
+    id: string;
+    slug: string;
+    title: string;
+    body_md: string | null;
+    publication_status: string;
+    parent_piece_id: string | null;
+    origin: string | null;
+    metadata: string | null;
+  }>(
+    env.DB,
+    `SELECT id, slug, title, body_md, publication_status, parent_piece_id, origin, metadata
+       FROM pieces WHERE id = ? AND user_id = ?`,
+    [args.pieceId, userId],
+  );
+  if (!piece) return null;
+  const parent = piece.parent_piece_id
+    ? await one<{ id: string; slug: string; title: string }>(
+        env.DB,
+        "SELECT id, slug, title FROM pieces WHERE id = ? AND user_id = ?",
+        [piece.parent_piece_id, userId],
+      ).catch(() => null)
+    : null;
+  const meta = (safeParseJson(piece.metadata ?? "{}") ?? {}) as {
+    mode?: string;
+    quotes_ok?: number;
+    quotes_killed?: number;
+  };
+  const mode: ResearchMode = (meta.mode ?? args.mode) === "sectioned" ? "sectioned" : "single";
+  const sections: ResearchReviewSection[] =
+    mode === "sectioned"
+      ? args.sections.map((x) => ({
+          heading: x.heading,
+          bodyMd: x.body_md,
+          quotesOk: x.quotes_ok,
+          quotesKilled: x.quotes_killed,
+        }))
+      : [];
+  const quotesOk =
+    typeof meta.quotes_ok === "number"
+      ? meta.quotes_ok
+      : sections.reduce((n, x) => n + x.quotesOk, 0);
+  const quotesKilled =
+    typeof meta.quotes_killed === "number"
+      ? meta.quotes_killed
+      : sections.reduce((n, x) => n + x.quotesKilled, 0);
+  const split = splitGaps(piece.body_md ?? "");
+  const published = piece.publication_status === "published";
+  return {
+    pieceId: piece.id,
+    slug: piece.slug,
+    title: piece.title,
+    question: piece.origin || args.label,
+    parent: parent ?? null,
+    mode,
+    sections,
+    bodyMd: split.bodyMd,
+    gapsMd: split.gapsMd,
+    quotesOk,
+    quotesKilled,
+    writer: writerName(env, args.writer),
+    published,
+    url: published ? `/p/${piece.slug}` : null,
+    publishUrl: `/op/library/research/${piece.id}/publish`,
+    downloadUrl: `/op/library/research/${piece.id}/brief.md`,
+  };
 }
 
 /** The richer status researchOnDemand's callers poll — getExpandStatus
@@ -1707,12 +1876,22 @@ export async function getResearchStatus(
 
     if (runRow.status === "done" && runRow.final_piece_id) {
       steps.push({ label: "Write a synthesis", state: "done", detail: "draft ready" });
+      const review = await loadResearchReview(env, userId, {
+        pieceId: runRow.final_piece_id,
+        label,
+        mode: runRow.mode ?? null,
+        sections: sectionsDone,
+        writer: runRow.writer ?? null,
+      }).catch(() => null);
       return {
         terminal: true,
         warn: false,
-        headline: "Draft brief ready — review it before it can publish.",
+        headline: review?.published
+          ? "Published. This brief is in the record."
+          : "Draft brief ready — read it below, then publish it or take the file.",
         steps,
         reviewUrl: `/op/library/research/${runRow.final_piece_id}/review`,
+        ...(review ? { review } : {}),
         ...material,
       };
     }

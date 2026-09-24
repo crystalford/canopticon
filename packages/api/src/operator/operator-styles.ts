@@ -675,24 +675,6 @@ svg { flex-shrink: 0; max-width: 100%; }
 }
 
 /* ========================================================================
-   COMMAND PALETTE
-   ======================================================================== */
-.cmdk-scrim { position: fixed; inset: 0; background: rgba(6,7,9,.62); backdrop-filter: blur(2px); z-index: 80; display: flex; align-items: flex-start; justify-content: center; padding-top: 14vh; animation: fadein .12s; }
-.cmdk { width: 560px; max-width: 92vw; background: var(--raised-2); border: 1px solid var(--rule-bright); border-radius: var(--r-lg); box-shadow: 0 30px 80px rgba(0,0,0,.6); overflow: hidden; animation: risein .16s ease; }
-.cmdk-input { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-4) var(--s-4); border-bottom: 1px solid var(--rule); }
-.cmdk-input svg { width: 16px; height: 16px; color: var(--mute); }
-.cmdk-input input { flex: 1; background: none; border: none; outline: none; font-size: var(--t-3); color: var(--ink); }
-.cmdk-input input::placeholder { color: var(--mute); }
-.cmdk-list { padding: var(--s-2); max-height: 320px; overflow-y: auto; }
-.cmdk-sec { font-family: var(--mono); font-size: var(--t-1); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); padding: var(--s-2) var(--s-3) var(--s-1); }
-.cmdk-row { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) var(--s-3); border-radius: var(--r-lg); transition: background .1s; width: 100%; text-align: left; }
-.cmdk-row.sel, .cmdk-row:hover { background: var(--panel); }
-.cmdk-row .cr-ico { width: 15px; height: 15px; color: var(--ink-3); flex-shrink: 0; }
-.cmdk-row.sel .cr-ico { color: var(--amber); }
-.cmdk-row .cr-label { font-size: var(--t-2); color: var(--ink-2); flex: 1; }
-.cmdk-row .cr-hint { font-family: var(--mono); font-size: var(--t-1); color: var(--faint); }
-
-/* ========================================================================
    PRODUCTION
    ======================================================================== */
 .prod-stages { display: flex; align-items: center; gap: var(--s-2); margin-bottom: var(--s-5); padding-bottom: var(--s-4); border-bottom: 1px solid var(--rule); }
@@ -1206,6 +1188,38 @@ svg { flex-shrink: 0; max-width: 100%; }
   font-family: var(--serif); font-size: var(--t-2); line-height: 1.55; color: var(--ink-mute);
   margin: 0;
 }
+/* THE REVIEW — the finished brief on the workspace, before it is published.
+   The killed count is the one number that decides whether to press Publish,
+   so it is the publication's correction red, here as on /library. The body is
+   read at a reading measure in the reading face; the counts stay in mono. */
+.rw-review .lead-ans-disc, .rw-outline .lead-ans-disc { color: var(--correction); font-family: var(--mono); }
+.rw-review-body { padding: var(--s-5) var(--s-6); display: flex; flex-direction: column; gap: var(--s-4); }
+.rw-review-title { font-size: var(--t-5); line-height: 1.2; letter-spacing: -0.015em; margin: 0; color: var(--ink); }
+.rw-review-from, .rw-review-q, .rw-review-total, .rw-review-writer, .rw-review-published {
+  margin: 0; font-family: var(--mono); font-size: var(--t-1); color: var(--ink-mute);
+}
+.rw-review-from a, .rw-review-published a { color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; }
+.rw-review-from a:hover, .rw-review-published a:hover { color: var(--accent); }
+.rw-review-q { font-family: var(--serif); font-size: var(--t-3); font-style: italic; color: var(--ink-2); }
+.rw-review-sections { margin: 0 calc(-1 * var(--s-6)); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.rw-review-total .rw-src-meta, .rw-review-total .lead-ans-disc, .rw-review-sections .lead-ans-disc { display: inline; margin: 0; }
+.rw-review-prose, .rw-review-gaps .prose {
+  font-family: var(--serif); font-size: var(--t-3); line-height: 1.6; color: var(--ink);
+  max-width: 68ch;
+}
+.rw-review-prose p, .rw-review-gaps p { margin: 0 0 1em; text-wrap: pretty; }
+.rw-review-prose h2, .rw-review-prose h3 { font-family: var(--sans); font-size: var(--t-3); font-weight: 600; margin: 1.6em 0 .5em; color: var(--ink); }
+.rw-review-prose ul, .rw-review-prose ol, .rw-review-gaps ul { padding-left: 1.4em; margin: 0 0 1em; }
+.rw-review-prose blockquote { margin: 0 0 1em; padding-left: var(--s-4); border-left: 2px solid var(--rule-bright); color: var(--ink-2); }
+.rw-review-prose a, .rw-review-gaps a { color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; }
+.rw-review-prose table { border-collapse: collapse; font-size: var(--t-2); margin: 0 0 1em; display: block; overflow-x: auto; }
+.rw-review-prose td, .rw-review-prose th { padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--rule); text-align: left; }
+.rw-review-gaps { border-top: 1px solid var(--rule); padding-top: var(--s-4); }
+.rw-review-gaps h3 { font-family: var(--mono); font-size: var(--t-1); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute); margin: 0 0 var(--s-3); font-weight: 500; }
+.rw-review-warn { display: block; margin: 0; font-size: var(--t-2); }
+.rw-review-actions { display: flex; gap: var(--s-3); flex-wrap: wrap; align-items: center; border-top: 1px solid var(--rule); padding-top: var(--s-4); }
+.rw-review-actions .rw-btn { width: auto; display: inline-block; }
+.rw-review-actions form { margin: 0; }
 
 @media (max-width: 900px) {
   .rw-grid { grid-template-columns: 1fr; gap: var(--s-5); }
@@ -1220,6 +1234,8 @@ svg { flex-shrink: 0; max-width: 100%; }
   .rw-step { grid-template-columns: 22px minmax(0,1fr); gap: var(--s-2); padding: var(--s-2) var(--s-4); }
   .rw-src { padding: var(--s-3) var(--s-4); }
   .rw-panel-h { padding: var(--s-3) var(--s-4); }
+  .rw-review-body { padding: var(--s-4); }
+  .rw-review-sections { margin: 0 calc(-1 * var(--s-4)); }
 }
 
 `;

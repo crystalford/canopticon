@@ -153,6 +153,77 @@ const RESEARCH_RUN = {
   created_at: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
 };
 
+// A FINISHED sectioned run (the review panel): three sections written, one
+// of them with a killed quote, assembled into a working-material brief that
+// grew from a document already in the fixture. This is the state in which
+// the loop closes — document → lead → research → brief → publish — and it
+// is the state that could not be photographed until this run existed.
+const REVIEW_LABEL =
+  "Does reprofiling explain the gap between the estimates and the starts series?";
+const REVIEW_SECTIONS_DONE = [
+  {
+    heading: "What the estimates call reprofiling",
+    body_md:
+      "The Main Estimates use *reprofiling* for money moved between fiscal years without a change in the authority to spend it. The two documents disagree on how much of the housing line this covers.\n\nOne reads it as a timing artefact; the other as a cut by another name.",
+    quotes_ok: 3,
+    quotes_killed: 0,
+  },
+  {
+    heading: "How the starts series is counted",
+    body_md:
+      "The starts series counts a start when the footing is poured, not when a unit is funded, so a reprofiled dollar shows up in it one to three quarters later — if it shows up at all.\n\nA figure the writer proposed for the lag was not found verbatim in any source and was dropped.",
+    quotes_ok: 1,
+    quotes_killed: 1,
+  },
+  {
+    heading: "Where the two series can be reconciled",
+    body_md:
+      "Only at the programme level. Neither document publishes a crosswalk, and the one that comes closest stops at the departmental total.",
+    quotes_ok: 2,
+    quotes_killed: 0,
+  },
+];
+const REVIEW_BRIEF_ID = "brief-reprofiling";
+const REVIEW_BRIEF = {
+  id: REVIEW_BRIEF_ID,
+  slug: "reprofiling-and-the-starts-gap",
+  title: "Reprofiling and the gap in the starts series",
+  body_md: [
+    "Reprofiling explains part of the gap, and the part it explains is the part that arrives late. The two documents measure different moments — the funded dollar and the poured footing — and neither publishes the crosswalk that would let a reader net one against the other.",
+    ...REVIEW_SECTIONS_DONE.map((x) => `## ${x.heading}\n\n${x.body_md}`),
+    "## What this brief could not establish\n\n- The size of the lag between a reprofiled dollar and a counted start.\n- Whether the estimates' housing line and the starts series use the same programme boundary.",
+  ].join("\n\n"),
+  publication_status: "working-material",
+  kind: "research-report",
+  byline: "Canopticon research agent",
+  parent_piece_id: "budget-2026-estimates",
+  origin: REVIEW_LABEL,
+  metadata: JSON.stringify({
+    ingested_from: "deep-research",
+    label: REVIEW_LABEL,
+    mode: "sectioned",
+    sections: REVIEW_SECTIONS_DONE.length,
+    quotes_ok: 6,
+    quotes_killed: 1,
+    source_id: "src-brief",
+  }),
+};
+const REVIEW_RUN = {
+  ...RESEARCH_RUN,
+  id: "run-2",
+  label: REVIEW_LABEL,
+  status: "done",
+  outline: JSON.stringify(
+    REVIEW_SECTIONS_DONE.map((x) => ({ heading: x.heading, brief_of_section: "", source_ids: [] })),
+  ),
+  sections_done: JSON.stringify(REVIEW_SECTIONS_DONE),
+  followup_queries: "[]",
+  followups_done: "[]",
+  final_piece_id: REVIEW_BRIEF_ID,
+  created_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+};
+const RESEARCH_RUNS = [RESEARCH_RUN, REVIEW_RUN];
+
 const RESEARCH_SOURCES: Array<[string, string, string, number]> = [
   [
     RESEARCH_LABEL,
@@ -550,6 +621,9 @@ const row = (slug: string, title: string, subtitle: string, kind: string, i: num
   argument_summary_md: null,
   created_at: `2026-0${(i % 9) + 1}-1${i % 9}T00:00:00.000Z`,
   updated_at: "2026-09-10T00:00:00.000Z",
+  // Migration 0063: when the operator last opened the document. Null is a
+  // real state ("never since the column existed") and resurface must handle it.
+  last_opened_at: i % 2 === 0 ? "2026-09-20T00:00:00.000Z" : null,
   body_chars: EXTRACTION.get(slug)?.body_chars ?? (kind === "essay" ? BODY : RESEARCH_BODY).length,
   topic: TOPIC_BY_SLUG.get(slug) ?? null,
   original_title: AUTO_TITLED.get(slug) ?? null,
@@ -560,6 +634,43 @@ const row = (slug: string, title: string, subtitle: string, kind: string, i: num
   parent_piece_id: LINEAGE.get(slug)?.parent ?? null,
   origin: LINEAGE.get(slug)?.origin ?? null,
 });
+
+// READINGS (docs/the-record.md §5c): the operator's notes on passages. Two
+// states must both photograph. The first two passages are verbatim in their
+// documents (one hard-wrapped, in a list item), so they render in the margin
+// beside the block; the third is NOT in the current text — the document was
+// replaced after the note — so the page must say so rather than pin the note
+// to the wrong paragraph.
+const READINGS = [
+  {
+    id: "rd-1",
+    piece_id: "the-logic-costume",
+    quote_id: "q-rd-1",
+    verbatim_text:
+      "Checking takes time; the signal is instant. A live audience cannot pause to verify a syllogism, so the performance is judged on affect.",
+    note_md:
+      "This is the whole mechanism in two sentences. Worth checking whether the **attention** literature has a name for it — the gap between signal and verification.",
+    created_at: "2026-09-22T10:00:00.000Z",
+  },
+  {
+    id: "rd-2",
+    piece_id: "the-logic-costume",
+    quote_id: "q-rd-2",
+    verbatim_text:
+      "The costume is a claim about method that the method itself would reject on inspection, and the audience never inspects.",
+    note_md: "Cut from the second draft, but the note still stands: who *does* inspect, and when?",
+    created_at: "2026-09-18T09:00:00.000Z",
+  },
+  {
+    id: "rd-3",
+    piece_id: "budget-2026-estimates",
+    quote_id: "q-rd-3",
+    verbatim_text:
+      "Percentages are computed from the unrounded source values, so they will not always reproduce exactly from the rounded columns shown above.",
+    note_md: "Ask for the unrounded table. The rounded one cannot be re-derived.",
+    created_at: "2026-09-23T14:00:00.000Z",
+  },
+];
 
 const ALL = [
   ...ESSAYS.map(([s, t, d], i) => row(s as string, t as string, d as string, "essay", i)),
@@ -577,7 +688,20 @@ function makeDb(): D1Database {
         return stmt;
       },
       async first() {
-        if (/FROM research_runs/i.test(sql)) return RESEARCH_RUN;
+        // getResearchStatus binds [userId, label]; the brief download binds
+        // [userId, final_piece_id]. Anything else gets the run in flight.
+        if (/FROM research_runs/i.test(sql)) {
+          return (
+            RESEARCH_RUNS.find((r) => r.label === bound[1] || r.final_piece_id === bound[1]) ??
+            RESEARCH_RUN
+          );
+        }
+        // The finished brief (loadResearchReview, the .md download) and the
+        // parent document it grew from, both by id.
+        if (/FROM pieces WHERE id = \?/i.test(sql)) {
+          if (bound[0] === REVIEW_BRIEF_ID) return REVIEW_BRIEF;
+          return ALL.find((p) => p.id === bound[0]) ?? null;
+        }
         if (/FROM nodes/i.test(sql) && /neutral_fact/i.test(sql)) return { n: 273 };
         if (/FROM users/i.test(sql)) return { id: "u1" };
         if (/FROM pieces WHERE user_id = \? AND slug = \?/i.test(sql)) {
@@ -625,6 +749,21 @@ function makeDb(): D1Database {
       async all() {
         // processingRows: every pipeline row for the operator.
         if (/FROM piece_processing/i.test(sql)) return { results: PROCESSING };
+        // Readings: as leads for the worklist (readingsAsLeads selects the
+        // piece's slug and title), or one document's (readingsForPiece binds
+        // the piece id second).
+        if (/FROM readings r/i.test(sql)) {
+          if (/piece_slug/i.test(sql)) {
+            return {
+              results: READINGS.map((r) => ({
+                ...r,
+                piece_slug: r.piece_id,
+                piece_title: ALL.find((p) => p.id === r.piece_id)?.title ?? null,
+              })),
+            };
+          }
+          return { results: READINGS.filter((r) => r.piece_id === bound[1]) };
+        }
         // Bridge leads (leads.ts bridgeLeads): label x topic across sections.
         if (/pa\.topic <> pb\.topic/i.test(sql)) return { results: BRIDGES };
         // Consolidation's link pairs (consolidation.ts): every (source,
@@ -789,7 +928,7 @@ function makeDb(): D1Database {
           return { results: RESEARCH_EVENTS };
         }
         if (/FROM research_runs/i.test(sql)) {
-          return { results: [RESEARCH_RUN] };
+          return { results: RESEARCH_RUNS };
         }
         // The run's extraction jobs. factsAdded is counted off these, not off
         // the event payload, so without them the workspace photographs
@@ -844,6 +983,10 @@ function makeDb(): D1Database {
         return { results: [] };
       },
       async run() {
+        // Every write is a no-op — including the UPDATE of pieces.last_opened_at
+        // that /p/<slug> fires for the operator after rendering (migration
+        // 0063). The fixture has nothing to update, and a write must never
+        // make a screenshot fail.
         return { results: [], meta: { changes: 0 } };
       },
     };
@@ -880,4 +1023,4 @@ export const FIXTURE = {
   researchSlug: RESEARCH[0]?.[0] as string,
 };
 
-export { env, ESSAYS, RESEARCH, ALL };
+export { env, ESSAYS, RESEARCH, ALL, REVIEW_LABEL };

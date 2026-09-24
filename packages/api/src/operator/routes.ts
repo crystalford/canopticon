@@ -128,7 +128,9 @@ app.post("/feed/upload", async (c) => {
           // skip a bad entry; keep ingesting the rest
         }
       }
-      return c.redirect(`/op/library?ingested=${pieceIds.length}&dupes=${zipDupes}`);
+      return c.redirect(
+        `/op/library?ingested=${pieceIds.length}&dupes=${zipDupes}&uploaded=${encodeURIComponent(pieceIds.slice(0, 5).join(","))}`,
+      );
     }
 
     // Single-file: store, publish, queue the pipeline. The drop is the
@@ -148,7 +150,9 @@ app.post("/feed/upload", async (c) => {
     } catch {
       // No execution context — the promise is already running.
     }
-    return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}`);
+    return c.redirect(
+      `/op/library?piece=${encodeURIComponent(p.pieceId)}&uploaded=${encodeURIComponent(p.pieceId)}`,
+    );
   } catch (err) {
     const message = (err as Error).message ?? "unknown error";
     // Durable breadcrumb: the failure path otherwise leaves nothing readable
@@ -1324,6 +1328,117 @@ app.post("/library/:id/replace", async (c) => {
 
   await enqueueProcessing(c.env, userId, pieceId, { restart: true });
   return c.redirect(`/library?replaced=1&readings_lost=${lost}`);
+});
+
+// ---- Ask the record ---------------------------------------------------------
+//
+// /search retrieves the passages; this makes the record ANSWER — at most four
+// sentences, from the documents those passages came out of, every quote
+// located verbatim or dropped and counted, frozen into a lead_answers row
+// under kind "question" (graph/lib/answer-question.ts). One press, one writer
+// call, nothing scheduled (standing rule 4); the row renders for every
+// reader on the search page for that question, and nothing calls a model to
+// render it (rule 5). Questions get no URL of their own — this redirects
+// back to /search, where the answer lives above the passages.
+app.post("/ask", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/search");
+  const form = await c.req.parseBody();
+  const q = typeof form.q === "string" ? form.q.replace(/\s+/g, " ").trim() : "";
+  if (!q) return c.redirect("/search");
+  // Same per-run writer as /leads/dig: ticked means Claude for THIS answer.
+  const writer = form.writer === "anthropic" ? "anthropic" : null;
+  const { answerQuestion } = await import("../graph/lib/answer-question");
+  const work = answerQuestion(c.env, userId, q, { writer }).catch(() => {});
+  try {
+    c.executionCtx.waitUntil(work);
+  } catch {
+    // No execution context (tests) — already running, just not kept alive.
+  }
+  return c.redirect(`/search?q=${encodeURIComponent(q)}&asked=1`);
+});
+
+// A MODEL-DRAFTED TETRAD from a document (docs/the-record.md §1b), CLEARLY
+// LABELLED as such, returned as a file and never stored — the same rule as
+// /readings/:id/draft-essay. graph/lib/draft-tetrad.ts asks the writer once,
+// checks the shape with parseTetrad and every quotation with locateVerbatim,
+// and says in the file what it found. form: optional `writer=anthropic`.
+app.post("/pieces/:id/draft-tetrad", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.text("No operator user", 401);
+  const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
+  const writer = form.writer === "anthropic" ? "anthropic" : null;
+  const { draftTetrad } = await import("../graph/lib/draft-tetrad");
+  const draft = await draftTetrad(c.env, userId, c.req.param("id"), { writer });
+  if (!draft.ok) return c.text(draft.reason, draft.reason === "no such document" ? 404 : 400);
+  return new Response(draft.markdown, {
+    headers: {
+      "content-type": "text/markdown; charset=utf-8",
+      "content-disposition": `attachment; filename="${draft.filename}"`,
+      "cache-control": "no-store",
+    },
+  });
+});
+
+// THE BRIEF AS A FILE. The other way out of the review panel on the research
+// workspace (public/render/research-workspace.ts): instead of publishing the
+// brief under the research agent's byline, the operator takes the Markdown,
+// rewrites it and uploads it as their own essay. The first line says which
+// model wrote it, from which question and which parent document — the same
+// label /readings/:id/draft-essay puts on its file — so a file on a disk
+// never loses its provenance. No model is called; the file is the row.
+// A GET, because it spends nothing and writes nothing.
+app.get("/library/research/:id/brief.md", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.text("No operator user", 401);
+  const row = await one<{
+    id: string;
+    slug: string;
+    title: string;
+    body_md: string | null;
+    publication_status: string;
+    parent_piece_id: string | null;
+    origin: string | null;
+  }>(
+    c.env.DB,
+    `SELECT id, slug, title, body_md, publication_status, parent_piece_id, origin
+       FROM pieces WHERE id = ? AND user_id = ?`,
+    [c.req.param("id"), userId],
+  );
+  if (!row) return c.text("No such brief", 404);
+  const parent = row.parent_piece_id
+    ? await one<{ slug: string; title: string }>(
+        c.env.DB,
+        "SELECT slug, title FROM pieces WHERE id = ? AND user_id = ?",
+        [row.parent_piece_id, userId],
+      ).catch(() => null)
+    : null;
+  const runRow = await one<{ writer: string | null }>(
+    c.env.DB,
+    "SELECT writer FROM research_runs WHERE user_id = ? AND final_piece_id = ? ORDER BY created_at DESC LIMIT 1",
+    [userId, row.id],
+  ).catch(() => null);
+  const { writerName } = await import("../graph/lib/deep-research");
+  const model = writerName(c.env, runRow?.writer ?? null);
+  const date = new Date().toISOString().slice(0, 10);
+  const question = row.origin?.trim() || row.title;
+  const from = parent
+    ? ` and the document "${parent.title}" (https://canopticon.com/p/${parent.slug})`
+    : "";
+  const state =
+    row.publication_status === "published"
+      ? `Published at https://canopticon.com/p/${row.slug}.`
+      : "Not published.";
+  const body = (row.body_md ?? "").trim();
+  const text = body.startsWith("# ") ? body : `# ${row.title}\n\n${body}`;
+  const file = `<!-- WRITTEN BY ${model} from the question "${question.replace(/"/g, "'")}"${from} on ${date}. ${state} Edit before uploading; the byline will be yours. -->\n\n${text}\n`;
+  return new Response(file, {
+    headers: {
+      "content-type": "text/markdown; charset=utf-8",
+      "content-disposition": `attachment; filename="brief-${row.slug}.md"`,
+      "cache-control": "no-store",
+    },
+  });
 });
 
 export default app;

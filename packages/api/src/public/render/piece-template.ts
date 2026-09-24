@@ -48,6 +48,7 @@ import {
 // it arrives as an uploaded file carrying tables, nested lists and
 // hard-wrapped prose, none of which the CMS renderer handles — which is what
 // made a research dossier render as a wall of text. See render/markdown.ts.
+import { markReadingPassages, placeReadings } from "./margin-readings";
 import { renderInlineMarkdown, renderMarkdown } from "./markdown";
 import { type CrossLinkSpan, spliceInline } from "./receipts";
 
@@ -339,7 +340,14 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
   // prose, and splicing them separately would let the second pass match inside
   // the markdown the first just wrote — a link nested in a link. Receipts win
   // any contested span (see spliceInline): proof before navigation.
-  const receipts = spliceInline(piece.body_md ?? "", ctx.findings ?? [], ctx.crosslinks ?? []);
+  // The operator's readings go first (margin-readings.ts): a marker at the
+  // end of each located passage, so the aside can be attached to the block
+  // that contains it once the body is HTML. Before receipts, because the
+  // marker must sit in the document's own text, not inside a link a receipt
+  // just wrote; the price is that a finding whose span runs across a
+  // reading's end is not linked, which is rare and silent.
+  const marked = markReadingPassages(piece.body_md ?? "", ctx.readings ?? []);
+  const receipts = spliceInline(marked.markdown, ctx.findings ?? [], ctx.crosslinks ?? []);
   const withReceipts = receipts.markdown;
   const sections = parseSections(withReceipts);
   const videoMeta = parseVideoMetadata(piece);
@@ -357,6 +365,14 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
 </details>`
     : renderBodyForKind(piece, sections, ctx, withReceipts);
 
+  // Each reading beside its passage (§5c: "rendered in the margin of the
+  // passage on wide screens, inline under it on narrow ones"). Whatever
+  // could not be placed keeps the block after the body, and says why.
+  const margin = placeReadings(bodyBlock, ctx.readings ?? [], (id) => {
+    const r = (ctx.readings ?? []).find((x) => x.id === id);
+    return r ? renderReadingAside(r, ctx) : "";
+  });
+
   // The rail sits OUTSIDE the reading card, not inside it. It was inside,
   // which meant 300px of sidebar came out of the document's own measure and
   // squeezed the prose to roughly 570px. The card now holds only the
@@ -369,8 +385,8 @@ ${renderPageHead(piece, ctx)}
 ${renderActionBar(piece, ctx)}
 ${renderLede(ctx.lede)}
 ${renderFindings(ctx.findings, receipts.placed)}
-${bodyBlock}
-${renderReadings(ctx)}
+${margin.html}
+${renderReadings(ctx, margin.placed)}
 ${renderNoteForm(piece, ctx)}
 ${renderLineage(ctx.lineage)}
 ${renderCiteBox(piece)}
@@ -429,6 +445,7 @@ ${ctx.isOperator ? '<script src="/op/notes.js" defer></script>' : ""}
     letter-spacing: .06em; text-transform: uppercase; background: var(--accent); color: #fff;
     border: 0; padding: 6px 10px; cursor: pointer; display: flex; gap: 1px; }
   .note-this button { font: inherit; color: inherit; background: none; border: 0; padding: 0 4px; cursor: pointer; }
+  .note-this[hidden] { display: none; }
   .op-bar { margin: 14px 0 6px; padding: 12px 14px; border: 1px solid var(--rule); font-family: var(--sans); font-size: 13px; }
   .op-bar .ow-h { margin-bottom: 8px; }
   .op-bar ul { list-style: none; margin: 0 0 10px; padding: 0; }
@@ -580,7 +597,11 @@ function renderPageHead(piece: PieceDetail, ctx: PieceCtx): string {
     reading ? `<span>${escapeHtml(reading)}</span>` : "",
     // The one trust signal the machine cannot supply. Said only when a
     // readings row exists; a document without one does not claim it.
-    ctx.readings?.length ? `<a href="#readings" class="read-by">Read by the operator</a>` : "",
+    // Points at the first reading, wherever it landed: beside its passage, or
+    // in the after-body block when the passage could not be found.
+    ctx.readings?.length
+      ? `<a href="#reading-${escapeAttr(ctx.readings[0]?.id ?? "")}" class="read-by">Read by the operator</a>`
+      : "",
   ].filter(Boolean);
   const dateLine = dateBits.length
     ? `<div class="coord" style="margin-top:18px;gap:12px;flex-wrap:wrap">${dateBits.join('<span class="sep">·</span>')}</div>`
@@ -692,25 +713,42 @@ function renderOnward(piece: PieceDetail, ctx: PieceCtx): string {
 
 // ---- readings and lineage ----------------------------------------------------
 
+/** The operator's affordances on a reading: delete, and draft an essay from it. */
+function readingOps(r: ReadingRow, ctx: PieceCtx): string {
+  if (!ctx.isOperator) return "";
+  return `<form method="post" action="/op/readings/${escapeAttr(r.id)}/delete"><button type="submit">delete</button></form><form method="post" action="/op/readings/${escapeAttr(r.id)}/draft-essay"><button type="submit">draft an essay from this</button></form>`;
+}
+
 /**
- * The operator's notes, each anchored to a passage that carries its own /q/
- * receipt. Placed after the body as one block rather than spliced into the
- * prose: the passage is linked, the reader can follow it, and nothing in the
- * document's own text is rewritten to make room.
+ * One reading, beside its passage (margin-readings.ts). The passage itself
+ * is not repeated — it is the block this aside sits next to — so the aside
+ * carries the note, the signature and the passage's own /q/ receipt.
  */
-function renderReadings(ctx: PieceCtx): string {
-  const readings = ctx.readings ?? [];
+function renderReadingAside(r: ReadingRow, ctx: PieceCtx): string {
+  return `<aside class="reading" id="reading-${escapeAttr(r.id)}">
+  <div class="note-body">${renderMarkdown(r.note_md, { anchors: false })}</div>
+  <div class="note-sig">— the operator, ${escapeHtml(formatDate(r.created_at))} <a href="/q/${escapeAttr(r.quote_id)}">receipt ↗</a>${readingOps(r, ctx)}</div>
+</aside>`;
+}
+
+/**
+ * The readings that could NOT be placed beside their passage: the passage is
+ * not verbatim in the current text (a document can be replaced after a note
+ * is written; lib/readings.ts re-anchors what it can and this is the rest),
+ * or its end fell in a heading. Rendered after the body as before, with the
+ * passage quoted and the gap stated (rule 6), never dropped. Empty when every
+ * reading landed in the margin.
+ */
+function renderReadings(ctx: PieceCtx, placed: Set<string>): string {
+  const readings = (ctx.readings ?? []).filter((r) => !placed.has(r.id));
   if (readings.length === 0) return "";
   const items = readings
     .map(
       (r) => `<div class="reading-note" id="reading-${escapeAttr(r.id)}">
   <blockquote><a href="/q/${escapeAttr(r.quote_id)}">${escapeHtml(r.verbatim_text)}</a></blockquote>
+  <p class="note-gap">Passage not found in the current text — the note is kept here, with its receipt.</p>
   <div class="note-body prose">${renderMarkdown(r.note_md, { anchors: false })}</div>
-  <div class="note-sig">— the operator, ${escapeHtml(formatDate(r.created_at))}${
-    ctx.isOperator
-      ? `<form method="post" action="/op/readings/${escapeAttr(r.id)}/delete"><button type="submit">delete</button></form><form method="post" action="/op/readings/${escapeAttr(r.id)}/draft-essay"><button type="submit">draft an essay from this</button></form>`
-      : ""
-  }</div>
+  <div class="note-sig">— the operator, ${escapeHtml(formatDate(r.created_at))}${readingOps(r, ctx)}</div>
 </div>`,
     )
     .join("\n");
@@ -777,6 +815,10 @@ function renderActionBar(piece: PieceDetail, ctx: PieceCtx): string {
     ${hidden("kind", "question")}${hidden("piece_id", piece.id)}${hidden("piece_slug", piece.slug)}
     <input type="text" name="seed" placeholder="Ask the record a question — the brief becomes this document's child" required>
     <button type="submit" class="lead-dig">Research →</button>
+  </form>
+  <form method="post" action="/op/pieces/${escapeAttr(piece.id)}/draft-tetrad" class="op-draft-tetrad" id="op-draft-tetrad">
+    <button type="submit" class="lead-dig">Draft a tetrad (labelled)</button>
+    <label class="lead-writer"><input type="checkbox" name="writer" value="anthropic"> with Claude</label>
   </form>
 </section>`;
 }

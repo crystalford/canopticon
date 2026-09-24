@@ -6,6 +6,12 @@
 
 import { describe, expect, it } from "vitest";
 import type { PublicEnv } from "../src/public/data";
+import {
+  markReadingPassages,
+  placeReadings,
+  readingMark,
+} from "../src/public/render/margin-readings";
+import { renderMarkdown } from "../src/public/render/markdown";
 import { renderPiece } from "../src/public/render/piece-template";
 
 const PIECE = {
@@ -101,14 +107,28 @@ describe("the document page — readings", () => {
     expect(html).not.toContain('"@type":"Comment"');
   });
 
-  it("renders a reading beside the passage's receipt and says so on the byline", async () => {
+  it("renders a reading in the margin of its passage and says so on the byline", async () => {
     const html = (await renderPiece(makeEnv({ readings: [READING] }), PIECE.slug)) ?? "";
     expect(html).toContain("Read by the operator");
-    expect(html).toContain('<section class="readings" id="readings">');
-    expect(html).toContain('id="reading-r1"');
+    expect(html).toContain('href="#reading-r1" class="read-by"');
+    // Beside the paragraph, not in a block after the body: the paragraph and
+    // its aside share one .annotated wrapper, and the aside comes AFTER it.
+    const wrap = html.slice(html.indexOf('<div class="annotated">'));
+    expect(wrap).toMatch(
+      /^<div class="annotated"><p>Provincial health spending grew 4\.8 percent[\s\S]*?<\/p><aside class="reading" id="reading-r1">/,
+    );
+    expect(html).not.toContain('id="readings"');
+    expect(html).not.toContain("Passage not found");
     expect(html).toContain('href="/q/q1"');
     expect(html).toContain("<strong>2023</strong>");
     expect(html).toContain("— the operator, ");
+    // The marker that placed it never reaches the reader.
+    expect(html).not.toContain("\uE000");
+    expect(html).not.toContain("\uE001");
+    // The reader page needs no script: the only <script> is the JSON-LD.
+    for (const m of html.matchAll(/<script\b[^>]*>/g)) {
+      expect(m[0]).toContain('type="application/ld+json"');
+    }
     // JSON-LD: a Comment about the Quotation, by the page's named Person.
     expect(html).toContain('"@type":"Comment"');
     expect(html).toContain('"about":{"@type":"Quotation"');
@@ -118,6 +138,29 @@ describe("the document page — readings", () => {
     expect(html).not.toContain("/op/notes.js");
     expect(html).not.toContain('id="note-form"');
     expect(html).not.toContain("/op/readings/r1/delete");
+  });
+
+  it("keeps a reading whose passage is not in the current text, and says so", async () => {
+    const lost = {
+      ...READING,
+      id: "r2",
+      quote_id: "q2",
+      verbatim_text:
+        "A sentence the document no longer contains, kept from an earlier version of it.",
+    };
+    const html = (await renderPiece(makeEnv({ readings: [READING, lost] }), PIECE.slug)) ?? "";
+    // r1 still lands in the margin; r2 takes the block after the body.
+    expect(html).toContain('<aside class="reading" id="reading-r1">');
+    expect(html).not.toContain('<aside class="reading" id="reading-r2">');
+    const block = html.slice(html.indexOf('<section class="readings" id="readings">'));
+    expect(block).toContain('id="reading-r2"');
+    expect(block).toContain("Passage not found in the current text");
+    expect(block).toContain('href="/q/q2"');
+    expect(block).not.toContain('id="reading-r1"');
+    // Both are still Comments in the structured data — placement changes
+    // nothing about what the page claims.
+    expect(html.match(/"@type":"Comment"/g)?.length).toBe(2);
+    expect(html).toContain('"url":"https://canopticon.com/q/q2"');
   });
 
   it("carries the note form, the script and delete only for the operator", async () => {
@@ -154,5 +197,87 @@ describe("the document page — lineage", () => {
   it("names the related list by subject, not by date", async () => {
     const html = (await renderPiece(makeEnv({}), PIECE.slug)) ?? "";
     expect(html).not.toContain("Keep exploring");
+  });
+});
+
+describe("margin-readings — placing an aside after the block that holds the passage", () => {
+  const aside = (id: string) => `<aside class="reading" id="reading-${id}">note</aside>`;
+
+  it("marks the end of a located passage and skips one it cannot find", () => {
+    const md = "First para.\n\nSecond para with the passage in it.\n";
+    const r = markReadingPassages(md, [
+      { id: "a", verbatim_text: "with the passage" },
+      { id: "b", verbatim_text: "not here at all" },
+    ]);
+    expect([...r.located]).toEqual(["a"]);
+    expect(r.markdown).toBe(
+      `First para.\n\nSecond para with the passage${readingMark("a")} in it.\n`,
+    );
+  });
+
+  it("is whitespace-tolerant across a hard wrap, like a receipt", () => {
+    const md = "Figures are as tabled, not as spent. Actuals\ndiverge from estimates.";
+    const r = markReadingPassages(md, [
+      { id: "a", verbatim_text: "Actuals diverge from estimates." },
+    ]);
+    expect(r.located.has("a")).toBe(true);
+  });
+
+  it("will not mark a passage that ends in a heading", () => {
+    const md = "## A heading with the passage\n\nBody.\n";
+    const r = markReadingPassages(md, [{ id: "a", verbatim_text: "heading with the passage" }]);
+    expect(r.located.size).toBe(0);
+    expect(r.markdown).toBe(md);
+  });
+
+  it("wraps a paragraph and puts the aside after it", () => {
+    const html = renderMarkdown(`One.\n\nTwo ${readingMark("a")}here.\n\nThree.`);
+    const out = placeReadings(html, [{ id: "a", verbatim_text: "" }], aside);
+    expect(out.placed.has("a")).toBe(true);
+    expect(out.html).toBe(
+      `<p>One.</p>\n<div class="annotated"><p>Two here.</p>${aside("a")}</div>\n<p>Three.</p>`,
+    );
+  });
+
+  it("wraps a list item's own text, inside the item, before any nested list", () => {
+    const html = renderMarkdown(`- Outer ${readingMark("a")}item\n  - nested\n- Second`);
+    const out = placeReadings(html, [{ id: "a", verbatim_text: "" }], aside);
+    expect(out.html).toBe(
+      `<ul><li><div class="annotated"><div class="annotated-text">Outer item</div>${aside("a")}</div><ul><li>nested</li></ul></li><li>Second</li></ul>`,
+    );
+  });
+
+  it("puts a reading on a table cell after the whole table", () => {
+    const html = renderMarkdown(
+      `| A | B |\n| --- | --- |\n| x ${readingMark("a")} | y |\n\nAfter.`,
+    );
+    const out = placeReadings(html, [{ id: "a", verbatim_text: "" }], aside);
+    expect(out.html).not.toContain("\uE000");
+    expect(out.html).toMatch(
+      /<\/table><\/div><aside class="reading" id="reading-a">note<\/aside>\n<p>After\.<\/p>$/,
+    );
+    expect(out.html).not.toContain("annotated");
+  });
+
+  it("puts two readings on one paragraph in one wrapper, in order", () => {
+    const html = renderMarkdown(`Alpha ${readingMark("a")}beta ${readingMark("b")}gamma.`);
+    const out = placeReadings(
+      html,
+      [
+        { id: "a", verbatim_text: "" },
+        { id: "b", verbatim_text: "" },
+      ],
+      aside,
+    );
+    expect(out.html).toBe(
+      `<div class="annotated"><p>Alpha beta gamma.</p>${aside("a")}${aside("b")}</div>`,
+    );
+  });
+
+  it("strips a marker for a reading the page does not know and reports it unplaced", () => {
+    const html = renderMarkdown(`Text ${readingMark("ghost")}here.`);
+    const out = placeReadings(html, [], aside);
+    expect(out.html).toBe("<p>Text here.</p>");
+    expect(out.placed.size).toBe(0);
   });
 });

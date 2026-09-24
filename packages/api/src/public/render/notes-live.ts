@@ -37,6 +37,11 @@ export const NOTES_LIVE_JS = `(function () {
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return "";
     var range = sel.getRangeAt(0);
     if (!article.contains(range.commonAncestorContainer)) return "";
+    // A note in the margin is the operator's text, not the document's: a
+    // selection inside one could never be verbatim, so it offers nothing.
+    var node = range.commonAncestorContainer;
+    var el = node.nodeType === 1 ? node : node.parentElement;
+    if (el && el.closest && el.closest("aside.reading")) return "";
     return sel.toString().replace(/\\s+/g, " ").trim();
   }
   function place() {

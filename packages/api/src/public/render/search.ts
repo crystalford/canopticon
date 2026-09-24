@@ -24,6 +24,7 @@
 // for results and empty state so `/search?q=` is a valid landing.
 
 import type { Env } from "../../env";
+import { type QuestionAnswer, storedAnswerForQuestion } from "../../graph/lib/answer-question";
 import { getAnswerPreview } from "../../graph/lib/answers-preview";
 import { type VectorMeta, rerankResults, searchVectors } from "../../graph/lib/embeddings";
 import { all, insertOne, one } from "../../lib/d1";
@@ -112,15 +113,106 @@ function renderPassages(passages: PassageHit[]): string {
     .join("")}</ol>`;
 }
 
+// ---- "From the record" — the record's own answer to the question ----------
+//
+// Frozen in a lead_answers row by answerQuestion (kind "question") when the
+// operator pressed "Ask the record"; rendered here for EVERY reader, above
+// the passages, with each quote linked to its document and its receipt. No
+// model runs to render it (standing rule 5), and a question gets no URL of
+// its own — this is the search page for it. The .lead-ans-* classes are the
+// ones /library uses for a lead's answer: same artifact, same look.
+
+function modelTag(a: QuestionAnswer): string {
+  if (!a.model) return "";
+  const short = a.model.replace(/^@cf\/[^/]+\//, "");
+  return ` <span class="lead-ans-model">${escapeHtml(short)}</span>`;
+}
+
+function discardLine(a: QuestionAnswer): string {
+  if (!a.discarded) return "";
+  return `<span class="lead-ans-disc">${a.discarded} proposed quote${
+    a.discarded === 1 ? "" : "s"
+  } failed the verbatim check and ${a.discarded === 1 ? "was" : "were"} dropped.</span>`;
+}
+
+export function renderStoredAnswer(query: string, a: QuestionAnswer | null): string {
+  if (!a || a.status === "failed") return "";
+  if (a.status === "nothing_found") {
+    return `<h2 class="search-h2">From the record</h2>
+<div class="lead-ans lead-ans-none search-answer">
+  <span class="lead-ans-k">The record does not settle this.${modelTag(a)}</span>
+  <p class="search-answer-q">${escapeHtml(query)}</p>
+  ${a.answer_md ? `<p>${escapeHtml(a.answer_md)}</p>` : ""}
+  ${discardLine(a)}
+</div>`;
+  }
+  const quotes = a.quotes
+    .map((q) => {
+      const doc = q.slug
+        ? `<a class="lead-ans-src" href="/p/${escapeAttr(q.slug)}">${escapeHtml(q.title ?? q.slug)}</a>`
+        : `<span class="lead-ans-src">${escapeHtml(q.title ?? "a stored document")}</span>`;
+      const receipt = q.quote_id
+        ? ` <a class="lead-ans-src search-passage-receipt" href="/q/${escapeAttr(q.quote_id)}">verified ↗</a>`
+        : "";
+      return `<li><span class="lead-ans-q">${escapeHtml(q.text)}</span>${doc}${receipt}</li>`;
+    })
+    .join("\n");
+  return `<h2 class="search-h2">From the record</h2>
+<div class="lead-ans search-answer">
+  <span class="lead-ans-k">In the record's own words${modelTag(a)}</span>
+  <p>${escapeHtml(a.answer_md ?? "")}</p>
+  <ul class="lead-ans-quotes">
+${quotes}
+  </ul>
+  ${discardLine(a)}
+</div>`;
+}
+
+/**
+ * The operator's two buttons: ask the record (one writer call, answered from
+ * the corpus, frozen in a row) or research it on the web (the existing
+ * /op/leads/dig free question, kind=question — a brief, which is a document).
+ * Anonymous readers never see either.
+ */
+function renderAskForms(query: string, answer: QuestionAnswer | null, asked: boolean): string {
+  const research = `<form class="search-ask-form" method="POST" action="/op/leads/dig">
+    <input type="hidden" name="kind" value="question">
+    <input type="hidden" name="seed" value="${escapeAttr(query)}">
+    <button type="submit" class="lead-dig">Research this on the web →</button>
+  </form>`;
+  if (asked && !answer) {
+    return `<div class="search-ask">
+  <p class="search-ask-wait">Answering… reload in a few seconds.</p>
+  ${research}
+</div>`;
+  }
+  const verb = answer ? "Ask the record again" : "Ask the record";
+  return `<div class="search-ask">
+  <form class="search-ask-form" method="POST" action="/op/ask">
+    <input type="hidden" name="q" value="${escapeAttr(query)}">
+    <button type="submit" class="lead-dig">${verb} →</button>
+    <label class="lead-writer"><input type="checkbox" name="writer" value="anthropic"> with Claude</label>
+  </form>
+  ${research}
+</div>`;
+}
+
 export async function renderSearchPage(
   env: Env,
   q: string,
-  opts: { isOperator?: boolean } = {},
+  opts: { isOperator?: boolean; asked?: boolean } = {},
 ): Promise<string> {
   const query = q.trim();
   const userId = await resolveOperatorId(env.DB);
   let resultsBlock = "";
   let summary = "";
+  let answerBlock = "";
+
+  if (query.length > 0 && userId) {
+    const stored = await storedAnswerForQuestion(env.DB, userId, query).catch(() => null);
+    answerBlock = renderStoredAnswer(query, stored);
+    if (opts.isOperator) answerBlock += renderAskForms(query, stored, opts.asked === true);
+  }
 
   if (query.length > 0 && userId) {
     // A wider net (25) than what's actually shown — cosine similarity is
@@ -231,6 +323,7 @@ export async function renderSearchPage(
     <button class="search-go" type="submit">Search</button>
   </form>
   <div class="search-summary">${summary}</div>
+  ${answerBlock}
   ${resultsBlock}
 </section>
 <style>
@@ -277,6 +370,13 @@ export async function renderSearchPage(
   .search-research-go { padding: 9px 16px; font-family: var(--mono); font-size: 12px;
     background: var(--ink); color: var(--paper); border: none; border-radius: 6px; cursor: pointer; }
   .search-research-go:hover { background: var(--accent-2); color: var(--paper); }
+  .search-answer { margin-bottom: 8px; }
+  .search-answer .lead-ans-quotes li { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+  .search-answer .lead-ans-q { flex: 1 1 100%; }
+  .search-answer-q { font-style: italic; }
+  .search-ask { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 8px 0 18px; }
+  .search-ask-form { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+  .search-ask-wait { font-family: var(--mono); font-size: 12px; color: var(--ink-3); margin: 0; }
 </style>`;
 
   return renderPage({

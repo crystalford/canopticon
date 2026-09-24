@@ -478,7 +478,28 @@ app.get("/p/:slug", async (c) => {
   const slug = raw;
   // Try the piece renderer first (original semantics).
   const html = await renderPiece(c.env, slug, { isOperator: c.get("is_operator") === true });
-  if (html) return htmlResponse(html);
+  if (html) {
+    // The "opened" signal resurface reads (migration 0063): the operator,
+    // signed in, looked at this document. After the render, off the critical
+    // path, never for a reader — and guarded, because c.executionCtx THROWS
+    // where there is no ExecutionContext (tests), and a page must never fail
+    // to serve because its bookkeeping could not run.
+    const operatorId = c.get("operator_id");
+    if (c.get("is_operator") === true && operatorId) {
+      try {
+        c.executionCtx.waitUntil(
+          c.env.DB.prepare("UPDATE pieces SET last_opened_at = ? WHERE slug = ? AND user_id = ?")
+            .bind(new Date().toISOString(), slug, operatorId)
+            .run()
+            .then(() => {})
+            .catch(() => {}),
+        );
+      } catch {
+        // No execution context — the page still serves.
+      }
+    }
+    return htmlResponse(html);
+  }
 
   // A retired slug. Every document published before migration 0052 had a
   // filename-with-a-UUID for a URL; /v1/admin/reslug renamed them and banked
@@ -755,9 +776,13 @@ app.get("/library", async (c) => {
   const published = c.req.query("published");
   const renamed = c.req.query("renamed");
   const queued = c.req.query("queued");
+  // The upload just made: POST /op/feed/upload redirects here carrying the
+  // new piece ids (comma-separated for a zip), and the page opens on them.
+  const uploaded = c.req.query("uploaded");
   return htmlResponse(
     await renderLibraryIndex(c.env, {
       isOperator: c.get("is_operator"),
+      ...(uploaded ? { uploaded } : {}),
       ...(ingested ? { ingested } : {}),
       ...(error ? { error } : {}),
       ...(importing ? { importing } : {}),
@@ -802,6 +827,7 @@ app.get("/search", async (c) => {
   return htmlResponse(
     await renderSearchPage(c.env, q, {
       isOperator: c.get("is_operator"),
+      asked: c.req.query("asked") === "1",
     }),
   );
 });

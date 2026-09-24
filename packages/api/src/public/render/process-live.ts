@@ -19,12 +19,16 @@ export const PROCESS_LIVE_JS = `<script>
 
   function paintRow(r) {
     if (!r || !r.piece_id || !r.status) return;
-    var cell = document.querySelector('[data-piece="' + r.piece_id + '"]');
-    if (!cell) return;
-    for (var i = 0; i < STATES.length; i++) cell.classList.remove(STATES[i]);
-    cell.classList.add("lib-st-" + r.status.state);
-    cell.textContent = r.status.text;
-    if (r.note) cell.setAttribute("title", r.note);
+    // Every cell for the row, not the first: the post-upload banner carries
+    // the same status cell as the table row beneath it, and both must move.
+    var cells = document.querySelectorAll('[data-piece="' + r.piece_id + '"]');
+    for (var c = 0; c < cells.length; c++) {
+      var cell = cells[c];
+      for (var i = 0; i < STATES.length; i++) cell.classList.remove(STATES[i]);
+      cell.classList.add("lib-st-" + r.status.state);
+      cell.textContent = r.status.text;
+      if (r.note) cell.setAttribute("title", r.note);
+    }
   }
 
   function paintQueue(remaining) {

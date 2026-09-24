@@ -119,6 +119,8 @@ export const STYLES_CSS = `/* ==================================================
   /* ---- Tweakable ------------------------------------------------------ */
   --measure: 68ch;
   --reading-width: var(--measure);
+  /* The note column beside the measure (readings in the margin, §5c). */
+  --margin-note: 148px;
 
   /* ---- The shell: ONE page width, ONE gutter -------------------------
      There were five. The nav, the trust strip and the footer centred on
@@ -1811,7 +1813,7 @@ a.plain:hover { color: var(--accent-2); }
 @media print {
   body { background: #fff; color: #111; }
   .nav, .pub-footer, .foot, .rail, .rail-kbd, .top-strip, .mode-toggle,
-  .op-aff, .expand-banner, form, button, .btn, .cmdk-scrim,
+  .op-aff, .expand-banner, form, button, .btn,
   .onward, .more-views { display: none !important; }
   a { color: inherit; text-decoration: underline; }
   .container, .subject-grid, .analysis, .prose, .md-body { max-width: 100% !important; }
@@ -2523,6 +2525,45 @@ section.lineage .origin { font-family: var(--mono); font-size: var(--t-1); color
 .reading-note .note-sig form { display: inline; }
 .reading-note .note-sig button { color: var(--ink-3); text-decoration: underline; text-underline-offset: 0.2em; }
 .reading-note .note-sig button:hover { color: var(--accent); }
+.reading-note .note-gap {
+  margin: 0 0 var(--s-2); font-family: var(--mono); font-size: var(--t-1); color: var(--correction, var(--accent));
+}
+
+/* ---- readings in the margin (docs/the-record.md §5c) ---------------------
+   margin-readings.ts wraps the block a reading is about in .annotated and
+   puts the aside after it. Narrow: the aside is inline under the block, an
+   accent rule on its left like a quotation. Wide: the wrapper becomes a
+   two-column grid whose second column hangs in the space to the right of the
+   68ch measure, so the note sits beside the passage and the row is as tall
+   as the taller of the two — consecutive notes never overlap. The space is
+   what the article has left over after the measure, so the note column only
+   opens at the full shell width; below it the note stays inline. */
+aside.reading {
+  margin: var(--s-3) 0 var(--s-4); padding: var(--s-1) 0 var(--s-1) var(--s-3);
+  border-left: 2px solid var(--accent);
+  font-family: var(--sans); font-size: var(--t-2); line-height: var(--lh-2); color: var(--ink-2);
+}
+aside.reading .note-body p { margin: 0 0 0.5em; font: inherit; color: inherit; }
+aside.reading .note-body p:last-child { margin-bottom: 0; }
+aside.reading .note-sig {
+  margin-top: var(--s-2); font-family: var(--mono); font-size: var(--t-1); color: var(--ink-mute);
+  display: flex; gap: var(--s-2) var(--s-3); align-items: baseline; flex-wrap: wrap;
+}
+aside.reading .note-sig a { color: var(--ink-2); text-decoration: underline solid var(--accent); text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+aside.reading .note-sig form { display: inline; }
+aside.reading .note-sig button {
+  font: inherit; color: var(--ink-3); background: none; border: 0; padding: 0; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 0.2em;
+}
+aside.reading .note-sig button:hover { color: var(--accent); }
+@media (min-width: 1180px) {
+  .annotated {
+    display: grid; grid-template-columns: minmax(0, 1fr) var(--margin-note); column-gap: var(--s-4);
+    align-items: start; margin-right: calc(-1 * (var(--margin-note) + var(--s-4)));
+  }
+  .annotated > aside.reading { grid-column: 2; margin: 0; padding-top: 0; padding-bottom: 0; }
+  .annotated > aside.reading + aside.reading { margin-top: var(--s-3); }
+}
 
 /* ============================================================================
    THE WORKBENCH — /library as an application
@@ -2640,6 +2681,19 @@ section.lineage .origin { font-family: var(--mono); font-size: var(--t-1); color
   background: var(--paper-2); color: var(--ink);
 }
 .op-banner-error { border-left-color: var(--st-failed); }
+/* JUST UPLOADED (investigations.ts renderUploadBanner): the new document(s)
+   at the top of the list, each with its link, the pipeline's status cell and,
+   once done, the row's consolidation line and leads — the same renderers as
+   the row beneath, in one more place. */
+.op-banner.uploaded { padding-bottom: var(--s-2); }
+.uploaded-k { font-family: var(--mono); font-size: var(--t-1); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: var(--s-2); }
+.uploaded-list { list-style: none; margin: 0; padding: 0; }
+.uploaded-doc { padding: var(--s-2) 0; border-top: 1px solid var(--rule); }
+.uploaded-doc:first-child { border-top: 0; padding-top: 0; }
+.uploaded-title { font-family: var(--sans); font-weight: 600; font-size: var(--t-3); color: var(--ink); text-decoration: none; }
+.uploaded-title:hover { color: var(--accent); }
+.uploaded-live { margin-left: var(--s-2); font-family: var(--mono); font-size: var(--t-1); color: var(--st-done); letter-spacing: 0.04em; }
+.uploaded-doc .lib-st { margin-top: var(--s-1); }
 
 /* The five-column table on a phone: each row a block, the secondary columns
    inline rather than under a header off the side of the screen. */

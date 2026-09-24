@@ -139,14 +139,14 @@ function makeDb(): D1Database {
 
 const env = { ANTHROPIC_API_KEY: "test", LOG_LEVEL: "error", SESSION_SECRET: SECRET, DB: makeDb() };
 
-async function operatorLibrary(): Promise<string> {
+async function operatorLibrary(query = ""): Promise<string> {
   const cookie = await signSession(
     { uid: "op1", exp: Math.floor(Date.now() / 1000) + 3600 },
     SECRET,
   );
   const cookieValue = buildSessionCookie(cookie).split(";")[0] as string;
   const res = await app.fetch(
-    new Request("http://test/library", { headers: { cookie: cookieValue } }),
+    new Request(`http://test/library${query}`, { headers: { cookie: cookieValue } }),
     env,
   );
   expect(res.status).toBe(200);
@@ -245,5 +245,47 @@ describe("renderLeads — the bridge block on its own", () => {
     expect(html).not.toContain("Dig here");
     expect(html).toContain('name="angle" value="why"');
     expect(html).toContain(`name="angle" value="${HAS_ANYONE_SAID_THIS_ANGLE}"`);
+  });
+});
+
+describe("/library — the post-upload banner", () => {
+  it("renders nothing without ?uploaded", async () => {
+    const html = await operatorLibrary();
+    expect(html).not.toContain('id="uploaded"');
+    expect(html).not.toContain("Just uploaded");
+  });
+
+  it("opens on the uploaded documents: live now, status, and what the record made of a done row", async () => {
+    const html = await operatorLibrary("?uploaded=done-doc,fresh-doc,no-such-id");
+    const banner = html.slice(html.indexOf('id="uploaded"'), html.indexOf('id="lib-queue"'));
+    expect(banner).toContain("Just uploaded");
+    // At the top of the document list: after its header, before the table.
+    expect(html.indexOf('id="uploaded"')).toBeGreaterThan(html.indexOf('id="documents"'));
+    expect(html.indexOf('id="uploaded"')).toBeLessThan(html.indexOf('class="lib-table"'));
+    // The processed one: title → /p/, live, Processed, the consolidation line.
+    const done = banner.slice(banner.indexOf('data-uploaded="done-doc"'), banner.indexOf("</li>"));
+    expect(done).toContain('href="/p/done-doc" class="uploaded-title">A Processed Document</a>');
+    expect(done).toContain("Published — live now");
+    expect(done).toContain('data-piece="done-doc"');
+    expect(done).toContain(">Processed<");
+    expect(done).toContain("Linked to 1 document · 1 bridge · 2 questions");
+    // The never-processed one: live, "Not processed", and no consolidation
+    // line — the record has not read it, so it has nothing to say yet.
+    const fresh = banner.slice(banner.indexOf('data-uploaded="fresh-doc"'));
+    expect(fresh).toContain('href="/p/fresh-doc"');
+    expect(fresh).toContain("Published — live now");
+    expect(fresh).toContain(">Not processed<");
+    expect(fresh).not.toContain("rcpt-consol");
+    // An id the library does not hold is skipped, not invented.
+    expect(banner).not.toContain("no-such-id");
+    // The row's own cell still renders too: the banner adds a place, not a copy
+    // of the truth — both carry data-piece so the poller repaints both.
+    expect(html.match(/data-piece="done-doc"/g)?.length).toBe(2);
+  });
+
+  it("caps a zip's banner at five titles", async () => {
+    const ids = ["done-doc", "fresh-doc", "child-doc", "done-doc", "fresh-doc", "child-doc"];
+    const html = await operatorLibrary(`?uploaded=${ids.join(",")}`);
+    expect(html.match(/data-uploaded=/g)?.length).toBe(5);
   });
 });

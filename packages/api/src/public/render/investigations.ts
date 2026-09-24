@@ -731,6 +731,54 @@ function renderResurfaced(r: ResurfacedPassage | null): string {
   </div>`;
 }
 
+/** A zip can make a hundred rows; the banner names the first few. */
+const UPLOAD_BANNER_MAX = 5;
+
+/**
+ * What just happened, where it happened. After an upload the operator lands
+ * here, and the page's first line about the new document(s) is: it is live
+ * at its URL (upload IS publication), the pipeline is at this step, and —
+ * when the pipeline has finished — this is what the record made of it.
+ *
+ * Each part is the SAME renderer the row below uses: the status cell carries
+ * the row's data-piece so the poller (process-live.ts) repaints both; the
+ * consolidation line is consolidationLine(); the leads are renderLeads(),
+ * and only appear once the row is done, because before that the record has
+ * not read the document. Nothing here is a second copy of a number.
+ */
+function renderUploadBanner(
+  uploaded: Array<{ id: string; slug: string; title: string }>,
+  ctx: {
+    procRows: Map<string, ProcessingRow>;
+    consolidation: Map<string, ConsolidationSummary>;
+    receipts: Map<string, IngestionReceipt>;
+    leadAnswers: Map<string, LeadAnswer>;
+  },
+): string {
+  if (!uploaded.length) return "";
+  const items = uploaded
+    .map((p) => {
+      const proc = ctx.procRows.get(p.id);
+      const done = proc?.status === "done";
+      const consol = done ? renderConsolidation(ctx.consolidation.get(p.id)) : "";
+      const leads = done ? (ctx.receipts.get(p.id)?.leads ?? []) : [];
+      const title = looksLikeMachineFilename(p.title) ? "Untitled research document" : p.title;
+      return `<li class="uploaded-doc" data-uploaded="${escapeAttr(p.id)}">
+  <a href="/p/${escapeAttr(p.slug)}" class="uploaded-title">${escapeHtml(title)}</a>
+  <span class="uploaded-live">Published — live now</span>
+  ${renderProcessingCell(p.id, proc)}
+  ${consol}${renderLeads(leads, ctx.leadAnswers)}
+</li>`;
+    })
+    .join("\n");
+  return `<section class="op-banner uploaded" id="uploaded" aria-label="Just uploaded">
+  <div class="uploaded-k">Just uploaded</div>
+  <ul class="uploaded-list">
+${items}
+  </ul>
+</section>`;
+}
+
 /**
  * The consolidation line under a processed row: how the document now sits in
  * the record. Only for a row the pipeline has finished — before that the
@@ -788,6 +836,11 @@ export async function renderLibraryIndex(
     renamed?: string;
     /** How many documents "Process everything" / Re-process just queued. */
     queued?: string;
+    /**
+     * The piece ids the upload just made, comma-separated, from the redirect
+     * POST /op/feed/upload issues. The page opens on them (renderUploadBanner).
+     */
+    uploaded?: string;
   } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
@@ -1118,6 +1171,28 @@ ${open
 </section>`
     : "";
 
+  // THE POST-UPLOAD BANNER: the document(s) just uploaded, at the top of the
+  // list, live now, with the pipeline's status and — once the row is done —
+  // how the record has taken them in. Everything it shows is already
+  // computed for the rows below; it is the same cell, the same line, the
+  // same buttons, in one more place.
+  const uploadedIds = opts.uploaded
+    ? opts.uploaded
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .slice(0, UPLOAD_BANNER_MAX)
+    : [];
+  const uploadedBanner =
+    opts.isOperator && uploadedIds.length
+      ? renderUploadBanner(
+          uploadedIds
+            .map((id) => pieces.find((p) => p.id === id))
+            .filter((p): p is (typeof pieces)[number] => !!p),
+          { procRows, consolidation, receipts, leadAnswers },
+        )
+      : "";
+
   const rows = pieces.length
     ? pieces
         .map((p) => {
@@ -1244,7 +1319,7 @@ ${open
 ${uploadBanner}
 ${opStrip}
 </section>
-<section class="wb-sec" id="documents">${sectionHeader(`All material (${pieces.length})`)}${queueLine}${table}</section>
+<section class="wb-sec" id="documents">${sectionHeader(`All material (${pieces.length})`)}${uploadedBanner}${queueLine}${table}</section>
 ${opts.isOperator ? renderWorklist(worklist, leadAnswers, resurfaced) : ""}
 ${queueBlock}
 </div>

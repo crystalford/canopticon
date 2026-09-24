@@ -1,7 +1,9 @@
 // RESURFACE (lib/resurface.ts): one verified passage a day from a document
 // the operator has not read lately. A query with a daily rotation — never a
 // count — so the pick is stable within a day and nothing appears when the
-// corpus has no candidate.
+// corpus has no candidate. "Lately" is pieces.last_opened_at (migration
+// 0063, set when the operator renders /p/<slug>), with updated_at standing in
+// for rows never opened since the column existed.
 
 import { describe, expect, it } from "vitest";
 import { MIN_RESURFACE_CHARS, dailyHash, resurfacePassage } from "../src/lib/resurface";
@@ -45,13 +47,13 @@ function makeDb(rows: Record<string, unknown>[]) {
   return { db, calls };
 }
 
-const row = (piece: string, quote: string, updated: string) => ({
+const row = (piece: string, quote: string, touched: string) => ({
   quote_id: quote,
   verbatim_text: LONG,
   piece_id: piece,
   piece_slug: piece,
   piece_title: `Document ${piece}`,
-  updated_at: updated,
+  last_touched: touched,
 });
 
 describe("resurfacePassage", () => {
@@ -66,18 +68,23 @@ describe("resurfacePassage", () => {
     const pick = await resurfacePassage(db, "u1", { days: 14, now });
     expect(pick?.quote_id).toBe("q1");
     expect(pick?.piece_slug).toBe("a");
+    expect(pick).not.toHaveProperty("last_touched");
     expect(pick).not.toHaveProperty("updated_at");
     const sql = calls[0]?.sql ?? "";
     expect(sql).toMatch(/pp\.status = 'done'/);
     expect(sql).toMatch(/publication_status = 'published'/);
     expect(sql).toMatch(/length\(q\.verbatim_text\) >= \?/);
     expect(sql).toMatch(/NOT EXISTS \(SELECT 1 FROM readings/);
-    expect(sql).toMatch(/ORDER BY p\.updated_at ASC/);
+    // The last LOOK, not the last write — and the write stands in only where
+    // no look has been recorded.
+    expect(sql).toMatch(/COALESCE\(p\.last_opened_at, p\.updated_at\) AS last_touched/);
+    expect(sql).toMatch(/ORDER BY COALESCE\(p\.last_opened_at, p\.updated_at\) ASC/);
+    expect(sql).not.toMatch(/ORDER BY p\.updated_at/);
     expect(calls[0]?.params).toEqual(["u1", MIN_RESURFACE_CHARS, "2026-09-10T12:00:00.000Z"]);
     expect(MIN_RESURFACE_CHARS).toBe(160);
   });
 
-  it("prefers the document updated least recently", async () => {
+  it("prefers the document opened least recently", async () => {
     const { db } = makeDb([
       row("old", "q-old", "2026-07-01T00:00:00Z"),
       row("new", "q-new", "2026-09-01T00:00:00Z"),

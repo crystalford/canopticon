@@ -94,6 +94,11 @@ export const RESEARCH_LIVE_JS = `<script>
   }
 
   function actions(s) {
+    if (s.review) {
+      return s.review.published
+        ? '<a class="rw-btn rw-btn-primary" href="' + esc(s.review.url || "#review") + '">Read it in the record \u2192</a>'
+        : '<a class="rw-btn rw-btn-primary" href="#review">Read the draft \u2193</a>';
+    }
     var review = (s.draft && s.draft.reviewUrl) || s.reviewUrl;
     if (review) {
       return '<a class="rw-btn rw-btn-primary" href="' + esc(review) + '">Read the draft \\u2192</a>';
@@ -110,6 +115,12 @@ export const RESEARCH_LIVE_JS = `<script>
   }
 
   function paint(s) {
+    // THE REVIEW is server-rendered, once. When a run this tab was watching
+    // finishes, the finished brief is on the server and not on this page, so
+    // the page is loaded again rather than composed a second time here — the
+    // same renderer, not a second one. A page that already shows the review
+    // is left alone.
+    if (s.review && !at("review")) { location.reload(); return; }
     var set = function (k, html) { var el = at(k); if (el) el.innerHTML = html; };
     set("state", state(s));
     set("plan", plan(s));

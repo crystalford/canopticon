@@ -62,6 +62,8 @@ const browser = await chromium.launch({
 
 const RESEARCH_Q = "What is the genuine white space in ad-serving and attribution?";
 const RESEARCH_URL = `/op/research?q=${encodeURIComponent(RESEARCH_Q)}`;
+const { REVIEW_LABEL } = await import("./fixture.mts");
+const REVIEW_URL = `/op/research?q=${encodeURIComponent(REVIEW_LABEL)}`;
 
 // The fourth slot: "operator" signs the request in; "optional" means the route
 // may not exist yet (another branch's work) — a 404 is logged and skipped, it
@@ -81,6 +83,12 @@ const SHOTS: Array<[string, string, number, ("operator" | "optional")?]> = [
   ["piece-auto", "/p/budget-2026-estimates", 1400],
   ["about", "/about", 1400],
   ["essays-mobile", "/essays", 390],
+  // THE SAME DOCUMENT, SIGNED IN: the action bar, the note form's script, and
+  // the operator's readings with their delete/draft buttons in the margin.
+  // The anonymous shot above proves the margin note renders for a reader;
+  // this one proves the operator's affordances sit beside it without
+  // breaking the column.
+  ["piece-operator", "/p/the-logic-costume", 1400, "operator"],
   ["piece-mobile", "/p/the-logic-costume", 390],
   // A research document on a phone. The essay above does not cover it: a
   // research body carries a wide pipe table, and a table is the one construct
@@ -92,12 +100,25 @@ const SHOTS: Array<[string, string, number, ("operator" | "optional")?]> = [
   // "is this working?" is the whole question — so it has to be looked at.
   ["research-workspace", RESEARCH_URL, 1400, "operator"],
   ["research-workspace-mobile", RESEARCH_URL, 390, "operator"],
+  // THE REVIEW: a finished run, its brief read on the workspace before it is
+  // published — the parent it grew from, the sections with one killed quote
+  // in red, the body, the gaps, Publish and Download. The state that closes
+  // the loop, and the one a "draft ready" headline used to hide.
+  ["research-review", REVIEW_URL, 1400, "operator"],
   // OPERATOR-ONLY. /library is where documents are uploaded and where the
   // ingestion receipt renders, and it 401s without a session — so until now
   // the only thing this tool could photograph was the signed-out page. An
   // operator surface nobody can see is an operator surface nobody checks.
   ["library", "/library", 1400, "operator"],
   ["library-mobile", "/library", 390, "operator"],
+  // JUST UPLOADED: the banner /op/feed/upload's redirect opens the page on —
+  // one processed row (consolidation line and leads) and one still queued.
+  [
+    "library-uploaded",
+    "/library?uploaded=budget-2026-estimates,transfer-payments-2025",
+    1400,
+    "operator",
+  ],
 ];
 
 // A signed operator cookie, so the operator shots above render the real
