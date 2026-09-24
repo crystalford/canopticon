@@ -10,6 +10,21 @@ import { fetchWithTimeout } from "../../lib/timeout";
 import { embedText, upsertVector, vectorId } from "./embeddings";
 
 const INLINE_TEXT_MAX = 8 * 1024; // 8KB head kept in D1; full text lives in R2
+const EXTRACT_TEXT_MAX = 200_000; // hard ceiling on extracted text, whatever the format
+
+// How the text in a sources row was obtained. Recorded in sources.metadata
+// so the ingestion receipt can say it: "text" means the bytes WERE the text
+// (md/txt/html, html stripped of tags); "to-markdown" means Workers AI's
+// document converter produced it from a PDF or DOCX.
+export type ExtractionMethod = "text" | "to-markdown";
+
+// MIME types Workers AI's toMarkdown converts for us. Images are deliberately
+// absent — see extractImage.
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const TO_MARKDOWN_MIMES: Record<string, "pdf" | "docx"> = {
+  "application/pdf": "pdf",
+  [DOCX_MIME]: "docx",
+};
 
 // Read the FULL extracted text for a source — the inline 8KB head plus the R2
 // overflow when the document was larger. Digestion uses this so claim/entity
@@ -68,22 +83,28 @@ export async function extractUpload(env: Env, fileId: string): Promise<ExtractRe
 
   let text = "";
   let summary = "";
+  let extraction_method: ExtractionMethod = "text";
 
   try {
     const obj = await env.FILES.get(file.r2_key);
     if (!obj) throw new Error(`R2 object missing: ${file.r2_key}`);
 
-    if (file.classification === "pdf") {
-      ({ text, summary } = await extractPdf(env, file.user_id, obj));
+    const binaryKind = binaryDocumentKind(file);
+    if (binaryKind) {
+      // PDF / DOCX: Workers AI converts the bytes to markdown, and from here
+      // on the result is treated exactly like an uploaded .md file.
+      text = (await extractViaToMarkdown(env, file, obj, binaryKind)).slice(0, EXTRACT_TEXT_MAX);
+      summary = text.slice(0, 300);
+      extraction_method = "to-markdown";
     } else if (file.classification === "image") {
       ({ text, summary } = await extractImage(env, file.user_id, obj));
     } else if (file.classification === "html") {
       const html = await obj.text();
-      text = stripHtml(html).slice(0, 200_000);
+      text = stripHtml(html).slice(0, EXTRACT_TEXT_MAX);
       summary = text.slice(0, 300);
     } else {
       // text / markdown / other plain
-      text = (await obj.text()).slice(0, 200_000);
+      text = (await obj.text()).slice(0, EXTRACT_TEXT_MAX);
       summary = text.slice(0, 300);
     }
 
@@ -95,7 +116,7 @@ export async function extractUpload(env: Env, fileId: string): Promise<ExtractRe
     // persistExtraction reads for sources.title changes.
     const derivedTitle = file.classification !== "html" ? extractTitleFromMarkdown(text) : null;
     const titledFile = derivedTitle ? { ...file, original_filename: derivedTitle } : file;
-    return await persistExtraction(env, titledFile, text, summary);
+    return await persistExtraction(env, titledFile, text, summary, { extraction_method });
   } catch (err) {
     await run(
       env.DB,
@@ -121,7 +142,7 @@ export async function extractUrl(env: Env, userId: string, url: string): Promise
   );
   if (!res.ok) throw new Error(`Fetch ${url} returned ${res.status}`);
   const body = await res.text();
-  const text = stripHtml(body).slice(0, 200_000);
+  const text = stripHtml(body).slice(0, EXTRACT_TEXT_MAX);
   const summary = text.slice(0, 300);
   const title = extractTitle(body) ?? url;
   const r2_key = `uploads/${userId}/${crypto.randomUUID()}-url.html`;
@@ -143,28 +164,94 @@ export async function extractUrl(env: Env, userId: string, url: string): Promise
     classification: "url",
     original_filename: title,
   };
-  return persistExtraction(env, file, text, summary, { url });
+  return persistExtraction(env, file, text, summary, { url, extraction_method: "text" });
+}
+
+// Is this upload a PDF or a DOCX? Decided from the MIME type first, then the
+// extension, then the upload route's own classification — the route only
+// classifies "pdf", so a .docx arrives classified "text" and would otherwise
+// be read as UTF-8 zip bytes.
+function binaryDocumentKind(file: UploadedFile): "pdf" | "docx" | null {
+  const mime = (file.mime ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
+  if (TO_MARKDOWN_MIMES[mime]) return TO_MARKDOWN_MIMES[mime];
+  const ext = (file.original_filename.split(".").pop() ?? "").toLowerCase();
+  if (ext === "pdf") return "pdf";
+  if (ext === "docx") return "docx";
+  if (file.classification === "pdf") return "pdf";
+  return null;
+}
+
+// The subset of Workers AI's Markdown Conversion we rely on. Typed locally so
+// this file does not depend on a particular @cloudflare/workers-types release
+// having it (the installed one does; older ones do not).
+interface ToMarkdownDocument {
+  name: string;
+  blob: Blob;
+}
+type ToMarkdownResult =
+  | { name: string; mimeType: string; format: "markdown"; tokens: number; data: string }
+  | { name: string; mimeType: string; format: "error"; error: string };
+interface ToMarkdownAi {
+  toMarkdown(files: ToMarkdownDocument[]): Promise<ToMarkdownResult[]>;
+  toMarkdown(file: ToMarkdownDocument): Promise<ToMarkdownResult>;
+}
+
+// PDF and DOCX go through Cloudflare's document converter
+// (`env.AI.toMarkdown`), which reads the actual bytes. This replaces the
+// 2026-07 fail-closed stub: the chat adapter never forwarded file bytes to a
+// model, so anything "extracted" from a PDF was invented. toMarkdown is a
+// parser, not a model — a PDF's text layer comes out as it was, and a PDF
+// with no text layer (a scan) comes out empty, which we refuse rather than
+// guess at.
+async function extractViaToMarkdown(
+  env: Env,
+  file: UploadedFile,
+  obj: R2ObjectBody,
+  kind: "pdf" | "docx",
+): Promise<string> {
+  const label = kind === "pdf" ? "PDF" : "DOCX";
+  const ai = env.AI as unknown as Partial<ToMarkdownAi>;
+  if (typeof ai.toMarkdown !== "function") {
+    throw new Error(
+      `${label} extraction is unavailable — the AI binding has no toMarkdown() on this deploy.`,
+    );
+  }
+  const mime = kind === "pdf" ? "application/pdf" : DOCX_MIME;
+  const blob = new Blob([await obj.arrayBuffer()], { type: mime });
+  const doc: ToMarkdownDocument = { name: file.original_filename || `upload.${kind}`, blob };
+
+  let results: ToMarkdownResult[];
+  try {
+    const out = await ai.toMarkdown([doc]);
+    results = Array.isArray(out) ? out : [out as ToMarkdownResult];
+  } catch (err) {
+    throw new Error(
+      `${label} conversion failed — Workers AI toMarkdown threw: ${(err as Error).message ?? String(err)}`,
+    );
+  }
+
+  const first = results[0];
+  if (!first) throw new Error(`${label} conversion returned nothing — no result for the file.`);
+  if (first.format === "error") {
+    throw new Error(`${label} conversion failed — converter reported: ${first.error}`);
+  }
+  const text = (first.data ?? "").trim();
+  if (text.length === 0) {
+    throw new Error(
+      kind === "pdf"
+        ? "PDF produced no text — scanned image without a text layer? Nothing was added to the record; provide a text export or an OCR'd copy."
+        : "DOCX produced no text — the document appears to be empty or image-only. Nothing was added to the record.",
+    );
+  }
+  return text;
 }
 
 // FAIL CLOSED (integrity fix, 2026-07): the Workers AI chat adapter
-// (llm/workers_ai.ts serializeContent) does NOT forward document/image
-// bytes to the model — it substitutes a placeholder string, so the model
-// fabricates text it never saw. For a forensic-record system that means a
-// PDF drop would produce a graph of invented "facts" with fake receipts.
-// Until real multimodal extraction is wired (Cloudflare `env.AI.toMarkdown`
-// for documents / a true vision model for images), we refuse rather than
+// (llm/workers_ai.ts serializeContent) does NOT forward image bytes to the
+// model — it substitutes a placeholder string, so the model fabricates text
+// it never saw. Until a true vision model is wired, we refuse rather than
 // fabricate. The upload is banked in R2 and marked failed with a clear,
 // operator-facing reason; nothing enters the graph.
-async function extractPdf(
-  _env: Env,
-  _userId: string,
-  _obj: R2ObjectBody,
-): Promise<{ text: string; summary: string }> {
-  throw new Error(
-    "PDF extraction is not yet supported — the model cannot read the file bytes, and we will not add invented text to the record. Paste the document text (or a .txt/.md/.html export) instead.",
-  );
-}
-
 async function extractImage(
   _env: Env,
   _userId: string,

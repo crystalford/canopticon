@@ -1,14 +1,27 @@
 // Top-level LLM entry point. Routes by provider and writes a cost_ledger
 // row when the caller passes `ledger: { user_id, operation_type }`.
+//
+// Three transports, one chokepoint:
+//   - workers_ai      free; the gate short-circuits to a $0 row.
+//   - claude_gateway  Claude via the AI binding + AI Gateway Unified Billing.
+//                     Billed to Cloudflare credits, not to a card the gate
+//                     can cap, so it takes the same $0-estimate short-circuit
+//                     as Workers AI; the row records the anthropic/… model
+//                     and, after the call, a list-price estimate labelled as
+//                     such in metadata.
+//   - anthropic       api.anthropic.com with ANTHROPIC_API_KEY; the full
+//                     whitelist gate applies.
 
 import { approvePaidOperation, recordActualCost } from "../cost/approve";
 import type { Env } from "../env";
 import { callAnthropic } from "./anthropic";
+import { callClaudeViaGateway } from "./claude-gateway";
 import type { LlmCallInput, LlmCallOutput, LlmStreamChunk } from "./types";
 import { callWorkersAi, streamWorkersAi } from "./workers_ai";
 
 export async function callLLM(env: Env, input: LlmCallInput): Promise<LlmCallOutput> {
-  // Pre-call cost gate. Workers AI short-circuits to a $0 row inside the gate.
+  // Pre-call cost gate. Workers AI and the Claude gateway short-circuit to a
+  // $0 row inside the gate (see the header); only the direct key is capped.
   let ledger_id: string | null = null;
   if (input.ledger) {
     const decision = await approvePaidOperation(env.DB, {
@@ -33,19 +46,32 @@ export async function callLLM(env: Env, input: LlmCallInput): Promise<LlmCallOut
   if (input.provider === "anthropic") {
     if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
     result = await callAnthropic(env.ANTHROPIC_API_KEY, input);
+  } else if (input.provider === "claude_gateway") {
+    result = await callClaudeViaGateway(env, input);
   } else {
     result = await callWorkersAi(env.AI, input);
   }
 
   if (ledger_id) {
-    await recordActualCost(env.DB, ledger_id, result.cost_cents, {
-      tokens_in: result.usage.input_tokens,
-      tokens_out: result.usage.output_tokens,
-      model: result.model,
-    });
+    await recordActualCost(env.DB, ledger_id, result.cost_cents, ledgerMetadata(result));
     result.cost_ledger_id = ledger_id;
   }
   return result;
+}
+
+/** The post-call ledger blob. For the gateway the cents are Anthropic's
+ *  list price for the reported tokens, not what Cloudflare debited — say so. */
+function ledgerMetadata(result: LlmCallOutput): Record<string, unknown> {
+  const meta: Record<string, unknown> = {
+    tokens_in: result.usage.input_tokens,
+    tokens_out: result.usage.output_tokens,
+    model: result.model,
+  };
+  if (result.provider === "claude_gateway") {
+    meta.billing = "cloudflare_ai_gateway_unified";
+    meta.cost_basis = "anthropic_list_price_estimate";
+  }
+  return meta;
 }
 
 /** Rough token estimate based on message size. ~4 chars/token. */
@@ -85,10 +111,14 @@ export async function streamLLM(
   }
 
   let result: LlmCallOutput;
-  if (input.provider === "anthropic") {
-    if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
-    // Anthropic streaming not yet wired; fall back to a single delta.
-    result = await callAnthropic(env.ANTHROPIC_API_KEY, input);
+  if (input.provider === "anthropic" || input.provider === "claude_gateway") {
+    // Neither Claude transport streams yet; fall back to a single delta.
+    if (input.provider === "anthropic") {
+      if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
+      result = await callAnthropic(env.ANTHROPIC_API_KEY, input);
+    } else {
+      result = await callClaudeViaGateway(env, input);
+    }
     if (result.text) onChunk({ delta: result.text });
     for (const tu of result.tool_uses) onChunk({ tool_use: tu });
     onChunk({
@@ -106,11 +136,7 @@ export async function streamLLM(
   }
 
   if (ledger_id) {
-    await recordActualCost(env.DB, ledger_id, result.cost_cents, {
-      tokens_in: result.usage.input_tokens,
-      tokens_out: result.usage.output_tokens,
-      model: result.model,
-    });
+    await recordActualCost(env.DB, ledger_id, result.cost_cents, ledgerMetadata(result));
     result.cost_ledger_id = ledger_id;
   }
   return result;

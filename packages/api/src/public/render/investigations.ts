@@ -8,7 +8,7 @@ import type { Lead } from "../../graph/lib/leads";
 import * as GATE from "../../lib/aeo";
 import { looksLikeMachineFilename, looksLikeWorkingTitle } from "../../lib/title";
 import { titleCandidates } from "../../lib/title-candidates";
-import { modelForRole } from "../../llm/router";
+import { modelForRole, modelInUse } from "../../llm/router";
 import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
@@ -318,6 +318,7 @@ const AEO_MODEL_SUGGESTIONS = [
 // page. Operator-only — a proposed question has no URL, so this is the one
 // place it can be seen and judged before it becomes public.
 function renderAtomReview(
+  env: PublicEnv,
   pieceId: string,
   atoms: { findings: number; questions: QuestionReview[] } | undefined,
   lede?: { verbatim_text: string; approved_at: string | null } | null,
@@ -333,7 +334,7 @@ function renderAtomReview(
   // something unnamed is a field you cannot reason about: you can't tell
   // whether you have already run this model, and "blank vs the one I typed"
   // is not a comparison you can describe afterwards.
-  const fallback = modelForRole("bulk_extraction").model;
+  const fallback = modelForRole("bulk_extraction", env).model;
   const options = [fallback, ...AEO_MODEL_SUGGESTIONS.filter((m) => m !== fallback)]
     .map((m) => `<option value="${escapeAttr(m)}">${m === fallback ? "default" : ""}</option>`)
     .join("");
@@ -784,8 +785,8 @@ export async function renderLibraryIndex(
     const dropzone = `<form method="POST" action="/op/feed/upload" enctype="multipart/form-data" id="feed-form" class="op-dropzone-form">
   <label class="op-dropzone" for="feed-file" id="op-dz-label">
     <div class="op-dz-1">Drop a document here, or click to choose</div>
-    <div class="op-dz-2">Markdown · plain text · PDF · a .zip of any of these</div>
-    <input type="file" id="feed-file" name="file" accept=".md,.txt,.pdf,.zip,text/markdown,text/plain,application/pdf,application/zip,application/x-zip-compressed" required style="display:none" />
+    <div class="op-dz-2">Markdown · plain text · PDF · Word · a .zip of any of these</div>
+    <input type="file" id="feed-file" name="file" accept=".md,.txt,.pdf,.docx,.zip,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip,application/x-zip-compressed" required style="display:none" />
   </label>
   <div class="op-dz-uploading" id="op-dz-uploading" hidden>Uploading — banking into the Library. You can leave this page.</div>
 </form>
@@ -1078,9 +1079,15 @@ ${open
             ? `<a href="${href}" class="ac">${escapeHtml(displayTitle)}</a>${rawFilenameLine}`
             : `${escapeHtml(displayTitle)}${rawFilenameLine}`;
           const atoms = atomsByPiece.get(p.id);
+          // The fold's two buttons both need digestion to have run (they read
+          // the piece's source node), so it is shown only once a receipt
+          // exists. Before that it offered actions that could only fail with
+          // "run document extraction first".
           const atomBlock =
-            opts.isOperator && p.publication_status !== "working-material"
-              ? renderAtomReview(p.id, atoms, ledeByPiece.get(p.id))
+            opts.isOperator &&
+            p.publication_status !== "working-material" &&
+            receipts.get(p.id) !== undefined
+              ? renderAtomReview(env, p.id, atoms, ledeByPiece.get(p.id))
               : "";
           const receiptBlock = opts.isOperator
             ? renderReceipt(receipts.get(p.id), leadAnswers)
@@ -1122,6 +1129,15 @@ ${open
   // one page that exists to do a job. Per-document counts already live in
   // each row's receipt, where they answer a question somebody has.
 
+  // Which model does the reading. Named on the page rather than assumed:
+  // Claude through Cloudflare's AI Gateway when the gateway is configured,
+  // Workers AI otherwise — and "not configured" is said, never hidden behind a
+  // quiet downgrade (docs/the-record.md §3).
+  const inUse = modelInUse(env);
+  const modelLine = opts.isOperator
+    ? `<p class="lib-model${inUse.configured ? "" : " lib-model-fallback"}"><span class="label">Model</span> ${escapeHtml(inUse.label)}</p>`
+    : "";
+
   const body = `
 <header class="phead">
   <div class="eyebrow">The raw research</div>
@@ -1131,6 +1147,7 @@ ${open
     facts extracted, subjects it touched. Working material feeds the rest but
     doesn't get its own public page.
   </p>
+  ${modelLine}
 </header>
 ${uploadBanner}
 ${opStrip}
@@ -1158,6 +1175,9 @@ ${queueBlock}
     color: var(--ink-3);
     letter-spacing: .02em;
   }
+  .lib-model { font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); margin: 6px 0 0; }
+  .lib-model .label { letter-spacing: .12em; text-transform: uppercase; font-size: 11px; margin-right: 8px; }
+  .lib-model-fallback { color: var(--accent); }
   .lib-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-family: var(--serif); }
   .lib-table th { text-align: left; padding: 10px 14px 10px 0; border-bottom: 1px solid var(--rule); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
   .lib-table td { padding: 14px 14px 14px 0; border-bottom: 1px solid var(--rule-soft, var(--rule)); vertical-align: top; font-size: 15px; line-height: 1.4; }

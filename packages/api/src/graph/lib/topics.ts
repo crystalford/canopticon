@@ -80,7 +80,7 @@ export async function assignTopic(
   pieceId: string,
   opts: { model?: string } = {},
 ): Promise<{ topic: string | null; model: string }> {
-  const model = opts.model?.trim() || modelForRole("bulk_extraction").model;
+  const model = opts.model?.trim() || modelForRole("bulk_extraction", env).model;
   const piece = await one<{ body_md: string | null; title: string }>(
     env.DB,
     "SELECT body_md, title FROM pieces WHERE id = ? AND user_id = ?",
@@ -161,7 +161,7 @@ export async function assignTopics(
   userId: string,
   opts: { limit?: number; model?: string } = {},
 ): Promise<{ assigned: number; ungrouped: number; model: string }> {
-  const model = opts.model?.trim() || modelForRole("bulk_extraction").model;
+  const model = opts.model?.trim() || modelForRole("bulk_extraction", env).model;
   const pending = await untopicedPieces(env.DB, userId, opts.limit ?? 25);
   let assigned = 0;
   let ungrouped = 0;

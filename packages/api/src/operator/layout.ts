@@ -132,7 +132,6 @@ export function renderOpPage(args: OpPageArgs): string {
 </div>
 ${bootstrap}
 ${clientScript}
-<script type="module" src="/op/cmdk.js"></script>
 </body>
 </html>`;
 }

@@ -106,4 +106,17 @@ STUDIO_ENABLED = "false"
 # anything unwhitelisted by default; see cost/approve.ts). Meant to stay
 # "workers_ai" until deliberately turned on.
 RESEARCH_LLM_PROVIDER = "workers_ai"
+# Claude through this Worker's AI binding — Cloudflare AI Gateway with
+# Unified Billing (docs/the-record.md §3). Set AI_GATEWAY_ID to the name
+# of a gateway (dashboard: AI → AI Gateway) that has Unified Billing turned
+# on and credits loaded; the Worker then runs `anthropic/…` models through
+# `env.AI.run(model, body, { gateway: { id } })`, billed to those credits,
+# with no Anthropic key. Every judgement role in src/llm/router.ts prefers
+# Claude when this is set. Leave empty and every role stays on Workers AI;
+# the library header says "gateway not configured" rather than pretending.
+AI_GATEWAY_ID = ""
+# The exact model name the gateway lists. Empty means the default in
+# src/env.ts (DEFAULT_CLAUDE_MODEL, "anthropic/claude-opus-4.1"); the
+# dashboard's list is the authority — e.g. "anthropic/claude-sonnet-4.5".
+CLAUDE_MODEL = ""
 # deploy trigger: 2026-05-12

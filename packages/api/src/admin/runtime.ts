@@ -470,7 +470,11 @@ app.get("/research-runs", async (c) => {
 });
 
 // GET /v1/admin/corpus-split — read-only. What is actually in the corpus,
-// grouped so the two populations are visible before anything acts on them.
+// grouped so the three populations are visible before anything acts on them:
+// the operator's own uploads, the crawler's banked pages (legacy rows only —
+// since migration 0059 a fetched page is a `sources` row and never a piece,
+// so this count only ever goes down), and the research pipeline's own briefs.
+// `banked_sources` is where fetched pages live now.
 app.get("/corpus-split", async (c) => {
   const userId = c.get("user_id");
   const groups = await all<{
@@ -501,11 +505,26 @@ app.get("/corpus-split", async (c) => {
     `SELECT COUNT(*) AS n FROM pieces WHERE user_id = ? AND ${WEB_FETCHED_SQL}`,
     [userId],
   );
+  const deepResearch = await one<{ n: number }>(
+    c.env.DB,
+    `SELECT COUNT(*) AS n FROM pieces WHERE user_id = ? AND ${DEEP_RESEARCH_SQL}`,
+    [userId],
+  ).catch(() => null);
+  const bankedSources = await one<{ n: number }>(
+    c.env.DB,
+    "SELECT COUNT(*) AS n FROM sources WHERE user_id = ? AND ingested_via = 'record-expand'",
+    [userId],
+  ).catch(() => null);
   return c.json({
     ok: true,
     groups,
     own_uploads: { count: own.length, pieces: own },
-    web_fetched: { count: webFetched?.n ?? 0 },
+    web_fetched: {
+      count: webFetched?.n ?? 0,
+      note: "legacy pieces rows only; fetched pages are sources since migration 0059",
+    },
+    deep_research: { count: deepResearch?.n ?? 0 },
+    banked_sources: { count: bankedSources?.n ?? 0 },
   });
 });
 
@@ -789,6 +808,14 @@ app.get("/publish-uploads", async (c) => {
 //
 // NOT REVERSIBLE. The R2 objects and uploaded_files rows survive, but the
 // extracted graph is not rebuildable without re-fetching the original URLs.
+//
+// Since migration 0059 nothing creates rows this matches: expandRecord banks
+// a fetched page as a `sources` row only. This endpoint drains what is left
+// from before. A research run that banked before 0059 still references these
+// pieces by id (pass1_piece_ids / pass2_piece_ids); purging them makes that
+// run's synthesis fail with "banked pieces no longer found (purged) — start a
+// new run", a stated reason rather than a crash (deep-research.ts,
+// loadBankedSources).
 app.get("/purge-web-fetched", async (c) => {
   if (c.req.query("confirm") !== "1") {
     return c.json({ ok: false, error: "missing ?confirm=1" }, 400);

@@ -11,6 +11,20 @@ export interface Env {
   // every role.
   ANTHROPIC_API_KEY: string;
 
+  // Cloudflare AI Gateway with Unified Billing — the preferred way to run
+  // Claude. When set, `env.AI.run("anthropic/<model>", …, { gateway: { id } })`
+  // bills prepaid Cloudflare credits: no Anthropic account, no key in the
+  // Worker. Every judgement role in llm/router.ts prefers Claude through
+  // this gateway when it is configured (docs/the-record.md §3). Empty or
+  // unset means every role stays on Workers AI and the library header says
+  // so — nothing silently downgrades.
+  AI_GATEWAY_ID?: string;
+
+  // The exact `anthropic/…` model name the gateway lists. Defaults to
+  // DEFAULT_CLAUDE_MODEL below; only the operator can confirm the live
+  // name, so it is a var, not a constant.
+  CLAUDE_MODEL?: string;
+
   // The single operator's email — Cloudflare Access gates the operator
   // app to this email. Public site is unauthenticated for readers; the
   // operator is recognised on public URLs via a session cookie (see below).
@@ -88,3 +102,12 @@ export interface Env {
   // domain must also be verified with the provider or every send is rejected.
   RESEND_API_KEY?: string;
 }
+
+// The Claude model used through the AI Gateway when CLAUDE_MODEL is unset.
+// The operator sets the exact name the gateway's dashboard lists (the set
+// changes as Anthropic ships models — "anthropic/claude-opus-4.1",
+// "anthropic/claude-sonnet-4.5", "anthropic/claude-haiku-4.5" were the
+// names at the time of writing). Opus-tier on purpose: every step that runs
+// through it is a judgement, and docs/the-record.md §3 says the most
+// capable Claude the gateway lists.
+export const DEFAULT_CLAUDE_MODEL = "anthropic/claude-opus-4.1";

@@ -160,7 +160,7 @@ export async function extractAeoAtoms(
 ): Promise<AeoStats> {
   // The role's own model unless the operator picked one, and either way it is
   // recorded on every row this run writes — see migration 0051.
-  const model = opts.model?.trim() || modelForRole("bulk_extraction").model;
+  const model = opts.model?.trim() || modelForRole("bulk_extraction", env).model;
   const piece = await one<{ body_md: string; title: string }>(
     env.DB,
     "SELECT body_md, title FROM pieces WHERE id = ? AND user_id = ?",

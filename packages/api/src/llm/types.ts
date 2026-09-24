@@ -3,8 +3,16 @@
 // The shape is Anthropic-style internally (text/tool_use/tool_result
 // content blocks) because Anthropic is the more expressive of the two
 // providers and Workers AI maps cleanly onto it.
+//
+// Providers:
+//   - workers_ai      — env.AI.run() against Cloudflare's own catalog, free.
+//   - claude_gateway  — env.AI.run("anthropic/…") through an AI Gateway with
+//                       Unified Billing: Claude, billed to Cloudflare
+//                       credits, no Anthropic key. Text and JSON-in-text
+//                       only (llm/claude-gateway.ts).
+//   - anthropic       — api.anthropic.com directly with ANTHROPIC_API_KEY.
 
-export type LlmProvider = "workers_ai" | "anthropic";
+export type LlmProvider = "workers_ai" | "claude_gateway" | "anthropic";
 
 export type LlmRole = "system" | "user" | "assistant" | "tool";
 
@@ -38,7 +46,10 @@ export interface LlmCallInput {
   temperature?: number | undefined;
   top_p?: number | undefined;
   repetition_penalty?: number | undefined;
-  /** Request JSON output that matches this schema. Only honoured by Anthropic. */
+  /** Request JSON output that matches this schema. Anthropic honours it
+   *  natively; Workers AI passes it as response_format; the Claude gateway
+   *  asks for it in the prompt and parses the text (it rejects
+   *  output_config). */
   response_schema?: Record<string, unknown> | undefined;
   /** Workers AI Responses-API reasoning dial. Only the gpt-oss family
    *  honours this; other models silently ignore it. Spec v2.4 Part 16:

@@ -18,13 +18,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const BRIEF = `## Findings\n${"Something the sources support. ".repeat(12)}`;
 
 // One expand = one banked source. The real one fetches pages; what matters to
-// the state machine is only what it returns.
+// the state machine is only what it returns — and what it returns are
+// `sources` ids (migration 0059), never piece ids.
 const expandRecord = vi.fn(async (_env: unknown, _u: string, q: string) => ({
-  banked_piece_ids: [`src-${q.replace(/\W+/g, "-").slice(0, 12)}`],
-  searched: 1,
-  fetched: 1,
-  skipped: 0,
-  facts_added: 7,
+  banked_source_ids: [`src-${q.replace(/\W+/g, "-").slice(0, 12)}`],
+  rejected: [],
+  sources_rejected: 0,
+  sources_found: 1,
+  sources_fetched: 1,
+  sources_banked: 1,
+  sources_duplicate: 0,
+  errors: [],
 }));
 vi.mock("../src/graph/lib/record-builder", () => ({
   expandRecord,
@@ -62,13 +66,21 @@ function makeEnv() {
             const hit = [...runs.values()].find((r) => states.includes(r.status as string));
             return hit ?? null;
           }
-          // synthesizeBrief's source lookup — any banked id resolves.
-          if (/FROM pieces/i.test(sql)) return { title: "A source", body_md: "Body text." };
+          // synthesizeBrief's source lookup — any banked id resolves, and it
+          // is read from `sources`, not `pieces`.
+          if (/FROM sources/i.test(sql)) {
+            return { title: "A source", content_text: "Body text.", metadata: "{}" };
+          }
+          // persistBrief's slug probe on pieces is fine — the brief IS a
+          // piece. Only the legacy source read is forbidden for a new run.
+          if (/SELECT title, body_md FROM pieces/i.test(sql)) {
+            throw new Error("a new run must never read its sources from pieces");
+          }
           return null;
         },
         async all() {
-          if (/FROM pieces/i.test(sql)) {
-            return { results: [{ title: "A source", body_md: "Body text." }] };
+          if (/SELECT title, body_md FROM pieces/i.test(sql)) {
+            throw new Error("a new run must never read its sources from pieces");
           }
           return { results: [] };
         },
@@ -153,6 +165,12 @@ describe("a research run reaches a draft", () => {
       "done", // final brief written
     ]);
     expect(only(runs).final_piece_id).toBeTruthy();
+    // The run recorded source ids in the new columns and left the legacy
+    // piece-id columns alone.
+    expect(JSON.parse(only(runs).pass1_source_ids as string)).toHaveLength(1);
+    expect(JSON.parse(only(runs).pass2_source_ids as string)).toHaveLength(2);
+    expect(only(runs).pass1_piece_ids).toBeUndefined();
+    expect(only(runs).pass2_piece_ids).toBeUndefined();
   });
 
   it("runs exactly one web expand per advance", async () => {

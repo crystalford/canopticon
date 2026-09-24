@@ -233,8 +233,11 @@ async function loadWhatItFed(env: PublicEnv, userId: string, pieceId: string): P
 
 function renderWhatItFed(fed: FedSummary | undefined): string {
   if (!fed || (fed.facts === 0 && fed.assertions === 0)) return "";
+  // Subjects are named, not linked: the subject pages were unmounted on
+  // 2026-09-24 (docs/the-record.md §9). Cross-document links in the body are
+  // how a reader walks from here to the other documents on the same subject.
   const subjectLinks = fed.subjects.length
-    ? ` → ${fed.subjects.map((s) => `<a href="/s/${escapeAttr(s.slug)}" class="ac">${escapeHtml(s.label)}</a>`).join(" · ")}`
+    ? ` → ${fed.subjects.map((s) => escapeHtml(s.label)).join(" · ")}`
     : "";
   return `<div class="piece-note" style="margin-top:30px">
   <span class="dr-h">This document fed the fabric</span>

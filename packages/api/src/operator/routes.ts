@@ -1,24 +1,16 @@
-// Operator console routes. Mounted at /op in the Worker root.
-// Cloudflare Access gates this whole subtree at the edge — every request
-// that reaches us is the authenticated operator. No auth middleware here.
+// Operator routes. Mounted at /op in the Worker root. Cloudflare Access
+// gates this subtree at the edge; /op/login mints the session cookie.
 //
-// Six surfaces per canonical-spec v2.4 Part 9:
-//   /op           Feed       — drop documents into Storage (no auto-extraction)
-//   /op/chat      Chat       — single never-resetting NL stream over the graph
-//   /op/synthesis Synthesis  — read-only oversight of surfacer findings + threads
-//   /op/library   Library    — Storage's front end; extraction is triggered here
-//   /op/outputs   Outputs    — proposer-driven; operator approves, never authors
-//   /op/studio    Studio     — distributed content from outputs (Stage 1 = scripts)
-//
-// 301 redirects keep old screen paths working: /op/briefs and the older
-// pre-pivot paths (console, workbench, editorial, leads, patterns, publish,
-// build, ingest) all redirect to their new surface at the bottom of this file.
+// The operator has no separate console: /library (public/render/
+// investigations.ts) is the working page, and these are the POST actions its
+// buttons submit to, plus the research workspace at /op/research. The
+// graph-era screens (outputs, studio, synthesis, signed readings, proposals,
+// faces) were unmounted on 2026-09-24 — see docs/the-record.md §9. Their
+// old paths 301 to the live surfaces at the bottom of this file.
 
 import { unzipSync } from "fflate";
 import { Hono } from "hono";
 import type { Env } from "../env";
-import { buildBrief } from "../graph/lib/briefs/pipeline";
-import { proposeBriefs } from "../graph/lib/briefs/proposer";
 import {
   drainDigestJobs,
   enqueueDigest,
@@ -27,17 +19,12 @@ import {
   runDigestJob,
 } from "../graph/lib/digest-jobs";
 import { extractUpload, readFullExtractedText } from "../graph/lib/extract";
-import { composeScript } from "../graph/lib/studio/compose";
-import { runSurfacingL1, runSurfacingL2 } from "../graph/lib/surfacing";
-import { runSynthesisSurfacer } from "../graph/lib/synthesis-surfacer";
+import { WEB_FETCHED_SQL } from "../lib/corpus-guards";
 import { all, insertOne, one, run } from "../lib/d1";
 import { type LintNote, lintEssay, looksLikeEssay, parseEssay } from "../lib/essay";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
-import { CMDK_CLIENT_JS } from "./client/cmdk-js";
 import { opHtml } from "./layout";
-import { renderOutputsScreen } from "./screens/outputs";
-import { renderProjectWorkspace, renderStudioScreen } from "./screens/studio";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -76,7 +63,7 @@ app.get("/library/:slug", (c) => c.redirect(`/library/${c.req.param("slug")}`, 3
 //      is populated by the time we redirect.
 // "Upload is authorization" — no preview, no confirmation, no second click.
 // A .zip is expanded and each supported document inside is ingested.
-const ZIP_ENTRY_RE = /\.(md|markdown|txt|pdf)$/i;
+const ZIP_ENTRY_RE = /\.(md|markdown|txt|pdf|docx)$/i;
 const ZIP_MAX_ENTRIES = 100;
 
 app.post("/feed/upload", async (c) => {
@@ -109,7 +96,7 @@ app.post("/feed/upload", async (c) => {
       );
       if (names.length === 0) {
         return c.redirect(
-          `/op/library?error=${encodeURIComponent("No .md/.txt/.pdf files in the zip")}`,
+          `/op/library?error=${encodeURIComponent("No .md/.txt/.pdf/.docx files in the zip")}`,
         );
       }
       // For zips: create + bank every entry synchronously (fast), then
@@ -222,20 +209,6 @@ app.get("/feed/status", async (c) => {
     attempts: view.attempts,
     error: view.error,
   });
-});
-
-// Clear the orchestrator_events activity log (and any finished digest_jobs)
-// without touching the corpus. Lightweight self-serve for stale state.
-app.post("/feed/clear", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/library");
-  await run(c.env.DB, "DELETE FROM orchestrator_events WHERE user_id = ?", [userId]);
-  await run(
-    c.env.DB,
-    "DELETE FROM digest_jobs WHERE user_id = ? AND status IN ('completed','failed')",
-    [userId],
-  );
-  return c.redirect("/op/library?cleared=1");
 });
 
 export interface CreatedPiece {
@@ -390,6 +363,8 @@ async function contentSha256(bytes: Uint8Array): Promise<string> {
 function mimeForName(filename: string): string {
   const ext = (filename.split(".").pop() ?? "").toLowerCase();
   if (ext === "pdf") return "application/pdf";
+  if (ext === "docx")
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   if (ext === "md" || ext === "markdown") return "text/markdown";
   return "text/plain";
 }
@@ -401,6 +376,7 @@ function safeName(name: string): string {
 function classify(mime: string | null, filename: string): string {
   const ext = (filename.split(".").pop() ?? "").toLowerCase();
   if (mime?.includes("pdf") || ext === "pdf") return "pdf";
+  if (mime?.includes("wordprocessingml") || ext === "docx") return "docx";
   if (mime?.startsWith("image/")) return "image";
   if (mime?.includes("html") || ext === "html" || ext === "htm") return "html";
   if (ext === "md" || ext === "markdown" || mime?.includes("markdown")) return "markdown";
@@ -450,498 +426,6 @@ app.get("/chat.js", () => {
       "cache-control": "public, max-age=3600",
     },
   });
-});
-
-// Command palette client — attached to every operator surface via
-// layout.ts. ⌘K toggles; arrow keys + Enter run.
-app.get("/cmdk.js", () => {
-  return new Response(CMDK_CLIENT_JS, {
-    headers: {
-      "content-type": "text/javascript; charset=utf-8",
-      "cache-control": "public, max-age=3600",
-    },
-  });
-});
-
-// Re-read the corpus: re-surface findings and re-name themes. The cheap
-// DETERMINISTIC steps (autoseed pages, L1) run inline so the page is
-// correct on redirect; the expensive LLM step (theme-naming) runs in
-// waitUntil so the request can't blow the Worker wall-clock.
-//
-// No longer auto-drafts signed readings — that was the same "system
-// decides which subject gets a reading" behavior the corpus-settle
-// draft_readings step ran; both are retired in favor of the operator
-// picking the subject (and optionally the angle) directly via "Draft a
-// reading" on a subject's page (draftReadingForSubject).
-app.post("/out/refresh", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/out?err=no_operator");
-  const { autoseedPages } = await import("../graph/lib/autoseed-pages");
-  const { runSurfacingL1 } = await import("../graph/lib/surfacing");
-  // Inline: fast, deterministic, no LLM.
-  await autoseedPages(c.env, userId).catch(() => {});
-  await runSurfacingL1(c.env, userId).catch(() => {});
-  // Background: the LLM-heavy pass. waitUntil keeps it alive past the
-  // response without risking a wall-clock kill of the redirect.
-  c.executionCtx.waitUntil(
-    (async () => {
-      try {
-        const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
-        await runThemeSurfacer(c.env, userId).catch(() => {});
-      } catch {
-        // best-effort; another Re-read retries
-      }
-    })(),
-  );
-  return c.redirect("/op/out?refreshing=1");
-});
-
-// Sign & publish a drafted reading — the operator's one act of judgment.
-app.post("/out/:id/sign", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/out?err=no_operator");
-  const now = new Date().toISOString();
-  const pageId = c.req.param("id");
-  const page = await one<{ slug: string }>(
-    c.env.DB,
-    "SELECT slug FROM pages WHERE id = ? AND user_id = ? AND signed_status = 'draft'",
-    [pageId, userId],
-  );
-  // signed_by is left as-is (NULL when never set) rather than defaulted
-  // to a placeholder — the public byline renders "— signed" for a null
-  // signed_by (subject-page.ts), never internal vocabulary.
-  await run(
-    c.env.DB,
-    `UPDATE pages SET signed_status = 'published', signed_at = ?, updated_at = ?
-      WHERE id = ? AND user_id = ? AND signed_status = 'draft'`,
-    [now, now, pageId, userId],
-  );
-  // Faces-on-signing (spec v2.6 Part 8): the moment a reading is signed,
-  // queue the LLM-seasoned faces (script, chapter) in the background.
-  // Thread + card render live at view time (template + query). Studio
-  // (Part 27) is a per-face Produce step, not a destination.
-  if (page) {
-    const { generateAllFaces } = await import("../graph/lib/face-renderer");
-    c.executionCtx.waitUntil(generateAllFaces(c.env, userId, pageId));
-  }
-  return c.redirect(page ? `/op/out?signed=${encodeURIComponent(page.slug)}` : "/op/out");
-});
-
-// Edit a drafted reading before signing.
-app.get("/out/:id/edit", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/out");
-  const row = await one<{ id: string; thesis: string | null; body_md: string | null }>(
-    c.env.DB,
-    "SELECT id, thesis, body_md FROM pages WHERE id = ? AND user_id = ? AND signed_status = 'draft'",
-    [c.req.param("id"), userId],
-  );
-  if (!row) return c.redirect("/op/out");
-  const { escapeHtml } = await import("../public/layout");
-  const { renderOpPage } = await import("./layout");
-  const body = `<form method="POST" action="/op/out/${escapeHtml(row.id)}/edit">
-  <label style="font-size:12px;color:var(--dmut,#888);display:block;margin-bottom:6px">Thesis</label>
-  <input name="thesis" value="${escapeHtml(row.thesis ?? "")}" style="width:100%;background:#15181f;color:#e8eaef;border:1px solid #2e2e38;border-radius:7px;padding:10px 13px;font-size:14px;margin-bottom:16px" />
-  <label style="font-size:12px;color:var(--dmut,#888);display:block;margin-bottom:6px">Analysis (markdown)</label>
-  <textarea name="body_md" rows="26" style="width:100%;background:#15181f;color:#e8eaef;border:1px solid #2e2e38;border-radius:7px;padding:13px;font-family:ui-monospace,monospace;font-size:13px">${escapeHtml(row.body_md ?? "")}</textarea>
-  <div style="margin-top:12px;display:flex;gap:10px">
-    <button type="submit" class="btn primary" style="background:#d9a441;color:#1c1608;font-weight:600;padding:9px 20px;border-radius:7px;border:none;cursor:pointer">Save draft</button>
-    <a href="/op/out" class="btn" style="padding:9px 20px;border:1px solid #2e2e38;border-radius:7px;color:#c8c5bd;text-decoration:none">Cancel</a>
-  </div>
-</form>`;
-  return opHtml(
-    renderOpPage({
-      title: "Edit analysis",
-      sub: "refine before you sign · hand-edited text is no longer machine-verified",
-      body,
-      activeNav: "/op/out",
-    }),
-  );
-});
-
-// Free-text edit of a drafted reading. INTEGRITY: this form has no
-// structured claim/quote list to re-run the verbatim-substring check or
-// the independent judge against — it's a raw markdown textarea, and the
-// gauntlet only runs on the auto-drafter's structured claims. So we do
-// NOT claim to re-verify. Instead we tell the truth: editing clears the
-// machine-verified badge (claims_verified/judge_model reset), so a
-// hand-edited reading can never carry a stale "N claims verified" count
-// it no longer earned. See docs/canopticon-renovation.md — "the operator
-// approves, never authors" has one unguarded seam, and this is it; the
-// honest fix is to stop the false claim, not to fake a re-check.
-app.post("/out/:id/edit", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/out");
-  const form = await c.req.formData();
-  const { renderMarkdown } = await import("../cms/lib/render-post");
-  const bodyMd = String(form.get("body_md") ?? "");
-  await run(
-    c.env.DB,
-    `UPDATE pages SET thesis = ?, body_md = ?, body_html = ?,
-        claims_verified = 0, judge_model = NULL, updated_at = ?
-      WHERE id = ? AND user_id = ? AND signed_status = 'draft'`,
-    [
-      String(form.get("thesis") ?? "").slice(0, 400),
-      bodyMd,
-      renderMarkdown(bodyMd),
-      new Date().toISOString(),
-      c.req.param("id"),
-      userId,
-    ],
-  );
-  return c.redirect("/op/out");
-});
-
-// Discard a drafted reading — back to neutral-only.
-app.post("/out/:id/discard", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/out");
-  await run(
-    c.env.DB,
-    "UPDATE pages SET signed_status = 'none', thesis = NULL, body_md = NULL, body_html = NULL, updated_at = ? WHERE id = ? AND user_id = ?",
-    [new Date().toISOString(), c.req.param("id"), userId],
-  );
-  return c.redirect("/op/out");
-});
-
-// Record-building on click (spec v2.5 Part 23). The "Expand this Record"
-// affordance on a thin subject page POSTs here. Fires the expansion in the
-// background and redirects back so the operator's page render is instant.
-// Without BRAVE_SEARCH_API_KEY this still wires cleanly — it logs that the
-// key is missing and no-ops, so the affordance is functional UI on day one.
-app.post("/records/:slug/expand", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/");
-  const slug = c.req.param("slug");
-  const subject = await one<{ label: string }>(
-    c.env.DB,
-    `SELECT n.label FROM pages p JOIN nodes n ON n.id = p.subject_node_id
-      WHERE p.user_id = ? AND p.slug = ?`,
-    [userId, slug],
-  );
-  if (!subject) return c.redirect("/");
-  const { expandRecord } = await import("../graph/lib/record-builder");
-  c.executionCtx.waitUntil(expandRecord(c.env, userId, subject.label));
-  return c.redirect(`/s/${slug}?expanding=1`);
-});
-
-// "Produce video essay" — turns a SIGNED reading's thesis + verified
-// facts into a video essay via the video Worker (packages/video), which
-// runs its own review/approve/render pipeline from there. Server-to-
-// server call (not a redirect through the browser to video.canopticon.com
-// first) so the reading's content never has to round-trip through the
-// operator's own request — the produce click does the work, then hands
-// the operator off to the video Worker's review page to approve the
-// script and watch the render, exactly the same review touchpoint the
-// GDELT pipeline already uses there.
-//
-// Without VIDEO_BASE/VIDEO_INTERNAL_TOKEN configured, this is wired but
-// inert — same "affordance visible, secret missing" pattern as
-// BRAVE_SEARCH_API_KEY above — and redirects back with a plain notice
-// instead of a raw error.
-app.post("/records/:slug/produce-video", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/");
-  const slug = c.req.param("slug");
-  const format = c.req.query("format") === "long" ? "long" : "short";
-
-  if (!c.env.VIDEO_BASE || !c.env.VIDEO_INTERNAL_TOKEN) {
-    return c.redirect(
-      `/s/${slug}?mode=signed&video_msg=${encodeURIComponent("video Worker not configured yet")}`,
-    );
-  }
-
-  const page = await one<{ thesis: string | null; node_id: string; label: string }>(
-    c.env.DB,
-    `SELECT p.thesis, p.subject_node_id AS node_id, n.label
-       FROM pages p JOIN nodes n ON n.id = p.subject_node_id
-      WHERE p.user_id = ? AND p.slug = ? AND p.signed_status IN ('signed', 'published')`,
-    [userId, slug],
-  );
-  if (!page || !page.thesis) {
-    return c.redirect(
-      `/s/${slug}?video_msg=${encodeURIComponent("no signed analysis to produce from yet")}`,
-    );
-  }
-
-  const { loadEstablishedFacts } = await import("../public/render/subject-page");
-  const facts = await loadEstablishedFacts(c.env, userId, page.node_id);
-  if (facts.length === 0) {
-    return c.redirect(
-      `/s/${slug}?mode=signed&video_msg=${encodeURIComponent("no established facts to draw on yet")}`,
-    );
-  }
-
-  c.executionCtx.waitUntil(
-    (async () => {
-      try {
-        const res = await fetch(`${c.env.VIDEO_BASE}/segments/from-reading`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-internal-token": c.env.VIDEO_INTERNAL_TOKEN as string,
-          },
-          body: JSON.stringify({
-            subjectSlug: slug,
-            subjectLabel: page.label,
-            thesis: page.thesis,
-            format,
-            facts: facts.map((f) => ({
-              text: f.label,
-              quote: f.quote_text,
-              source: f.piece_slug
-                ? `${f.piece_title ?? "source"} (/library/${f.piece_slug})`
-                : null,
-            })),
-          }),
-        });
-        await insertOne(c.env.DB, "orchestrator_events", {
-          user_id: userId,
-          event_type: res.ok ? "video.produce.requested" : "video.produce.failed",
-          subject_kind: "page",
-          subject_id: slug,
-          payload: { format, status: res.status },
-        }).catch(() => {});
-      } catch (err) {
-        await insertOne(c.env.DB, "orchestrator_events", {
-          user_id: userId,
-          event_type: "video.produce.failed",
-          subject_kind: "page",
-          subject_id: slug,
-          payload: { format, error: (err as Error).message },
-        }).catch(() => {});
-      }
-    })(),
-  );
-
-  return c.redirect(
-    `/s/${slug}?mode=signed&video_msg=${encodeURIComponent(`producing a ${format}-form video essay — check the video Worker's queue shortly`)}`,
-  );
-});
-
-// "Draft a reading" — operator-directed drafting. The corpus-settle
-// pipeline used to auto-draft one reading per cycle by an internal score
-// (the draft_readings step, since retired — see settle-pipeline.ts); this
-// is the only path to a signed reading now. Any subject the operator
-// picks, optionally steered by a free-text angle, goes through
-// draftReadingForSubject: same grounding, same firewall, same independent
-// judge draftReadings() always used — the operator only chooses the
-// subject and (optionally) what it should argue, never the prose itself.
-// Runs in waitUntil — a writer call plus N parallel judge calls easily
-// exceeds a synchronous request's wall clock.
-// Fabric redesign Phase 5: renamed from /draft-reading. Old path kept as a
-// redirect for one release in case a stale open tab still posts to it —
-// remove once confirmed nothing hits it.
-app.post("/records/:slug/draft-reading", (c) =>
-  c.redirect(`/op/records/${c.req.param("slug")}/draft-analysis`, 308),
-);
-
-app.post("/records/:slug/draft-analysis", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/");
-  const slug = c.req.param("slug");
-  const form = await c.req.parseBody();
-  const angle = typeof form.angle === "string" ? form.angle : undefined;
-
-  const page = await one<{ id: string; node_id: string; label: string; signed_status: string }>(
-    c.env.DB,
-    `SELECT p.id, p.subject_node_id AS node_id, n.label, p.signed_status
-       FROM pages p JOIN nodes n ON n.id = p.subject_node_id
-      WHERE p.user_id = ? AND p.slug = ?`,
-    [userId, slug],
-  );
-  if (!page) return c.redirect("/");
-  // Never silently overwrite an operator-approved reading — same rule
-  // draftReadings itself follows. A draft (unsigned) is fair game to
-  // redraft; signed/published is not.
-  if (page.signed_status === "signed" || page.signed_status === "published") {
-    return c.redirect(
-      `/s/${slug}?draft_msg=${encodeURIComponent("already has a signed analysis — this only drafts new ones, it won't overwrite a signed one")}`,
-    );
-  }
-
-  c.executionCtx.waitUntil(
-    (async () => {
-      const { draftReadingForSubject } = await import("../graph/lib/draft-reading");
-      await draftReadingForSubject(c.env, userId, page.id, page.node_id, page.label, angle).catch(
-        () => {},
-      );
-    })(),
-  );
-
-  return c.redirect(
-    `/s/${slug}?draft_msg=${encodeURIComponent("drafting an analysis now — this takes a minute or two; refresh to check")}`,
-  );
-});
-
-// Fabric redesign Phase 7 — the Proposal layer. "Draft a proposal" is
-// operator-directed, same shape as "Draft an analysis": pick a subject,
-// optionally give it an angle, the system drafts a PRESCRIPTIVE piece
-// (should/ought, not is/was/means) grounded on the subject's signed
-// Analysis when one exists, or directly on established/corroborated
-// facts otherwise. Many proposals can exist per subject — this never
-// overwrites or redrafts an existing one, it always creates a new draft.
-app.post("/records/:slug/draft-proposal", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/");
-  const slug = c.req.param("slug");
-  const form = await c.req.parseBody();
-  const angle = typeof form.angle === "string" ? form.angle : undefined;
-
-  const page = await one<{ node_id: string; label: string }>(
-    c.env.DB,
-    `SELECT p.subject_node_id AS node_id, n.label
-       FROM pages p JOIN nodes n ON n.id = p.subject_node_id
-      WHERE p.user_id = ? AND p.slug = ?`,
-    [userId, slug],
-  );
-  if (!page) return c.redirect("/");
-
-  c.executionCtx.waitUntil(
-    (async () => {
-      const { draftProposalForSubject } = await import("../graph/lib/draft-proposal");
-      await draftProposalForSubject(c.env, userId, page.node_id, page.label, angle).catch(() => {});
-    })(),
-  );
-
-  return c.redirect(
-    `/s/${slug}?proposal_msg=${encodeURIComponent("drafting a proposal now — this takes a minute or two; refresh to check")}`,
-  );
-});
-
-app.post("/proposals/:id/sign", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/");
-  const now = new Date().toISOString();
-  const proposalId = c.req.param("id");
-  const proposal = await one<{ subject_node_id: string }>(
-    c.env.DB,
-    "SELECT subject_node_id FROM page_proposals WHERE id = ? AND user_id = ? AND status = 'draft'",
-    [proposalId, userId],
-  );
-  if (!proposal) return c.redirect("/");
-  // signed_by left as-is (NULL when never set) — same discipline as pages'
-  // own sign route; the public byline renders "— signed" for a null value.
-  await run(
-    c.env.DB,
-    `UPDATE page_proposals SET status = 'published', signed_at = ?, updated_at = ?
-      WHERE id = ? AND user_id = ? AND status = 'draft'`,
-    [now, now, proposalId, userId],
-  );
-  const subjectPage = await one<{ slug: string }>(
-    c.env.DB,
-    "SELECT slug FROM pages WHERE subject_node_id = ? AND user_id = ?",
-    [proposal.subject_node_id, userId],
-  );
-  return c.redirect(subjectPage ? `/s/${subjectPage.slug}?proposal_msg=signed` : "/");
-});
-
-app.get("/proposals/:id/edit", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/");
-  const row = await one<{ id: string; thesis: string | null; body_md: string | null }>(
-    c.env.DB,
-    "SELECT id, thesis, body_md FROM page_proposals WHERE id = ? AND user_id = ? AND status = 'draft'",
-    [c.req.param("id"), userId],
-  );
-  if (!row) return c.redirect("/");
-  const { escapeHtml } = await import("../public/layout");
-  const { renderOpPage } = await import("./layout");
-  const body = `<form method="POST" action="/op/proposals/${escapeHtml(row.id)}/edit">
-  <label style="font-size:12px;color:var(--dmut,#888);display:block;margin-bottom:6px">Thesis</label>
-  <input name="thesis" value="${escapeHtml(row.thesis ?? "")}" style="width:100%;background:#15181f;color:#e8eaef;border:1px solid #2e2e38;border-radius:7px;padding:10px 13px;font-size:14px;margin-bottom:16px" />
-  <label style="font-size:12px;color:var(--dmut,#888);display:block;margin-bottom:6px">Proposal (markdown)</label>
-  <textarea name="body_md" rows="26" style="width:100%;background:#15181f;color:#e8eaef;border:1px solid #2e2e38;border-radius:7px;padding:13px;font-family:ui-monospace,monospace;font-size:13px">${escapeHtml(row.body_md ?? "")}</textarea>
-  <div style="margin-top:12px;display:flex;gap:10px">
-    <button type="submit" class="btn primary" style="background:#d9a441;color:#1c1608;font-weight:600;padding:9px 20px;border-radius:7px;border:none;cursor:pointer">Save draft</button>
-  </div>
-</form>`;
-  return opHtml(
-    renderOpPage({
-      title: "Edit proposal",
-      sub: "refine before you sign · hand-edited text is no longer machine-verified",
-      body,
-      activeNav: "/op/out",
-    }),
-  );
-});
-
-app.post("/proposals/:id/edit", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/");
-  const proposalId = c.req.param("id");
-  const form = await c.req.parseBody();
-  const thesis = typeof form.thesis === "string" ? form.thesis.slice(0, 400) : null;
-  const bodyMd = typeof form.body_md === "string" ? form.body_md : null;
-  const { renderMarkdown } = await import("../cms/lib/render-post");
-  await run(
-    c.env.DB,
-    `UPDATE page_proposals SET thesis = ?, body_md = ?, body_html = ?, updated_at = ?
-      WHERE id = ? AND user_id = ? AND status = 'draft'`,
-    [
-      thesis,
-      bodyMd,
-      bodyMd ? renderMarkdown(bodyMd) : null,
-      new Date().toISOString(),
-      proposalId,
-      userId,
-    ],
-  );
-  return c.redirect(`/op/proposals/${proposalId}/edit`);
-});
-
-app.post("/proposals/:id/discard", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/");
-  const proposalId = c.req.param("id");
-  const proposal = await one<{ subject_node_id: string }>(
-    c.env.DB,
-    "SELECT subject_node_id FROM page_proposals WHERE id = ? AND user_id = ? AND status = 'draft'",
-    [proposalId, userId],
-  );
-  await run(
-    c.env.DB,
-    "DELETE FROM page_proposals WHERE id = ? AND user_id = ? AND status = 'draft'",
-    [proposalId, userId],
-  );
-  if (!proposal) return c.redirect("/");
-  const subjectPage = await one<{ slug: string }>(
-    c.env.DB,
-    "SELECT slug FROM pages WHERE subject_node_id = ? AND user_id = ?",
-    [proposal.subject_node_id, userId],
-  );
-  return c.redirect(subjectPage ? `/s/${subjectPage.slug}` : "/");
-});
-
-// Bulk "expand the thinnest subjects now" — task #25. Deliberately small
-// (3, not "all") and reuses the exact same sniper ranking the autonomous
-// sweep uses (pickThinCandidates), just firing that many at once instead
-// of the sweep's one-per-tick. Each expand runs as its own independent
-// waitUntil (not chained sequentially) — the lesson from the settle-
-// pipeline bug hunt was that CHAINING real work in one execution dies
-// silently; three independent background tasks from one request don't
-// have that problem, they just run concurrently.
-const BULK_EXPAND_N = 3;
-
-app.post("/records/bulk-expand", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/");
-  const { pickThinCandidates } = await import("../graph/lib/autonomous-expand");
-  const { expandRecord } = await import("../graph/lib/record-builder");
-  const { run } = await import("../lib/d1");
-  const candidates = await pickThinCandidates(c.env, userId, BULK_EXPAND_N);
-  if (candidates.length === 0) return c.redirect("/?bulk=none");
-  const now = new Date().toISOString();
-  for (const candidate of candidates) {
-    c.executionCtx.waitUntil(
-      run(c.env.DB, "UPDATE pages SET auto_expand_at = ? WHERE id = ?", [
-        now,
-        candidate.page_id,
-      ]).then(() => expandRecord(c.env, userId, candidate.label)),
-    );
-  }
-  const subjects = candidates.map((cand) => cand.label).join("|");
-  return c.redirect(`/bulk-expand?subjects=${encodeURIComponent(subjects)}`);
 });
 
 // "Research this for real" — the operator-only follow-through on a search
@@ -1004,49 +488,6 @@ app.post("/research/advance", async (c) => {
   return c.redirect(
     `/library?research=${encodeURIComponent(report?.advanced ? "advanced" : "nothing-pending")}`,
   );
-});
-
-// Research one open question.
-//
-// NOTHING LINKS THIS ANY MORE, ON PURPOSE. Retired but unwired, not deleted —
-// the same treatment the retired crawler gets.
-//
-// The questions this acted on are extracted with the instruction "questions a
-// person would genuinely type into a search box, THAT THIS DOCUMENT ANSWERS",
-// so every one of them arrives with its answer attached. The angle below then
-// told the writer the record "cannot answer it" and sent it to find what was
-// missing — about something nothing was missing about. What came back was a
-// thinner copy of the document that produced the question, which is a loop
-// that returns to where it started rather than one that goes anywhere.
-//
-// It also failed the standing test for what belongs in this system at all:
-// repeatable, at scale, with no issues. It needs a model call, a web search
-// and two passes through a queue that only a person can drain.
-//
-// The queue is now fed by ABSENCES instead — contradictions between documents
-// and figures with no named source (graph/lib/leads.ts), which are mechanical,
-// free and cannot be answered by a document already in the corpus.
-app.post("/answers/:id/research", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
-  const { one: oneRow } = await import("../lib/d1");
-  const q = await oneRow<{ question: string; sources: number }>(
-    c.env.DB,
-    `SELECT question,
-            (SELECT COUNT(DISTINCT e.piece_id) FROM aeo_question_evidence e
-              WHERE e.question_id = aeo_questions.id) AS sources
-       FROM aeo_questions WHERE id = ? AND user_id = ?`,
-    [c.req.param("id"), userId],
-  ).catch(() => null);
-  if (!q?.question) return c.redirect("/library?error=no+such+question");
-
-  const angle =
-    q.sources > 0
-      ? `The record already has ${q.sources} document${q.sources === 1 ? "" : "s"} touching this but cannot answer it. Find what is missing.`
-      : "Nothing on the record answers this yet.";
-  const { researchOnDemand } = await import("../graph/lib/deep-research");
-  c.executionCtx.waitUntil(researchOnDemand(c.env, userId, q.question, angle).catch(() => {}));
-  return c.redirect(`/op/research?q=${encodeURIComponent(q.question)}`);
 });
 
 // SIGN IN, FROM INSIDE THE PREFIX ACCESS ACTUALLY PROTECTS.
@@ -1299,96 +740,6 @@ app.get("/library/import-video/:id/status", async (c) => {
   return c.json({ terminal: false, warn: false, headline: "Fetching and transcribing…" });
 });
 
-// Re-render a single face on a signed reading. Triggered from the face's
-// "Retry" affordance on the signed subject page when a face is in failed
-// state (a Workers AI hiccup, a transient timeout). Fires the render in the
-// background and redirects back to the reading.
-app.post("/faces/:pageId/:kind/render", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/");
-  const pageId = c.req.param("pageId");
-  const kind = c.req.param("kind");
-  const VALID = new Set(["thread", "card", "carousel", "script", "chapter"]);
-  if (!VALID.has(kind)) return c.redirect("/");
-  const page = await one<{ slug: string }>(
-    c.env.DB,
-    "SELECT slug FROM pages WHERE id = ? AND user_id = ?",
-    [pageId, userId],
-  );
-  if (!page) return c.redirect("/");
-  const { generateSingleFace } = await import("../graph/lib/face-renderer");
-  c.executionCtx.waitUntil(
-    generateSingleFace(
-      c.env,
-      userId,
-      pageId,
-      kind as "thread" | "card" | "carousel" | "script" | "chapter",
-    ),
-  );
-  return c.redirect(`/s/${page.slug}?mode=signed`);
-});
-
-// Manual re-surface trigger. Runs BOTH the legacy SQL surfacer and the
-// typed-graph Surfacing Engine Level 1 (spec Part 17). Idempotent: both
-// upsert candidate cards by slug.
-app.post("/synthesis/surface", async (c) => {
-  try {
-    const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/synthesis?err=no_operator");
-    await runSurfacingL1(c.env, userId);
-    await runSynthesisSurfacer(c.env, userId).catch(() => {
-      // legacy surfacer reads the flat-claims tables, which may be empty
-      // post-pivot; its failure must not block typed-graph findings
-    });
-    return c.redirect("/op/synthesis");
-  } catch (err) {
-    return c.redirect(`/op/synthesis?err=${encodeURIComponent((err as Error).message)}`);
-  }
-});
-
-// Surfacing Engine Level 2 — the deliberate, high-effort analysis pass
-// (spec Part 17 ambitious tier). Assembles a verified subgraph, asks the
-// reasoning model for candidate patterns, mechanically verifies every cited
-// node id, and discards anything unverifiable.
-app.post("/synthesis/deep", async (c) => {
-  try {
-    const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/synthesis?err=no_operator");
-    const report = await runSurfacingL2(c.env, userId);
-    return c.redirect(
-      `/op/synthesis?deep=${report.l2_candidates}&discarded=${report.l2_discarded}`,
-    );
-  } catch (err) {
-    return c.redirect(`/op/synthesis?err=${encodeURIComponent((err as Error).message)}`);
-  }
-});
-
-// Inquiry-thread lifecycle (spec Part 6): open -> being_pursued -> resolved /
-// dropped. Threads are first-class; they persist and resurface, feeding the
-// proposer. Buttons live on the Synthesis surface.
-app.post("/synthesis/thread/:id/:action", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/synthesis");
-  const action = c.req.param("action");
-  const status =
-    action === "pursue"
-      ? "being_pursued"
-      : action === "resolve"
-        ? "resolved"
-        : action === "drop"
-          ? "dropped"
-          : action === "reopen"
-            ? "open"
-            : null;
-  if (!status) return c.redirect("/op/synthesis");
-  await run(
-    c.env.DB,
-    "UPDATE inquiry_threads SET status = ?, last_resurfaced_at = ? WHERE id = ? AND user_id = ?",
-    [status, new Date().toISOString(), c.req.param("id"), userId],
-  );
-  return c.redirect("/op/synthesis");
-});
-
 // Review screen for an on-demand research draft (graph/lib/deep-research.ts's
 // researchOnDemand) — lands as publication_status='working-material', which
 // renderPiece (public/render/piece-template.ts) refuses to render at all, by
@@ -1628,6 +979,7 @@ app.post("/library/extract", async (c) => {
               json_extract(p.metadata, '$.source_id') AS source_id
          FROM pieces p
         WHERE p.user_id = ?
+          AND NOT ${WEB_FETCHED_SQL}
           AND NOT EXISTS (
             SELECT 1 FROM digest_jobs j
              WHERE j.user_id = p.user_id AND j.piece_id = p.id
@@ -1640,7 +992,7 @@ app.post("/library/extract", async (c) => {
     pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
       c.env.DB,
       `SELECT id, slug, title, json_extract(metadata, '$.source_id') AS source_id
-         FROM pieces WHERE user_id = ? ORDER BY created_at`,
+         FROM pieces WHERE user_id = ? AND NOT ${WEB_FETCHED_SQL} ORDER BY created_at`,
       [userId],
     );
     // Clear prior jobs so enqueue starts each piece fresh at chunk 0 (the
@@ -1751,282 +1103,29 @@ app.post("/library/delete", async (c) => {
   return c.redirect("/op/library");
 });
 
-// Outputs — the operator's product surface (canonical spec v2.4, Part 9 / Part 11 #1).
-// Proposer's suggestion cards are the PRIMARY content. No hand-authoring composer.
-// Until the typed-graph extraction + LLM-driven proposer land (later PRs), this
-// surface honestly states what it's showing (the old SQL heuristic).
-//
-// URL was previously /op/briefs — renamed per spec v2.4 Part 1 (the word "Briefs"
-// is deprecated). Old /op/briefs* paths 301-redirect at the bottom of this file.
-app.get("/outputs", async (c) => {
-  const composed = c.req.query("composed");
-  return opHtml(await renderOutputsScreen(c.env, { composed }));
-});
-
-// Re-run the proposer over the corpus. LLM-driven per spec Part 7: reads the
-// typed graph + open inquiry threads, proposes across both output layers.
-// Idempotent: upserts proposals by slug.
-app.post("/outputs/propose", async (c) => {
-  try {
-    const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/outputs?err=no_operator");
-    await proposeBriefs(c.env, userId);
-    return c.redirect("/op/outputs");
-  } catch (err) {
-    return c.redirect(`/op/outputs?err=${encodeURIComponent((err as Error).message)}`);
-  }
-});
-
-// Build — runs the 4-step generation pipeline (Part 8 trust model). Operator
-// sees the verified draft on the redirect.
-app.post("/outputs/:id/build", async (c) => {
-  try {
-    const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/outputs?err=no_operator");
-    await buildBrief(c.env, c.req.param("id"), userId);
-    return c.redirect("/op/outputs");
-  } catch (err) {
-    return c.redirect(`/op/outputs?err=${encodeURIComponent((err as Error).message)}`);
-  }
-});
-
-// Publish — promotes a draft to the public page (URL kept on the public side
-// for stability; renamed only on the operator side in this PR).
-app.post("/outputs/:id/publish", async (c) => {
-  try {
-    const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/outputs?err=no_operator");
-    const now = new Date().toISOString();
-    // signed_by is left NULL when never set — no internal-vocabulary
-    // placeholder written into a field that renders on a public page.
-    await run(
-      c.env.DB,
-      `UPDATE briefs SET status = 'published', published_at = COALESCE(published_at, ?),
-                          signed_at = COALESCE(signed_at, ?),
-                          updated_at = ?
-        WHERE id = ? AND user_id = ? AND status = 'draft'`,
-      [now, now, now, c.req.param("id"), userId],
-    );
-    return c.redirect("/op/outputs");
-  } catch (err) {
-    return c.redirect(`/op/outputs?err=${encodeURIComponent((err as Error).message)}`);
-  }
-});
-
-// Edit-a-draft-before-publish (spec Part 14 #7). GET renders a plain
-// textarea over body_md; POST saves, re-renders body_html, and re-runs the
-// firewall sweep (an edit must not smuggle an assertion past attribution).
-app.get("/outputs/:id/edit", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/outputs");
-  const row = await one<{ id: string; title: string; body_md: string; status: string }>(
-    c.env.DB,
-    "SELECT id, title, body_md, status FROM briefs WHERE id = ? AND user_id = ?",
-    [c.req.param("id"), userId],
-  );
-  if (!row || row.status !== "draft") return c.redirect("/op/outputs");
-  const { escapeHtml } = await import("../public/layout");
-  const body = `<div class="okflag" style="margin-bottom:14px"><span class="ftext"><b>Editing draft.</b> Hand-edited text is no longer machine-verified — saving clears the verified-claims count.</span></div>
-<form method="POST" action="/op/outputs/${escapeHtml(row.id)}/edit">
-  <textarea name="body_md" rows="28" style="width:100%;font-family:var(--mono,monospace);font-size:13px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:14px">${escapeHtml(row.body_md)}</textarea>
-  <div style="margin-top:12px;display:flex;gap:10px">
-    <button type="submit" class="btn btn-amber">Save draft</button>
-    <a href="/op/outputs" class="btn">Cancel</a>
-  </div>
-</form>`;
-  const { renderOpPage } = await import("./layout");
-  return opHtml(
-    renderOpPage({
-      title: `Edit · ${row.title}`,
-      sub: "refine the draft before approval · editing clears machine verification",
-      body,
-      activeNav: "/op/outputs",
-      width: "wide",
-    }),
-  );
-});
-
-// Same integrity fix as /out/:id/edit above: a free-text edit has no
-// structured claims to re-verify, so we don't pretend to — we reset the
-// verified-claims provenance instead of leaving a stale count.
-app.post("/outputs/:id/edit", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/outputs");
-  const form = await c.req.formData();
-  const bodyMd = String(form.get("body_md") ?? "");
-  const { renderMarkdown } = await import("../cms/lib/render-post");
-  await run(
-    c.env.DB,
-    `UPDATE briefs SET body_md = ?, body_html = ?,
-        claims_verified = 0, judge_model = NULL, updated_at = ?
-      WHERE id = ? AND user_id = ? AND status = 'draft'`,
-    [bodyMd, renderMarkdown(bodyMd), new Date().toISOString(), c.req.param("id"), userId],
-  );
-  return c.redirect("/op/outputs");
-});
-
-// Discard — moves a draft to discarded; operator can re-propose.
-app.post("/outputs/:id/discard", async (c) => {
-  try {
-    const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/outputs?err=no_operator");
-    await run(
-      c.env.DB,
-      "UPDATE briefs SET status = 'discarded', updated_at = ? WHERE id = ? AND user_id = ?",
-      [new Date().toISOString(), c.req.param("id"), userId],
-    );
-    return c.redirect("/op/outputs");
-  } catch (err) {
-    return c.redirect(`/op/outputs?err=${encodeURIComponent((err as Error).message)}`);
-  }
-});
-
-app.get("/studio", async (c) => {
-  const source = c.req.query("source");
-  return opHtml(await renderStudioScreen(c.env, { source }));
-});
-
-// Per-project workspace (Script tab functional in P5; Audio/Video/Export
-// show "stage not yet built" empty states).
-app.get("/studio/:id", async (c) => {
-  const tab = (c.req.query("tab") ?? "script") as "script" | "audio" | "video" | "export";
-  const html = await renderProjectWorkspace(c.env, c.req.param("id"), tab);
-  if (!html) return c.notFound();
-  return opHtml(html);
-});
-
-// Lock / unlock the operator's argument skeleton. Beats and the Never
-// list arrive as plain text (one per line) from the textareas.
-app.post("/studio/skeleton", async (c) => {
-  try {
-    const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/studio?err=no_operator");
-    const form = await c.req.formData();
-    const action = form.get("action")?.toString() ?? "lock";
-    const beatsText = form.get("beats")?.toString() ?? "";
-    const neverText = form.get("never")?.toString() ?? "";
-
-    const beats = beatsText
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((text, i) => ({ n: i + 1, text }));
-    const never = neverText
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const existing = await one<{ id: string }>(
-      c.env.DB,
-      "SELECT id FROM studio_skeleton WHERE user_id = ?",
-      [userId],
-    );
-    const now = new Date().toISOString();
-    if (existing) {
-      await run(
-        c.env.DB,
-        `UPDATE studio_skeleton
-            SET beats_json = ?, never_json = ?,
-                locked_at = ?, updated_at = ?
-          WHERE id = ?`,
-        [
-          JSON.stringify(beats),
-          JSON.stringify(never),
-          action === "lock" ? now : null,
-          now,
-          existing.id,
-        ],
-      );
-    } else {
-      await insertOne(c.env.DB, "studio_skeleton", {
-        user_id: userId,
-        beats_json: JSON.stringify(beats),
-        never_json: JSON.stringify(never),
-        examples_json: "[]",
-        locked_at: action === "lock" ? now : null,
-      });
-    }
-    return c.redirect("/op/studio");
-  } catch (err) {
-    return c.redirect(`/op/studio?err=${encodeURIComponent((err as Error).message)}`);
-  }
-});
-
-// Compose — generate a project's beats from a finding + medium + the
-// locked skeleton. Saves as a project on success.
-app.post("/studio/compose", async (c) => {
-  try {
-    const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/studio?err=no_operator");
-    const form = await c.req.formData();
-    const sourceId = form.get("source")?.toString() ?? "";
-    const medium = form.get("medium")?.toString() ?? "";
-    const title = form.get("title")?.toString().trim() || "Untitled";
-    if (!sourceId || !medium) {
-      return c.redirect("/op/studio?err=missing_source_or_medium");
-    }
-
-    // Pull the source finding from the patterns table for context.
-    const finding = await one<{ id: string; title: string; statement_md: string }>(
-      c.env.DB,
-      "SELECT id, title, statement_md FROM patterns WHERE id = ? AND user_id = ?",
-      [sourceId, userId],
-    );
-    if (!finding) return c.redirect("/op/studio?err=finding_not_found");
-
-    const skeleton = await one<{ id: string; locked_at: string | null }>(
-      c.env.DB,
-      "SELECT id, locked_at FROM studio_skeleton WHERE user_id = ?",
-      [userId],
-    );
-
-    const composed = await composeScript(c.env, {
-      userId,
-      title,
-      medium,
-      sourceTitle: finding.title,
-      sourceBody: finding.statement_md,
-    });
-
-    const projectId = await insertOne(c.env.DB, "studio_projects", {
-      user_id: userId,
-      skeleton_id: skeleton?.id ?? null,
-      source_finding_id: sourceId,
-      title,
-      medium,
-      stage: "script",
-      beats_json: JSON.stringify(composed.beats),
-      recordings_json: "{}",
-      clips_json: "{}",
-      gen_done_json: "{}",
-      assets_json: "[]",
-    });
-
-    return c.redirect(`/op/studio/${projectId}`);
-  } catch (err) {
-    return c.redirect(`/op/studio?err=${encodeURIComponent((err as Error).message)}`);
-  }
-});
-
 // ---- 301 redirects from old screen paths -------------------------------
 // Bookmarks and chat-history references keep working. Each pre-P0 screen
 // maps to the new surface that absorbed its functionality.
 
 const redirects: Record<string, string> = {
-  // home
-  "/console": "/op",
-  "/ingest": "/op",
-  // oversight
-  "/workbench": "/op/synthesis",
-  "/leads": "/op/synthesis",
-  "/patterns": "/op/synthesis",
-  // authoring
-  "/editorial": "/op/studio",
-  "/build": "/op/outputs",
-  // publishing
-  "/publish": "/op/outputs",
-  // canonical-spec v2.4 vocabulary: "Briefs" deprecated → "Outputs"
-  "/briefs": "/op/outputs",
+  "/console": "/library",
+  "/ingest": "/library",
+  "/workbench": "/library",
+  "/leads": "/library",
+  "/patterns": "/research",
+  "/editorial": "/library",
+  "/build": "/library",
+  "/publish": "/library",
+  "/briefs": "/research",
+  // Unmounted 2026-09-24 (docs/the-record.md §9).
+  "/out": "/",
+  "/synthesis": "/library",
+  "/studio": "/",
+  "/outputs": "/research",
+  "/records": "/research",
+  "/proposals": "/research",
+  "/faces": "/",
+  "/answers": "/library",
 };
 
 for (const [from, to] of Object.entries(redirects)) {

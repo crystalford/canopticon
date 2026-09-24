@@ -124,18 +124,22 @@ export function renderSources(s: ResearchStatus | null): string {
       )}</a>
       <span class="rw-src-meta">${escapeHtml(src.domain)}${
         src.chars ? ` · ${Math.round(src.chars / 1000)}k` : ""
-      }${src.state === "duplicate" ? " · already held" : ""}</span>
+      }${src.state === "duplicate" ? " · already held" : ""}${
+        src.state === "rejected" ? ` · rejected — ${escapeHtml(src.reason ?? "unusable")}` : ""
+      }</span>
     </li>`,
     )
     .join("");
 }
 
-/** Two numbers that mean something to a person, not five that measure internals. */
+/** Two numbers that mean something to a person, not five that measure internals.
+ *  "Verbatim facts" is gone: fetched pages are sources for the writer now, never
+ *  extracted into the graph (docs/the-record.md §6), so the count was always 0. */
 export function renderMetrics(s: ResearchStatus | null): string {
   const banked = (s?.sources ?? []).filter((x) => x.state === "banked").length;
-  const facts = s?.facts ?? 0;
+  const rejected = (s?.sources ?? []).filter((x) => x.state === "rejected").length;
   return `<div class="rw-metric"><dt>Sources kept</dt><dd>${banked}</dd></div>
-    <div class="rw-metric"><dt>Verbatim facts</dt><dd>${facts}</dd></div>
+    <div class="rw-metric"><dt>Rejected</dt><dd>${rejected}</dd></div>
     <div class="rw-metric rw-metric-writer"><dt>Writer</dt><dd>${escapeHtml(writerLabel(s?.writer))}</dd></div>`;
 }
 
