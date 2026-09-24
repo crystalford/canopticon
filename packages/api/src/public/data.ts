@@ -8,6 +8,7 @@
 // exception is the Library, which lists working-material too (it's the
 // raw research layer) but marks it as such.
 
+import { WEB_FETCHED_SQL } from "../lib/corpus-guards";
 import { all, one, parseJson } from "../lib/d1";
 
 export interface PublicEnv {
@@ -169,11 +170,18 @@ export async function listLibrary(
   const visibility = opts.includeUnpublished
     ? ""
     : " AND publication_status IN ('published','canonical')";
+  // NOTHING WEB-FETCHED. The research pipeline's crawler used to bank every
+  // page it fetched as a pieces row, and this listing showed all of them —
+  // brainly.com answers and a Cloudflare bot-challenge page titled "Just a
+  // moment...", each labelled "research report". The crawler writes `sources`
+  // only now (graph/lib/record-builder.ts); this guard keeps any row it left
+  // behind out of the operator's view until the purge removes it.
   return all<PieceSummary & { metadata: string }>(
     db,
     `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
             byline, published_at, signed_by, metadata
        FROM pieces WHERE user_id = ?${visibility}
+        AND NOT ${WEB_FETCHED_SQL}
       ORDER BY COALESCE(published_at, created_at) DESC`,
     [userId],
   );

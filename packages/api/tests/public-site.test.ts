@@ -59,10 +59,10 @@ describe("public site — Phase 1 skeleton", () => {
   });
 
   it("each primary destination renders real surfaces without JS", async () => {
-    // The three doors are Essays, Research and About. /topics still resolves
-    // — unlinked, not removed. /investigations used to be in this list; it is
-    // a redirect to /research now, and is asserted as one elsewhere.
-    for (const path of ["/essays", "/research", "/topics"]) {
+    // The three doors are Essays, Research and About. /topics and
+    // /investigations used to be in this list; both redirect to /research
+    // now (docs/the-record.md §9) and are asserted as redirects below.
+    for (const path of ["/essays", "/research"]) {
       const res = await app.fetch(new Request(`http://test${path}`), env);
       expect(res.status, `path ${path}`).toBe(200);
       const html = await res.text();
@@ -78,15 +78,36 @@ describe("public site — Phase 1 skeleton", () => {
   });
 
   it("a missing detail slug returns the styled 404", async () => {
-    for (const path of [
-      "/topics/does-not-exist",
-      "/investigations/does-not-exist",
-      "/record/does-not-exist",
-    ]) {
+    for (const path of ["/p/does-not-exist", "/library/does-not-exist", "/q/does-not-exist"]) {
       const res = await app.fetch(new Request(`http://test${path}`), env);
       expect(res.status, `path ${path}`).toBe(404);
       const html = await res.text();
       expect(html).toContain("We don't have a page here.");
+    }
+  });
+
+  it("retired rooms redirect, never render", async () => {
+    // Every graph-era URL shape lands on a live surface. Subject-shaped URLs
+    // go to search for the subject, so a citation already in the world still
+    // answers for something.
+    const expected: Record<string, string> = {
+      "/topics": "/research",
+      "/investigations/some-doc": "/p/some-doc",
+      "/briefs/some-doc": "/p/some-doc",
+      "/activity": "/",
+      "/instruments": "/",
+      "/studio/anything/here": "/",
+      "/bulk-expand": "/library",
+      "/s/mark-carney": "/search?q=mark%20carney",
+      "/record/mark-carney": "/search?q=mark%20carney",
+      "/t/mark-carney": "/search?q=mark%20carney",
+      "/ct/mark-carney": "/search?q=mark%20carney",
+      "/topics/housing": "/search?q=housing",
+    };
+    for (const [from, to] of Object.entries(expected)) {
+      const res = await app.fetch(new Request(`http://test${from}`), env);
+      expect(res.status, `status for ${from}`).toBe(301);
+      expect(res.headers.get("location"), `target for ${from}`).toBe(to);
     }
   });
 

@@ -784,8 +784,8 @@ export async function renderLibraryIndex(
     const dropzone = `<form method="POST" action="/op/feed/upload" enctype="multipart/form-data" id="feed-form" class="op-dropzone-form">
   <label class="op-dropzone" for="feed-file" id="op-dz-label">
     <div class="op-dz-1">Drop a document here, or click to choose</div>
-    <div class="op-dz-2">Markdown · plain text · PDF · a .zip of any of these</div>
-    <input type="file" id="feed-file" name="file" accept=".md,.txt,.pdf,.zip,text/markdown,text/plain,application/pdf,application/zip,application/x-zip-compressed" required style="display:none" />
+    <div class="op-dz-2">Markdown · plain text · PDF · Word · a .zip of any of these</div>
+    <input type="file" id="feed-file" name="file" accept=".md,.txt,.pdf,.docx,.zip,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip,application/x-zip-compressed" required style="display:none" />
   </label>
   <div class="op-dz-uploading" id="op-dz-uploading" hidden>Uploading — banking into the Library. You can leave this page.</div>
 </form>
@@ -1078,8 +1078,14 @@ ${open
             ? `<a href="${href}" class="ac">${escapeHtml(displayTitle)}</a>${rawFilenameLine}`
             : `${escapeHtml(displayTitle)}${rawFilenameLine}`;
           const atoms = atomsByPiece.get(p.id);
+          // The fold's two buttons both need digestion to have run (they read
+          // the piece's source node), so it is shown only once a receipt
+          // exists. Before that it offered actions that could only fail with
+          // "run document extraction first".
           const atomBlock =
-            opts.isOperator && p.publication_status !== "working-material"
+            opts.isOperator &&
+            p.publication_status !== "working-material" &&
+            receipts.get(p.id) !== undefined
               ? renderAtomReview(p.id, atoms, ledeByPiece.get(p.id))
               : "";
           const receiptBlock = opts.isOperator

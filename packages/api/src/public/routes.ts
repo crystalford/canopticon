@@ -8,22 +8,18 @@
 
 import { Hono } from "hono";
 import type { AuthContext } from "../auth/middleware";
-import { all, one } from "../lib/d1";
+import { one } from "../lib/d1";
 import { getPieceBySlug, listPublishedPieces, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
 import { feedJson, llmsTxt, pieceMarkdown } from "./machine";
 import { renderAbout } from "./render/about";
-import { renderActivityPage } from "./render/activity";
-import { renderBriefPage } from "./render/brief";
 import { renderCitationsPage } from "./render/citations";
 import { renderFront } from "./render/front";
 import { renderEssaysIndex, renderResearchIndex } from "./render/indexes";
-import { renderInstrumentsIndex } from "./render/instruments";
 import { renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
 import { renderPiece } from "./render/piece-template";
 import { renderNotFound } from "./render/placeholder";
-import { renderEntityPage } from "./render/record";
 import { renderSearchPage } from "./render/search";
 import {
   renderConfirmed,
@@ -32,8 +28,6 @@ import {
   renderSubscribed,
   renderUnsubscribed,
 } from "./render/subscribe";
-import { renderTopicHub, renderTopicsIndex } from "./render/topics";
-import studioRoutes from "./studio/routes";
 import { STYLES_CSS, stylesHash } from "./styles";
 
 // The public site reads is_operator / operator_id from the Hono context
@@ -42,6 +36,12 @@ import { STYLES_CSS, stylesHash } from "./styles";
 // happens to carry the same shape; we don't enforce its email/user_id
 // fields here — those are only set by the hard-auth path on /v1/* routes.
 const app = new Hono<AuthContext>();
+
+// A retired subject-shaped URL ("/s/mark-carney") lands on search for the
+// subject, which is the one live surface that can still answer for it.
+function searchFor(slug: string): string {
+  return `/search?q=${encodeURIComponent(slug.replace(/[-_]+/g, " ").trim())}`;
+}
 
 // ---- citation tracker (spec Part 14 #10) ----------------------------------
 // AI crawlers fetching public pages = the leading indicator of citation.
@@ -287,16 +287,6 @@ app.get("/sitemap.xml", async (c) => {
       loc: `/p/${p.slug}`,
       lastmod: (p.updated_at || p.published_at || "").slice(0, 10),
     }));
-    const rows = await all<{ slug: string; updated_at: string; signed_status: string }>(
-      c.env.DB,
-      `SELECT slug, updated_at, signed_status FROM pages
-        WHERE user_id = ? AND signed_status = 'published'
-        ORDER BY updated_at DESC LIMIT 5000`,
-      [userId],
-    ).catch(() => []);
-    pageUrls.push(
-      ...rows.map((r) => ({ loc: `/s/${r.slug}`, lastmod: r.updated_at.slice(0, 10) })),
-    );
   }
   const urlEntries = [...staticUrls.map((loc) => ({ loc, lastmod: "" })), ...pageUrls]
     .map(
@@ -351,33 +341,22 @@ app.get("/numbers", (c) => c.redirect("/research", 301));
 app.get("/figures", (c) => c.redirect("/research", 301));
 app.get("/research", async (c) => htmlResponse(await renderResearchIndex(c.env)));
 
-// ---- Topics ---------------------------------------------------------------
-
-app.get("/topics", async (c) => htmlResponse(await renderTopicsIndex(c.env)));
-
-// RETIRED ROOMS — redirected, not deleted.
+// RETIRED ROOMS — redirected, never rendered.
 //
-// A sweep of every route on 2026-09-23 found these still resolving as full
-// pages, none linked from anywhere, each describing a part of the product
-// that no longer exists: /watchlist explained a retired auto-checker over an
-// empty list, /videos said the video Worker was not configured. A reachable
-// page that describes the wrong product is worse than no page. Each goes to
-// the live surface that does its job now. The renderers stay in the tree,
-// unwired — the same treatment as the retired crawler.
+// A sweep on 2026-09-23 found /watchlist and /videos still resolving as pages
+// describing parts of the product that no longer exist. On 2026-09-24 the rest
+// of the graph era went the same way (docs/the-record.md §9): topic hubs,
+// subject pages, the arrangement pages, records, briefs, activity, the
+// instruments index and the studio produce flow. A reachable page that
+// describes the wrong product is worse than no page, and a citation already in
+// the world must still land somewhere useful, so each goes to the live surface
+// that does its job now: subject-shaped URLs go to search for that subject.
 app.get("/watchlist", (c) => c.redirect("/library", 301));
 app.get("/videos", (c) => c.redirect("/", 301));
-app.get("/activity", async (c) => htmlResponse(await renderActivityPage(c.env)));
-
-// ---- Instruments ----------------------------------------------------------
-// The third product arm's doorway. Instruments live on their own
-// subdomains; this page is the machine-citable index into them.
-app.get("/instruments", () => htmlResponse(renderInstrumentsIndex()));
-
-app.get("/topics/:slug", async (c) => {
-  const html = await renderTopicHub(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
+app.get("/activity", (c) => c.redirect("/", 301));
+app.get("/instruments", (c) => c.redirect("/", 301));
+app.get("/topics", (c) => c.redirect("/research", 301));
+app.get("/topics/:slug", (c) => c.redirect(searchFor(c.req.param("slug")), 301));
 
 // ---- Investigations -------------------------------------------------------
 // The index described "signed analyses", "intent badges" and "the fabric era"
@@ -385,21 +364,11 @@ app.get("/topics/:slug", async (c) => {
 // at /research; this is where the room was pointing anyway.
 app.get("/investigations", (c) => c.redirect("/research", 301));
 
-app.get("/investigations/:slug", async (c) => {
-  const html = await renderPiece(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
+app.get("/investigations/:slug", (c) => c.redirect(`/p/${c.req.param("slug")}`, 301));
 
-// Universal piece page — any kind, as long as it's published or canonical.
-// Editor and Publish screens link here; treat as the canonical short URL
-// for a piece. Working-material stays private.
-//
-// IMPORTANT: this route ALSO tries to resolve the slug as a SUBJECT PAGE
-// (entity / event / theme — the unified fabric). The reader doesn't know
-// which they're clicking into; the renderer figures it out. Pieces win on
-// slug collision (they were the original /p/ tenant); subject pages fall
-// back to a /s/ alias below for unambiguous links.
+// The document page — any kind, as long as it's published or canonical.
+// Working-material stays private. The .md twin and retired slugs are handled
+// here too, so route order can never shadow them.
 app.get("/p/:slug", async (c) => {
   const raw = c.req.param("slug");
   // The markdown twin is handled here rather than on its own `/p/:slug.md`
@@ -455,35 +424,10 @@ app.get("/p/:slug", async (c) => {
     ).catch(() => null);
     if (alias?.slug && alias.slug !== slug) return c.redirect(`/p/${alias.slug}`, 301);
   }
-  // Fall through to subject pages. mode=signed reveals the operator's reading.
-  const { renderSubjectPage } = await import("./render/subject-page");
-  const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";
-  const subject = await renderSubjectPage(c.env, slug, mode, {
-    isOperator: c.get("is_operator"),
-    expanding: c.req.query("expanding") === "1",
-    videoMsg: c.req.query("video_msg"),
-    draftMsg: c.req.query("draft_msg"),
-    proposalMsg: c.req.query("proposal_msg"),
-  });
-  if (subject) return htmlResponse(subject);
   return htmlResponse(renderNotFound(c.req.path), { status: 404 });
 });
 
-// /s/:slug — unambiguous subject-page alias (entity / event / theme). Used in
-// internal links where we know the target is a subject, not a piece.
-app.get("/s/:slug", async (c) => {
-  const { renderSubjectPage } = await import("./render/subject-page");
-  const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";
-  const html = await renderSubjectPage(c.env, c.req.param("slug"), mode, {
-    isOperator: c.get("is_operator"),
-    expanding: c.req.query("expanding") === "1",
-    videoMsg: c.req.query("video_msg"),
-    draftMsg: c.req.query("draft_msg"),
-    proposalMsg: c.req.query("proposal_msg"),
-  });
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
+app.get("/s/:slug", (c) => c.redirect(searchFor(c.req.param("slug")), 301));
 
 // Clean-markdown download — the "source of record" button on every
 // piece page links here. Returns the raw body_md with a Content-Disposition
@@ -599,23 +543,6 @@ app.get("/unsubscribe", async (c) => {
   return htmlResponse(renderUnsubscribed(true));
 });
 
-app.get("/confirm", async (c) => {
-  const token = c.req.query("token") ?? "";
-  if (!token) return htmlResponse(renderConfirmed(false), { status: 400 });
-  const row = await one<{ id: string }>(
-    c.env.DB,
-    "SELECT id FROM pub_subscriptions WHERE confirmation_token = ? AND unsubscribed_at IS NULL",
-    [token],
-  ).catch(() => null);
-  if (!row) return htmlResponse(renderConfirmed(false), { status: 404 });
-  await c.env.DB.prepare(
-    "UPDATE pub_subscriptions SET confirmed = 1, confirmation_token = NULL WHERE id = ?",
-  )
-    .bind(row.id)
-    .run();
-  return htmlResponse(renderConfirmed(true));
-});
-
 // ---- the machine face -----------------------------------------------------
 //
 // llms.txt and feed.json are generated from the same listPublishedPieces()
@@ -660,150 +587,29 @@ app.get("/q/:id", async (c) => {
   return htmlResponse(html);
 });
 
-// ---- Arrangements as standalone renderings (spec v2.6 Part 6) -----------
-// Each arrangement is BOTH a section embedded inside a subject page AND a
-// standalone addressable page with its own URL + JSON-LD — deliberately,
-// for GEO: a fine-grained citable URL with specific schema.org markup
-// out-cites a subject page that merely has the same content as one
-// section. These are NOT meant to be reached by internal site nav — Part
-// 13 is explicit that they "don't appear in nav — they're reached through
-// the subject page they belong to, through search, and through
-// citations." All twelve were restored here after an earlier cleanup pass
-// wrongly read "no internal nav link" as "dead code" for 7 of them; the
-// real, still-open bug is that subject-page.ts only ever wired "see
-// standalone →" embed links for 4 of the 12 (t/profile/n/ct below) — see
-// the fix alongside this restore for the other 8.
-//
-// `/d/:slug` — Definition (DefinedTerm JSON-LD).
-app.get("/d/:slug", async (c) => {
-  const { renderDefinitionPage } = await import("./render/arrangements/definition");
-  const html = await renderDefinitionPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/t/:slug` — Timeline (ItemList + Event JSON-LD)
-app.get("/t/:slug", async (c) => {
-  const { renderTimelinePage } = await import("./render/arrangements/timeline");
-  const html = await renderTimelinePage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/profile/:slug` — Entity / Actor profile (Person | Organization | Event |
-// CreativeWork JSON-LD per subject kind). Word-form prefix avoids the
-// collision with the legacy `/p/:slug` piece-fallback route.
-app.get("/profile/:slug", async (c) => {
-  const { renderProfilePage } = await import("./render/arrangements/profile");
-  const html = await renderProfilePage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/n/:slug` — Ownership / network map (OwnershipInfo JSON-LD).
-app.get("/n/:slug", async (c) => {
-  const { renderNetworkPage } = await import("./render/arrangements/network");
-  const html = await renderNetworkPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/pr/:slug` — standalone Proposal page (fabric redesign Phase 7, the
-// third fabric layer: prescriptive, keyed by page_proposals.slug, not a
-// subject's own pages.slug — many proposals can exist per subject).
-app.get("/pr/:slug", async (c) => {
-  const { renderProposalPage } = await import("./render/arrangements/proposal");
-  const html = await renderProposalPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/w/:slug` — Who's-who roster (ItemList of Person JSON-LD).
-app.get("/w/:slug", async (c) => {
-  const { renderWhosWhoPage } = await import("./render/arrangements/whos-who");
-  const html = await renderWhosWhoPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/b/:slug` — Bibliography / body-of-work (ItemList of CreativeWork JSON-LD).
-app.get("/b/:slug", async (c) => {
-  const { renderBibliographyPage } = await import("./render/arrangements/bibliography");
-  const html = await renderBibliographyPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/c/:slug` — Comparison matrix (Table + ClaimReview JSON-LD). Scaffold
-// rendering only — the graph isn't yet tagged with comparison-shaped data,
-// so this currently always renders its honest empty state. Real query
-// logic is still an open build item, not something this restore fixes.
-app.get("/c/:slug", async (c) => {
-  const { renderComparisonPage } = await import("./render/arrangements/comparison");
-  const html = await renderComparisonPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/f/:slug` — FAQ / Q&A hub (FAQPage JSON-LD).
-app.get("/f/:slug", async (c) => {
-  const { renderFaqPage } = await import("./render/arrangements/faq");
-  const html = await renderFaqPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/stat/:slug` — Statistics roundup (Dataset JSON-LD).
-app.get("/stat/:slug", async (c) => {
-  const { renderStatsPage } = await import("./render/arrangements/stats");
-  const html = await renderStatsPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/l/:slug` — Ledger of flows (Dataset + MonetaryAmount JSON-LD).
-app.get("/l/:slug", async (c) => {
-  const { renderLedgerPage } = await import("./render/arrangements/ledger");
-  const html = await renderLedgerPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/m/:slug` — Mechanism explainer (HowTo / Article JSON-LD).
-app.get("/m/:slug", async (c) => {
-  const { renderMechanismPage } = await import("./render/arrangements/mechanism");
-  const html = await renderMechanismPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/ct/:slug` — Claim-and-source table (Claim + ClaimReview JSON-LD).
-app.get("/ct/:slug", async (c) => {
-  const { renderClaimTablePage } = await import("./render/arrangements/claim-table");
-  const html = await renderClaimTablePage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/doc/:slug` — Document-of-record. This IS the source document; the
-// existing /library/:slug renderer already serves it with the receipt-loop
-// section ("this document fed the fabric"). Alias the URL so the v2.6
-// arrangement table is complete and external citations resolve.
+// The thirteen graph-era "arrangement" URL prefixes and the entity record.
+// Each was a view of a subject; search for the subject is what serves now.
+for (const prefix of [
+  "d",
+  "t",
+  "profile",
+  "n",
+  "pr",
+  "w",
+  "b",
+  "c",
+  "f",
+  "stat",
+  "l",
+  "m",
+  "ct",
+  "record",
+]) {
+  app.get(`/${prefix}/:slug`, (c) => c.redirect(searchFor(c.req.param("slug")), 301));
+}
 app.get("/doc/:slug", (c) => c.redirect(`/library/${c.req.param("slug")}`, 301));
 
-// ---- The Record -----------------------------------------------------------
-
-// Part 18: "The Record" dissolves as a destination — the index redirects to
-// Topics (the one browsable doorway). Entity DETAIL pages stay addressable
-// below as unmarked factual substrate.
-// Home IS the front of the Record.
 app.get("/record", (c) => c.redirect("/", 301));
-
-app.get("/record/:slug", async (c) => {
-  const html = await renderEntityPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
 
 // ---- Patterns (the lighthouse) --------------------------------------------
 // The old flat-SQL "lighthouse" system (patterns/gaps/timeline as content,
@@ -860,16 +666,7 @@ app.get("/library", async (c) => {
   );
 });
 
-// ---- Briefs (the third projection) -------------------------------------
-//
-// A published Brief renders here as a server-rendered citable page.
-// The trust boundary is mechanical (verbatim-substring + independent
-// judge) not "the operator vouched for it". See briefs/pipeline.ts.
-app.get("/briefs/:slug", async (c) => {
-  const html = await renderBriefPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
+app.get("/briefs/:slug", (c) => c.redirect(`/p/${c.req.param("slug")}`, 301));
 
 // ---- Utility pages (still placeholders until trailing Phase 2) -----------
 
@@ -906,30 +703,8 @@ app.get("/search", async (c) => {
   );
 });
 
-// Bulk expand result — operator-only. The trigger is a POST at
-// /op/records/bulk-expand (operator/routes.ts); this GET just shows what
-// came of it. Anonymous viewers never see this (no link to it exists
-// outside the operator overlay), but gate it directly anyway rather than
-// relying on obscurity.
-app.get("/bulk-expand", async (c) => {
-  if (!c.get("is_operator")) return c.redirect("/");
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/");
-  const subjectsParam = c.req.query("subjects") ?? "";
-  const subjects = subjectsParam
-    .split("|")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const { renderBulkExpandEmpty, renderBulkExpandResult } = await import("./render/bulk-expand");
-  if (subjects.length === 0) return htmlResponse(renderBulkExpandEmpty());
-  return htmlResponse(await renderBulkExpandResult(c.env, userId, subjects));
-});
-
-// Studio Stage A — the Produce flow for static formats (v2.6 Part 27).
-// Operator-only; routes redirect anonymous viewers home. Mounts at
-// /studio/:slug/:kind for the preview page and
-// /studio/:pageId/:kind/produce for the PNG download.
-app.route("/studio", studioRoutes);
+app.get("/bulk-expand", (c) => c.redirect("/library", 301));
+app.get("/studio/*", (c) => c.redirect("/", 301));
 
 // Citations — operator-only view of AI-crawler hits on public pages
 // (v2.6 Part 14 #10). The middleware at the top of this file already
