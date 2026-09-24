@@ -433,7 +433,10 @@ that exists.
 
 ## 10. Build order
 
-*Status 2026-09-24: all five built. PR 1 merged (#180); PR 2–5 on #181.
+*Status 2026-09-24: all five built, and the "after PR 5" list with them —
+the document as workbench, new version, resurface, narrow answers for
+unsourced figures, the tetrad shape, the sectioned research writer, and the
+graph era's code deleted. PR 1 merged (#180); the rest on #181.
 `docs/HANDOFF.md` has what remains.*
 
 Five pull requests. Each leaves the site coherent on its own. What you will

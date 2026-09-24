@@ -145,7 +145,7 @@ export function renderOutline(s: ResearchStatus | null): string {
           ? `<span class="rw-src-meta">${o.quotesOk ?? 0} quote${
               (o.quotesOk ?? 0) === 1 ? "" : "s"
             } verified${
-              o.quotesKilled ? `<span class="lead-ans-disc">${o.quotesKilled} killed</span>` : ""
+              o.quotesKilled ? ` · <span class="lead-ans-disc">${o.quotesKilled} killed</span>` : ""
             }</span>`
           : "";
       return `<li class="rw-step rw-step-${cls}">

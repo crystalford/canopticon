@@ -14,8 +14,8 @@ document that raised it. Five PRs were planned there (§10). **PR 1 and PR 2
 are merged; PR 3, PR 4 and PR 5 are complete and ride the same open PR
 (#181) as PR 2**, because the session's budget did not allow waiting for a
 merge between them. Check whether #181 has merged. All five PRs of
-`docs/the-record.md` §10 are built; what remains is use, configuration, and
-the "after PR 5" list below.
+`docs/the-record.md` §10 are built, and so is most of what was listed
+"after PR 5" (the section below). What remains is use and configuration.
 
 ## What is merged and live
 
@@ -56,7 +56,7 @@ parent_piece_id/origin_kind`, table `readings`). Then, built in parallel:
 - **Ask the record** — verified quotes are embedded (`kind: "quote"`) by a
   new pipeline step `index`; `/search` returns passages with receipts first.
 
-All of the above is in the tree and tested (674 tests). Known small
+All of the above is in the tree and tested (702 tests at the last run). Known small
 leftovers for PR 3's follow-up: readings render as a block after the body
 rather than in the margin beside the passage; "Note this" takes the
 selection from rendered HTML, so a selection crossing a spliced link can fail
@@ -96,6 +96,58 @@ not yet shown as a banner right after an upload, only on the row.
   Research) that becomes tabs on a phone. `/about`, `/method` and
   `CLAUDE.md`'s product sections rewritten from `docs/the-record.md`.
 
+## What the second swing added (complete — on #181, 2026-09-24)
+
+- **The document is the workbench.** On `/p/` the operator sees an action
+  bar: the page's own leads as buttons, a free question box (`#op-ask`),
+  and "Research this" beside "Note this" on any selected passage. Every one
+  is `POST /op/leads/dig` with `piece_id`, so the brief is this document's
+  child.
+- **New version** — `POST /op/library/:id/replace` (a `New version` control
+  on each library row). Same slug; body, kind and metadata replaced; the
+  graph purged and the pipeline restarted; readings re-anchored by
+  `locateVerbatim` against the new body and the count that could not be
+  found reported in the redirect (`?replaced=1&readings_lost=N`). An
+  identical file is refused before anything is written. Quote and reading
+  ids change, so an old `/q/` for a reading's passage 404s — inherent.
+- **Resurfaced today** — `lib/resurface.ts`: one verified passage (≥160
+  chars) from a processed document with no reading in 14 days, chosen by a
+  per-day hash so it is the same all day; rendered above the worklist with
+  Note this / Research this. Nothing when there is nothing.
+- **Narrow answers for unsourced figures** — `answerUnsourcedFigure` in
+  `graph/lib/answer-lead.ts`: the dig route sends `kind=unsourced-figure`
+  here. At most three pages fetched (through `expandRecord`, into `sources`
+  only), three sentences on who published the figure, where and when, quotes
+  verified against the fetched page, the page linked from the answer. Needs
+  `BRAVE_SEARCH_API_KEY`; says so when unset. Stored in `lead_answers` like
+  a settled contradiction; the source ids ride on the quotes.
+- **The tetrad as a Markdown shape** — `looksLikeTetrad` / `parseTetrad` in
+  `lib/essay.ts`: exactly the four `##` headings (enhances, obsolesces,
+  retrieves, reverses / reverses into / flips into), any order, `## Sources`
+  allowed. Classified at upload (`metadata.classification = "tetrad"`, kind
+  essay), rendered as a 2×2 grid with anchored quadrants, JSON-LD `about` +
+  `hasPart`, no FAQ markup. The grid styling is inline in
+  `piece-template.ts`; move it to `styles.ts` if it grows.
+- **The sectioned research writer** — migration 0062 (`research_runs.
+  outline`, `sections_done`, `mode`). `decideResearchMode` picks `sectioned`
+  when the writer is Claude, `single` (the old one-call brief) on Workers
+  AI. Sectioned: `outline_pending` (one call over every banked source) →
+  `section_pending` (one section per step, its own sources at 20,000 chars
+  each, 2–5 quotes each located verbatim in a source's full text, the
+  model's attribution not trusted, failures killed and counted) →
+  `assemble_pending` (title, a summary that adds nothing, the gaps) → `done`.
+  The workspace shows the outline as a checklist with the killed count in
+  red; the poller's auto-press budget is 14 so a whole run walks while the
+  tab is open. The brief's metadata carries `mode`, `sections`, `quotes_ok`,
+  `quotes_killed`.
+- **The graph era's code is gone** — 52 files nothing imported (arrangements,
+  subject pages, records, briefs, faces, studio-produce, outputs/studio
+  screens, the command palette, autonomous-expand, face-renderer, meme-draft,
+  lighthouse and four admin handlers). `settle-pipeline.ts` and its subtree
+  stay because `digest-jobs.ts` and the (disabled) scheduled handler import
+  them; `operator/screens/design-mock.ts` has no importer and is a safe
+  one-line deletion. Leftover `.cmdk-*` CSS in both stylesheets can go too.
+
 ## More the operator can configure (all optional, all inert until set)
 
 - `INDEXNOW_KEY` (Worker secret, `openssl rand -hex 16`); then
@@ -104,22 +156,23 @@ not yet shown as a banner right after an upload, only on the row.
   Browser Rendering Edit — share cards (≈$0.005 each). Re-process to draw
   cards for documents already processed.
 - `CF_WEB_ANALYTICS_TOKEN` in `[vars]` from Analytics & Logs → Web Analytics.
+- `BRAVE_SEARCH_API_KEY` (secret) — research runs and the narrow answer for
+  an unsourced figure both search through it; without it both say so.
 
 ## What is next
 
 - **Use it** (`CLAUDE.md` "What's next"): process the corpus; note passages;
   follow a bridge with "Has anyone said this?"; publish a brief; open a
   model-drafted essay from a reading and rewrite it.
-- **Then, only if use asks for it:** "Resurface" (a passage not seen in N
-  weeks, with Note this / Research this); the tetrad as a Markdown shape;
-  readings placed in the margin beside their passage; a post-upload
-  consolidation banner; a Lighthouse pass in `look.mts`; the sectioned
-  research writer after real runs have been judged.
-- **Housekeeping:** the graph-era renderers are unmounted but still in the
-  tree (`public/render/arrangements`, `subject-page.ts`, `record.ts`,
-  `brief.ts`, `faces`, the operator `screens/outputs|studio`) — delete once
-  nothing imports them. Old PRs #165, #128, #117 are stale and can be
-  closed.
+- **Then, only if use asks for it:** readings placed in the margin beside
+  their passage; a post-upload consolidation banner; a Lighthouse pass in
+  `look.mts`; the review page reading `metadata.quotes_killed` off a
+  sectioned brief; a signed-in `/p/` shot in `look.mts` so the action bar is
+  screenshotted; an "opened" signal so Resurface can use it instead of
+  `updated_at`.
+- **Housekeeping:** `operator/screens/design-mock.ts` and the `.cmdk-*` CSS
+  are the last dead graph-era bits. Old PRs #165, #128, #117 are stale and
+  can be closed.
 
 ## How to verify anything
 

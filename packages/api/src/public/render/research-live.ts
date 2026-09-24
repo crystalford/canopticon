@@ -58,7 +58,7 @@ export const RESEARCH_LIVE_JS = `<script>
       if (o.state === "done") {
         var ok = o.quotesOk || 0;
         receipt = '<span class="rw-src-meta">' + ok + " quote" + (ok === 1 ? "" : "s") + " verified" +
-          (o.quotesKilled ? '<span class="lead-ans-disc">' + o.quotesKilled + " killed</span>" : "") +
+          (o.quotesKilled ? ' · <span class="lead-ans-disc">' + o.quotesKilled + " killed</span>" : "") +
           "</span>";
       }
       return '<li class="rw-step rw-step-' + cls + '">' +

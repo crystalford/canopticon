@@ -376,9 +376,11 @@ document behind it. `purgeTypedGraphForPiece()` is the correct primitive.
 everything* in `/library` with the tab open; create the AI Gateway with
 Unified Billing and set `AI_GATEWAY_ID` / `CLAUDE_MODEL`; then use it —
 upload, note passages, follow a bridge, publish a brief — before building
-more. After that: "resurface" (an old passage shown again), the tetrad as a
-Markdown shape, and the sectioned research writer, in that order and only if
-real use asks for them.
+more. "Resurface", the tetrad as a Markdown shape, "New version", narrow
+answers for unsourced figures and the sectioned research writer (Claude
+only: outline → one section per step → assemble, every quote located
+verbatim in a source's full text, the killed count in red) are built; what
+is left is use, and the configuration only the operator can do.
 
 ---
 
