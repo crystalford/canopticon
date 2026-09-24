@@ -12,16 +12,67 @@
 import { resolveByline } from "../lib/byline";
 import { parseEssay } from "../lib/essay";
 import { displayTitle } from "../lib/title";
-import type { PieceDetail, PublishedPieceRef } from "./data";
+import { type PieceDetail, type PublishedPieceRef, TOPIC_DESCRIPTIONS, topicSlug } from "./data";
 
 export const SITE = "https://canopticon.com";
 
 export const ORG = {
   "@type": "Organization",
+  "@id": `${SITE}/#org`,
   name: "Canopticon",
   url: SITE,
   sameAs: ["https://x.com/canoptics", "https://github.com/crystalford/canopticon"],
 } as const;
+
+// The site entity every document is `isPartOf`. Its @id matches the one the
+// front page's graph emits (siteJsonLd), so a crawler resolves ONE WebSite
+// across the publication rather than a new one per page. The SearchAction is
+// the answer-engine surface (/search) declared as such.
+export const WEBSITE = {
+  "@type": "WebSite",
+  "@id": `${SITE}/#site`,
+  url: `${SITE}/`,
+  name: "Canopticon",
+  publisher: { "@id": `${SITE}/#org` },
+  potentialAction: {
+    "@type": "SearchAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: `${SITE}/search?q={search_term_string}`,
+    },
+    "query-input": "required name=search_term_string",
+  },
+} as const;
+
+/** The byline as a Person, with the one public handle the operator has. */
+export function authorPerson(byline: string | null | undefined): Record<string, unknown> {
+  return {
+    "@type": "Person",
+    name: resolveByline(byline),
+    url: `${SITE}/about`,
+    sameAs: ["https://twitter.com/canoptics"],
+  };
+}
+
+export function sectionUrl(topic: string): string {
+  return `${SITE}/research/${topicSlug(topic)}`;
+}
+
+/** Home › Research|Essays › [Section] › Title, as schema.org BreadcrumbList. */
+export function breadcrumbLd(
+  crumbs: Array<{ name: string; url?: string }>,
+): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: crumbs.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: c.name,
+      ...(c.url ? { item: c.url } : {}),
+    })),
+  };
+}
 
 export const LICENSE = {
   name: "CC BY 4.0",
@@ -95,6 +146,11 @@ export interface PieceLdOptions {
     note_md: string;
     created_at: string;
   }>;
+  /** The closed section this document is filed in (graph/lib/topics.ts), for
+   *  the breadcrumb trail. Null or absent when ungrouped. */
+  section?: string | null;
+  /** The document this one grew from (docs/the-record.md §5), for `isBasedOn`. */
+  basedOn?: { slug: string; title: string } | null;
 }
 
 // An essay's question headings and their answer-first opening paragraphs are
@@ -147,7 +203,8 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
     // placeholder ("the operator") or fell back to the organisation — and a
     // named Person here is the half a crawler actually parses, which is where
     // the authorship citation signal lives.
-    author: { "@type": "Person", name: resolveByline(piece.byline) },
+    author: authorPerson(piece.byline),
+    isPartOf: WEBSITE,
     datePublished: published,
     dateModified: modified,
     wordCount: words(piece.body_md ?? ""),
@@ -163,7 +220,17 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
   // with what a crawler finds on the page rather than paraphrasing it.
   if (opts.lede) base.abstract = opts.lede;
   if (citations.length) base.citation = citations;
+  if (opts.basedOn) {
+    base.isBasedOn = {
+      "@type": "DigitalDocument",
+      "@id": pieceUrl(opts.basedOn.slug),
+      name: opts.basedOn.title,
+      url: pieceUrl(opts.basedOn.slug),
+    };
+  }
   if (opts.readings?.length) {
+    // Name only: the document's top-level `author` carries the full Person
+    // (url, sameAs); a Comment's author needs only to resolve to the same name.
     const author = { "@type": "Person", name: resolveByline(piece.byline) };
     base.comment = opts.readings.map((r) => ({
       "@type": "Comment",
@@ -188,6 +255,18 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
   }
 
   const docs: unknown[] = [base];
+  // The same trail the page shows above the title. The section crumb is
+  // present only when the document has been filed (a hub URL that exists).
+  docs.push(
+    breadcrumbLd([
+      { name: "Home", url: `${SITE}/` },
+      essay
+        ? { name: "Essays", url: `${SITE}/essays` }
+        : { name: "Research", url: `${SITE}/research` },
+      ...(!essay && opts.section ? [{ name: opts.section, url: sectionUrl(opts.section) }] : []),
+      { name: pieceTitle(piece) },
+    ]),
+  );
   if (opts.faq?.length) {
     docs.push({
       "@context": "https://schema.org",
@@ -223,9 +302,47 @@ export function siteJsonLd(): string {
           "Research documents published as themselves, and essays that argue from them. Quotes are verified word-for-word against the stored source. CC BY 4.0.",
         publisher: { "@id": `${SITE}/#org` },
       },
-      { ...ORG, "@id": `${SITE}/#org` },
+      ORG,
     ],
   });
+}
+
+/** CollectionPage + BreadcrumbList for a section hub. */
+export function sectionJsonLd(
+  topic: string,
+  docs: Array<{ slug: string; title: string; body_head?: string | null }>,
+): string {
+  const url = sectionUrl(topic);
+  return [
+    ldScript({
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "@id": url,
+      url,
+      name: topic,
+      description: TOPIC_DESCRIPTIONS[topic as keyof typeof TOPIC_DESCRIPTIONS] ?? "",
+      inLanguage: "en",
+      isPartOf: WEBSITE,
+      publisher: ORG,
+      mainEntity: {
+        "@type": "ItemList",
+        numberOfItems: docs.length,
+        itemListElement: docs.map((d, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          url: pieceUrl(d.slug),
+          name: displayTitle(d.title, d.body_head),
+        })),
+      },
+    }),
+    ldScript(
+      breadcrumbLd([
+        { name: "Home", url: `${SITE}/` },
+        { name: "Research", url: `${SITE}/research` },
+        { name: topic },
+      ]),
+    ),
+  ].join("\n");
 }
 
 // Matches the escaping already used by arrangements/shared.ts: the only
@@ -292,7 +409,7 @@ export interface AnswerEntry {
   slug: string;
 }
 
-export function llmsTxt(entries: LlmsEntry[]): string {
+export function llmsTxt(entries: LlmsEntry[], sections: string[] = []): string {
   const essays = entries.filter((e) => isEssay(e.kind));
   const research = entries.filter((e) => !isEssay(e.kind));
   const line = (e: LlmsEntry) =>
@@ -312,9 +429,22 @@ export function llmsTxt(entries: LlmsEntry[]): string {
   if (research.length) {
     parts.push("## Research", "", ...research.map(line), "");
   }
+  // Only sections that hold a document — an empty hub is not announced.
+  if (sections.length) {
+    parts.push(
+      "## Sections",
+      "",
+      ...sections.map(
+        (t) =>
+          `- [${t}](${sectionUrl(t)}): ${TOPIC_DESCRIPTIONS[t as keyof typeof TOPIC_DESCRIPTIONS] ?? ""}`,
+      ),
+      "",
+    );
+  }
   parts.push(
     "## Optional",
     "",
+    `- [Every document in full, one file](${SITE}/llms-full.txt)`,
     `- [About and editorial standards](${SITE}/about)`,
     `- [How verification works](${SITE}/method)`,
     `- [Sitemap](${SITE}/sitemap.xml)`,
@@ -322,6 +452,31 @@ export function llmsTxt(entries: LlmsEntry[]): string {
     "",
   );
   return parts.join("\n");
+}
+
+/**
+ * /llms-full.txt — every published document's markdown twin, concatenated.
+ * The same pieceMarkdown() each twin is served from, so the two cannot differ;
+ * a header line per document names it, its canonical URL and its date.
+ */
+export function llmsFullTxt(pieces: PieceDetail[]): string {
+  const head = [
+    "# Canopticon — full text",
+    "",
+    `> Every published document, in full, as plain text. ${pieces.length} document${
+      pieces.length === 1 ? "" : "s"
+    }. Each begins with its title, canonical URL and date; the index is at ${SITE}/llms.txt.`,
+    "",
+  ].join("\n");
+  const docs = pieces.map((p) => {
+    const published = dateOnly(p.published_at ?? p.created_at);
+    return [
+      `<!-- ${pieceTitle(p)} · ${pieceUrl(p.slug)} · ${published || "date unknown"} -->`,
+      "",
+      pieceMarkdown(p).trimEnd(),
+    ].join("\n");
+  });
+  return `${[head, ...docs].join("\n\n---\n\n")}\n`;
 }
 
 export function feedJson(entries: LlmsEntry[]): string {

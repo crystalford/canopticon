@@ -8,6 +8,7 @@
 // exception is the Library, which lists working-material too (it's the
 // raw research layer) but marks it as such.
 
+import { TOPICS, type Topic } from "../graph/lib/topics";
 import { WEB_FETCHED_SQL } from "../lib/corpus-guards";
 import { all, one, parseJson } from "../lib/d1";
 
@@ -20,6 +21,8 @@ export interface PublicEnv {
   /** Which model reads for the record — see llm/router.ts modelInUse(). */
   AI_GATEWAY_ID?: string;
   CLAUDE_MODEL?: string;
+  /** R2, for the share card a document page names only once it exists. */
+  FILES?: R2Bucket;
 }
 
 // The public site is single-operator. Resolve "the operator" as the
@@ -631,3 +634,74 @@ export async function relatedBySubject(
 }
 
 export { parseJson };
+
+// ---- section hubs (docs/the-record.md §6: /research/<section>) -------------
+
+/** "Politics & government" → "politics-government". Deterministic, so a hub
+ *  URL is derived from the closed list and never stored. */
+export function topicSlug(topic: string): string {
+  return topic
+    .toLowerCase()
+    .replace(/&/g, " ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** The closed section a hub slug names, or null: an unknown slug is a 404,
+ *  never a guessed section. */
+export function topicFromSlug(slug: string): Topic | null {
+  return TOPICS.find((t) => topicSlug(t) === slug) ?? null;
+}
+
+/** Two lines per section — plain, factual, written once. */
+export const TOPIC_DESCRIPTIONS: Record<Topic, string> = {
+  "Politics & government":
+    "Elections, parties, legislatures and the public bodies that answer to them. Polling, procedure and the record of what was decided.",
+  "Media & information":
+    "How news, platforms and attention work, and what they do to the people who use them. Media theory and the measurement of it.",
+  "Public health":
+    "Illness, drugs, care and the systems that deliver or fail to deliver it. Figures with a named source and a date, kept whole.",
+  "Housing & cities":
+    "Homes, rents, land, zoning and the cities they make. Supply, prices and who is priced out.",
+  "Money & markets":
+    "Banks, budgets, prices, trade and the instruments that move them. Carbon finance sits here too.",
+  "Climate & energy":
+    "Emissions, grids, fuels and the policy built around them. What is measured and what is promised.",
+  "Technology & systems":
+    "Software, platforms, models and the infrastructure under them. How systems behave and what they are for.",
+  "Method & measurement":
+    "How research is done: sampling, polling method, statistics and the ways a number can mislead.",
+};
+
+/** A piece's frozen section (migration 0055), or null when ungrouped. */
+export async function topicForPiece(
+  db: D1Database,
+  userId: string,
+  pieceId: string,
+): Promise<string | null> {
+  const row = await one<{ topic: string | null }>(
+    db,
+    "SELECT topic FROM pieces WHERE id = ? AND user_id = ?",
+    [pieceId, userId],
+  );
+  return row?.topic?.trim() || null;
+}
+
+/** Everything published, with its full body — for /llms-full.txt. Same
+ *  predicate as listPublishedPieces so the two cannot disagree. */
+export async function listPublishedPiecesFull(
+  db: D1Database,
+  userId: string,
+): Promise<PieceDetail[]> {
+  return all<PieceDetail>(
+    db,
+    `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
+            byline, published_at, signed_by, body_md, body_html, chain_id,
+            tags, metadata, argument_summary_md, created_at, updated_at
+       FROM pieces
+      WHERE user_id = ? AND publication_status IN ('published','canonical')
+      ORDER BY COALESCE(published_at, created_at) DESC
+      LIMIT 5000`,
+    [userId],
+  );
+}

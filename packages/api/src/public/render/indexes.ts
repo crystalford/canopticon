@@ -15,12 +15,16 @@ import { displayTitle } from "../../lib/title";
 import {
   type IndexPiece,
   type PublicEnv,
+  TOPIC_DESCRIPTIONS,
   listEssays,
   listResearch,
   readMinutes,
   resolveOperatorId,
+  topicFromSlug,
+  topicSlug,
 } from "../data";
-import { escapeHtml, renderPage } from "../layout";
+import { escapeAttr, escapeHtml, renderPage } from "../layout";
+import { sectionJsonLd } from "../machine";
 import { emptyState, formatDate, kindLabel } from "./components";
 
 const CANONICAL = "https://canopticon.com";
@@ -120,11 +124,17 @@ function renderGroupedByTopic(docs: IndexPiece[]): string {
     return b[1].length - a[1].length;
   });
 
+  // Each closed section's heading is a link to its hub (/research/<section>);
+  // "Everything else" is a holding pen, not a section, and has no page.
   return ordered
     .map(
       ([topic, list]) => `<section class="topic-sec">
   <div class="topic-head">
-    <h2>${escapeHtml(topic)}</h2>
+    <h2>${
+      topic === UNGROUPED
+        ? escapeHtml(topic)
+        : `<a href="/research/${escapeAttr(topicSlug(topic))}">${escapeHtml(topic)}</a>`
+    }</h2>
     <span class="topic-n">${list.length} document${list.length === 1 ? "" : "s"}</span>
   </div>
   <div class="rgrid">${list.map(researchCard).join("\n")}</div>
@@ -151,5 +161,60 @@ ${docs.length ? renderGroupedByTopic(docs) : emptyState("No research documents p
     activeNav: "/research",
     zone: "research",
     canonical: `${CANONICAL}/research`,
+  });
+}
+
+/**
+ * A section hub — /research/<section-slug> (docs/the-record.md §6).
+ *
+ * One per entry of the CLOSED list in graph/lib/topics.ts, so the set of
+ * hubs is eight and fixed; a slug that is not one of them is a 404, never a
+ * guessed page. Returns null for that case so the route can decide.
+ *
+ * This is the exception to renderGroupedByTopic's "no new URLs" note, and
+ * it is a deliberate one: a hub is a page about a subject area, with a
+ * description of its own and a stable address that the breadcrumbs, the
+ * sitemap and llms.txt all point at — which is what topical authority is
+ * accumulated against. Only hubs that hold a document are announced.
+ */
+export async function renderSectionHub(env: PublicEnv, slug: string): Promise<string | null> {
+  const topic = topicFromSlug(slug);
+  if (!topic) return null;
+  const userId = await resolveOperatorId(env.DB);
+  const docs = userId ? (await listResearch(env.DB, userId)).filter((d) => d.topic === topic) : [];
+  const description = TOPIC_DESCRIPTIONS[topic];
+  const body = `<div class="scope crumbs">
+  <a href="/">Home</a>
+  <span class="arr">›</span>
+  <a href="/research">Research</a>
+  <span class="arr">›</span>
+  <span class="cur">${escapeHtml(topic)}</span>
+</div>
+<header class="phead">
+  <div class="eyebrow">Research · section</div>
+  <h1>${escapeHtml(topic)}</h1>
+  <p class="phead-dek">${escapeHtml(description)}</p>
+</header>
+${
+  docs.length
+    ? `<section class="topic-sec">
+  <div class="topic-head">
+    <span class="topic-n">${docs.length} document${docs.length === 1 ? "" : "s"}</span>
+  </div>
+  <div class="rgrid">${docs.map(researchCard).join("\n")}</div>
+</section>`
+    : emptyState("No documents filed in this section yet.")
+}
+${sectionJsonLd(
+  topic,
+  docs.map((d) => ({ slug: d.slug, title: d.title, body_head: d.body_head })),
+)}`;
+  return renderPage({
+    title: `${topic} — Research`,
+    description,
+    body,
+    activeNav: "/research",
+    zone: "research",
+    canonical: `${CANONICAL}/research/${topicSlug(topic)}`,
   });
 }

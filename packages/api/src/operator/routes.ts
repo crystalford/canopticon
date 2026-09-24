@@ -16,6 +16,7 @@ import { extractUpload, readFullExtractedText } from "../graph/lib/extract";
 import { enqueueProcessing, ensureProcessingTable } from "../graph/lib/processing";
 import { insertOne, one, run } from "../lib/d1";
 import { type LintNote, lintEssay, looksLikeEssay, parseEssay } from "../lib/essay";
+import { pingIndexNow } from "../lib/indexnow";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { opHtml } from "./layout";
@@ -132,6 +133,15 @@ app.post("/feed/upload", async (c) => {
       return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}&dedup=1`);
     }
     if (p.sourceId) await enqueueProcessing(c.env, userId, p.pieceId);
+    // Upload IS publication, so this is the moment to tell the engines that
+    // honour IndexNow. Fire-and-forget; inert without INDEXNOW_KEY. Guarded
+    // like the dig route: c.executionCtx throws where there is none (tests).
+    const ping = pingIndexNow(c.env, [`/p/${p.slug}`, "/research", "/sitemap.xml"]).catch(() => {});
+    try {
+      c.executionCtx.waitUntil(ping);
+    } catch {
+      // No execution context — the promise is already running.
+    }
     return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}`);
   } catch (err) {
     const message = (err as Error).message ?? "unknown error";
@@ -785,6 +795,14 @@ app.post("/library/research/:id/publish", async (c) => {
   if (meta.source_id) {
     await ensureProcessingTable(c.env);
     await enqueueProcessing(c.env, userId, c.req.param("id"));
+  }
+  // A published brief is a new public URL: one IndexNow ping, fire-and-forget,
+  // inert without INDEXNOW_KEY (lib/indexnow.ts).
+  const ping = pingIndexNow(c.env, [`/p/${row.slug}`, "/research", "/sitemap.xml"]).catch(() => {});
+  try {
+    c.executionCtx.waitUntil(ping);
+  } catch {
+    // No execution context — the promise is already running.
   }
   return c.redirect(`/p/${row.slug}`);
 });

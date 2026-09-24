@@ -106,6 +106,8 @@ export interface Env {
   // before </body>; when empty, nothing is emitted and every page reads
   // exactly the same without it (rule 7: no JavaScript required to read).
   CF_WEB_ANALYTICS_TOKEN?: string;
+  /** IndexNow key (Worker secret). lib/indexnow.ts is inert without it. */
+  INDEXNOW_KEY?: string;
 }
 
 // The Claude model used through the AI Gateway when CLAUDE_MODEL is unset.

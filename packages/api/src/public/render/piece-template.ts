@@ -26,6 +26,8 @@ import {
   lineageForPiece,
   relatedBySubject,
   resolveOperatorId,
+  topicForPiece,
+  topicSlug,
   topicsForPiece,
 } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
@@ -94,6 +96,9 @@ export async function renderPiece(
   // and always current — a new document joins the web the moment it extracts.
   const { crossDocumentLinks } = await import("../../graph/lib/crosslinks");
   const crosslinks = await crossDocumentLinks(env.DB, userId, piece.id).catch(() => []);
+  // The closed section (graph/lib/topics.ts) this document is filed in — the
+  // third crumb, and the hub the page belongs to. Null when not yet filed.
+  const section = await topicForPiece(env.DB, userId, piece.id).catch(() => null);
 
   const body = renderPieceBody(piece, {
     topics: topics.map((t) => ({ slug: t.slug, label: t.label })),
@@ -104,6 +109,7 @@ export async function renderPiece(
     crosslinks,
     readings,
     lineage,
+    section,
     isOperator: opts.isOperator === true,
   });
 
@@ -112,9 +118,17 @@ export async function renderPiece(
   // was the least machine-legible one on the site.
   const essay = isEssay(piece.kind);
   const faq = essay ? essayFaq(piece.body_md ?? "") : undefined;
+  // The share card exists once the pipeline's og step has drawn it; the
+  // route 404s until then, and a 404 og:image is worse than none, so it is
+  // named only when the object is there.
+  const ogKey = `og/${piece.slug}.png`;
+  const hasCard = await env.FILES?.head(ogKey)
+    .then((h) => Boolean(h))
+    .catch(() => false);
   return renderPage({
     title: pieceTitle(piece),
     description: piece.subtitle ?? `${pieceTitle(piece)} — a Canopticon piece.`,
+    ...(hasCard ? { ogImage: `https://canopticon.com/og/${piece.slug}.png` } : {}),
     body: `${body}\n${pieceJsonLd(piece, {
       ...(faq?.length ? { faq } : {}),
       // Only once approved — the structured data must not carry a passage the
@@ -123,6 +137,9 @@ export async function renderPiece(
       // Each reading is a Comment on its Quotation — the operator's own
       // sentences, and the only ones on the page that are not the document's.
       ...(readings.length ? { readings } : {}),
+      section,
+      // Lineage (§5): the document this one grew from, as `isBasedOn`.
+      basedOn: lineage.parent ? { slug: lineage.parent.slug, title: lineage.parent.title } : null,
     })}`,
     activeNav: essay ? "/essays" : "/research",
     zone: essay ? "essays" : "research",
@@ -164,6 +181,8 @@ interface PieceCtx {
   readings?: ReadingRow[];
   /** What this document grew from and into (§5). */
   lineage?: Lineage;
+  /** The closed section this document is filed in, or null. */
+  section?: string | null;
   /** The viewer is the signed-in operator: render the note form and script. */
   isOperator?: boolean;
 }
@@ -189,48 +208,58 @@ function renderLede(lede: LedeRow | null | undefined): string {
 // beside its named source and date is the single best-evidenced shape for
 // being cited, and it is exactly what the verification layer already produces.
 //
-// THE QUOTE ITSELF IS NO LONGER REPEATED HERE. It used to be: the same
-// sentence appeared once in the document body and again in a blockquote at
-// the bottom, which is the thing standing rule 3 exists to prevent. Now that
-// the span is linked in the passage it came from, this block's job is to be
-// the scannable structured index of what the document establishes, and to
-// point back into the prose — so "in context" goes to the sentence, and the
-// receipt link goes to the proof.
+// ABOVE THE FOLD (docs/the-record.md §6, item 4): this is the block answer
+// engines lift, so it sits directly under the lead passage and before the
+// document's own promoted summary — compact, a table, six rows. Any further
+// figures are listed under a fold in the same block, so the page never says
+// "6" when it holds 20. There is no second copy lower down.
+//
+// THE QUOTE ITSELF IS NOT REPEATED HERE. The span is linked in the passage it
+// came from; this block's job is to be the scannable index of what the
+// document establishes and to point back into the prose — so "in context"
+// goes to the sentence, and the receipt link goes to the proof.
+const KEY_FIGURES_ABOVE_FOLD = 6;
+
 function renderFindings(findings: FindingRow[] | undefined, placed: Set<string>): string {
   if (!findings?.length) return "";
-  const rows = findings
-    .map(
-      (f) => `  <li class="finding">
-    <div class="finding-head">
-      <span class="finding-figure">${escapeHtml(f.figure)}</span>
-      <span class="finding-measures">${escapeHtml(f.measures)}</span>
-    </div>
-    <div class="finding-meta">${[f.period, f.attributed_to]
-      .filter(Boolean)
-      .map((x) => escapeHtml(String(x)))
-      .join(' <span class="sep">·</span> ')}</div>
-    <div class="finding-links">
-      ${
+  const row = (f: FindingRow) => `    <tr class="kf-row">
+      <td class="kf-figure">${escapeHtml(f.figure)}</td>
+      <td class="kf-measures">${escapeHtml(f.measures)}</td>
+      <td class="kf-meta">${[f.period, f.attributed_to]
+        .filter(Boolean)
+        .map((x) => escapeHtml(String(x)))
+        .join(' <span class="sep">·</span> ')}</td>
+      <td class="kf-links">${
         // Only when the span was actually placed in the prose. A finding whose
         // quote no longer appears in the body (the document was edited after
         // extraction) has no anchor to jump to, and a dead link on the
         // provenance surface is worse than no link.
         placed.has(f.quote_id)
-          ? `<a class="finding-context" href="#q-${escapeAttr(f.quote_id)}">in context ↓</a>`
+          ? `<a class="finding-context" href="#q-${escapeAttr(f.quote_id)}">in context ↓</a> `
           : ""
-      }
-      <a class="finding-receipt" href="/q/${escapeAttr(f.quote_id)}">verified quote ↗</a>
-    </div>
-  </li>`,
-    )
-    .join("\n");
-  return `<section class="findings">
-  <h2>What this document establishes</h2>
-  <p class="note">Every figure below is quoted word-for-word from this document
-  and checked against it by machine. Follow one to the sentence it came from.</p>
-  <ol class="finding-list">
-${rows}
-  </ol>
+      }<a class="finding-receipt" href="/q/${escapeAttr(f.quote_id)}">verified quote ↗</a></td>
+    </tr>`;
+  const lead = findings.slice(0, KEY_FIGURES_ABOVE_FOLD);
+  const rest = findings.slice(KEY_FIGURES_ABOVE_FOLD);
+  const table = (rows: FindingRow[]) => `  <table class="key-figures">
+    <thead><tr><th>Figure</th><th>What it measures</th><th>Period · source</th><th></th></tr></thead>
+    <tbody>
+${rows.map(row).join("\n")}
+    </tbody>
+  </table>`;
+  return `<section class="findings key-figures-block">
+  <h2>Key figures</h2>
+  <p class="note">Every figure is quoted word-for-word from this document and checked
+  against it by machine. Follow one to the sentence it came from.</p>
+${table(lead)}
+${
+  rest.length
+    ? `  <details class="key-figures-more">
+    <summary>${rest.length} more figure${rest.length === 1 ? "" : "s"}</summary>
+${table(rest)}
+  </details>`
+    : ""
+}
 </section>`;
 }
 
@@ -318,13 +347,13 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
   return `<div class="container docpage">
 <div class="docgrid">
   <article class="reading">
-${renderBreadcrumbs(piece)}
+${renderBreadcrumbs(piece, ctx.section)}
 ${renderPageHead(piece, ctx)}
 ${renderLede(ctx.lede)}
+${renderFindings(ctx.findings, receipts.placed)}
 ${bodyBlock}
 ${renderReadings(ctx)}
 ${renderNoteForm(piece, ctx)}
-${renderFindings(ctx.findings, receipts.placed)}
 ${renderLineage(ctx.lineage)}
 ${renderCiteBox(piece)}
 ${renderWhatItFed(ctx.fed)}
@@ -336,6 +365,29 @@ ${renderOnward(piece, ctx)}
 </div>
 ${ctx.isOperator ? '<script src="/op/notes.js" defer></script>' : ""}
 <style>
+  .key-figures-block { margin: 26px 0 0; padding-top: 18px; }
+  .key-figures-block h2 { font-size: 15px; letter-spacing: 0.02em; text-transform: uppercase; }
+  .key-figures-block .note { margin: 0 0 10px; }
+  .key-figures { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 14px;
+    border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
+  .key-figures th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-mute); padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+  .key-figures td { padding: 9px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; background: var(--paper-2); }
+  .key-figures tr:last-child td { border-bottom: 0; }
+  .kf-figure { font-weight: 700; color: var(--accent); white-space: nowrap; letter-spacing: -0.01em; }
+  .kf-measures { color: var(--ink); }
+  .kf-meta { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-mute); }
+  .kf-links { white-space: nowrap; }
+  .kf-links .finding-receipt, .kf-links .finding-context { margin-top: 0; }
+  .key-figures-more { margin-top: 10px; }
+  .key-figures-more summary { cursor: pointer; font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 8px; }
+  @media (max-width: 640px) {
+    .key-figures thead { display: none; }
+    .key-figures tr { display: block; padding: 8px 0; }
+    .key-figures td { display: block; border: 0; padding: 2px 10px; }
+    .kf-figure { white-space: normal; }
+  }
   .readings { margin-top: 32px; border-top: 1px solid var(--rule); padding-top: 18px; }
   .readings .ow-h, .lineage .ow-h { margin-bottom: 12px; }
   .reading-note { margin: 0 0 22px; }
@@ -413,16 +465,26 @@ function renderArgumentSummary(piece: PieceDetail, meta: VideoMeta): string {
 
 // ---- scaffolding -------------------------------------------------------
 
-function renderBreadcrumbs(piece: PieceDetail): string {
-  const section = isEssay(piece.kind)
+function renderBreadcrumbs(piece: PieceDetail, topic?: string | null): string {
+  const essay = isEssay(piece.kind);
+  const section = essay
     ? { name: "Essays", href: "/essays" }
     : { name: "Research", href: "/research" };
+  // Home › Research › Section › Title (docs/the-record.md §6). The section
+  // crumb appears only for a filed research document: it links to a hub that
+  // exists. The same trail is emitted as BreadcrumbList in machine.ts.
+  const hub =
+    !essay && topic
+      ? `
+  <span class="arr">›</span>
+  <a href="/research/${escapeAttr(topicSlug(topic))}">${escapeHtml(topic)}</a>`
+      : "";
   // The last crumb was the kind ("essay"), which the eyebrow directly above
   // it already says. The title is what a breadcrumb is for.
   return `<div class="scope crumbs">
   <a href="/">Home</a>
   <span class="arr">›</span>
-  <a href="${escapeAttr(section.href)}">${escapeHtml(section.name)}</a>
+  <a href="${escapeAttr(section.href)}">${escapeHtml(section.name)}</a>${hub}
   <span class="arr">›</span>
   <span class="cur">${escapeHtml(pieceTitle(piece))}</span>
 </div>`;
