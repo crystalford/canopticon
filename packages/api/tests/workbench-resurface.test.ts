@@ -72,7 +72,7 @@ describe("resurfacePassage", () => {
     expect(pick).not.toHaveProperty("updated_at");
     const sql = calls[0]?.sql ?? "";
     expect(sql).toMatch(/pp\.status = 'done'/);
-    expect(sql).toMatch(/publication_status IN ('published','canonical')/);
+    expect(sql).toContain("publication_status IN ('published','canonical')");
     expect(sql).toMatch(/length\(q\.verbatim_text\) >= \?/);
     expect(sql).toMatch(/NOT EXISTS \(SELECT 1 FROM readings/);
     // The last LOOK, not the last write — and the write stands in only where
