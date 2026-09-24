@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-09-24T05:13:12Z",
-  "run_id": "35958963476",
+  "requested_at": "2026-09-24T05:14:41Z",
+  "run_id": "35959073871",
   "method": "GET",
-  "path": "/v1/admin/purge-web-fetched?confirm=1",
+  "path": "/v1/admin/purge-web-fetched?confirm=1&execute=1",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"execute\": false,\n  \"pieces\": 5,\n  \"nodes\": 539,\n  \"quotes\": 200,\n  \"sample\": [\n    \"The Importance Of White Space In Advertising | Denver Digital\",\n    \"Find Your White Space - Key Attribution Framework\",\n    \"[FREE] What does white space mean in terms of advertising? A. Space within the advertising region that is text - brainly.com\",\n    \"Just a moment...\",\n    \"How to Convert White Space Into Advertising That Sells\"\n  ],\n  \"note\": \"DRY RUN — re-call with &execute=1 to destroy this\"\n}"
+  "body": "{\n  \"ok\": true,\n  \"execute\": true,\n  \"pieces\": 5,\n  \"nodes\": 539,\n  \"quotes\": 200,\n  \"sample\": [\n    \"The Importance Of White Space In Advertising | Denver Digital\",\n    \"Find Your White Space - Key Attribution Framework\",\n    \"[FREE] What does white space mean in terms of advertising? A. Space within the advertising region that is text - brainly.com\",\n    \"Just a moment...\",\n    \"How to Convert White Space Into Advertising That Sells\"\n  ],\n  \"purged\": 5\n}"
 }
