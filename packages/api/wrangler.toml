@@ -2,7 +2,14 @@ name = "canopticon-api"
 main = "src/index.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
-workers_dev = true
+# The workers.dev hostname is OFF. The operator console (/op/*) and the
+# admin endpoints (/v1/admin/*) have no in-Worker authentication: Cloudflare
+# Access on canopticon.com is the gate (docs/SECURITY-AUDIT-2026-09-24.md
+# §1). Access applications are bound to hostnames, so a second, unprotected
+# hostname for the same Worker would have been a second, unprotected front
+# door. Nothing in the repo refers to the workers.dev URL; the custom
+# domains below serve everything.
+workers_dev = false
 
 # Custom domains for canopticon.com / www.canopticon.com are configured
 # via the Cloudflare dashboard (Workers & Pages → canopticon-api →

@@ -44,7 +44,7 @@ export const OPERATOR_CSS = String.raw`
      Named --amber for historical reasons (lifted from an older warm-amber
      design bundle); the brand decision that survived is "the dark
      instrument becomes everyone's ground... amber reads warm, the brand
-     is cold" (canopticon-renovation.md), so the VALUE is blue even though
+     is cold" (docs/archive/canopticon-renovation.md), so the VALUE is blue even though
      every call site below still reads var(--amber). Same pattern as
      --serif being aliased to the sans stack a few lines up. */
   /* THE BRAND ACCENT, at last. Every call site below still reads var(--amber);

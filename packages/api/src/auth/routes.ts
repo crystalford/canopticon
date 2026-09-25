@@ -175,8 +175,9 @@ async function handleLogin(c: LoginContext): Promise<Response> {
   );
   const next = c.req.query("next");
   // Only honour "next" when it's a same-origin path — prevents open-redirect
-  // abuse from a crafted /auth/login?next=https://evil link.
-  const safeNext = next?.startsWith("/") && !next.startsWith("//") ? next : "/";
+  // abuse from a crafted /auth/login?next=https://evil link. A second "/" OR
+  // a backslash is refused: browsers parse "/\evil.com" as "//evil.com".
+  const safeNext = next && /^\/(?![/\\])/.test(next) ? next : "/";
   return new Response(null, {
     status: 302,
     headers: {

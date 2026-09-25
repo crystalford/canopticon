@@ -36,15 +36,51 @@ type App = AuthContext;
 
 const app = new Hono<App>();
 
+// CORS. This used to reflect ANY origin with credentials: true on every
+// route, the operator console and the admin endpoints included — which lets
+// any site a signed-in operator visits read those responses through the
+// browser. Now: the site's own origins and the compartmentalised Workers
+// only. A request with no Origin header (curl, same-origin navigation) is
+// not a CORS request and is unaffected.
+const ALLOWED_ORIGINS = new Set([
+  "https://canopticon.com",
+  "https://www.canopticon.com",
+  "https://studio.canopticon.com",
+  "https://video.canopticon.com",
+  "https://blindspot.canopticon.com",
+]);
 app.use(
   "*",
   cors({
-    origin: (origin) => origin ?? "*",
+    origin: (origin) => (ALLOWED_ORIGINS.has(origin) ? origin : ""),
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["authorization", "content-type", "idempotency-key"],
     credentials: true,
   }),
 );
+
+// CSRF for the operator console. Every /op POST is a plain HTML form or the
+// console's own fetch, so a cross-site origin has no business here. The
+// operator's pages are gated by Cloudflare Access at the edge; whether that
+// cookie is SameSite is a dashboard setting nothing in this repo can see,
+// so the Worker checks for itself: a POST whose Origin (or, failing that,
+// Referer) is present and not one of ours is refused before any handler
+// runs. Requests with neither header (old clients, some form posts) pass —
+// the aim is to stop a browser-borne forgery, not to break the console.
+app.use("/op/*", async (c, next) => {
+  if (c.req.method === "POST") {
+    const origin = c.req.header("origin");
+    const referer = c.req.header("referer");
+    const source = origin ?? (referer ? new URL(referer).origin : null);
+    if (source) {
+      const self = new URL(c.req.url).origin;
+      if (source !== self && !ALLOWED_ORIGINS.has(source)) {
+        return c.text("cross-site request refused", 403);
+      }
+    }
+  }
+  await next();
+});
 
 app.use("*", async (c, next) => {
   c.set("trace_id", crypto.randomUUID());

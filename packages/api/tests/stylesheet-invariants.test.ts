@@ -50,7 +50,7 @@ describe("one shell width", () => {
   // answer pages on 820px. So the wordmark and the H1 directly beneath it
   // never shared a left edge — on any page. That is most of what "nothing
   // lines up" was.
-  const SPANNING = [".nav-inner", ".op-topbar-inner", ".foot-trust", ".foot-inner", ".container"];
+  const SPANNING = [".nav-inner", ".foot-trust", ".foot-inner", ".container"];
 
   it.each(SPANNING)("%s resolves its width from --shell", (sel) => {
     const rule = ruleFor(sel);

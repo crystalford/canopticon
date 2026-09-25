@@ -1,7 +1,7 @@
 // /queue routes — segment review surface. The GDELT/Brave daily-radar
 // discovery + rubric scoring + candidate-promote flow that used to
 // populate this table has been CUT (see CLAUDE.md's "Two other Workers
-// exist" section and docs/canopticon-renovation.md — a fully separate
+// exist" section and docs/archive/canopticon-renovation.md — a fully separate
 // "what's newsworthy" engine, its own database, zero connection to the
 // typed graph). No route here writes a NEW candidate row anymore.
 //

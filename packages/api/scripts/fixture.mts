@@ -222,7 +222,103 @@ const REVIEW_RUN = {
   final_piece_id: REVIEW_BRIEF_ID,
   created_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
 };
-const RESEARCH_RUNS = [RESEARCH_RUN, REVIEW_RUN];
+
+// TWO MORE FINISHED RUNS, so the review panel's other two states are in the
+// catalogue. The warning: more quotes died than survived, the red line the
+// panel shows above Publish — a draft the operator must read, not a gate.
+// The published state: the brief is already in the record, so the panel
+// offers "Read it in the record" instead of Publish.
+const REVIEW_WARN_LABEL = "How much of the housing transfer was new money?";
+const REVIEW_WARN_SECTIONS_DONE = [
+  {
+    heading: "What the transfer moved",
+    body_md:
+      "The transfer consolidated an existing programme into the departmental envelope. The writer proposed four figures for its size; three were not found verbatim in any source.",
+    quotes_ok: 1,
+    quotes_killed: 3,
+  },
+  {
+    heading: "What the estimates call incremental",
+    body_md:
+      "The estimates say the increase does not represent incremental appropriation. Nothing else in the sources sets a figure against that sentence.",
+    quotes_ok: 0,
+    quotes_killed: 1,
+  },
+];
+const REVIEW_WARN_BRIEF_ID = "brief-transfer-new-money";
+const REVIEW_WARN_BRIEF = {
+  ...REVIEW_BRIEF,
+  id: REVIEW_WARN_BRIEF_ID,
+  slug: "how-much-of-the-transfer-was-new-money",
+  title: "How much of the housing transfer was new money",
+  body_md: [
+    "Very little, on the record as held — but the record holds less than the writer wanted to say, and most of what it proposed did not survive verification.",
+    ...REVIEW_WARN_SECTIONS_DONE.map((x) => `## ${x.heading}\n\n${x.body_md}`),
+    "## What this brief could not establish\n\n- The size of the consolidated programme in the prior year.\n- Whether any part of the increase is appropriation the estimates do not label.",
+  ].join("\n\n"),
+  origin: REVIEW_WARN_LABEL,
+  metadata: JSON.stringify({
+    ingested_from: "deep-research",
+    label: REVIEW_WARN_LABEL,
+    mode: "sectioned",
+    sections: REVIEW_WARN_SECTIONS_DONE.length,
+    quotes_ok: 1,
+    quotes_killed: 4,
+    source_id: "src-brief-2",
+  }),
+};
+const REVIEW_WARN_RUN = {
+  ...REVIEW_RUN,
+  id: "run-3",
+  label: REVIEW_WARN_LABEL,
+  outline: JSON.stringify(
+    REVIEW_WARN_SECTIONS_DONE.map((x) => ({
+      heading: x.heading,
+      brief_of_section: "",
+      source_ids: [],
+    })),
+  ),
+  sections_done: JSON.stringify(REVIEW_WARN_SECTIONS_DONE),
+  final_piece_id: REVIEW_WARN_BRIEF_ID,
+  created_at: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
+};
+
+const REVIEW_PUBLISHED_LABEL = "Which vote did the housing transfer come out of?";
+const REVIEW_PUBLISHED_BRIEF_ID = "brief-originating-vote";
+const REVIEW_PUBLISHED_BRIEF = {
+  ...REVIEW_BRIEF,
+  id: REVIEW_PUBLISHED_BRIEF_ID,
+  slug: "the-originating-vote",
+  title: "The originating vote",
+  publication_status: "published",
+  origin: REVIEW_PUBLISHED_LABEL,
+  metadata: JSON.stringify({
+    ingested_from: "deep-research",
+    label: REVIEW_PUBLISHED_LABEL,
+    mode: "sectioned",
+    sections: REVIEW_SECTIONS_DONE.length,
+    quotes_ok: 6,
+    quotes_killed: 1,
+    source_id: "src-brief-3",
+  }),
+};
+const REVIEW_PUBLISHED_RUN = {
+  ...REVIEW_RUN,
+  id: "run-4",
+  label: REVIEW_PUBLISHED_LABEL,
+  final_piece_id: REVIEW_PUBLISHED_BRIEF_ID,
+  created_at: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
+};
+
+/** Every finished brief, by id — what `FROM pieces WHERE id = ?` answers with
+ *  before falling back to the published corpus. */
+const BRIEFS = new Map([
+  [REVIEW_BRIEF_ID, REVIEW_BRIEF],
+  [REVIEW_WARN_BRIEF_ID, REVIEW_WARN_BRIEF],
+  [REVIEW_PUBLISHED_BRIEF_ID, REVIEW_PUBLISHED_BRIEF],
+]);
+
+const RESEARCH_RUNS = [RESEARCH_RUN, REVIEW_RUN, REVIEW_WARN_RUN, REVIEW_PUBLISHED_RUN];
 
 const RESEARCH_SOURCES: Array<[string, string, string, number]> = [
   [
@@ -479,6 +575,69 @@ const LEAD_ANSWER = {
   error: null,
 };
 
+// ASK THE RECORD — a question the operator has already asked, frozen in a
+// lead_answers row under kind "question" (answer-question.ts). /search?q=
+// for this exact question renders "From the record" above the passages, for
+// every reader. The key is questionKey() computed at load, as the lead answer
+// above is, so it cannot drift from what storedAnswerForQuestion binds.
+const SEARCH_QUESTION = "Did housing funding rise in 2026?";
+const { questionKey } = await import("../src/graph/lib/answer-question.ts");
+const SEARCH_ANSWER_KEY = await questionKey(SEARCH_QUESTION);
+const SEARCH_ANSWER = {
+  lead_key: SEARCH_ANSWER_KEY,
+  status: "answered",
+  answer_md:
+    "The departmental housing line rose 32.3%, but the estimates attribute the " +
+    "whole increase to consolidating an existing programme into the envelope. " +
+    "No document on file records new appropriation for housing in 2026.",
+  quotes: JSON.stringify([
+    {
+      text: "The housing figure is the one worth pausing on",
+      piece_id: "budget-2026-estimates",
+      slug: "budget-2026-estimates",
+      title: "Budget 2026: Main Estimates",
+      quote_id: "q-housing",
+    },
+    {
+      text: "Every transfer over one million dollars.",
+      piece_id: "transfer-payments-2025",
+      slug: "transfer-payments-2025",
+      title: "Transfer Payments 2025",
+    },
+  ]),
+  discarded: 1,
+  error: null,
+  model: "claude-opus-5",
+  created_at: "2026-09-23T16:20:00.000Z",
+};
+
+// What the vector index "returns" for any query: three verified passages,
+// each verbatim in its document (so its receipt resolves), and two document
+// hits. The fixture has no Vectorize; the stub below answers every query the
+// same way so the search page can be photographed with results on it.
+const SEARCH_PASSAGES = [
+  {
+    id: "q-housing",
+    verbatim_text: "The housing figure is the one worth pausing on",
+    slug: "budget-2026-estimates",
+    title: "Budget 2026: Main Estimates",
+  },
+  {
+    id: "q-variance",
+    verbatim_text: "Percentages are computed from the unrounded source values",
+    slug: "budget-2026-estimates",
+    title: "Budget 2026: Main Estimates",
+  },
+  {
+    id: "q-rd-1",
+    verbatim_text:
+      "Checking takes time; the signal is instant. A live audience cannot pause to verify a syllogism, so the performance is judged on affect.",
+    slug: "the-logic-costume",
+    title: "The Logic Costume",
+  },
+];
+const SEARCH_DOCUMENT_IDS = ["budget-2026-estimates", "housing-starts-q3"];
+
 // Per-piece extraction counts. Keyed by slug because the fixture uses the slug
 // as the piece id.
 //
@@ -699,11 +858,21 @@ function makeDb(): D1Database {
         // The finished brief (loadResearchReview, the .md download) and the
         // parent document it grew from, both by id.
         if (/FROM pieces WHERE id = \?/i.test(sql)) {
-          if (bound[0] === REVIEW_BRIEF_ID) return REVIEW_BRIEF;
-          return ALL.find((p) => p.id === bound[0]) ?? null;
+          const brief = BRIEFS.get(String(bound[0]));
+          if (brief) return brief;
+          const piece = ALL.find((p) => p.id === bound[0]) ?? null;
+          // The search page's document hit asks for a 220-char excerpt by alias.
+          if (piece && /AS excerpt/i.test(sql)) {
+            return { ...piece, excerpt: piece.body_md.slice(0, 220) };
+          }
+          return piece;
         }
         if (/FROM nodes/i.test(sql) && /neutral_fact/i.test(sql)) return { n: 273 };
         if (/FROM users/i.test(sql)) return { id: "u1" };
+        // storedAnswerForQuestion binds [userId, lead_key, kind].
+        if (/FROM lead_answers/i.test(sql)) {
+          return bound[1] === SEARCH_ANSWER_KEY && bound[2] === "question" ? SEARCH_ANSWER : null;
+        }
         if (/FROM pieces WHERE user_id = \? AND slug = \?/i.test(sql)) {
           return ALL.find((p) => p.slug === bound[1]) ?? null;
         }
@@ -912,6 +1081,14 @@ function makeDb(): D1Database {
             results: [{ lead_key: LEAD_ANSWER_KEY, ...LEAD_ANSWER }],
           };
         }
+        // The search page's passages (models/search.ts resolvePassages): the
+        // verbatim text and the published document, for the quote ids the
+        // vector stub returned.
+        if (/FROM quotes q/i.test(sql) && /verbatim_text/i.test(sql) && /IN \(/i.test(sql)) {
+          return {
+            results: SEARCH_PASSAGES.filter((r) => bound.includes(r.id)),
+          };
+        }
         // Verified-span counts, per piece.
         if (/FROM quotes/i.test(sql) && /GROUP BY sn\.piece_id/i.test(sql)) {
           return {
@@ -1015,6 +1192,31 @@ const env = {
   LOG_LEVEL: "error",
   SESSION_SECRET,
   DB: makeDb(),
+  // Workers AI and Vectorize, as far as the search page needs them: a fixed
+  // embedding, a fixed answer set, and a rerank that keeps the order. Nothing
+  // else at render time calls either (standing rule 5), so a page that starts
+  // to would photograph the stub's shape rather than pass silently.
+  AI: {
+    run: async (model: string) =>
+      /bge/i.test(model) ? { data: [[0.1, 0.2, 0.3]] } : { response: [] },
+  },
+  EMBEDDINGS: {
+    query: async (_values: number[], opts: { filter?: { kind?: { $in?: string[] } } }) => {
+      const kinds = opts.filter?.kind?.$in ?? [];
+      const matches = kinds.includes("quote")
+        ? SEARCH_PASSAGES.map((p, i) => ({
+            id: `quote:${p.id}`,
+            score: 0.91 - i * 0.07,
+            metadata: { kind: "quote", id: p.id, user_id: "u1" },
+          }))
+        : SEARCH_DOCUMENT_IDS.map((id, i) => ({
+            id: `piece:${id}`,
+            score: 0.84 - i * 0.09,
+            metadata: { kind: "piece", id, user_id: "u1" },
+          }));
+      return { matches };
+    },
+  },
 };
 
 /** Slugs the audit needs to hit detail pages without hard-coding them twice. */
@@ -1023,4 +1225,13 @@ export const FIXTURE = {
   researchSlug: RESEARCH[0]?.[0] as string,
 };
 
-export { env, ESSAYS, RESEARCH, ALL, REVIEW_LABEL };
+export {
+  env,
+  ESSAYS,
+  RESEARCH,
+  ALL,
+  REVIEW_LABEL,
+  REVIEW_WARN_LABEL,
+  REVIEW_PUBLISHED_LABEL,
+  SEARCH_QUESTION,
+};

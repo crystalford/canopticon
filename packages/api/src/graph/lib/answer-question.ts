@@ -54,6 +54,8 @@ export type QuestionQuote = VerifiedQuote & { quote_id?: string | null };
 
 export interface QuestionAnswer extends LeadAnswer {
   quotes: QuestionQuote[];
+  /** When the row was frozen; read back for /search.json, null on a fresh answer. */
+  created_at?: string | null;
 }
 
 /**
@@ -369,9 +371,10 @@ export async function storedAnswerForQuestion(
     discarded: number;
     error: string | null;
     model: string | null;
+    created_at?: string | null;
   }>(
     db,
-    `SELECT lead_key, status, answer_md, quotes, discarded, error, model
+    `SELECT lead_key, status, answer_md, quotes, discarded, error, model, created_at
        FROM lead_answers WHERE user_id = ? AND lead_key = ? AND kind = ?`,
     [userId, key, QUESTION_KIND],
   ).catch(() => null);
@@ -391,6 +394,7 @@ export async function storedAnswerForQuestion(
     discarded: r.discarded ?? 0,
     error: r.error,
     model: r.model,
+    created_at: r.created_at ?? null,
   };
 }
 

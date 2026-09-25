@@ -4,7 +4,7 @@
 // THE RECORD shell (approved product design, design/the-record-mockup.html):
 // one dark register for everyone — the brand is the instrument. Nav is three
 // doors + the search affordance. The words on every public surface follow
-// the plain-words rule (docs/site-design.md): no internal vocabulary, every
+// the plain-words rule (docs/archive/site-design.md): no internal vocabulary, every
 // term self-explanatory to a first-time reader.
 //
 // Strict no-JS contract: nothing here requires JavaScript to read.
@@ -51,6 +51,9 @@ export interface RenderPageArgs {
   /** Absolute URL of this page's plain-text twin, advertised to crawlers as
    *  rel=alternate and to readers as a link on the page itself. */
   markdownUrl?: string;
+  /** Absolute URL of this page's JSON model (`/p/<slug>.json`), advertised
+   *  to crawlers as rel=alternate the same way the markdown twin is. */
+  jsonUrl?: string;
   /** ISO dates for article metadata, emitted as OpenGraph article:* tags. */
   publishedTime?: string;
   modifiedTime?: string;
@@ -110,6 +113,9 @@ export function renderPage(args: RenderPageArgs): string {
       : "",
     args.markdownUrl
       ? `<link rel="alternate" type="text/markdown" href="${escapeAttr(args.markdownUrl)}" />`
+      : "",
+    args.jsonUrl
+      ? `<link rel="alternate" type="application/json" href="${escapeAttr(args.jsonUrl)}" />`
       : "",
     `<link rel="alternate" type="application/feed+json" title="Canopticon" href="${SITE_ORIGIN}/feed.json" />`,
   ]

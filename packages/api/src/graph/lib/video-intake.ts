@@ -13,7 +13,7 @@
 
 import type { Env } from "../../env";
 import { insertOne, one, updateById } from "../../lib/d1";
-import { createAndExtract } from "../../operator/routes";
+import { createAndExtract } from "../../operator/routes/upload";
 import { enqueueDigest } from "./digest-jobs";
 
 export interface VideoImportRow {

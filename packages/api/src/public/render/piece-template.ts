@@ -2,6 +2,11 @@
 // documented-record, and essay templates so individual pieces actually
 // read like the design promised, not like a basic CMS dump.
 //
+// Since 2026-09-24 this file is HTML only. The queries live in
+// public/models/document.ts, which builds ONE typed model of everything the
+// page shows; this renders from it, and `GET /p/<slug>.json` serves the same
+// object. Rule 3: the two faces cannot drift because there is one of them.
+//
 // The body_md content is parsed by `##` section headings to detect
 // known structural sections (Short version, Key findings, Caveats,
 // What this is, What this is not, Source log). Anything unrecognised
@@ -11,48 +16,28 @@
 // CSS classes are all already in styles.ts (lifted verbatim from the
 // design build); this file is template + section-parser only.
 
-import { type FindingRow, findingsForPiece } from "../../graph/lib/aeo-extract";
-import type { Lead } from "../../graph/lib/leads";
-import { type LedeRow, ledeForPiece } from "../../graph/lib/lede";
-import { resolveByline, showsUpdate } from "../../lib/byline";
 import { documentStructure } from "../../lib/document-structure";
 import { type ParsedTetrad, TETRAD_QUADRANTS, parseEssay, parseTetrad } from "../../lib/essay";
-import { type ReadingRow, readingsForPiece } from "../../lib/readings";
-import {
-  type Lineage,
-  type PieceDetail,
-  type PieceSummary,
-  type PublicEnv,
-  getPieceBySlug,
-  lineageForPiece,
-  relatedBySubject,
-  resolveOperatorId,
-  topicForPiece,
-  topicSlug,
-  topicsForPiece,
-} from "../data";
+import type { PublicEnv } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
+import { TETRAD_LABELS, ldScript } from "../machine";
 import {
-  TETRAD_LABELS,
-  citeApa,
-  citeBibtex,
-  essayFaq,
-  essayTetradLd,
-  isEssay,
-  pieceJsonLd,
-  pieceMarkdownUrl,
-  pieceTitle,
-  pieceUrl,
-} from "../machine";
+  type DocumentFed,
+  type DocumentKeyFigure,
+  type DocumentLeadPassage,
+  type DocumentLineage,
+  type DocumentModel,
+  type DocumentReading,
+  type DocumentVideo,
+  documentModel,
+} from "../models/document";
 // The publication's own renderer, NOT the CMS one. A document is not a post:
 // it arrives as an uploaded file carrying tables, nested lists and
 // hard-wrapped prose, none of which the CMS renderer handles — which is what
 // made a research dossier render as a wall of text. See render/markdown.ts.
 import { markReadingPassages, placeReadings } from "./margin-readings";
 import { renderInlineMarkdown, renderMarkdown } from "./markdown";
-import { type CrossLinkSpan, spliceInline } from "./receipts";
-
-/** Bylines that name the machinery rather than an author. Never rendered. */
+import { spliceInline } from "./receipts";
 
 // ---- public entry point -----------------------------------------------
 
@@ -71,154 +56,57 @@ export async function renderPiece(
   slug: string,
   opts: RenderPieceOptions = {},
 ): Promise<string | null> {
-  const userId = await resolveOperatorId(env.DB);
-  if (!userId) return null;
-  const piece = await getPieceBySlug(env.DB, userId, slug);
-  if (!piece) return null;
-  // Working-material chain passes are not publicly reachable (spec §2.6).
-  if (piece.publication_status === "working-material") return null;
+  const model = await documentModel(env, slug, { isOperator: opts.isOperator === true });
+  if (!model) return null;
+  return renderPieceFromModel(model);
+}
 
-  const topics = await topicsForPiece(env.DB, userId, piece.id);
-  // Related by shared subject, not by date (docs/the-record.md §6): the typed
-  // graph already knows which entity and theme labels two documents share.
-  const related = await relatedBySubject(env.DB, userId, piece.id, 4).catch(() => []);
-  // The operator's readings (§5c) and the document's lineage (§5). Both are
-  // plain queries; both render empty as nothing rather than as a claim.
-  const readings = await readingsForPiece(env.DB, userId, piece.id).catch(() => []);
-  const lineage = await lineageForPiece(env.DB, userId, piece.id).catch(
-    () => ({ parent: null, children: [] }) as Lineage,
-  );
-  const fed = await loadWhatItFed(env, userId, piece.id);
-  // Findings are the densest thing a research document produces and the only
-  // primitive with strong evidence behind it. They live on the document's own
-  // page — no new URL, so no thin-content exposure at all.
-  const findings = await findingsForPiece(env.DB, userId, piece.id).catch(() => []);
-  const lede = await ledeForPiece(env.DB, userId, piece.id).catch(() => null);
-  // Subjects this document shares with other published documents. A query, not
-  // a model call: the typed graph already records which piece every node came
-  // from, so a label on two pieces IS an edge between them. Free, deterministic
-  // and always current — a new document joins the web the moment it extracts.
-  const { crossDocumentLinks } = await import("../../graph/lib/crosslinks");
-  const crosslinks = await crossDocumentLinks(env.DB, userId, piece.id).catch(() => []);
-  // The closed section (graph/lib/topics.ts) this document is filed in — the
-  // third crumb, and the hub the page belongs to. Null when not yet filed.
-  const section = await topicForPiece(env.DB, userId, piece.id).catch(() => null);
-  // The operator's action bar (docs/the-record.md §6): this document's own
-  // leads. A query, operator-only, never fetched for a reader.
-  const leads = opts.isOperator
-    ? await (await import("../../graph/lib/leads"))
-        .leadsForCorpus(env.DB, userId, { pieceId: piece.id, limit: 6 })
-        .catch(() => [] as Lead[])
-    : [];
-
-  const body = renderPieceBody(piece, {
-    topics: topics.map((t) => ({ slug: t.slug, label: t.label })),
-    related: related.filter((r) => r.id !== piece.id),
-    fed,
-    findings,
-    lede,
-    crosslinks,
-    readings,
-    lineage,
-    section,
-    leads,
-    isOperator: opts.isOperator === true,
-  });
-
-  // The piece page emitted no structured data at all, while subject pages and
-  // every arrangement did — the page type the publication is actually made of
-  // was the least machine-legible one on the site.
-  const essay = isEssay(piece.kind);
-  // A tetrad is filed as an essay but has no question headings, so it gets
-  // `about` and `hasPart` in place of a FAQPage.
-  const tetrad = essay ? essayTetradLd(piece.body_md ?? "") : null;
-  const faq = essay && !tetrad ? essayFaq(piece.body_md ?? "") : undefined;
-  // The share card exists once the pipeline's og step has drawn it; the
-  // route 404s until then, and a 404 og:image is worse than none, so it is
-  // named only when the object is there.
-  const ogKey = `og/${piece.slug}.png`;
-  const hasCard = await env.FILES?.head(ogKey)
-    .then((h) => Boolean(h))
-    .catch(() => false);
+/**
+ * The page from its model. Split from renderPiece so a caller that already
+ * holds the model (the JSON route, a test) can render without re-querying.
+ */
+export function renderPieceFromModel(model: DocumentModel): string {
+  const body = renderPieceBody(model);
+  const essay = model.classification !== "research";
   return renderPage({
-    title: pieceTitle(piece),
-    description: piece.subtitle ?? `${pieceTitle(piece)} — a Canopticon piece.`,
-    ...(hasCard ? { ogImage: `https://canopticon.com/og/${piece.slug}.png` } : {}),
-    body: `${body}\n${pieceJsonLd(piece, {
-      ...(faq?.length ? { faq } : {}),
-      ...(tetrad ? { tetrad } : {}),
-      // Only once approved — the structured data must not carry a passage the
-      // page itself is not showing.
-      ...(lede?.approved_at ? { lede: lede.verbatim_text } : {}),
-      // Each reading is a Comment on its Quotation — the operator's own
-      // sentences, and the only ones on the page that are not the document's.
-      ...(readings.length ? { readings } : {}),
-      section,
-      // Lineage (§5): the document this one grew from, as `isBasedOn`.
-      basedOn: lineage.parent ? { slug: lineage.parent.slug, title: lineage.parent.title } : null,
-    })}`,
+    title: model.title,
+    description: model.description,
+    ...(model.machine.ogImage ? { ogImage: model.machine.ogImage } : {}),
+    // The structured data is the model's own JSON-LD objects, serialised the
+    // way machine.ts always did — one object, two faces.
+    body: `${body}\n${model.machine.jsonLd.map(ldScript).join("\n")}`,
     activeNav: essay ? "/essays" : "/research",
     zone: essay ? "essays" : "research",
-    canonical: pieceUrl(piece.slug),
+    canonical: model.url,
     // The body brings its own `.container.docpage`. Without `bare`, renderPage
     // wraps it in a second `.container` — two lots of side padding, and the
     // outer's max-width:1100px clamping before .docpage's 1260px can apply,
     // which squeezed the reading column to ~530px and pushed it off centre.
     bare: true,
     ogType: "article",
-    markdownUrl: pieceMarkdownUrl(piece.slug),
-    publishedTime: piece.published_at ?? piece.created_at,
-    modifiedTime: piece.updated_at,
+    markdownUrl: model.machine.mdUrl,
+    jsonUrl: model.machine.jsonUrl,
+    publishedTime: model.publishedAt ?? model.createdAt,
+    modifiedTime: model.updatedAt,
   });
 }
 
 // ---- main composer -----------------------------------------------------
-
-interface FedSummary {
-  facts: number;
-  assertions: number;
-  contested: number;
-  subjects: Array<{ label: string; slug: string }>;
-}
-
-interface PieceCtx {
-  topics: Array<{ slug: string; label: string }>;
-  related: PieceSummary[];
-  fed?: FedSummary;
-  findings?: FindingRow[];
-  lede?: LedeRow | null;
-  /**
-   * Subjects this document shares with other published documents, from
-   * graph/lib/crosslinks.ts. A query over the typed graph, not a model call —
-   * so it costs nothing, never fails, and returns the same answer every time.
-   */
-  crosslinks?: Array<CrossLinkSpan & { title: string }>;
-  /** The operator's notes on passages of this document (§5c). */
-  readings?: ReadingRow[];
-  /** What this document grew from and into (§5). */
-  lineage?: Lineage;
-  /** The closed section this document is filed in, or null. */
-  section?: string | null;
-  /** This document's own leads, for the operator's action bar (§6). */
-  leads?: Lead[];
-  /** The viewer is the signed-in operator: render the note form and script. */
-  isOperator?: boolean;
-}
 
 /**
  * The passage a retriever is meant to lift, placed before the body so it is
  * the first prose on the page.
  *
  * It is the document's OWN words — selected, never composed — so it carries a
- * /q/ receipt like any other quote. Rendered only once a person has approved
- * it: a passage can be perfectly verbatim and still misrepresent what the
- * document weighs, and no substring check catches that.
+ * /q/ receipt like any other quote. The model carries it only once a person
+ * has approved it: a passage can be perfectly verbatim and still misrepresent
+ * what the document weighs, and no substring check catches that.
  */
-function renderLede(lede: LedeRow | null | undefined): string {
-  if (!lede?.approved_at) return "";
+function renderLede(lede: DocumentLeadPassage | null): string {
+  if (!lede) return "";
   return `<div class="tldr lede">
-  <p>${escapeHtml(lede.verbatim_text)}</p>
-  <a class="ev-receipt" href="/q/${escapeAttr(lede.quote_id)}">Verified passage →</a>
+  <p>${escapeHtml(lede.text)}</p>
+  <a class="ev-receipt" href="/q/${escapeAttr(lede.quoteId)}">Verified passage →</a>
 </div>`;
 }
 
@@ -238,12 +126,12 @@ function renderLede(lede: LedeRow | null | undefined): string {
 // goes to the sentence, and the receipt link goes to the proof.
 const KEY_FIGURES_ABOVE_FOLD = 6;
 
-function renderFindings(findings: FindingRow[] | undefined, placed: Set<string>): string {
-  if (!findings?.length) return "";
-  const row = (f: FindingRow) => `    <tr class="kf-row">
+function renderFindings(findings: DocumentKeyFigure[], placed: Set<string>): string {
+  if (!findings.length) return "";
+  const row = (f: DocumentKeyFigure) => `    <tr class="kf-row">
       <td class="kf-figure">${escapeHtml(f.figure)}</td>
       <td class="kf-measures">${escapeHtml(f.measures)}</td>
-      <td class="kf-meta">${[f.period, f.attributed_to]
+      <td class="kf-meta">${[f.date, f.source]
         .filter(Boolean)
         .map((x) => escapeHtml(String(x)))
         .join(' <span class="sep">·</span> ')}</td>
@@ -252,14 +140,14 @@ function renderFindings(findings: FindingRow[] | undefined, placed: Set<string>)
         // quote no longer appears in the body (the document was edited after
         // extraction) has no anchor to jump to, and a dead link on the
         // provenance surface is worse than no link.
-        placed.has(f.quote_id)
-          ? `<a class="finding-context" href="#q-${escapeAttr(f.quote_id)}">in context ↓</a> `
+        placed.has(f.quoteId)
+          ? `<a class="finding-context" href="#q-${escapeAttr(f.quoteId)}">in context ↓</a> `
           : ""
-      }<a class="finding-receipt" href="/q/${escapeAttr(f.quote_id)}">verified quote ↗</a></td>
+      }<a class="finding-receipt" href="/q/${escapeAttr(f.quoteId)}">verified quote ↗</a></td>
     </tr>`;
   const lead = findings.slice(0, KEY_FIGURES_ABOVE_FOLD);
   const rest = findings.slice(KEY_FIGURES_ABOVE_FOLD);
-  const table = (rows: FindingRow[]) => `  <table class="key-figures">
+  const table = (rows: DocumentKeyFigure[]) => `  <table class="key-figures">
     <thead><tr><th>Figure</th><th>What it measures</th><th>Period · source</th><th></th></tr></thead>
     <tbody>
 ${rows.map(row).join("\n")}
@@ -281,42 +169,10 @@ ${table(rest)}
 </section>`;
 }
 
-// "This document fed the fabric" — the receipt loop. Counts the typed-graph
-// rows this piece contributed and the subject pages they feed. Closes the
-// loop: facts climb up to pages; the document shows what it gave.
-async function loadWhatItFed(env: PublicEnv, userId: string, pieceId: string): Promise<FedSummary> {
-  const { all, one } = await import("../../lib/d1");
-  const counts = await one<{ facts: number; assertions: number; contested: number }>(
-    env.DB,
-    `SELECT
-       COALESCE(SUM(CASE WHEN kind = 'neutral_fact' THEN 1 ELSE 0 END), 0) AS facts,
-       COALESCE(SUM(CASE WHEN kind = 'assertion' THEN 1 ELSE 0 END), 0) AS assertions,
-       COALESCE(SUM(CASE WHEN kind = 'assertion' AND id IN
-         (SELECT node_id FROM assertions WHERE rank = 'contested') THEN 1 ELSE 0 END), 0) AS contested
-     FROM nodes WHERE user_id = ? AND piece_id = ?`,
-    [userId, pieceId],
-  ).catch(() => null);
-
-  const subjects = await all<{ label: string; slug: string }>(
-    env.DB,
-    `SELECT DISTINCT n.label, pg.slug
-       FROM nodes n
-       JOIN pages pg ON pg.subject_node_id = n.id
-      WHERE n.user_id = ? AND n.piece_id = ? AND n.kind IN ('entity', 'event')
-      LIMIT 8`,
-    [userId, pieceId],
-  ).catch(() => []);
-
-  return {
-    facts: counts?.facts ?? 0,
-    assertions: counts?.assertions ?? 0,
-    contested: counts?.contested ?? 0,
-    subjects,
-  };
-}
-
-function renderWhatItFed(fed: FedSummary | undefined): string {
-  if (!fed || (fed.facts === 0 && fed.assertions === 0)) return "";
+// "This document fed the fabric" — the receipt loop. The model counts the
+// typed-graph rows this piece contributed and the subject pages they feed.
+function renderWhatItFed(fed: DocumentFed | null): string {
+  if (!fed) return "";
   // Subjects are named, not linked: the subject pages were unmounted on
   // 2026-09-24 (docs/the-record.md §9). Cross-document links in the body are
   // how a reader walks from here to the other documents on the same subject.
@@ -329,7 +185,7 @@ function renderWhatItFed(fed: FedSummary | undefined): string {
 </div>`;
 }
 
-function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
+function renderPieceBody(model: DocumentModel): string {
   // Receipts are spliced into the markdown BEFORE sectioning, so every
   // per-kind body path below inherits them without knowing they exist. The
   // findings are the only spans linked: at roughly 53 verified quotes per
@@ -346,33 +202,38 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
   // marker must sit in the document's own text, not inside a link a receipt
   // just wrote; the price is that a finding whose span runs across a
   // reading's end is not linked, which is rare and silent.
-  const marked = markReadingPassages(piece.body_md ?? "", ctx.readings ?? []);
-  const receipts = spliceInline(marked.markdown, ctx.findings ?? [], ctx.crosslinks ?? []);
+  const readingSpans = model.readings.map((r) => ({ id: r.id, verbatim_text: r.verbatimText }));
+  const marked = markReadingPassages(model.bodyMd, readingSpans);
+  const receipts = spliceInline(
+    marked.markdown,
+    model.receipts.map((r) => ({ quote_id: r.quoteId, verbatim_text: r.text })),
+    model.crosslinks.map((c) => ({ label: c.phrase, slug: c.slug })),
+  );
   const withReceipts = receipts.markdown;
   const sections = parseSections(withReceipts);
-  const videoMeta = parseVideoMetadata(piece);
 
   // A video-transcript piece: lead with the argument summary (Phase 2,
   // 2026-07-24) — the faithful, source-side account of what was argued —
   // and fold the raw transcript (still the same body_md every other kind
   // renders inline) behind a <details> so it reads as backing material,
   // not the main event. Every other kind is untouched.
-  const bodyBlock = videoMeta
-    ? `${renderArgumentSummary(piece, videoMeta)}
+  const bodyBlock = model.video
+    ? `${renderArgumentSummary(model.video)}
 <details class="video-transcript-fold">
   <summary>Full transcript</summary>
-  ${renderBodyForKind(piece, sections, ctx, withReceipts)}
+  ${renderBodyForKind(model.kind, sections, withReceipts)}
 </details>`
-    : renderBodyForKind(piece, sections, ctx, withReceipts);
+    : renderBodyForKind(model.kind, sections, withReceipts);
 
   // Each reading beside its passage (§5c: "rendered in the margin of the
   // passage on wide screens, inline under it on narrow ones"). Whatever
   // could not be placed keeps the block after the body, and says why.
-  const margin = placeReadings(bodyBlock, ctx.readings ?? [], (id) => {
-    const r = (ctx.readings ?? []).find((x) => x.id === id);
-    return r ? renderReadingAside(r, ctx) : "";
+  const margin = placeReadings(bodyBlock, readingSpans, (id) => {
+    const r = model.readings.find((x) => x.id === id);
+    return r ? renderReadingAside(r, model) : "";
   });
 
+  const isOperator = model.operator !== null;
   // The rail sits OUTSIDE the reading card, not inside it. It was inside,
   // which meant 300px of sidebar came out of the document's own measure and
   // squeezed the prose to roughly 570px. The card now holds only the
@@ -380,24 +241,24 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
   return `<div class="container docpage">
 <div class="docgrid">
   <article class="reading">
-${renderBreadcrumbs(piece, ctx.section)}
-${renderPageHead(piece, ctx)}
-${renderActionBar(piece, ctx)}
-${renderLede(ctx.lede)}
-${renderFindings(ctx.findings, receipts.placed)}
+${renderBreadcrumbs(model)}
+${renderPageHead(model)}
+${renderActionBar(model)}
+${renderLede(model.leadPassage)}
+${renderFindings(model.keyFigures, receipts.placed)}
 ${margin.html}
-${renderReadings(ctx, margin.placed)}
-${renderNoteForm(piece, ctx)}
-${renderLineage(ctx.lineage)}
-${renderCiteBox(piece)}
-${renderWhatItFed(ctx.fed)}
-${renderDepositNote(piece, ctx.topics)}
+${renderReadings(model, margin.placed)}
+${renderNoteForm(model)}
+${renderLineage(model.lineage)}
+${renderCiteBox(model)}
+${renderWhatItFed(model.fed)}
+${renderDepositNote(model)}
   </article>
-${renderDocRail(piece)}
+${renderDocRail(model)}
 </div>
-${renderOnward(piece, ctx)}
+${renderOnward(model)}
 </div>
-${ctx.isOperator ? '<script src="/op/notes.js" defer></script>' : ""}
+${isOperator ? '<script src="/op/notes.js" defer></script>' : ""}
 <style>
   .key-figures-block { margin: 26px 0 0; padding-top: 18px; }
   .key-figures-block h2 { font-size: 15px; letter-spacing: 0.02em; text-transform: uppercase; }
@@ -462,43 +323,21 @@ ${ctx.isOperator ? '<script src="/op/notes.js" defer></script>' : ""}
 </style>`;
 }
 
-interface VideoMeta {
-  source_url: string | null;
-  video_channel: string | null;
-}
-
-/** Detect a video-transcript piece (Phase 1 ingestion, 2026-07-24) from
- *  its metadata JSON rather than a dedicated column — matches how every
- *  other piece-origin marker (ingested_from) is already stored. */
-function parseVideoMetadata(piece: PieceDetail): VideoMeta | null {
-  try {
-    const meta = JSON.parse(piece.metadata || "{}") as {
-      ingested_from?: string;
-      source_url?: string;
-      video_channel?: string;
-    };
-    if (meta.ingested_from !== "video-transcript") return null;
-    return { source_url: meta.source_url ?? null, video_channel: meta.video_channel ?? null };
-  } catch {
-    return null;
-  }
-}
-
 /** "What this video argued" — the Phase 2 summary, or (while it's still
  *  queued — advanceArgumentSummaries runs one piece per cron tick) an
  *  honest note that it's on its way rather than a blank gap. */
-function renderArgumentSummary(piece: PieceDetail, meta: VideoMeta): string {
+function renderArgumentSummary(meta: DocumentVideo): string {
   const sourceLine = [
-    meta.video_channel ? escapeHtml(meta.video_channel) : null,
-    meta.source_url
-      ? `<a href="${escapeAttr(meta.source_url)}" target="_blank" rel="noopener noreferrer">watch the original ↗</a>`
+    meta.channel ? escapeHtml(meta.channel) : null,
+    meta.sourceUrl
+      ? `<a href="${escapeAttr(meta.sourceUrl)}" target="_blank" rel="noopener noreferrer">watch the original ↗</a>`
       : null,
   ]
     .filter(Boolean)
     .join(" · ");
 
-  const body = piece.argument_summary_md
-    ? renderMarkdown(piece.argument_summary_md)
+  const body = meta.argumentSummaryMd
+    ? renderMarkdown(meta.argumentSummaryMd)
     : `<p class="piece-note-pending">Summarizing what was argued in this video — checks in on the next processing pass. The full transcript below is already searchable and feeding the record.</p>`;
 
   return `<div class="piece-note video-argument-summary">
@@ -510,43 +349,30 @@ function renderArgumentSummary(piece: PieceDetail, meta: VideoMeta): string {
 
 // ---- scaffolding -------------------------------------------------------
 
-function renderBreadcrumbs(piece: PieceDetail, topic?: string | null): string {
-  const essay = isEssay(piece.kind);
-  const section = essay
-    ? { name: "Essays", href: "/essays" }
-    : { name: "Research", href: "/research" };
-  // Home › Research › Section › Title (docs/the-record.md §6). The section
-  // crumb appears only for a filed research document: it links to a hub that
-  // exists. The same trail is emitted as BreadcrumbList in machine.ts.
-  const hub =
-    !essay && topic
-      ? `
-  <span class="arr">›</span>
-  <a href="/research/${escapeAttr(topicSlug(topic))}">${escapeHtml(topic)}</a>`
-      : "";
-  // The last crumb was the kind ("essay"), which the eyebrow directly above
-  // it already says. The title is what a breadcrumb is for.
+// Home › Research › Section › Title (docs/the-record.md §6). The trail is the
+// model's; the same one is emitted as BreadcrumbList in machine.ts.
+function renderBreadcrumbs(model: DocumentModel): string {
+  const crumbs = model.breadcrumbs
+    .map((c, i) => {
+      const sep = i === 0 ? "" : `\n  <span class="arr">›</span>\n  `;
+      return c.href
+        ? `${sep}<a href="${escapeAttr(c.href)}">${escapeHtml(c.name)}</a>`
+        : `${sep}<span class="cur">${escapeHtml(c.name)}</span>`;
+    })
+    .join("");
   return `<div class="scope crumbs">
-  <a href="/">Home</a>
-  <span class="arr">›</span>
-  <a href="${escapeAttr(section.href)}">${escapeHtml(section.name)}</a>${hub}
-  <span class="arr">›</span>
-  <span class="cur">${escapeHtml(pieceTitle(piece))}</span>
+  ${crumbs}
 </div>`;
 }
 
-function renderPageHead(piece: PieceDetail, ctx: PieceCtx): string {
-  const label = kindLabel(piece.kind);
+function renderPageHead(model: DocumentModel): string {
   // The tag now appears ONLY as a warning. It used to label every piece
   // ("signed essay", "library entry") — a third restatement of what the
   // eyebrow and breadcrumb already said, in an .analysis-scoped class that
   // this page never matched, so it rendered as unstyled wrapping text. The
   // one case that carries real information is an auto-generated piece no
   // human has read, so that is the only case that still renders.
-  const autoGenerated = isAutoGenerated(piece);
-  // Its own class, not .opinion-tag — that one is scoped to `.analysis`,
-  // which a piece page is not, so this rendered as unstyled text wrapping
-  // one word per line down the left of the page.
+  //
   // DISCLOSURE, KEPT SHORT ON PURPOSE.
   //
   // This said "Unreviewed — written and published automatically. No operator
@@ -569,38 +395,33 @@ function renderPageHead(piece: PieceDetail, ctx: PieceCtx): string {
   // Editorial responsibility did not leave the page, only this box: it is in
   // the byline under the H1 and in the JSON-LD author as a named Person, which
   // is where the citation signal lives and what the EU carve-out asks for.
-  const warningTag = autoGenerated
+  const warningTag = model.draftedWithAi
     ? `<div class="provenance">Every quote here is checked word-for-word against a stored source. Drafted with AI assistance. <a href="/method">How this is verified →</a></div>`
     : "";
-  const confidence = readConfidence(piece);
+  const confidence = readConfidence();
   const confSection =
-    isEditorialKind(piece.kind) && confidence
+    isEditorialKind(model.kind) && confidence
       ? `<span class="row" style="gap:7px">${confDots(confidence)}<span class="coord">${escapeHtml(confidence)} confidence</span></span>`
       : "";
-  const reading = readingTime(piece.body_md ?? "");
-  // "the operator" is internal vocabulary — createAndExtract deliberately
-  // leaves byline unset for exactly this reason, but older rows still carry
-  // it and it renders on the page as "By the operator".
-  const byline = resolveByline(piece.byline);
   const dateBits = [
-    byline
-      ? `<span class="sig" style="font-family:var(--serif);font-style:italic;color:var(--ink)">By ${escapeHtml(byline)}</span>`
-      : "",
-    piece.published_at ? `<span>${escapeHtml(formatDate(piece.published_at))}</span>` : "",
+    // The model's author is never empty (lib/byline.ts resolves placeholders
+    // like "the operator" to the editor), so the byline always shows.
+    `<span class="sig" style="font-family:var(--serif);font-style:italic;color:var(--ink)">By ${escapeHtml(model.author)}</span>`,
+    model.publishedAt ? `<span>${escapeHtml(formatDate(model.publishedAt))}</span>` : "",
     // An update date is a ranking input, not decoration — freshness is a large
     // share of some engines' signal and the citation research names
     // update-date visibility directly. Only when it is genuinely later; a page
     // that says "Updated" on its publication day is noise.
-    showsUpdate(piece.published_at, piece.updated_at)
-      ? `<span class="updated">Updated ${escapeHtml(formatDate(piece.updated_at ?? ""))}</span>`
+    model.updatedShown
+      ? `<span class="updated">Updated ${escapeHtml(formatDate(model.updatedAt))}</span>`
       : "",
-    reading ? `<span>${escapeHtml(reading)}</span>` : "",
+    model.readMinutes ? `<span>${escapeHtml(`${model.readMinutes} min read`)}</span>` : "",
     // The one trust signal the machine cannot supply. Said only when a
     // readings row exists; a document without one does not claim it.
     // Points at the first reading, wherever it landed: beside its passage, or
     // in the after-body block when the passage could not be found.
-    ctx.readings?.length
-      ? `<a href="#reading-${escapeAttr(ctx.readings[0]?.id ?? "")}" class="read-by">Read by the operator</a>`
+    model.readByOperator
+      ? `<a href="#reading-${escapeAttr(model.readings[0]?.id ?? "")}" class="read-by">Read by the operator</a>`
       : "",
   ].filter(Boolean);
   const dateLine = dateBits.length
@@ -616,30 +437,30 @@ function renderPageHead(piece: PieceDetail, ctx: PieceCtx): string {
     ? `<div class="row" style="gap:12px;margin-top:12px;margin-bottom:14px">${confSection}</div>`
     : "";
   return `<div class="page-head">
-  <div class="zone-label">${escapeHtml(label)}</div>
+  <div class="zone-label">${escapeHtml(model.kindLabel)}</div>
   ${warningTag}
   ${tagRow}
-  <h1>${escapeHtml(pieceTitle(piece))}</h1>
-  ${piece.subtitle ? `<p class="ph-sub" style="font-style:italic">${escapeHtml(piece.subtitle)}</p>` : ""}
+  <h1>${escapeHtml(model.title)}</h1>
+  ${model.subtitle ? `<p class="ph-sub" style="font-style:italic">${escapeHtml(model.subtitle)}</p>` : ""}
   ${dateLine}
 </div>`;
 }
 
 // The sticky rail: what this document is, when it was published, and the two
 // ways to take it away with you.
-function renderDocRail(piece: PieceDetail): string {
-  const wordCount = (piece.body_md ?? "").split(/\s+/).filter(Boolean).length;
-  const published = piece.published_at ?? piece.created_at;
-  const updated = piece.updated_at;
+function renderDocRail(model: DocumentModel): string {
+  const wordCount = model.words;
+  const published = model.publishedAt ?? model.createdAt;
+  const updated = model.updatedAt;
   const sameDay = published.slice(0, 10) === updated.slice(0, 10);
   const rows: Array<[string, string]> = [
-    ["Kind", kindLabel(piece.kind)],
+    ["Kind", model.kindLabel],
     ["Words", wordCount >= 1000 ? `${(wordCount / 1000).toFixed(1)}k` : String(wordCount)],
     ["Published", formatDate(published)],
     ...(sameDay ? [] : ([["Updated", formatDate(updated)]] as Array<[string, string]>)),
-    ["License", "CC BY 4.0"],
+    ["License", model.license.name],
   ];
-  const md = `/p/${escapeAttr(piece.slug)}.md`;
+  const md = `/p/${escapeAttr(model.slug)}.md`;
   return `<aside class="docrail">
   <dl style="margin:0">
 ${rows
@@ -656,26 +477,27 @@ ${rows
 </aside>`;
 }
 
-// APA and BibTeX, generated from the same helpers the markdown twin and the
+// APA and BibTeX, generated by the same helpers the markdown twin and the
 // JSON-LD use, so a reader who copies a citation from the page and a machine
 // that reads it from the structured data get identical strings.
-function renderCiteBox(piece: PieceDetail): string {
+function renderCiteBox(model: DocumentModel): string {
   return `<div class="citebox">
   <div class="citebox-k">Cite this</div>
-  <pre>${escapeHtml(citeApa(piece))}</pre>
-  <pre>${escapeHtml(citeBibtex(piece))}</pre>
+  <pre>${escapeHtml(model.cite.apa)}</pre>
+  <pre>${escapeHtml(model.cite.bibtex)}</pre>
 </div>`;
 }
 
-function renderDepositNote(piece: PieceDetail, topics: PieceCtx["topics"]): string {
-  if (topics.length === 0 && !isEditorialKind(piece.kind)) return "";
+function renderDepositNote(model: DocumentModel): string {
+  const topics = model.topics;
+  if (topics.length === 0 && !isEditorialKind(model.kind)) return "";
   // "Signed" was the graph era's word for an operator-approved reading. An
   // uploaded essay or document isn't signed by anyone, so saying so was a
   // claim the system could no longer back.
   const lead =
-    piece.kind === "essay"
+    model.kind === "essay"
       ? "This is an essay — an argument, not primary evidence"
-      : piece.kind === "documented-record"
+      : model.kind === "documented-record"
         ? "This is a documented record; the source log below carries every external reference inline"
         : "This is a research document, published as itself; its sources are named in the text";
   const topicLinks = topics
@@ -693,15 +515,15 @@ function renderDepositNote(piece: PieceDetail, topics: PieceCtx["topics"]): stri
 </div>`;
 }
 
-function renderOnward(piece: PieceDetail, ctx: PieceCtx): string {
+function renderOnward(model: DocumentModel): string {
   const pills: string[] = [];
-  for (const t of ctx.topics) {
+  for (const t of model.topics) {
     pills.push(
       `<a href="/topics/${escapeAttr(t.slug)}" class="conn-pill">Topic: ${escapeHtml(t.label)}</a>`,
     );
   }
-  for (const r of ctx.related.slice(0, 4)) {
-    if (r.slug === piece.slug) continue;
+  for (const r of model.related.slice(0, 4)) {
+    if (r.slug === model.slug) continue;
     pills.push(`<a href="/p/${escapeAttr(r.slug)}" class="conn-pill">${escapeHtml(r.title)}</a>`);
   }
   if (pills.length === 0) return "";
@@ -714,8 +536,8 @@ function renderOnward(piece: PieceDetail, ctx: PieceCtx): string {
 // ---- readings and lineage ----------------------------------------------------
 
 /** The operator's affordances on a reading: delete, and draft an essay from it. */
-function readingOps(r: ReadingRow, ctx: PieceCtx): string {
-  if (!ctx.isOperator) return "";
+function readingOps(r: DocumentReading, model: DocumentModel): string {
+  if (!model.operator) return "";
   return `<form method="post" action="/op/readings/${escapeAttr(r.id)}/delete"><button type="submit">delete</button></form><form method="post" action="/op/readings/${escapeAttr(r.id)}/draft-essay"><button type="submit">draft an essay from this</button></form>`;
 }
 
@@ -724,10 +546,10 @@ function readingOps(r: ReadingRow, ctx: PieceCtx): string {
  * is not repeated — it is the block this aside sits next to — so the aside
  * carries the note, the signature and the passage's own /q/ receipt.
  */
-function renderReadingAside(r: ReadingRow, ctx: PieceCtx): string {
+function renderReadingAside(r: DocumentReading, model: DocumentModel): string {
   return `<aside class="reading" id="reading-${escapeAttr(r.id)}">
-  <div class="note-body">${renderMarkdown(r.note_md, { anchors: false })}</div>
-  <div class="note-sig">— the operator, ${escapeHtml(formatDate(r.created_at))} <a href="/q/${escapeAttr(r.quote_id)}">receipt ↗</a>${readingOps(r, ctx)}</div>
+  <div class="note-body">${renderMarkdown(r.noteMd, { anchors: false })}</div>
+  <div class="note-sig">— the operator, ${escapeHtml(formatDate(r.createdAt))} <a href="/q/${escapeAttr(r.quoteId)}">receipt ↗</a>${readingOps(r, model)}</div>
 </aside>`;
 }
 
@@ -739,16 +561,16 @@ function renderReadingAside(r: ReadingRow, ctx: PieceCtx): string {
  * passage quoted and the gap stated (rule 6), never dropped. Empty when every
  * reading landed in the margin.
  */
-function renderReadings(ctx: PieceCtx, placed: Set<string>): string {
-  const readings = (ctx.readings ?? []).filter((r) => !placed.has(r.id));
+function renderReadings(model: DocumentModel, placed: Set<string>): string {
+  const readings = model.readings.filter((r) => !placed.has(r.id));
   if (readings.length === 0) return "";
   const items = readings
     .map(
       (r) => `<div class="reading-note" id="reading-${escapeAttr(r.id)}">
-  <blockquote><a href="/q/${escapeAttr(r.quote_id)}">${escapeHtml(r.verbatim_text)}</a></blockquote>
+  <blockquote><a href="/q/${escapeAttr(r.quoteId)}">${escapeHtml(r.verbatimText)}</a></blockquote>
   <p class="note-gap">Passage not found in the current text — the note is kept here, with its receipt.</p>
-  <div class="note-body prose">${renderMarkdown(r.note_md, { anchors: false })}</div>
-  <div class="note-sig">— the operator, ${escapeHtml(formatDate(r.created_at))}${readingOps(r, ctx)}</div>
+  <div class="note-body prose">${renderMarkdown(r.noteMd, { anchors: false })}</div>
+  <div class="note-sig">— the operator, ${escapeHtml(formatDate(r.createdAt))}${readingOps(r, model)}</div>
 </div>`,
     )
     .join("\n");
@@ -763,10 +585,10 @@ ${items}
  * it with the selected passage in place. Operator only — an anonymous reader
  * never sees a form that posts to a route Cloudflare Access would refuse.
  */
-function renderNoteForm(piece: PieceDetail, ctx: PieceCtx): string {
-  if (!ctx.isOperator) return "";
+function renderNoteForm(model: DocumentModel): string {
+  if (!model.operator) return "";
   return `<form class="note-form" id="note-form" method="post" action="/op/readings" hidden>
-  <input type="hidden" name="piece_id" value="${escapeAttr(piece.id)}">
+  <input type="hidden" name="piece_id" value="${escapeAttr(model.id)}">
   <label class="coord">Passage (verbatim)</label>
   <textarea name="passage" rows="3" readonly></textarea>
   <label class="coord">Note</label>
@@ -790,15 +612,15 @@ const LEAD_LABEL: Record<string, string> = {
  * this document's child (§5). "Research this" (notes-live.ts) prefills the
  * question box from a selection — no new route.
  */
-function renderActionBar(piece: PieceDetail, ctx: PieceCtx): string {
-  if (!ctx.isOperator) return "";
+function renderActionBar(model: DocumentModel): string {
+  if (!model.operator) return "";
   const hidden = (name: string, value: string) =>
     `<input type="hidden" name="${name}" value="${escapeAttr(value)}">`;
-  const items = (ctx.leads ?? [])
+  const items = model.operator.leads
     .map((l) => {
       const verb = l.kind === "contradiction" ? "Settle this" : "Dig here";
       const other =
-        l.other_piece_slug && l.other_piece_slug !== piece.slug
+        l.other_piece_slug && l.other_piece_slug !== model.slug
           ? ` <a href="/p/${escapeAttr(l.other_piece_slug)}">${escapeHtml(l.other_piece_title ?? "the other document")}</a>`
           : "";
       const receipt = l.quote_id ? ` <a href="/q/${escapeAttr(l.quote_id)}">quote ↗</a>` : "";
@@ -812,11 +634,11 @@ function renderActionBar(piece: PieceDetail, ctx: PieceCtx): string {
   <div class="ow-h">This document's leads</div>
   ${items ? `<ul>${items}</ul>` : `<p class="note">Nothing yet — leads appear once the pipeline has processed this document.</p>`}
   <form method="post" action="/op/leads/dig" class="op-ask" id="op-ask">
-    ${hidden("kind", "question")}${hidden("piece_id", piece.id)}${hidden("piece_slug", piece.slug)}
+    ${hidden("kind", "question")}${hidden("piece_id", model.id)}${hidden("piece_slug", model.slug)}
     <input type="text" name="seed" placeholder="Ask the record a question — the brief becomes this document's child" required>
     <button type="submit" class="lead-dig">Research →</button>
   </form>
-  <form method="post" action="/op/pieces/${escapeAttr(piece.id)}/draft-tetrad" class="op-draft-tetrad" id="op-draft-tetrad">
+  <form method="post" action="/op/pieces/${escapeAttr(model.id)}/draft-tetrad" class="op-draft-tetrad" id="op-draft-tetrad">
     <button type="submit" class="lead-dig">Draft a tetrad (labelled)</button>
     <label class="lead-writer"><input type="checkbox" name="writer" value="anthropic"> with Claude</label>
   </form>
@@ -824,8 +646,8 @@ function renderActionBar(piece: PieceDetail, ctx: PieceCtx): string {
 }
 
 /** "Grew from" and "Grew into" (docs/the-record.md §5). Empty renders nothing. */
-function renderLineage(lineage: Lineage | undefined): string {
-  if (!lineage || (!lineage.parent && lineage.children.length === 0)) return "";
+function renderLineage(lineage: DocumentLineage): string {
+  if (!lineage.parent && lineage.children.length === 0) return "";
   const ref = (r: { slug: string; title: string; origin: string | null }) =>
     `<li><a href="/p/${escapeAttr(r.slug)}">${escapeHtml(r.title)}</a>${
       r.origin ? `<span class="origin">${escapeHtml(r.origin)}</span>` : ""
@@ -844,13 +666,8 @@ ${into}
 
 // ---- per-kind body -----------------------------------------------------
 
-function renderBodyForKind(
-  piece: PieceDetail,
-  sections: ParsedSections,
-  _ctx: PieceCtx,
-  bodyMd: string,
-): string {
-  switch (piece.kind) {
+function renderBodyForKind(kind: string, sections: ParsedSections, bodyMd: string): string {
+  switch (kind) {
     case "essay":
       // The essay path parses body_md itself rather than using `sections`,
       // so it needs the spliced copy handed to it explicitly — otherwise an
@@ -865,11 +682,11 @@ function renderBodyForKind(
       return renderTetradBody(parseTetrad(bodyMd)) ?? renderEssayBody(bodyMd);
     case "research-report":
     case "brief":
-      return renderResearchReportBody(piece, sections);
+      return renderResearchReportBody(sections);
     case "documented-record":
-      return renderDocumentedRecordBody(piece, sections);
+      return renderDocumentedRecordBody(sections);
     default:
-      return renderProseBody(piece, sections);
+      return renderProseBody(sections);
   }
 }
 
@@ -981,7 +798,7 @@ function renderEssayInline(md: string): string {
   return renderInline(md).replace(/\[(\d+)\]/g, '<sup><a href="#src-$1">$1</a></sup>');
 }
 
-function renderResearchReportBody(piece: PieceDetail, sections: ParsedSections): string {
+function renderResearchReportBody(sections: ParsedSections): string {
   const tldr = sections.matched("short version", "tldr", "tl;dr", "the short version", "summary");
   const findings = sections.matched("key findings", "findings");
   const caveats = sections.matched("caveats", "caveats & confidence", "limitations");
@@ -1023,12 +840,12 @@ function renderResearchReportBody(piece: PieceDetail, sections: ParsedSections):
   // If NO sections matched, the piece is unstructured — fall back cleanly
   // to a single prose block so the page still reads.
   if (!tldr && !findings && !caveats) {
-    return renderProseBody(piece, sections);
+    return renderProseBody(sections);
   }
   return tldrHtml + findingsHtml + caveatsHtml + proseHtml;
 }
 
-function renderDocumentedRecordBody(piece: PieceDetail, sections: ParsedSections): string {
+function renderDocumentedRecordBody(sections: ParsedSections): string {
   const isThis = sections.matched("what this is", "this is");
   const isNot = sections.matched("what this is not", "this is not");
   const sourceLog = sections.matched("source log", "sources");
@@ -1073,12 +890,12 @@ function renderDocumentedRecordBody(piece: PieceDetail, sections: ParsedSections
     : "";
 
   if (!isThis && !isNot && !sourceLog) {
-    return renderProseBody(piece, sections);
+    return renderProseBody(sections);
   }
   return frame + proseHtml + log;
 }
 
-function renderProseBody(_piece: PieceDetail, sections: ParsedSections): string {
+function renderProseBody(sections: ParsedSections): string {
   // Render the whole body as prose, regardless of sectioning.
   const all = sections.fullMarkdown();
   if (!all.trim()) {
@@ -1351,55 +1168,20 @@ function confDots(level: string): string {
     .join("")}</span>`;
 }
 
-function readingTime(md: string): string {
-  const words = md.split(/\s+/).filter(Boolean).length;
-  if (words < 50) return "";
-  const minutes = Math.max(1, Math.round(words / 200));
-  return `${minutes} min read`;
-}
-
 // Was hardcoded to always return "medium" regardless of the piece — a
 // fabricated confidence badge on every editorial piece, autonomous or
 // not. The pieces table genuinely doesn't carry a real confidence value
 // yet (no lighthouse-style judgment stored anywhere per-piece), so the
 // honest fix is to not claim one: no confidence badge at all until
 // there's a real value to show, rather than making one up.
-function readConfidence(_piece: PieceDetail): string | null {
+function readConfidence(): string | null {
   return null;
-}
-
-// A piece written and published entirely by graph/lib/deep-research.ts's
-// synthesizeDueBeatReport, with no operator ever reading it before it
-// went live — tagged at creation time (see deep-research.ts). These
-// still get the SAME extraction/firewall treatment as anything uploaded
-// (every claim is a verbatim quote), but nobody signed off on the
-// synthesis itself, so the page must not claim otherwise.
-function isAutoGenerated(piece: PieceDetail): boolean {
-  try {
-    const tags = JSON.parse(piece.tags || "[]") as unknown;
-    return Array.isArray(tags) && tags.includes("auto-research");
-  } catch {
-    return false;
-  }
 }
 
 function isEditorialKind(kind: string): boolean {
   return ["essay", "research-report", "documented-record", "thesis", "synthesis", "brief"].includes(
     kind,
   );
-}
-
-function kindLabel(kind: string): string {
-  const map: Record<string, string> = {
-    essay: "Essay",
-    "research-report": "Research report",
-    "documented-record": "Documented record",
-    thesis: "Thesis",
-    synthesis: "Synthesis",
-    brief: "Brief",
-    note: "Library entry",
-  };
-  return map[kind] ?? kind;
 }
 
 function formatDate(iso: string): string {

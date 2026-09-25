@@ -1,6 +1,6 @@
 // candidates table — READ-ONLY HISTORY as of the GDELT-pipeline cut
 // (see CLAUDE.md's "Two other Workers exist" section and
-// docs/canopticon-renovation.md). This table stops receiving new rows:
+// docs/archive/canopticon-renovation.md). This table stops receiving new rows:
 // the discovery/scoring/casting pipeline that used to write here
 // (sourcing/gdelt.ts, sourcing/brave.ts, editorial/rubric.ts) has been
 // removed as a fully separate "what's newsworthy" engine with no

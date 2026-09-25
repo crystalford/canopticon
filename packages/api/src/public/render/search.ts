@@ -24,22 +24,23 @@
 // for results and empty state so `/search?q=` is a valid landing.
 
 import type { Env } from "../../env";
-import { type QuestionAnswer, storedAnswerForQuestion } from "../../graph/lib/answer-question";
-import { getAnswerPreview } from "../../graph/lib/answers-preview";
-import { type VectorMeta, rerankResults, searchVectors } from "../../graph/lib/embeddings";
-import { all, insertOne, one } from "../../lib/d1";
-import { resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
+import {
+  type SearchAnswer,
+  type SearchDocument,
+  type SearchDocumentKind,
+  type SearchModel,
+  type SearchOperator,
+  type SearchPassage,
+  searchModel,
+} from "../models/search";
 
-interface ResolvedHit {
-  url: string;
-  kind: VectorMeta["kind"];
-  title: string;
-  snippet: string;
-  score: number;
-}
+// The queries live in models/search.ts; this file only renders what they
+// found. resolvePassages is re-exported so its existing importers keep
+// working from here.
+export { resolvePassages } from "../models/search";
 
-const KIND_LABEL: Record<VectorMeta["kind"], string> = {
+const KIND_LABEL: Record<SearchDocumentKind, string> = {
   entity: "File",
   claim: "Claim",
   piece: "Source document",
@@ -49,65 +50,15 @@ const KIND_LABEL: Record<VectorMeta["kind"], string> = {
   quote: "Passage",
 };
 
-const DOCUMENT_KINDS: VectorMeta["kind"][] = [
-  "piece",
-  "entity",
-  "claim",
-  "thesis",
-  "article",
-  "source",
-];
-const PASSAGE_LIMIT = 12;
-
-interface PassageHit {
-  id: string;
-  verbatim_text: string;
-  slug: string;
-  title: string;
-  score: number;
-}
-
-/** Quote hits → the verbatim text and the published document it lives in.
- *  One query; a hit whose document is no longer published resolves to
- *  nothing, so an unpublished piece never surfaces through its quotes. */
-export async function resolvePassages(
-  env: Env,
-  hits: Array<{ id: string; score: number; metadata: VectorMeta }>,
-): Promise<PassageHit[]> {
-  const quoteHits = hits.filter((h) => h.metadata.kind === "quote" && h.metadata.id);
-  if (quoteHits.length === 0) return [];
-  const ids = [...new Set(quoteHits.map((h) => h.metadata.id))];
-  const rows = await all<{ id: string; verbatim_text: string; slug: string; title: string }>(
-    env.DB,
-    `SELECT q.id, q.verbatim_text, p.slug, p.title
-       FROM quotes q
-       JOIN nodes n ON n.id = q.source_id
-       JOIN pieces p ON p.id = n.piece_id
-      WHERE q.id IN (${ids.map(() => "?").join(",")})
-        AND p.publication_status IN ('published','canonical')`,
-    ids,
-  ).catch(() => []);
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  const out: PassageHit[] = [];
-  const seen = new Set<string>();
-  for (const h of quoteHits) {
-    const row = byId.get(h.metadata.id);
-    if (!row || seen.has(row.id)) continue;
-    seen.add(row.id);
-    out.push({ ...row, score: h.score });
-  }
-  return out;
-}
-
-function renderPassages(passages: PassageHit[]): string {
+function renderPassages(passages: SearchPassage[]): string {
   if (passages.length === 0) return "";
   return `<h2 class="search-h2">Passages</h2>
 <ol class="search-passages">${passages
     .map(
       (p) => `<li class="search-passage">
-  <blockquote class="search-passage-text">${escapeHtml(p.verbatim_text)}</blockquote>
+  <blockquote class="search-passage-text">${escapeHtml(p.text)}</blockquote>
   <div class="search-passage-from">— <a href="/p/${escapeAttr(p.slug)}">${escapeHtml(p.title)}</a>
-    <a class="search-passage-receipt" href="/q/${escapeAttr(p.id)}">verified ↗</a></div>
+    <a class="search-passage-receipt" href="/q/${escapeAttr(p.quoteId)}">verified ↗</a></div>
 </li>`,
     )
     .join("")}</ol>`;
@@ -122,27 +73,26 @@ function renderPassages(passages: PassageHit[]): string {
 // its own — this is the search page for it. The .lead-ans-* classes are the
 // ones /library uses for a lead's answer: same artifact, same look.
 
-function modelTag(a: QuestionAnswer): string {
+function modelTag(a: SearchAnswer): string {
   if (!a.model) return "";
-  const short = a.model.replace(/^@cf\/[^/]+\//, "");
-  return ` <span class="lead-ans-model">${escapeHtml(short)}</span>`;
+  return ` <span class="lead-ans-model">${escapeHtml(a.model)}</span>`;
 }
 
-function discardLine(a: QuestionAnswer): string {
+function discardLine(a: SearchAnswer): string {
   if (!a.discarded) return "";
   return `<span class="lead-ans-disc">${a.discarded} proposed quote${
     a.discarded === 1 ? "" : "s"
   } failed the verbatim check and ${a.discarded === 1 ? "was" : "were"} dropped.</span>`;
 }
 
-export function renderStoredAnswer(query: string, a: QuestionAnswer | null): string {
+export function renderStoredAnswer(query: string, a: SearchAnswer | null): string {
   if (!a || a.status === "failed") return "";
   if (a.status === "nothing_found") {
     return `<h2 class="search-h2">From the record</h2>
 <div class="lead-ans lead-ans-none search-answer">
   <span class="lead-ans-k">The record does not settle this.${modelTag(a)}</span>
   <p class="search-answer-q">${escapeHtml(query)}</p>
-  ${a.answer_md ? `<p>${escapeHtml(a.answer_md)}</p>` : ""}
+  ${a.answerMd ? `<p>${escapeHtml(a.answerMd)}</p>` : ""}
   ${discardLine(a)}
 </div>`;
   }
@@ -151,8 +101,8 @@ export function renderStoredAnswer(query: string, a: QuestionAnswer | null): str
       const doc = q.slug
         ? `<a class="lead-ans-src" href="/p/${escapeAttr(q.slug)}">${escapeHtml(q.title ?? q.slug)}</a>`
         : `<span class="lead-ans-src">${escapeHtml(q.title ?? "a stored document")}</span>`;
-      const receipt = q.quote_id
-        ? ` <a class="lead-ans-src search-passage-receipt" href="/q/${escapeAttr(q.quote_id)}">verified ↗</a>`
+      const receipt = q.quoteId
+        ? ` <a class="lead-ans-src search-passage-receipt" href="/q/${escapeAttr(q.quoteId)}">verified ↗</a>`
         : "";
       return `<li><span class="lead-ans-q">${escapeHtml(q.text)}</span>${doc}${receipt}</li>`;
     })
@@ -160,7 +110,7 @@ export function renderStoredAnswer(query: string, a: QuestionAnswer | null): str
   return `<h2 class="search-h2">From the record</h2>
 <div class="lead-ans search-answer">
   <span class="lead-ans-k">In the record's own words${modelTag(a)}</span>
-  <p>${escapeHtml(a.answer_md ?? "")}</p>
+  <p>${escapeHtml(a.answerMd ?? "")}</p>
   <ul class="lead-ans-quotes">
 ${quotes}
   </ul>
@@ -174,8 +124,13 @@ ${quotes}
  * /op/leads/dig free question, kind=question — a brief, which is a document).
  * Anonymous readers never see either.
  */
-function renderAskForms(query: string, answer: QuestionAnswer | null, asked: boolean): string {
-  const research = `<form class="search-ask-form" method="POST" action="/op/leads/dig">
+function renderAskForms(
+  query: string,
+  answer: SearchAnswer | null,
+  asked: boolean,
+  op: SearchOperator,
+): string {
+  const research = `<form class="search-ask-form" method="POST" action="${escapeAttr(op.researchAction)}">
     <input type="hidden" name="kind" value="question">
     <input type="hidden" name="seed" value="${escapeAttr(query)}">
     <button type="submit" class="lead-dig">Research this on the web →</button>
@@ -188,7 +143,7 @@ function renderAskForms(query: string, answer: QuestionAnswer | null, asked: boo
   }
   const verb = answer ? "Ask the record again" : "Ask the record";
   return `<div class="search-ask">
-  <form class="search-ask-form" method="POST" action="/op/ask">
+  <form class="search-ask-form" method="POST" action="${escapeAttr(op.askAction)}">
     <input type="hidden" name="q" value="${escapeAttr(query)}">
     <button type="submit" class="lead-dig">${verb} →</button>
     <label class="lead-writer"><input type="checkbox" name="writer" value="anthropic"> with Claude</label>
@@ -197,115 +152,82 @@ function renderAskForms(query: string, answer: QuestionAnswer | null, asked: boo
 </div>`;
 }
 
-export async function renderSearchPage(
-  env: Env,
-  q: string,
-  opts: { isOperator?: boolean; asked?: boolean } = {},
-): Promise<string> {
-  const query = q.trim();
-  const userId = await resolveOperatorId(env.DB);
-  let resultsBlock = "";
-  let summary = "";
-  let answerBlock = "";
-
-  if (query.length > 0 && userId) {
-    const stored = await storedAnswerForQuestion(env.DB, userId, query).catch(() => null);
-    answerBlock = renderStoredAnswer(query, stored);
-    if (opts.isOperator) answerBlock += renderAskForms(query, stored, opts.asked === true);
-  }
-
-  if (query.length > 0 && userId) {
-    // A wider net (25) than what's actually shown — cosine similarity is
-    // a decent candidate filter but a mediocre final ranker (it scores
-    // the query and each candidate separately, never together). The
-    // rerank pass below reads (query, candidate) as one input and
-    // reorders for real relevance; RESULT_LIMIT caps what's displayed
-    // to the reranked top slice, not the raw vector-search order.
-    const [passageHits, hits] = await Promise.all([
-      searchVectors(env, { query, userId, topK: PASSAGE_LIMIT, kinds: ["quote"] }).catch(() => []),
-      searchVectors(env, { query, userId, topK: 25, kinds: DOCUMENT_KINDS }).catch(() => []),
-    ]);
-    const passages = await resolvePassages(env, passageHits);
-    const resolvedAll = await resolveHits(env, hits);
-    const RESULT_LIMIT = 12;
-    const resolved =
-      resolvedAll.length > 1
-        ? (await rerankResults(env, query, resolvedAll, (h) => `${h.title}. ${h.snippet}`)).slice(
-            0,
-            RESULT_LIMIT,
-          )
-        : resolvedAll;
-    if (resolved.length === 0 && passages.length === 0) {
-      // A real miss — log it (cheap; feeds the future "what readers are
-      // asking for" research signal) and, for the operator only, show a
-      // fast AI-generated preview to help triage the miss. That preview is
-      // the model's own synthesis, not a quote from any stored document, so
-      // it can never become a fact — it's shown clearly labeled, purely to
-      // help decide whether the question is worth real (verified) research.
-      await insertOne(env.DB, "orchestrator_events", {
-        user_id: userId,
-        event_type: "search.miss",
-        subject_kind: "search",
-        subject_id: null,
-        payload: JSON.stringify({ query }),
-      }).catch(() => {});
-
-      summary = `No matches for <b>${escapeHtml(query)}</b> yet.`;
-      resultsBlock = `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
-
-      const preview =
-        opts.isOperator && userId
-          ? await getAnswerPreview(env, userId, query).catch(() => null)
-          : null;
-      if (preview) {
-        const researchForm = opts.isOperator
-          ? `<form class="search-research-form" method="POST" action="/op/search/research">
-               <input type="hidden" name="q" value="${escapeAttr(query)}">
-               <button class="search-research-go" type="submit">Research this for real →</button>
-             </form>`
-          : "";
-        resultsBlock += `<div class="search-preview">
-  <div class="search-preview-label">AI-generated preview — not verified against any stored document. Not a fact.</div>
-  <div class="search-preview-body">${escapeHtml(preview).replace(/\n/g, "<br>")}</div>
-  ${researchForm}
-</div>`;
-      }
-    } else {
-      const parts: string[] = [];
-      if (passages.length > 0)
-        parts.push(`<b>${passages.length}</b> passage${passages.length === 1 ? "" : "s"}`);
-      if (resolved.length > 0)
-        parts.push(
-          resolvedAll.length > resolved.length
-            ? `<b>${resolved.length}</b> document${resolved.length === 1 ? "" : "s"} (top-ranked of ${resolvedAll.length})`
-            : `<b>${resolved.length}</b> document${resolved.length === 1 ? "" : "s"}`,
-        );
-      summary = `${parts.join(" and ")} for <b>${escapeHtml(query)}</b>.`;
-      const documents =
-        resolved.length === 0
-          ? ""
-          : `<h2 class="search-h2">Documents</h2>
-<ol class="search-hits">${resolved
-              .map(
-                (h) => `<li class="search-hit">
+function renderDocuments(documents: SearchDocument[]): string {
+  if (documents.length === 0) return "";
+  return `<h2 class="search-h2">Documents</h2>
+<ol class="search-hits">${documents
+    .map(
+      (h) => `<li class="search-hit">
   <a class="search-link" href="${escapeAttr(h.url)}">
     <span class="search-kind">${escapeHtml(KIND_LABEL[h.kind] ?? h.kind)}</span>
     <span class="search-title">${escapeHtml(h.title)}</span>
   </a>
-  ${h.snippet ? `<div class="search-snippet">${escapeHtml(h.snippet)}</div>` : ""}
+  ${h.excerpt ? `<div class="search-snippet">${escapeHtml(h.excerpt)}</div>` : ""}
   <div class="search-score">${(h.score * 100).toFixed(1)}% match</div>
 </li>`,
-              )
-              .join("")}</ol>`;
-      resultsBlock = renderPassages(passages) + documents;
-    }
-  } else if (query.length === 0) {
-    summary = "Phrase queries work as well as keywords.";
-    resultsBlock = "";
-  } else {
-    summary = "The record is empty so far.";
-    resultsBlock = "";
+    )
+    .join("")}</ol>`;
+}
+
+/** The miss: what to try instead and, for the operator, the labelled preview. */
+function renderMiss(m: SearchModel): string {
+  let block = `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
+  const preview = m.operator?.preview;
+  if (m.operator && preview) {
+    const researchForm = `<form class="search-research-form" method="POST" action="${escapeAttr(
+      m.operator.previewResearchAction,
+    )}">
+               <input type="hidden" name="q" value="${escapeAttr(m.query)}">
+               <button class="search-research-go" type="submit">Research this for real →</button>
+             </form>`;
+    block += `<div class="search-preview">
+  <div class="search-preview-label">AI-generated preview — not verified against any stored document. Not a fact.</div>
+  <div class="search-preview-body">${escapeHtml(preview).replace(/\n/g, "<br>")}</div>
+  ${researchForm}
+</div>`;
   }
+  return block;
+}
+
+function renderSummary(m: SearchModel): string {
+  switch (m.outcome) {
+    case "shell":
+      return "Phrase queries work as well as keywords.";
+    case "no-corpus":
+      return "The record is empty so far.";
+    case "miss":
+      return `No matches for <b>${escapeHtml(m.query)}</b> yet.`;
+    case "hits": {
+      const parts: string[] = [];
+      const np = m.passages.length;
+      const nd = m.documents.length;
+      if (np > 0) parts.push(`<b>${np}</b> passage${np === 1 ? "" : "s"}`);
+      if (nd > 0)
+        parts.push(
+          m.candidates > nd
+            ? `<b>${nd}</b> document${nd === 1 ? "" : "s"} (top-ranked of ${m.candidates})`
+            : `<b>${nd}</b> document${nd === 1 ? "" : "s"}`,
+        );
+      return `${parts.join(" and ")} for <b>${escapeHtml(m.query)}</b>.`;
+    }
+  }
+}
+
+/** The page, from a model already built — the HTML of /search?q=. */
+export function renderSearchModel(m: SearchModel): string {
+  const query = m.query;
+  const summary = renderSummary(m);
+  let answerBlock = "";
+  if (m.outcome === "hits" || m.outcome === "miss") {
+    answerBlock = renderStoredAnswer(query, m.answer);
+    if (m.operator) answerBlock += renderAskForms(query, m.answer, m.asked, m.operator);
+  }
+  const resultsBlock =
+    m.outcome === "hits"
+      ? renderPassages(m.passages) + renderDocuments(m.documents)
+      : m.outcome === "miss"
+        ? renderMiss(m)
+        : "";
 
   const body = `
 <section class="search-section">
@@ -392,100 +314,10 @@ export async function renderSearchPage(
   });
 }
 
-async function resolveHits(
+export async function renderSearchPage(
   env: Env,
-  hits: Array<{ id: string; score: number; metadata: VectorMeta }>,
-): Promise<ResolvedHit[]> {
-  // Resolve in parallel — each kind has its own lookup. Most lookups are
-  // a single SELECT.
-  const resolved = await Promise.all(hits.map((h) => resolveOneHit(env, h)));
-  return resolved.filter((r): r is ResolvedHit => r !== null);
-}
-
-async function resolveOneHit(
-  env: Env,
-  hit: { id: string; score: number; metadata: VectorMeta },
-): Promise<ResolvedHit | null> {
-  const md = hit.metadata;
-  if (!md.kind) return null;
-  try {
-    if (md.kind === "entity") {
-      const row = await one<{ slug: string; label: string }>(
-        env.DB,
-        `SELECT p.slug, n.label
-           FROM pages p JOIN nodes n ON n.id = p.subject_node_id
-          WHERE n.id = ? LIMIT 1`,
-        [md.id],
-      );
-      if (!row) return null;
-      return {
-        url: `/s/${row.slug}`,
-        kind: "entity",
-        title: row.label ?? md.title ?? md.id,
-        snippet: "",
-        score: hit.score,
-      };
-    }
-    if (md.kind === "piece") {
-      const row = await one<{ slug: string; title: string; excerpt: string | null }>(
-        env.DB,
-        `SELECT slug, title, substr(body_md, 1, 220) AS excerpt
-           FROM pieces WHERE id = ? LIMIT 1`,
-        [md.id],
-      );
-      if (!row) return null;
-      return {
-        url: `/library/${row.slug}`,
-        kind: "piece",
-        title: row.title ?? md.title ?? md.id,
-        snippet: (row.excerpt ?? "").replace(/\s+/g, " ").trim(),
-        score: hit.score,
-      };
-    }
-    if (md.kind === "claim") {
-      const row = await one<{ claim_text: string; page_slug: string | null }>(
-        env.DB,
-        `SELECT pc.claim_text,
-                (SELECT p.slug FROM pages p WHERE p.id = pc.page_id) AS page_slug
-           FROM page_claims pc WHERE pc.id = ? LIMIT 1`,
-        [md.id],
-      );
-      if (!row || !row.page_slug) return null;
-      return {
-        url: `/s/${row.page_slug}?mode=signed`,
-        kind: "claim",
-        title: row.claim_text.slice(0, 140),
-        snippet: "",
-        score: hit.score,
-      };
-    }
-    if (md.kind === "thesis" || md.kind === "article") {
-      const row = await one<{ slug: string; thesis: string | null }>(
-        env.DB,
-        "SELECT slug, thesis FROM pages WHERE id = ? LIMIT 1",
-        [md.id],
-      );
-      if (!row) return null;
-      const kind: VectorMeta["kind"] = md.kind;
-      return {
-        url: kind === "article" ? `/investigations/${row.slug}` : `/s/${row.slug}?mode=signed`,
-        kind,
-        title: row.thesis ?? md.title ?? md.id,
-        snippet: "",
-        score: hit.score,
-      };
-    }
-    if (md.kind === "source") {
-      return {
-        url: `/q/${md.id}`,
-        kind: "source",
-        title: md.title ?? "Quote",
-        snippet: "",
-        score: hit.score,
-      };
-    }
-  } catch {
-    return null;
-  }
-  return null;
+  q: string,
+  opts: { isOperator?: boolean; asked?: boolean } = {},
+): Promise<string> {
+  return renderSearchModel(await searchModel(env, q, opts));
 }

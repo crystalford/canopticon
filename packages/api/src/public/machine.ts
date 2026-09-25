@@ -214,6 +214,15 @@ function stripInline(md: string): string {
 // as itself. Both carry citation, license and speakable — `speakable` points
 // at the summary block, which is the passage written to stand alone.
 export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): string {
+  return pieceJsonLdDocs(piece, opts).map(ldScript).join("\n");
+}
+
+/**
+ * The same structured data as plain objects, one per `<script>` block —
+ * the document model (public/models/document.ts) carries these so the JSON
+ * face and the HTML face are built from one object, never two.
+ */
+export function pieceJsonLdDocs(piece: PieceDetail, opts: PieceLdOptions = {}): unknown[] {
   const url = pieceUrl(piece.slug);
   const published = dateOnly(piece.published_at ?? piece.created_at);
   const modified = dateOnly(piece.updated_at ?? piece.published_at ?? piece.created_at);
@@ -319,7 +328,7 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
       })),
     });
   }
-  return docs.map(ldScript).join("\n");
+  return docs;
 }
 
 // Site-level identity, emitted once on the front page. The @id values are

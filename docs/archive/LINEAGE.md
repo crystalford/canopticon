@@ -278,7 +278,7 @@ superseded historical record now too.
 
 ## Era 10 — the renovation verdict (2026-08-05)
 
-`docs/canopticon-renovation.md` and `docs/renovation-brief.md`, both written
+`docs/archive/canopticon-renovation.md` and `docs/renovation-brief.md`, both written
 after v2.6, diagnosed the actual failure mode this whole lineage shares: not
 under-building, but never enforcing that the project's own best strategic
 thinking survives into the next session. Formally adopted into `CLAUDE.md` on

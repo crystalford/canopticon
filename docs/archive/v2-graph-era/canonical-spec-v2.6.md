@@ -1,7 +1,7 @@
 # CANOPTICON — Canonical Specification v2.6 (SUPERSEDED — historical record only)
 
 > **This document is no longer the active reference.** `CLAUDE.md` is the
-> current source of truth. `docs/canopticon-renovation.md` and
+> current source of truth. `docs/archive/canopticon-renovation.md` and
 > `docs/renovation-brief.md` (both dated after this spec) diagnosed this
 > document's own thirty-part scope as a real cause of the project's
 > six-month build-without-shipping loop, and issued a ruthless Keep/Freeze/Cut
