@@ -101,7 +101,11 @@ export function renderLibraryFromModel(m: LibraryModel): string {
 ${uploadBanner}
 ${opStrip}
 </section>
-<section class="wb-sec" id="documents">${sectionHeader(`All material (${m.counts.documents})`)}${uploadedBanner}${queueLine}${table}</section>
+<section class="wb-sec" id="documents">${sectionHeader(
+    `All material (${m.counts.documents})`,
+    operator ? "/op/export/research.zip" : undefined,
+    operator ? "Download all as .zip" : undefined,
+  )}${uploadedBanner}${queueLine}${table}</section>
 ${operator ? renderWorklist(m.worklist, m.resurfaced) : ""}
 ${queueBlock}
 </div>
