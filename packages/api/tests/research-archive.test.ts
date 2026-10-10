@@ -9,9 +9,12 @@ import { unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import {
   type ArchivePiece,
+  MAX_DOCS_PER_ZIP,
   archiveFilename,
+  archiveParts,
   buildArchive,
   frontMatter,
+  planParts,
 } from "../src/lib/research-archive";
 
 const piece = (over: Partial<ArchivePiece> = {}): ArchivePiece => ({
@@ -157,26 +160,93 @@ describe("the route", () => {
   });
 });
 
+describe("splitting into parts", () => {
+  // The reason this exists: Claude Design reads about twenty files from a zip
+  // and silently drops the rest. 52 reports plus an index arrived as roughly
+  // the first twenty, with nothing to say the others had been cut.
+  it("never plans a part bigger than the cap", () => {
+    for (let n = 0; n <= 200; n++) {
+      for (const size of planParts(n)) expect(size).toBeLessThanOrEqual(MAX_DOCS_PER_ZIP);
+    }
+  });
+
+  it("plans every document into exactly one part", () => {
+    for (let n = 0; n <= 200; n++) expect(planParts(n).reduce((a, b) => a + b, 0)).toBe(n);
+  });
+
+  it("deals them out evenly, so no part looks like a mistake", () => {
+    // 15/15/15/7 is four downloads with a stub on the end; 13/13/13/13 is not.
+    expect(planParts(52)).toEqual([13, 13, 13, 13]);
+    for (let n = 1; n <= 200; n++) {
+      const sizes = planParts(n);
+      expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("uses as few parts as the cap allows", () => {
+    expect(planParts(15)).toEqual([15]);
+    expect(planParts(16)).toEqual([8, 8]);
+    expect(planParts(1)).toEqual([1]);
+    expect(planParts(0)).toEqual([]);
+  });
+
+  it("keeps order and loses nothing across parts", () => {
+    const pieces = Array.from({ length: 52 }, (_, i) =>
+      piece({ slug: `d-${i}`, title: `Doc ${i}` }),
+    );
+    const { parts } = archiveParts(pieces);
+    expect(parts.map((p) => p.length)).toEqual([13, 13, 13, 13]);
+    expect(parts.flat().map((p) => p.slug)).toEqual(pieces.map((p) => p.slug));
+  });
+
+  it("drops empty documents BEFORE splitting, so one cannot shift the parts", () => {
+    const pieces = Array.from({ length: 20 }, (_, i) =>
+      piece({ slug: `d-${i}`, body_md: i === 3 ? "  " : `body ${i}` }),
+    );
+    const { parts, skipped } = archiveParts(pieces);
+    expect(skipped).toBe(1);
+    expect(parts.flat()).toHaveLength(19);
+    expect(parts.map((p) => p.length)).toEqual([10, 9]);
+  });
+
+  it("keeps every zip under the file limit, index included", () => {
+    // The cap is on documents; the real constraint is files in the zip, and
+    // INDEX.md is one of them.
+    const pieces = Array.from({ length: 52 }, (_, i) => piece({ slug: `d-${i}` }));
+    for (const docs of archiveParts(pieces).parts) {
+      expect(Object.keys(open(docs).files).length).toBeLessThanOrEqual(MAX_DOCS_PER_ZIP + 1);
+    }
+  });
+
+  it("tells each part where it sits in the whole", () => {
+    const pieces = Array.from({ length: 30 }, (_, i) =>
+      piece({ slug: `d-${i}`, title: `Doc ${i}` }),
+    );
+    const { parts } = archiveParts(pieces);
+    const { bytes } = buildArchive(parts[1] ?? [], {
+      part: 2,
+      parts: parts.length,
+      first: 16,
+      total: 30,
+    });
+    const idx = new TextDecoder().decode(unzipSync(bytes)["INDEX.md"]);
+    expect(idx).toContain("Part 2 of 2");
+    expect(idx).toContain("documents 16–30 of 30");
+  });
+});
+
 // The route end to end: real handler, stub DB, real zip bytes back out.
 describe("the download, end to end", () => {
-  const rows = [
-    {
-      slug: "one",
-      title: "One",
-      body_md: "# One\n\nFirst.",
+  const many = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      slug: `doc-${String(i + 1).padStart(2, "0")}`,
+      title: `Document ${i + 1}`,
+      body_md: `# Document ${i + 1}\n\nBody ${i + 1}.`,
       published_at: "2026-01-01T00:00:00Z",
       publication_status: "published",
-    },
-    {
-      slug: "two",
-      title: 'Two: "quoted"',
-      body_md: "# Two\n\nSecond.",
-      published_at: null,
-      publication_status: "published",
-    },
-  ];
+    }));
   let sawGuard = "";
-  const db = (operator: boolean) =>
+  const db = (operator: boolean, rows = many(40)) =>
     ({
       prepare(sql: string) {
         if (/FROM pieces/i.test(sql)) sawGuard = sql;
@@ -197,28 +267,71 @@ describe("the download, end to end", () => {
         return stmt as unknown as D1PreparedStatement;
       },
     }) as unknown as D1Database;
-
-  it("returns a zip whose files are the documents, with counts in the headers", async () => {
+  const fetchAs = async (path: string, d: D1Database) => {
     const { default: app } = await import("../src/index.ts");
-    const res = await app.fetch(new Request("http://test/op/export/research.zip"), {
-      DB: db(true),
+    return app.fetch(new Request(`http://test${path}`), {
+      DB: d,
       ANTHROPIC_API_KEY: "t",
       LOG_LEVEL: "info",
     } as never);
+  };
+
+  it("returns the requested part, and only that part", async () => {
+    // 40 documents -> 3 parts of 14/13/13. Part 2 is documents 15-27.
+    const res = await fetchAs("/op/export/research.zip?part=2", db(true));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/zip");
-    expect(res.headers.get("content-disposition")).toMatch(
-      /^attachment; filename="canopticon-research-\d{4}-\d{2}-\d{2}\.zip"$/,
-    );
-    expect(res.headers.get("x-archive-included")).toBe("2");
-    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("x-archive-part")).toBe("2");
+    expect(res.headers.get("x-archive-parts")).toBe("3");
+    expect(res.headers.get("x-archive-included")).toBe("13");
+    expect(res.headers.get("content-disposition")).toMatch(/part-2-of-3-\d{4}-\d{2}-\d{2}\.zip"$/);
 
     const files = unzipSync(new Uint8Array(await res.arrayBuffer()));
-    expect(Object.keys(files).sort()).toEqual(["INDEX.md", "one.md", "two.md"]);
-    expect(new TextDecoder().decode(files["one.md"]).endsWith("# One\n\nFirst.")).toBe(true);
+    const names = Object.keys(files).sort();
+    expect(names).toHaveLength(14); // 13 documents + INDEX.md
+    expect(names).toContain("doc-15.md");
+    expect(names).toContain("doc-27.md");
+    expect(names).not.toContain("doc-14.md");
+    expect(names).not.toContain("doc-28.md");
   });
 
-  it("only ever asks for the operator's own uploads", () => {
+  it("every part together is every document, once", async () => {
+    const seen: string[] = [];
+    for (const part of [1, 2, 3]) {
+      const res = await fetchAs(`/op/export/research.zip?part=${part}`, db(true));
+      const files = unzipSync(new Uint8Array(await res.arrayBuffer()));
+      seen.push(...Object.keys(files).filter((n) => n !== "INDEX.md"));
+    }
+    expect(seen).toHaveLength(40);
+    expect(new Set(seen).size).toBe(40);
+  });
+
+  it("sends a missing or impossible part to the list, never to an error", async () => {
+    for (const q of ["", "?part=0", "?part=4", "?part=abc", "?part=-1"]) {
+      const res = await fetchAs(`/op/export/research.zip${q}`, db(true));
+      expect(res.status, q).toBe(302);
+      expect(res.headers.get("location"), q).toBe("/op/export");
+    }
+  });
+
+  it("lists every part with its own download link and every title", async () => {
+    const res = await fetchAs("/op/export", db(true));
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    for (const part of [1, 2, 3]) expect(html).toContain(`/op/export/research.zip?part=${part}`);
+    expect(html).not.toContain("research.zip?part=4");
+    expect(html).toContain("Part 1 of 3");
+    expect(html).toContain("Documents 15–27");
+    expect(html).toContain("Document 40");
+  });
+
+  it("says plainly when there is nothing to download", async () => {
+    const res = await fetchAs("/op/export", db(true, []));
+    expect(await res.text()).toContain("no uploaded reports");
+  });
+
+  it("only ever asks for the operator's own uploads", async () => {
+    await fetchAs("/op/export", db(true));
     // The guard that keeps the research pipeline's drafts and any third-party
     // text out of an archive. If someone drops it, this is the test that says so.
     expect(sawGuard).toContain("json_extract(metadata, '$.ingested_from') = 'feed-upload'");
@@ -226,13 +339,10 @@ describe("the download, end to end", () => {
   });
 
   it("hands nothing to a request with no operator behind it", async () => {
-    const { default: app } = await import("../src/index.ts");
-    const res = await app.fetch(new Request("http://test/op/export/research.zip"), {
-      DB: db(false),
-      ANTHROPIC_API_KEY: "t",
-      LOG_LEVEL: "info",
-    } as never);
-    expect(res.headers.get("content-type") ?? "").not.toContain("zip");
-    expect([301, 302, 303]).toContain(res.status);
+    for (const path of ["/op/export", "/op/export/research.zip?part=1"]) {
+      const res = await fetchAs(path, db(false));
+      expect(res.headers.get("content-type") ?? "", path).not.toContain("zip");
+      expect([301, 302, 303], path).toContain(res.status);
+    }
   });
 });

@@ -1985,6 +1985,21 @@ pre.convention {
 }
 .tldr p { font-family: var(--serif); font-size: var(--t-4); line-height: 1.6; color: var(--ink); margin: 0; text-wrap: pretty; }
 
+/* ---- the export page: one panel per part --------------------------------
+   The same single panel treatment as every other piece of furniture on the
+   site (1px solid rule, paper-2, var(--r)); nothing new is invented here. */
+.xp { display: flex; flex-direction: column; gap: 16px; }
+.xp-part { border: 1px solid var(--rule); border-radius: var(--r); background: var(--paper-2); padding: 16px 20px; }
+.xp-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.xp-k { font-family: var(--mono); font-size: var(--t-1); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-mute); }
+.xp-range { font-family: var(--sans); font-size: var(--t-3); font-weight: 600; color: var(--ink); margin-top: 3px; }
+.xp-btn { width: auto; flex-shrink: 0; padding: 10px 16px; }
+.xp-titles { margin: 14px 0 0; padding: 12px 0 0 28px; border-top: 1px solid var(--rule);
+  font-family: var(--serif); font-size: var(--t-2); line-height: var(--lh-2); color: var(--ink-3); }
+.xp-titles li { margin: 0 0 5px; }
+.xp-note { font-family: var(--mono); font-size: var(--t-1); color: var(--ink-mute); margin: var(--s-1) 0 0; }
+@media (max-width: 620px) { .xp-head { flex-direction: column; align-items: flex-start; } }
+
 /* ---- the library table ---------------------------------------------------
    .lib-table had NO rule at all, so it rendered on browser defaults: separate
    cell borders rather than one row rule, which drew four disjoint underline
