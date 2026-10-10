@@ -14,6 +14,7 @@
 // was. `createAndExtract` now lives in routes/upload.ts.
 
 import { operatorApp } from "./routes/app";
+import exportRoutes from "./routes/export";
 import leadsRoutes from "./routes/leads";
 import processingRoutes from "./routes/processing";
 import readingsRoutes from "./routes/readings";
@@ -55,6 +56,7 @@ app.route("/", uploadRoutes);
 app.route("/", researchRoutes);
 app.route("/", processingRoutes);
 app.route("/", leadsRoutes);
+app.route("/", exportRoutes);
 app.route("/", readingsRoutes);
 
 // ---- 301 redirects from old screen paths -------------------------------

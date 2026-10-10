@@ -269,6 +269,16 @@ There is no local dev server; this is the fastest way to see a change without
 deploying, and it has caught more than the tests have. **If a state cannot
 appear in a screenshot, it is not checked** — seed the fixture.
 
+**The archive** — `GET /op/export/research.zip` (linked from `/library` as
+"Download all as .zip") returns every uploaded report as markdown: one `.md`
+per document plus `INDEX.md`, each body untouched under a small front-matter
+block. Own uploads only (`OWN_UPLOADS_SQL`), read-only, behind Access. The
+reports exist only in the live D1, so this is the one way to get them out
+without a request per document. Built by `lib/research-archive.ts`, which is
+pure and tested by unzipping its real output. Mounted at `/export/...` and not
+`/library/export.zip`: the `/library/:slug` redirect is registered first and
+would swallow it.
+
 **Probes** — `/v1/admin/runtime`, `/v1/admin/corpus-split`,
 `/v1/admin/research-runs` (where every research run stopped, and how many are
 waiting for the button). Read-only. Reach them through the admin-probe
