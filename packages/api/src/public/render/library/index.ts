@@ -103,8 +103,8 @@ ${opStrip}
 </section>
 <section class="wb-sec" id="documents">${sectionHeader(
     `All material (${m.counts.documents})`,
-    operator ? "/op/export/research.zip" : undefined,
-    operator ? "Download all as .zip" : undefined,
+    operator ? "/op/export" : undefined,
+    operator ? "Download as .zip" : undefined,
   )}${uploadedBanner}${queueLine}${table}</section>
 ${operator ? renderWorklist(m.worklist, m.resurfaced) : ""}
 ${queueBlock}

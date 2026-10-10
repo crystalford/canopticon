@@ -269,15 +269,22 @@ There is no local dev server; this is the fastest way to see a change without
 deploying, and it has caught more than the tests have. **If a state cannot
 appear in a screenshot, it is not checked** — seed the fixture.
 
-**The archive** — `GET /op/export/research.zip` (linked from `/library` as
-"Download all as .zip") returns every uploaded report as markdown: one `.md`
-per document plus `INDEX.md`, each body untouched under a small front-matter
-block. Own uploads only (`OWN_UPLOADS_SQL`), read-only, behind Access. The
-reports exist only in the live D1, so this is the one way to get them out
-without a request per document. Built by `lib/research-archive.ts`, which is
-pure and tested by unzipping its real output. Mounted at `/export/...` and not
-`/library/export.zip`: the `/library/:slug` redirect is registered first and
-would swallow it.
+**The archive** — `/op/export` (linked from `/library` as "Download as .zip")
+lists the reports as several downloads, and `GET /op/export/research.zip?part=N`
+returns one of them: markdown, one `.md` per document plus an `INDEX.md`, each
+body untouched under a small front-matter block. **At most 15 documents per
+zip, dealt out evenly** (52 reports come out as four zips of 13), because
+Claude Design reads about twenty files from a zip and silently drops the rest —
+a single 53-file archive arrived as roughly its first twenty with nothing to
+say the others were cut. Own uploads only (`OWN_UPLOADS_SQL`), read-only,
+behind Access. The reports exist only in the live D1, so this is the one way
+to get them out without a request per document. Built by
+`lib/research-archive.ts`, which is pure and tested by unzipping its real
+output. Parts are stable only while the corpus is: upload something between
+two downloads and later parts shift by one, so re-download from the top. Mounted
+at `/export/...` and not `/library/export.zip`: the `/library/:slug` redirect is
+registered first and would swallow it. A missing or impossible `part` redirects
+to the list rather than erroring.
 
 **Probes** — `/v1/admin/runtime`, `/v1/admin/corpus-split`,
 `/v1/admin/research-runs` (where every research run stopped, and how many are
