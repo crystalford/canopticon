@@ -104,6 +104,17 @@ describe("projects are private", () => {
   });
 });
 
+describe("hovercards", () => {
+  it("serve the public rows site.js asks for, and nothing private", async () => {
+    const res = await get("/hovercards.json");
+    expect(res.status).toBe(200);
+    const cards = (await res.json()) as Record<string, { kind: string; title: string }>;
+    expect(cards["/articles/krasis"]?.kind).toBe("Paper");
+    expect(Object.keys(cards).some((k) => k.startsWith("/admin"))).toBe(false);
+    for (const id of HELD) expect(cards[`/p/${id}`]).toBeUndefined();
+  });
+});
+
 describe("a withdrawn draft", () => {
   it("says so, keeps out of search engines and is credited nowhere", async () => {
     const html = await text("/articles/the-change-you-stop-seeing");
