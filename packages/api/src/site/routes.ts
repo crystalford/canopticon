@@ -10,12 +10,13 @@ import type { AuthContext } from "../auth/middleware";
 import { one } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
 import { article, paper, researchDoc } from "./content/store";
-import { docViewFromStore } from "./data";
+import { docViewFromStore, topicBySlug } from "./data";
 import { html } from "./layout";
 import { renderArticle, renderPaper } from "./pages/article";
 import { type DocView, renderDocument } from "./pages/document";
 import { renderFront } from "./pages/front";
 import { renderLibrary } from "./pages/library";
+import { renderTopic } from "./pages/topic";
 import { SITE_JS } from "./script";
 import { SITE_CSS } from "./styles";
 
@@ -67,6 +68,13 @@ app.get("/library", (c) =>
 
 // The old per-document URL. Documents live at /p/<id>.
 app.get("/library/:slug", (c) => c.redirect(`/p/${encodeURIComponent(c.req.param("slug"))}`, 301));
+
+// Built at request time for any topic with a hub. An unknown slug falls
+// through, so the retired subject-search redirect still answers it.
+app.get("/topics/:slug", (c, next) => {
+  const topic = topicBySlug(c.req.param("slug"));
+  return topic ? html(renderTopic(topic, { signedIn: signedIn(c) })) : next();
+});
 
 // ---- documents --------------------------------------------------------------
 

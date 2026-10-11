@@ -316,6 +316,26 @@ a.row.rrow { grid-template-columns: 56px minmax(0, 1fr); gap: 4px 16px; }
 .checkable-l strong { display: block; font-size: 17px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
 .checkable-r { display: flex; flex-direction: column; gap: 10px; min-width: 0; justify-self: stretch; }
 
+/* ---- topic pages ------------------------------------------------------------ */
+
+.h-topic { font-size: clamp(32px, 3.6vw, 46px); line-height: 1.08; font-weight: 500; letter-spacing: -.025em; margin: 14px 0 16px; }
+.topic-note { font-size: clamp(18px, 1.7vw, 20px); line-height: 1.5; color: var(--body); margin: 0 0 18px; max-width: 62ch; }
+.tsec { margin-bottom: 48px; scroll-margin-top: 80px; }
+.works-p { font-size: 14px; line-height: 1.5; color: var(--ink-2); margin: 0 0 14px; max-width: 62ch; }
+.work { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 16px; padding: 14px 22px; background: var(--card); align-items: baseline; }
+.work-y { font-size: 17px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.work-b { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.work-t { font-size: 17px; line-height: 1.4; color: var(--ink); }
+.work-t span { color: var(--ink-2); }
+.work-doc { display: inline-block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 10px; border-radius: 999px; background: var(--tint); color: var(--ink); font-size: 13px; font-weight: 500; }
+.work-doc:hover { background: #e6e0d2; color: var(--ink); }
+.facts { display: flex; flex-direction: column; padding: 4px 18px; border: 1px solid var(--hair); border-radius: 14px; background: var(--card); }
+.facts > a, .facts > div { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--hair-2); align-items: baseline; font-size: 14px; }
+.facts > :last-child { border-bottom: 0; }
+.facts > * > span:first-child { color: var(--ink-2); }
+.facts .v { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.facts > a:hover span:first-child { color: var(--cobalt); }
+
 /* ---- the document page --------------------------------------------------- */
 
 .dwrap { display: flex; flex-wrap: wrap; gap: 40px 36px; align-items: flex-start; }
