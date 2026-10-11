@@ -5,7 +5,7 @@
 //   first-person prose, no findings block        → article
 //   diagnosis, medication or therapy, in the first person → personal, held private
 //
-// No model call. The reason is kept with the guess so the desk card can say
+// No model call. The reason is kept with the guess so the Admin card can say
 // why a file was read the way it was, and the operator can change it.
 
 export type SortedAs = "research" | "article" | "paper" | "personal";

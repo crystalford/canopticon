@@ -146,7 +146,7 @@ async function operatorLibrary(query = ""): Promise<string> {
   );
   const cookieValue = buildSessionCookie(cookie).split(";")[0] as string;
   const res = await app.fetch(
-    new Request(`http://test/desk/workbench${query}`, { headers: { cookie: cookieValue } }),
+    new Request(`http://test/admin/workbench${query}`, { headers: { cookie: cookieValue } }),
     env,
   );
   expect(res.status).toBe(200);

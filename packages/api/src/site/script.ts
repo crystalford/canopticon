@@ -213,7 +213,7 @@ export const SITE_JS = `(function () {
     if (every) every.addEventListener("change", function () { if (every.checked) boxes.forEach(function (b) { b.checked = false; }); sync(); });
   }
 
-  // ---- the desk: a chosen file sends itself; a dropped one goes the same way --
+  // ---- admin: a chosen file sends itself; a dropped one goes the same way --
   d.querySelectorAll("[data-autosubmit]").forEach(function (inp) {
     inp.addEventListener("change", function () { if (inp.files && inp.files.length && inp.form) inp.form.submit(); });
   });

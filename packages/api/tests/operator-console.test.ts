@@ -45,7 +45,7 @@ describe("one site, permission layers — /op/* GET dissolves into public routes
     "/op/synthesis": "/",
     "/op/studio": "/",
     "/op/outputs": "/research",
-    "/op/library": "/desk",
+    "/op/library": "/admin",
     "/op/library/some-slug": "/p/some-slug",
   })) {
     it(`${from} redirects to ${to}`, async () => {

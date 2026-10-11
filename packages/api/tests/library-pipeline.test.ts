@@ -130,7 +130,7 @@ async function operatorLibrary(): Promise<string> {
   );
   const cookieValue = buildSessionCookie(cookie).split(";")[0] as string;
   const res = await app.fetch(
-    new Request("http://test/desk/workbench", { headers: { cookie: cookieValue } }),
+    new Request("http://test/admin/workbench", { headers: { cookie: cookieValue } }),
     env,
   );
   expect(res.status).toBe(200);
@@ -199,7 +199,7 @@ describe("/library — the pipeline workbench", () => {
       expect(html, gone).not.toContain(gone);
     }
     // Signed out: the sign-in page, and no script that would press anything.
-    const anon = await app.fetch(new Request("http://test/desk/workbench"), env);
+    const anon = await app.fetch(new Request("http://test/admin/workbench"), env);
     expect(anon.status).toBe(401);
     const anonHtml = await anon.text();
     expect(anonHtml).not.toContain("/op/process/advance");
@@ -213,7 +213,7 @@ describe("/library — the pipeline workbench", () => {
     );
     const cookieValue = buildSessionCookie(cookie).split(";")[0] as string;
     const res = await app.fetch(
-      new Request("http://test/desk/workbench?queued=3&atoms=1.2.3.4&topics=5.1&draining=2", {
+      new Request("http://test/admin/workbench?queued=3&atoms=1.2.3.4&topics=5.1&draining=2", {
         headers: { cookie: cookieValue },
       }),
       env,

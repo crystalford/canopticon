@@ -992,14 +992,14 @@ function makeDb(): D1Database {
           };
         }
         // The id-to-slug map consolidation uses to credit a lead's other side.
-        // The desk (site/desk-data.ts): what is waiting, what was decided.
-        if (/'\$\.desk'\) IS NOT NULL/.test(sql)) {
+        // Admin (site/admin-data.ts): what is waiting, what was decided.
+        if (/'\$\.desk'\)\) IS NOT NULL/.test(sql)) {
           const meta = (o: Record<string, unknown>) =>
             JSON.stringify({ ingested_from: "feed-upload", ...o });
           return {
             results: [
               {
-                id: "desk-1",
+                id: "admin-1",
                 slug: "rents-after-the-ban",
                 title: "Rents After the Ban: Toronto, Vancouver and Montreal, 2023–2026",
                 publication_status: "working-material",
@@ -1008,13 +1008,13 @@ function makeDb(): D1Database {
                 created_at: "2026-10-11T09:00:00Z",
                 published_at: null,
                 metadata: meta({
-                  desk: "waiting",
+                  admin_status: "waiting",
                   sorted_as: "research",
                   sorted_why: "has a TL;DR or key findings and numbered sources",
                 }),
               },
               {
-                id: "desk-2",
+                id: "admin-2",
                 slug: "why-i-stopped-the-routine",
                 title: "Why I stopped the routine that was working",
                 publication_status: "working-material",
@@ -1023,13 +1023,13 @@ function makeDb(): D1Database {
                 created_at: "2026-10-10T18:00:00Z",
                 published_at: null,
                 metadata: meta({
-                  desk: "waiting",
+                  admin_status: "waiting",
                   sorted_as: "personal",
                   sorted_why: "names you or your health",
                 }),
               },
               {
-                id: "desk-3",
+                id: "admin-3",
                 slug: "the-quiet-part",
                 title: "The Quiet Part",
                 publication_status: "published",
@@ -1037,7 +1037,7 @@ function makeDb(): D1Database {
                 head: "",
                 created_at: "2026-10-09T12:00:00Z",
                 published_at: new Date().toISOString(),
-                metadata: meta({ desk: "published", sorted_as: "article" }),
+                metadata: meta({ admin_status: "published", sorted_as: "article" }),
               },
             ],
           };
@@ -1046,7 +1046,7 @@ function makeDb(): D1Database {
           return {
             results: [
               {
-                id: "desk-4",
+                id: "admin-4",
                 slug: "scan",
                 title: "budget-2026-estimates",
                 publication_status: "working-material",
@@ -1056,7 +1056,7 @@ function makeDb(): D1Database {
                 published_at: null,
                 metadata: JSON.stringify({
                   ingested_from: "feed-upload",
-                  desk: "waiting",
+                  admin_status: "waiting",
                   original_filename: "budget-2026-estimates.pdf",
                 }),
               },

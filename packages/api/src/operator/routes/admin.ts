@@ -1,4 +1,4 @@
-// The desk's buttons (site/pages/desk.ts). docs/blackbox/README.md §Desk:
+// Admin's buttons (site/pages/admin.ts). docs/blackbox/README.md §Desk:
 // "Nothing publishes without Publish." Every action is a plain form POST,
 // scoped to the operator's own uploads (OWN_UPLOADS_SQL), and every one has
 // an undo except Remove, which says what it does.
@@ -17,8 +17,8 @@ import { createAndExtract, mimeForName } from "./upload";
 
 const app = operatorApp();
 
-const back = (msg: string) => `/desk?done=${encodeURIComponent(msg)}`;
-const fail = (msg: string) => `/desk?error=${encodeURIComponent(msg)}`;
+const back = (msg: string) => `/admin?done=${encodeURIComponent(msg)}`;
+const fail = (msg: string) => `/admin?error=${encodeURIComponent(msg)}`;
 
 interface Owned {
   id: string;
@@ -52,14 +52,14 @@ async function choices(c: { req: { formData(): Promise<FormData> } }): Promise<{
   };
 }
 
-async function setDesk(
+async function setStatus(
   db: D1Database,
   id: string,
-  desk: string,
+  status: string,
   extra: { sortedAs?: string | null; topic?: string | null } = {},
 ): Promise<void> {
-  const sets = ["'$.desk', ?"];
-  const args: unknown[] = [desk];
+  const sets = ["'$.admin_status', ?"];
+  const args: unknown[] = [status];
   if (extra.sortedAs) {
     sets.push("'$.sorted_as', ?", "'$.sorted_why', ?");
     args.push(extra.sortedAs, "was set by you");
@@ -75,11 +75,11 @@ async function setDesk(
   );
 }
 
-app.post("/desk/:id/publish", async (c) => {
+app.post("/admin/:id/publish", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect(fail("No operator user"));
   const p = await owned(c.env.DB, userId, c.req.param("id"));
-  if (!p) return c.redirect(fail("That document is not on the desk"));
+  if (!p) return c.redirect(fail("That document is not in Admin"));
   const pick = await choices(c);
   await run(
     c.env.DB,
@@ -87,7 +87,7 @@ app.post("/desk/:id/publish", async (c) => {
       WHERE id = ?`,
     [new Date().toISOString(), p.id],
   );
-  await setDesk(c.env.DB, p.id, "published", pick);
+  await setStatus(c.env.DB, p.id, "published", pick);
   // Now, and only now, the pipeline reads it and the engines hear of it.
   await ensureProcessingTable(c.env);
   await enqueueProcessing(c.env, userId, p.id);
@@ -101,44 +101,44 @@ app.post("/desk/:id/publish", async (c) => {
   return c.redirect(back(`Published “${p.title}”.`));
 });
 
-app.post("/desk/:id/private", async (c) => {
+app.post("/admin/:id/private", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect(fail("No operator user"));
   const p = await owned(c.env.DB, userId, c.req.param("id"));
-  if (!p) return c.redirect(fail("That document is not on the desk"));
-  await setDesk(c.env.DB, p.id, "private", await choices(c));
+  if (!p) return c.redirect(fail("That document is not in Admin"));
+  await setStatus(c.env.DB, p.id, "private", await choices(c));
   return c.redirect(back(`Kept “${p.title}” private.`));
 });
 
-app.post("/desk/:id/undo", async (c) => {
+app.post("/admin/:id/undo", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect(fail("No operator user"));
   const p = await owned(c.env.DB, userId, c.req.param("id"));
-  if (!p) return c.redirect(fail("That document is not on the desk"));
-  await setDesk(c.env.DB, p.id, "waiting");
+  if (!p) return c.redirect(fail("That document is not in Admin"));
+  await setStatus(c.env.DB, p.id, "waiting");
   return c.redirect(back(`“${p.title}” is waiting again.`));
 });
 
-app.post("/desk/:id/unpublish", async (c) => {
+app.post("/admin/:id/unpublish", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect(fail("No operator user"));
   const p = await owned(c.env.DB, userId, c.req.param("id"));
-  if (!p) return c.redirect(fail("That document is not on the desk"));
+  if (!p) return c.redirect(fail("That document is not in Admin"));
   await run(c.env.DB, "UPDATE pieces SET publication_status = 'working-material' WHERE id = ?", [
     p.id,
   ]);
-  await setDesk(c.env.DB, p.id, "waiting");
+  await setStatus(c.env.DB, p.id, "waiting");
   invalidateUploads();
   return c.redirect(back(`“${p.title}” is off the site and waiting again.`));
 });
 
 // Remove: the graph first (nodes carry no foreign key to pieces, so deleting
 // the piece alone would leave its quotes unmoored — CLAUDE.md), then the row.
-app.post("/desk/:id/remove", async (c) => {
+app.post("/admin/:id/remove", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect(fail("No operator user"));
   const p = await owned(c.env.DB, userId, c.req.param("id"));
-  if (!p) return c.redirect(fail("That document is not on the desk"));
+  if (!p) return c.redirect(fail("That document is not in Admin"));
   await purgeTypedGraphForPiece(c.env, userId, p.id);
   await run(c.env.DB, "DELETE FROM pieces WHERE id = ? AND user_id = ?", [p.id, userId]);
   invalidateUploads();
@@ -147,7 +147,7 @@ app.post("/desk/:id/remove", async (c) => {
 
 // Paste a link: fetch the file once, then the same door as a dropped file.
 const MAX_LINK_BYTES = 20 * 1024 * 1024;
-app.post("/desk/link", async (c) => {
+app.post("/admin/link", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect(fail("No operator user"));
   const form = await c.req.formData();
@@ -194,7 +194,7 @@ app.post("/desk/link", async (c) => {
     },
   );
   return c.redirect(
-    p.duplicate ? "/desk?dedup=1" : `/desk?uploaded=${encodeURIComponent(p.pieceId)}`,
+    p.duplicate ? "/admin?dedup=1" : `/admin?uploaded=${encodeURIComponent(p.pieceId)}`,
   );
 });
 

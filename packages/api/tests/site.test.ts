@@ -84,9 +84,9 @@ describe("held documents never reach a public surface", () => {
 describe("projects are private", () => {
   it("project hubs are not listed for a reader", async () => {
     const lib = await text("/library");
-    expect(lib).not.toContain("/desk/projects/");
+    expect(lib).not.toContain("/admin/projects/");
     expect(lib).not.toContain(">Projects<");
-    expect(await text("/sitemap.xml")).not.toContain("/desk");
+    expect(await text("/sitemap.xml")).not.toContain("/admin");
   });
 });
 

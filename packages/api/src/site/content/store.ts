@@ -5,7 +5,7 @@
 // build if any quote is not verbatim. This module is the only reader of that
 // JSON. Every public surface goes through the accessors below, and the
 // accessors are where "held" is enforced: a held document is stored and can
-// be read by the desk, but nothing here hands it to a public caller.
+// be read by Admin, but nothing here hands it to a public caller.
 
 import raw from "./store.gen.json";
 
@@ -147,12 +147,12 @@ export function publicResearch(): ResearchDoc[] {
   return Object.values(STORE.research).filter(isPublic);
 }
 
-/** Held documents. The desk's read only — never call from a public route. */
+/** Held documents. Admin's read only — never call from a public route. */
 export function heldResearch(): ResearchDoc[] {
   return Object.values(STORE.research).filter((d) => d.visibility === "held");
 }
 
-/** The desk's read: held documents included. Never call from a public route. */
+/** Admin's read: held documents included. Never call from a public route. */
 export function anyResearchDoc(id: string): ResearchDoc | null {
   return STORE.research[id] ?? null;
 }
@@ -173,7 +173,7 @@ export function allPapers(): Paper[] {
   return Object.values(STORE.papers);
 }
 
-/** Projects are private (README §Rules): they route to the desk and never
+/** Projects are private (README §Rules): they route to Admin and never
  *  appear in a public list. Everything else in library.json is public. */
 export function libraryItems(opts: { signedIn?: boolean } = {}): LibraryItem[] {
   const own = STORE.library.filter((r) => opts.signedIn || r.kind !== "Project");
@@ -181,7 +181,7 @@ export function libraryItems(opts: { signedIn?: boolean } = {}): LibraryItem[] {
 }
 
 /**
- * Documents published from the desk after the handoff live only in D1. They
+ * Documents published from Admin after the handoff live only in D1. They
  * join every list through here, so the Library, topics, feeds, llms.txt and
  * the sitemap stay one list (standing rule 3). Set by the site's middleware
  * (site/uploads.ts) from a short-lived cache; a row the store already holds

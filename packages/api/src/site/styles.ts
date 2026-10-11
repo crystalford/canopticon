@@ -423,7 +423,7 @@ a.facet:hover { filter: brightness(.96); }
 .f-card p { margin: 6px 0 12px; font-size: 14px; line-height: 1.55; color: var(--ink-2); }
 .f-code { font-family: var(--mono); font-size: 13px; }
 
-/* ---- the desk ---------------------------------------------------------------- */
+/* ---- admin ------------------------------------------------------------------ */
 
 .d-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .d-h1 { font-size: clamp(28px, 3vw, 36px); line-height: 1.1; font-weight: 500; letter-spacing: -.02em; margin: 0; }

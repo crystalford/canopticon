@@ -124,9 +124,9 @@ app.post("/feed/upload", async (c) => {
       );
     }
 
-    // Single file: store, read, sort, and hold it on the desk. Publishing —
-    // the pipeline, IndexNow — happens on the desk's Publish button
-    // (operator/routes/desk.ts), never on the drop.
+    // Single file: store, read, sort, and hold it in Admin. Publishing —
+    // the pipeline, IndexNow — happens on Admin's Publish button
+    // (operator/routes/admin.ts), never on the drop.
     const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size, {
       hold: true,
     });
@@ -189,9 +189,9 @@ export async function createAndExtract(
     publishedAt?: string | undefined;
     ingestedFrom?: string | undefined;
     extraMetadata?: Record<string, unknown> | undefined;
-    /** The desk's rule (docs/blackbox/README.md §Desk): "Nothing publishes
+    /** Admin's rule (docs/blackbox/README.md §Desk): "Nothing publishes
      *  without Publish." A held upload is stored, read and sorted, and waits
-     *  on the desk as working-material until the operator publishes it. */
+     *  in Admin as working-material until the operator publishes it. */
     hold?: boolean | undefined;
   } = {},
 ): Promise<CreatedPiece & { duplicate?: boolean }> {
@@ -285,7 +285,7 @@ export async function createAndExtract(
         ? (() => {
             const s = sortUpload(body_md);
             return {
-              desk: "waiting",
+              admin_status: "waiting",
               sorted_as: s.as,
               sorted_why: s.why,
               uploaded_at: nowIso,
@@ -401,18 +401,18 @@ async function ensureUniqueSlug(db: D1Database, userId: string, base: string): P
 // channel with the video's own publish date. See graph/lib/video-intake.ts.
 app.post("/library/import-video", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk/workbench");
+  if (!userId) return c.redirect("/admin/workbench");
   const form = await c.req.parseBody();
   const url = typeof form.url === "string" ? form.url.trim() : "";
-  if (!url) return c.redirect("/desk/workbench");
+  if (!url) return c.redirect("/admin/workbench");
   const { requestVideoImport } = await import("../../graph/lib/video-intake");
   const result = await requestVideoImport(c.env, userId, url);
   if (!result.ok || !result.importId) {
     return c.redirect(
-      `/desk/workbench?video_error=${encodeURIComponent(result.error ?? "failed")}`,
+      `/admin/workbench?video_error=${encodeURIComponent(result.error ?? "failed")}`,
     );
   }
-  return c.redirect(`/desk/workbench?importing=${encodeURIComponent(result.importId)}`);
+  return c.redirect(`/admin/workbench?importing=${encodeURIComponent(result.importId)}`);
 });
 
 // JSON status for the same live-polling banner pattern as /research-status.
@@ -523,7 +523,7 @@ app.post("/library/delete", async (c) => {
 // ?error=same+file when the upload is byte-identical to the current source.
 app.post("/library/:id/replace", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk/workbench?error=No%20operator%20user");
+  if (!userId) return c.redirect("/admin/workbench?error=No%20operator%20user");
   const pieceId = c.req.param("id");
   const piece = await one<{
     id: string;
@@ -536,11 +536,11 @@ app.post("/library/:id/replace", async (c) => {
     "SELECT id, slug, title, body_md, metadata FROM pieces WHERE id = ? AND user_id = ?",
     [pieceId, userId],
   );
-  if (!piece) return c.redirect("/desk/workbench?error=No%20document");
+  if (!piece) return c.redirect("/admin/workbench?error=No%20document");
   const form = await c.req.formData();
   const file = form.get("file");
   if (!file || typeof file === "string") {
-    return c.redirect(`/desk/workbench?error=${encodeURIComponent("No file in form data")}`);
+    return c.redirect(`/admin/workbench?error=${encodeURIComponent("No file in form data")}`);
   }
   const f = file as unknown as File;
   const bytes = new Uint8Array(await f.arrayBuffer());
@@ -564,7 +564,7 @@ app.post("/library/:id/replace", async (c) => {
     currentSha = u?.sha256 ?? null;
   }
   if (currentSha && currentSha === sha256) {
-    return c.redirect("/desk/workbench?error=same+file");
+    return c.redirect("/admin/workbench?error=same+file");
   }
 
   // Readings are read BEFORE the purge: their quotes cascade away with the
@@ -633,7 +633,7 @@ app.post("/library/:id/replace", async (c) => {
   }
 
   await enqueueProcessing(c.env, userId, pieceId, { restart: true });
-  return c.redirect(`/desk/workbench?replaced=1&readings_lost=${lost}`);
+  return c.redirect(`/admin/workbench?replaced=1&readings_lost=${lost}`);
 });
 
 export default app;

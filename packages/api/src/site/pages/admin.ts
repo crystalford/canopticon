@@ -1,17 +1,17 @@
-// /desk — the operator's page. docs/blackbox/README.md §Desk;
+// /admin — the operator's page. docs/blackbox/README.md §Desk;
 // pages/Canopticon Admin.dc.html. "Add something" (drop, choose, or paste a
 // link) and "Waiting for you": one card per decision, each with a kind, a
 // status, one primary action and one secondary, and Undo once decided.
 //
 // "Nothing publishes without Publish." An upload is read and sorted by its
 // shape (lib/sort-upload.ts) and waits here as working-material. Every
-// button is a plain form POST to /op/desk/* (operator/routes/desk.ts), so
+// button is a plain form POST to /op/admin/* (operator/routes/admin.ts), so
 // the page works without script; /site.js only adds drag-and-drop.
 
 import { SORT_LABELS, type SortedAs } from "../../lib/sort-upload";
+import type { AdminModel, AdminPiece } from "../admin-data";
 import { heldResearch, terms } from "../content/store";
 import { hubTopics } from "../data";
-import type { DeskModel, DeskPiece } from "../desk-data";
 import { esc, shell } from "../layout";
 import { kindColours, shortDate } from "../theme";
 
@@ -49,7 +49,7 @@ function card(args: {
   return `<div class="d-card${args.muted ? " muted" : ""}"><div class="d-top">${chip(args.kindLabel, KIND_PAIR[args.kind] ?? KIND_PAIR.research ?? ["#efebe1", "#15171c"])}${chip(args.status, args.statusPair)}<span class="d-when">${esc(args.when)}</span></div><div class="d-title">${esc(args.title)}</div><div class="d-note">${args.note}</div>${args.body ?? ""}</div>`;
 }
 
-function waitingCard(p: DeskPiece, topics: string[]): string {
+function waitingCard(p: AdminPiece, topics: string[]): string {
   const personal = p.sortedAs === "personal";
   const kinds = (Object.keys(SORT_LABELS) as SortedAs[])
     .map(
@@ -63,7 +63,7 @@ function waitingCard(p: DeskPiece, topics: string[]): string {
         `<option value="${esc(t)}"${t === p.topic ? " selected" : ""}>${t ? esc(t) : "Choose a topic…"}</option>`,
     )
     .join("");
-  const form = `<form method="post" action="/op/desk/${esc(p.id)}/publish" class="d-form"><div class="d-row"><span class="d-lab">Read as</span>${kinds}</div><div class="d-row"><label class="d-lab" for="t-${esc(p.id)}">Topic</label><select id="t-${esc(p.id)}" name="topic" class="d-select">${topicOpts}</select></div><div class="d-actions"><a href="/desk/review/${esc(p.id)}" class="d-btn link">Review</a><button type="submit" class="d-btn">${personal ? "Publish anyway" : "Publish"}</button><button type="submit" class="d-btn" formaction="/op/desk/${esc(p.id)}/private">Keep private</button><button type="submit" class="d-btn quiet" formaction="/op/desk/${esc(p.id)}/remove">Remove</button></div></form>`;
+  const form = `<form method="post" action="/op/admin/${esc(p.id)}/publish" class="d-form"><div class="d-row"><span class="d-lab">Read as</span>${kinds}</div><div class="d-row"><label class="d-lab" for="t-${esc(p.id)}">Topic</label><select id="t-${esc(p.id)}" name="topic" class="d-select">${topicOpts}</select></div><div class="d-actions"><a href="/admin/review/${esc(p.id)}" class="d-btn link">Review</a><button type="submit" class="d-btn">${personal ? "Publish anyway" : "Publish"}</button><button type="submit" class="d-btn" formaction="/op/admin/${esc(p.id)}/private">Keep private</button><button type="submit" class="d-btn quiet" formaction="/op/admin/${esc(p.id)}/remove">Remove</button></div></form>`;
   const note = personal
     ? `Read as <strong>personal</strong> because it ${esc(p.sortedWhy)}. It stays private unless you change how it is read, or publish it anyway.`
     : `Read as ${esc(SORT_LABELS[p.sortedAs].toLowerCase())} because it ${esc(p.sortedWhy)}. ${Math.max(1, Math.round(p.chars / 1000))}k characters.`;
@@ -79,7 +79,7 @@ function waitingCard(p: DeskPiece, topics: string[]): string {
   });
 }
 
-function failedCard(p: DeskPiece): string {
+function failedCard(p: AdminPiece): string {
   return card({
     kind: "failed",
     kindLabel: "Failed read",
@@ -88,11 +88,11 @@ function failedCard(p: DeskPiece): string {
     when: shortDate(p.createdAt.slice(0, 10)),
     title: p.filename,
     note: "There was no text to read in this file — usually a PDF without a text layer. Upload a text export, or remove it.",
-    body: `<form method="post" action="/op/library/${esc(p.id)}/replace" enctype="multipart/form-data" class="d-actions"><label class="d-btn file">Upload text<input type="file" name="file" accept=".md,.txt,.pdf,.docx" required data-autosubmit /></label><noscript><button type="submit" class="d-btn">Send</button></noscript><button type="submit" class="d-btn quiet" formaction="/op/desk/${esc(p.id)}/remove" formenctype="application/x-www-form-urlencoded" formnovalidate>Remove</button></form>`,
+    body: `<form method="post" action="/op/library/${esc(p.id)}/replace" enctype="multipart/form-data" class="d-actions"><label class="d-btn file">Upload text<input type="file" name="file" accept=".md,.txt,.pdf,.docx" required data-autosubmit /></label><noscript><button type="submit" class="d-btn">Send</button></noscript><button type="submit" class="d-btn quiet" formaction="/op/admin/${esc(p.id)}/remove" formenctype="application/x-www-form-urlencoded" formnovalidate>Remove</button></form>`,
   });
 }
 
-function doneCard(p: DeskPiece, label: string, undo: string): string {
+function doneCard(p: AdminPiece, label: string, undo: string): string {
   return card({
     kind: p.sortedAs,
     kindLabel: SORT_LABELS[p.sortedAs],
@@ -120,7 +120,7 @@ function heldCard(): string {
     when: "",
     title: `${held.length} documents held private`,
     note: `Stored with the record and never served: ${held
-      .map((d) => `<a href="/desk/review/${esc(d.id)}" class="ulink">${esc(d.title)}</a>`)
+      .map((d) => `<a href="/admin/review/${esc(d.id)}" class="ulink">${esc(d.title)}</a>`)
       .join(
         ", ",
       )}. To publish one, move its file from <code>content/research-held/</code> to <code>content/research/</code>.`,
@@ -142,7 +142,7 @@ function namesCard(): string {
   });
 }
 
-export interface DeskFlash {
+export interface AdminFlash {
   uploaded?: string | undefined;
   ingested?: string | undefined;
   dupes?: string | undefined;
@@ -151,7 +151,7 @@ export interface DeskFlash {
   done?: string | undefined;
 }
 
-function flash(f: DeskFlash): string {
+function flash(f: AdminFlash): string {
   if (f.error) return `<p class="d-flash bad">${esc(f.error)}</p>`;
   if (f.dedup)
     return `<p class="d-flash">That file is already in the record — nothing new was added.</p>`;
@@ -165,7 +165,7 @@ function flash(f: DeskFlash): string {
   return "";
 }
 
-export function renderDesk(model: DeskModel, f: DeskFlash = {}): string {
+export function renderAdmin(model: AdminModel, f: AdminFlash = {}): string {
   const topics = hubTopics().map((t) => t.name);
   const cards = [
     ...model.waiting.map((p) => waitingCard(p, topics)),
@@ -175,16 +175,16 @@ export function renderDesk(model: DeskModel, f: DeskFlash = {}): string {
   ].filter(Boolean);
   const open = model.waiting.length + model.failed.length;
   const decided = [
-    ...model.published.map((p) => doneCard(p, "Published", `/op/desk/${p.id}/unpublish`)),
-    ...model.kept.map((p) => doneCard(p, "Kept private", `/op/desk/${p.id}/undo`)),
+    ...model.published.map((p) => doneCard(p, "Published", `/op/admin/${p.id}/unpublish`)),
+    ...model.kept.map((p) => doneCard(p, "Kept private", `/op/admin/${p.id}/undo`)),
   ];
   const count = open
     ? `<span class="d-count" style="background:#fbe9df;color:#8a3a1f">${open} waiting</span>`
     : `<span class="d-count" style="background:#e3f0e6;color:#1f5e36">All clear</span>`;
 
-  const add = `<section aria-label="Add" class="d-add" data-drop><div class="d-add-h">Add something</div><div class="d-add-p">Drop a file, choose one, or paste a link. It is read and sorted first — research, article or paper — and waits below until you publish it.</div><div class="d-add-row"><form method="post" action="/op/desk/link" class="d-url"><input type="url" name="url" placeholder="Paste a link — a report, a doc, a PDF" required /><button type="submit" class="d-btn">Add</button></form><form method="post" action="/op/feed/upload" enctype="multipart/form-data" class="d-files" data-upload-form><label class="d-btn file">Choose files<input type="file" name="file" multiple accept=".md,.markdown,.txt,.pdf,.docx,.zip" data-autosubmit /></label><noscript><button type="submit" class="d-btn">Upload</button></noscript></form></div></section>`;
+  const add = `<section aria-label="Add" class="d-add" data-drop><div class="d-add-h">Add something</div><div class="d-add-p">Drop a file, choose one, or paste a link. It is read and sorted first — research, article or paper — and waits below until you publish it.</div><div class="d-add-row"><form method="post" action="/op/admin/link" class="d-url"><input type="url" name="url" placeholder="Paste a link — a report, a doc, a PDF" required /><button type="submit" class="d-btn">Add</button></form><form method="post" action="/op/feed/upload" enctype="multipart/form-data" class="d-files" data-upload-form><label class="d-btn file">Choose files<input type="file" name="file" multiple accept=".md,.markdown,.txt,.pdf,.docx,.zip" data-autosubmit /></label><noscript><button type="submit" class="d-btn">Upload</button></noscript></form></div></section>`;
 
-  const body = `<div class="d-head"><h1 class="d-h1">Admin</h1>${count}<span class="d-links"><a href="/desk/workbench" class="ulink">Workbench — processing, leads, research</a><a href="/op/export" class="ulink">Download as .zip</a></span></div>${flash(f)}${add}<section style="margin-top:32px"><div class="ruled-h" style="margin-bottom:0"><h2>Waiting for you</h2><span class="d-count" style="background:var(--tint);color:var(--ink)">${open}</span></div><div class="d-grid">${cards.length ? cards.join("") : ""}${open ? "" : '<div class="d-clear">Nothing waiting. Add something above.</div>'}</div></section>${
+  const body = `<div class="d-head"><h1 class="d-h1">Admin</h1>${count}<span class="d-links"><a href="/admin/workbench" class="ulink">Workbench — processing, leads, research</a><a href="/op/export" class="ulink">Download as .zip</a></span></div>${flash(f)}${add}<section style="margin-top:32px"><div class="ruled-h" style="margin-bottom:0"><h2>Waiting for you</h2><span class="d-count" style="background:var(--tint);color:var(--ink)">${open}</span></div><div class="d-grid">${cards.length ? cards.join("") : ""}${open ? "" : '<div class="d-clear">Nothing waiting. Add something above.</div>'}</div></section>${
     decided.length
       ? `<section style="margin-top:32px"><div class="ruled-h" style="margin-bottom:0"><h2>Decided this week</h2></div><div class="d-grid">${decided.join("")}</div></section>`
       : ""
@@ -192,8 +192,8 @@ export function renderDesk(model: DeskModel, f: DeskFlash = {}): string {
 
   return shell({
     title: "Admin",
-    description: "The desk: what is waiting for a decision.",
-    path: "/desk",
+    description: "Admin: what is waiting for a decision.",
+    path: "/admin",
     noindex: true,
     signedIn: true,
     waiting: open,

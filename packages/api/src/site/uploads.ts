@@ -1,7 +1,7 @@
-// Published desk uploads, as library rows — the D1 half of the public list.
+// Published Admin uploads, as library rows — the D1 half of the public list.
 //
 // The content store is the record as the handoff delivered it; everything
-// published from the desk since lives in D1 (`pieces`, own uploads only, via
+// published from Admin since lives in D1 (`pieces`, own uploads only, via
 // OWN_UPLOADS_SQL). This reads those rows into the same LibraryItem shape and
 // hands them to the store (setUploadedRows), at most once a minute per
 // isolate, so a page view does not cost a query and a fresh publish shows up

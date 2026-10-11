@@ -309,7 +309,7 @@ export async function renderQuoteReceipt(env: PublicEnv, quoteId: string): Promi
     title: `Verbatim quote · From ${quote.piece_title ?? quote.source_node_label}`,
     description: quote.verbatim_text.slice(0, 200),
     body,
-    activeNav: "/desk/workbench",
+    activeNav: "/admin/workbench",
     zone: "library",
   });
 }

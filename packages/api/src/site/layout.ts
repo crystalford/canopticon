@@ -86,7 +86,7 @@ ${beacon(a.analyticsToken)}</body>
 function header(a: ShellArgs): string {
   const cur = (k: ShellArgs["nav"]) => (a.nav === k ? ' aria-current="page"' : "");
   const admin = a.signedIn
-    ? `<a href="/desk" class="admin">Admin${
+    ? `<a href="/admin" class="admin">Admin${
         a.waiting
           ? `<span class="admin-n" title="${a.waiting} things waiting">${a.waiting}</span>`
           : ""

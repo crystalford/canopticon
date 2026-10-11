@@ -9,6 +9,7 @@ import { OWN_UPLOADS_SQL } from "../admin/runtime";
 import type { AuthContext } from "../auth/middleware";
 import { one } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
+import { adminModel } from "./admin-data";
 import {
   allPapers,
   anyResearchDoc,
@@ -21,7 +22,6 @@ import {
   term,
 } from "./content/store";
 import { docViewFromStore, hubTopics, listedArticles, topicBySlug } from "./data";
-import { deskModel } from "./desk-data";
 import {
   SITE as FEED_SITE,
   feedHeaders,
@@ -34,8 +34,8 @@ import {
 } from "./feeds";
 import { html } from "./layout";
 import { passageHref } from "./md";
+import { renderAdmin } from "./pages/admin";
 import { renderArticle, renderPaper } from "./pages/article";
-import { renderDesk } from "./pages/desk";
 import { type DocView, renderDocument } from "./pages/document";
 import { consentWording, followTopics, renderFollow } from "./pages/follow";
 import { renderFront } from "./pages/front";
@@ -53,7 +53,7 @@ import { refreshUploads } from "./uploads";
 
 const app = new Hono<AuthContext>();
 
-// Published desk uploads join the public lists (site/uploads.ts). Cached per
+// Published Admin uploads join the public lists (site/uploads.ts). Cached per
 // isolate for a minute; the static assets do not need them.
 app.use("*", async (c, next) => {
   if (!/^\/(site\.(css|js)|favicon)/.test(c.req.path)) await refreshUploads(c.env);
@@ -120,24 +120,28 @@ app.get("/investigations", (c) =>
   ),
 );
 
-// ---- the desk (signed in) -------------------------------------------------------
+// The page was /desk for its first hour; old links keep working.
+app.get("/desk", (c) => c.redirect(`/admin${new URL(c.req.url).search}`, 301));
+app.get("/desk/:rest{.+}", (c) => c.redirect(`/admin/${c.req.param("rest")}`, 301));
+
+// ---- admin (signed in) -------------------------------------------------------------
 
 const signIn = (path: string) =>
   renderNotice({
-    title: "Sign in to use the desk",
-    body: "The desk is where uploads wait for a decision. It is only for the author.",
+    title: "Sign in to use Admin",
+    body: "Admin is where uploads wait for a decision. It is only for the author.",
     path,
     links: [{ href: `/op/login?next=${encodeURIComponent(path)}`, label: "Sign in" }],
   });
 
-app.get("/desk", async (c) => {
-  if (!signedIn(c)) return html(signIn("/desk"), { status: 401 });
+app.get("/admin", async (c) => {
+  if (!signedIn(c)) return html(signIn("/admin"), { status: 401 });
   const userId = await resolveOperatorId(c.env.DB).catch(() => null);
   const model = userId
-    ? await deskModel(c.env, userId)
+    ? await adminModel(c.env, userId)
     : { waiting: [], failed: [], kept: [], published: [] };
   return html(
-    renderDesk(model, {
+    renderAdmin(model, {
       uploaded: c.req.query("uploaded"),
       ingested: c.req.query("ingested"),
       dupes: c.req.query("dupes"),
@@ -150,7 +154,7 @@ app.get("/desk", async (c) => {
 
 /** A private read of a waiting upload or a held document: the same page a
  *  reader would get, marked private and kept out of every index. */
-app.get("/desk/review/:id", async (c) => {
+app.get("/admin/review/:id", async (c) => {
   if (!signedIn(c)) return html(signIn(c.req.path), { status: 401 });
   const id = c.req.param("id");
   const held = anyResearchDoc(id);
@@ -180,7 +184,7 @@ app.get("/desk/review/:id", async (c) => {
       view = {
         id: row.slug,
         title: row.title,
-        kind: "Waiting on the desk",
+        kind: "Waiting in Admin",
         topic: "Other",
         date: row.created_at.slice(0, 10),
         dateLabel: shortDate(row.created_at.slice(0, 10)),
@@ -195,7 +199,7 @@ app.get("/desk/review/:id", async (c) => {
     .replace("<head>", '<head>\n<meta name="robots" content="noindex,nofollow" />')
     .replace(
       '<div class="dwrap">',
-      '<p class="d-flash bad" style="margin:0 0 20px">Private — this is not published. <a href="/desk" class="ulink">Back to the desk</a></p><div class="dwrap">',
+      '<p class="d-flash bad" style="margin:0 0 20px">Private — this is not published. <a href="/admin" class="ulink">Back to Admin</a></p><div class="dwrap">',
     );
   return new Response(page, {
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "private, no-store" },

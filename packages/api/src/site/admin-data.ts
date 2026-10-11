@@ -1,4 +1,4 @@
-// What the desk shows: the operator's uploads that are waiting for a
+// What Admin shows: the operator's uploads that are waiting for a
 // decision, the ones that could not be read, the ones kept private, and
 // what was published from here recently. Own uploads only (OWN_UPLOADS_SQL).
 
@@ -7,7 +7,7 @@ import type { Env } from "../env";
 import { all } from "../lib/d1";
 import { type SortedAs, isSortedAs, sortUpload } from "../lib/sort-upload";
 
-export interface DeskPiece {
+export interface AdminPiece {
   id: string;
   slug: string;
   title: string;
@@ -16,7 +16,7 @@ export interface DeskPiece {
   head: string;
   createdAt: string;
   publishedAt: string | null;
-  desk: string;
+  adminStatus: string;
   sortedAs: SortedAs;
   sortedWhy: string;
   topic: string;
@@ -35,7 +35,7 @@ interface Row {
   metadata: string | null;
 }
 
-function toPiece(r: Row): DeskPiece {
+function toPiece(r: Row): AdminPiece {
   let m: Record<string, unknown> = {};
   try {
     m = JSON.parse(r.metadata ?? "{}");
@@ -52,7 +52,14 @@ function toPiece(r: Row): DeskPiece {
     head: r.head ?? "",
     createdAt: r.created_at,
     publishedAt: r.published_at,
-    desk: typeof m.desk === "string" ? m.desk : "",
+    // admin_status; "desk" is the key's first name, written for a few minutes
+    // after the page shipped as /desk.
+    adminStatus:
+      typeof m.admin_status === "string"
+        ? m.admin_status
+        : typeof m.desk === "string"
+          ? m.desk
+          : "",
     sortedAs: sorted,
     sortedWhy: typeof m.sorted_why === "string" ? m.sorted_why : sortUpload(r.head ?? "").why,
     topic: typeof m.library_topic === "string" ? m.library_topic : "",
@@ -63,30 +70,30 @@ function toPiece(r: Row): DeskPiece {
 const COLS = `id, slug, title, publication_status, length(body_md) AS chars,
   substr(body_md, 1, 3000) AS head, created_at, published_at, metadata`;
 
-export interface DeskModel {
-  waiting: DeskPiece[];
-  failed: DeskPiece[];
-  kept: DeskPiece[];
-  published: DeskPiece[];
+export interface AdminModel {
+  waiting: AdminPiece[];
+  failed: AdminPiece[];
+  kept: AdminPiece[];
+  published: AdminPiece[];
 }
 
-export async function deskModel(env: Env, userId: string): Promise<DeskModel> {
+export async function adminModel(env: Env, userId: string): Promise<AdminModel> {
   const rows = await all<Row>(
     env.DB,
     `SELECT ${COLS} FROM pieces
       WHERE user_id = ? AND ${OWN_UPLOADS_SQL}
-        AND json_extract(metadata, '$.desk') IS NOT NULL
+        AND COALESCE(json_extract(metadata, '$.admin_status'), json_extract(metadata, '$.desk')) IS NOT NULL
       ORDER BY created_at DESC LIMIT 200`,
     [userId],
   ).catch(() => [] as Row[]);
   // Anything that was read as nothing — a PDF without a text layer — needs a
-  // text version, whether it came through the desk or before it.
+  // text version, whether it came through Admin or before it.
   const empty = await all<Row>(
     env.DB,
     `SELECT ${COLS} FROM pieces
       WHERE user_id = ? AND ${OWN_UPLOADS_SQL}
         AND (body_md IS NULL OR length(trim(body_md)) < 40)
-        AND COALESCE(json_extract(metadata, '$.desk'), '') <> 'removed'
+        AND COALESCE(COALESCE(json_extract(metadata, '$.admin_status'), json_extract(metadata, '$.desk')), '') <> 'removed'
       ORDER BY created_at DESC LIMIT 50`,
     [userId],
   ).catch(() => [] as Row[]);
@@ -95,11 +102,14 @@ export async function deskModel(env: Env, userId: string): Promise<DeskModel> {
   const failedIds = new Set(failed.map((p) => p.id));
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   return {
-    waiting: pieces.filter((p) => p.desk === "waiting" && !failedIds.has(p.id)),
+    waiting: pieces.filter((p) => p.adminStatus === "waiting" && !failedIds.has(p.id)),
     failed,
-    kept: pieces.filter((p) => p.desk === "private"),
+    kept: pieces.filter((p) => p.adminStatus === "private"),
     published: pieces.filter(
-      (p) => p.desk === "published" && p.status === "published" && (p.publishedAt ?? "") > weekAgo,
+      (p) =>
+        p.adminStatus === "published" &&
+        p.status === "published" &&
+        (p.publishedAt ?? "") > weekAgo,
     ),
   };
 }
