@@ -75,7 +75,7 @@ describe("attachAuthState — the one-site permission middleware", () => {
   });
 
   it("anonymous /research has no operator strip", async () => {
-    const res = await app.fetch(new Request("http://test/research"), env);
+    const res = await app.fetch(new Request("http://test/library"), env);
     const html = await res.text();
     expect(res.status).toBe(200);
     expect(html).not.toContain('class="op-strip"');
@@ -102,7 +102,7 @@ describe("attachAuthState — the one-site permission middleware", () => {
     );
     const cookieValue = buildSessionCookie(cookie).split(";")[0] as string;
     const res = await app.fetch(
-      new Request("http://test/research", { headers: { cookie: cookieValue } }),
+      new Request("http://test/library", { headers: { cookie: cookieValue } }),
       env,
     );
     expect(res.status).toBe(200);

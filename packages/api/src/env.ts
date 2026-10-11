@@ -101,6 +101,10 @@ export interface Env {
   // deliberate behaviour rather than a half-configured one. The sending
   // domain must also be verified with the provider or every send is rejected.
   RESEND_API_KEY?: string;
+  /** The sender's postal address, printed in every email. Canada's anti-spam
+   *  law requires one in the consent request and in every message, so with
+   *  none set nothing is sent at all (docs/blackbox/BACKEND.md §5). */
+  MAILING_ADDRESS?: string;
   // Cloudflare Web Analytics beacon token — optional. Free, no cookies,
   // billed to nothing. When set, public/layout.ts emits the beacon script
   // before </body>; when empty, nothing is emitted and every page reads

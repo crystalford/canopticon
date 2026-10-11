@@ -31,7 +31,11 @@ export function passageHref(docId: string, passage: string): string {
     const cut = p.lastIndexOf(" ", 200);
     p = p.slice(0, cut > 80 ? cut : 200);
   }
-  const enc = encodeURIComponent(p).replace(/-/g, "%2D");
+  // encodeURIComponent leaves ' ( ) ! * ~ alone; they are encoded too, so a
+  // passage link survives being pasted anywhere (and needs no HTML escaping).
+  const enc = encodeURIComponent(p)
+    .replace(/-/g, "%2D")
+    .replace(/[!'()*~]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`);
   return `/p/${encodeURIComponent(docId)}#q=${enc}:~:text=${enc}`;
 }
 

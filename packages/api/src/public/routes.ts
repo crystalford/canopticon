@@ -376,8 +376,8 @@ app.get("/essays", async (c) => htmlResponse(await renderEssaysIndex(c.env)));
 // on each document's own page, beside the thing they are about. The index was
 // a second copy of that, stripped of context, competing with its own sources.
 // Both paths now 301 to /research, which is where the numbers actually live.
-app.get("/numbers", (c) => c.redirect("/research", 301));
-app.get("/figures", (c) => c.redirect("/research", 301));
+app.get("/numbers", (c) => c.redirect("/library?kind=Research", 301));
+app.get("/figures", (c) => c.redirect("/library?kind=Research", 301));
 app.get("/research", async (c) => htmlResponse(await renderResearchIndex(c.env)));
 
 // Section hubs — one per entry of the closed list in graph/lib/topics.ts
@@ -422,14 +422,14 @@ app.get("/watchlist", (c) => c.redirect("/desk", 301));
 app.get("/videos", (c) => c.redirect("/", 301));
 app.get("/activity", (c) => c.redirect("/", 301));
 app.get("/instruments", (c) => c.redirect("/", 301));
-app.get("/topics", (c) => c.redirect("/research", 301));
+app.get("/topics", (c) => c.redirect("/library?kind=Research", 301));
 app.get("/topics/:slug", (c) => c.redirect(searchFor(c.req.param("slug")), 301));
 
 // ---- Investigations -------------------------------------------------------
 // The index described "signed analyses", "intent badges" and "the fabric era"
 // over a list that was just every published piece again. The documents live
 // at /research; this is where the room was pointing anyway.
-app.get("/investigations", (c) => c.redirect("/research", 301));
+app.get("/investigations", (c) => c.redirect("/library?kind=Research", 301));
 
 app.get("/investigations/:slug", (c) => c.redirect(`/p/${c.req.param("slug")}`, 301));
 
@@ -764,7 +764,7 @@ app.get("/record", (c) => c.redirect("/", 301));
 //
 // Part 18: "Patterns" dissolves as a destination — pattern pieces surface
 // inside Investigations (intent badges).
-app.get("/patterns", (c) => c.redirect("/research", 301));
+app.get("/patterns", (c) => c.redirect("/library?kind=Research", 301));
 
 // ---- Library --------------------------------------------------------------
 

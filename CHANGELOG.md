@@ -6,6 +6,34 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-11 — Black Box: the redesigned public record
+
+The redesign handoff (`docs/blackbox/`) rebuilt inside the Worker, page by
+page from its prototypes.
+
+- **A content store.** The handoff delivered the record as files:
+  123 public research documents (51 already live, 72 new), 6 held private,
+  29 articles, 7 papers, and the derived lists (library, questions, key
+  figures, concepts, open problems, topic timeline). They live in
+  `packages/api/content/`; `scripts/build-content.mjs` compiles them into one
+  JSON module and **refuses to build if any article quote is not verbatim**
+  (1,244 checked). It runs before every deploy, typecheck and test.
+- **Every public page, new design**: front, Library (filters as links),
+  topic pages, documents, articles, papers, concepts, open problems, Ideas,
+  Investigations, Search (AND-match, quoted phrases, passages from the full
+  text), About and Follow. Geist, the paper palette, one shell.
+- **Passage links**: every receipt goes to `/p/<id>#q=<passage>`, found and
+  marked in the rendered text in any browser. All 1,250 receipt links were
+  followed in a real browser; none missed (`scripts/check-receipts.mts`).
+- **The machine face** from the same store: RSS and JSON Feed with full
+  content and WebSub hubs, per-topic feeds, `?t=` combined feeds, llms.txt,
+  llms-full.txt, sitemap, `.md` and `.json` twins.
+- **Follow** stores a CASL consent record per subscriber (migration 0064).
+  Nothing is emailed until a key *and* a mailing address exist.
+- **The operator console moved from `/library` to `/desk`.** `/library` is
+  the public Library now. The desk itself is not yet redesigned (step 8).
+- Old URLs redirect per `docs/blackbox/ROUTES.md`.
+
 ## 2026-09-24, later — The seam, the audit, the tidy (PR #183)
 
 - **One nav for the operator** (three stacked headers → one bar).

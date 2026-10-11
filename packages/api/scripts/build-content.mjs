@@ -166,7 +166,9 @@ function build() {
   // and one open problem have hand-built long pages; port them as-is"), plus
   // About. Each file opens with a <!--meta {json} --> line naming its route.
   const pages = {};
-  for (const f of readdirSync(join(CONTENT, "pages")).filter((x) => x.endsWith(".html")).sort()) {
+  for (const f of readdirSync(join(CONTENT, "pages"))
+    .filter((x) => x.endsWith(".html"))
+    .sort()) {
     const text = readFileSync(join(CONTENT, "pages", f), "utf8");
     const m = /^<!--meta (.*?) -->\n/.exec(text);
     if (!m) {

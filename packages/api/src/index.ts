@@ -207,8 +207,8 @@ app.route("/op", operatorRoutes);
 import { htmlResponse } from "./public/layout.ts";
 // Public site — server-rendered HTML at canopticon.com. Mounted last so
 // /v1, /op, and /health take precedence on overlapping paths.
-import publicSiteRoutes, { renderNotFound as renderPublicNotFound } from "./public/routes.ts";
-import blackBoxRoutes from "./site/routes.ts";
+import publicSiteRoutes from "./public/routes.ts";
+import blackBoxRoutes, { renderNotFound as renderSiteNotFound } from "./site/routes.ts";
 
 // /auth/* — the operator's bootstrap into the one-site permission model
 // (spec v2.5 Part 9). Cloudflare Access gates this subtree at the edge so
@@ -236,7 +236,7 @@ app.notFound((c) => {
       404,
     );
   }
-  return htmlResponse(renderPublicNotFound(path), { status: 404 });
+  return htmlResponse(renderSiteNotFound(path), { status: 404 });
 });
 
 import { drainDigestJobs, runDigestJob } from "./graph/lib/digest-jobs.ts";

@@ -37,11 +37,23 @@ export interface SendResult {
 async function post(env: Env, body: Record<string, unknown>): Promise<SendResult> {
   const key = env.RESEND_API_KEY;
   if (!key) return { ok: false, reason: "no RESEND_API_KEY — nothing was sent" };
+  // CASL: a mailing address in every message, or no message. The author has
+  // not set one yet (docs/blackbox/README.md §Follow), so this stays inert
+  // even once a key exists.
+  if (!env.MAILING_ADDRESS) {
+    return { ok: false, reason: "no MAILING_ADDRESS — CASL requires one; nothing was sent" };
+  }
   try {
     const res = await fetch(API, {
       method: "POST",
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-      body: JSON.stringify({ from: FROM, ...body }),
+      // Sender identification in every message (CASL): who, where, how to
+      // reach them. Appended here so no message can be built without it.
+      body: JSON.stringify({
+        from: FROM,
+        ...body,
+        text: `${String(body.text ?? "")}\n\n—\nCanopticon · Chris Telford\n${env.MAILING_ADDRESS}\nhttps://canopticon.com/about`,
+      }),
     });
     if (!res.ok) {
       // The provider's own message, trimmed. Far more useful than "failed" —

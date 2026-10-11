@@ -124,12 +124,76 @@ describe("mailing list", () => {
     expect(update?.sql).toContain("confirmation_token = NULL");
   });
 
-  it("puts the signup form in the footer of ordinary pages, no JS needed", async () => {
+  it("offers the weekly email on the front page as a plain form, no JS needed", async () => {
+    // The Black Box pages GET to /follow with ?email=, which pre-fills the
+    // Follow form; the subscription itself is the POST below.
     const { db } = makeDb();
-    const res = await app.fetch(new Request("http://test/essays"), envWith(db));
+    const res = await app.fetch(new Request("http://test/"), envWith(db));
     const html = await res.text();
-    expect(html).toContain('method="post" action="/subscribe"');
+    expect(html).toContain('method="get" action="/follow"');
     expect(html).toContain('type="email"');
+  });
+});
+
+const follow = (db: D1Database, body: string, headers: Record<string, string> = {}) =>
+  app.fetch(
+    new Request("http://test/follow", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", ...headers },
+      body,
+    }),
+    envWith(db),
+  );
+
+describe("follow — double opt-in with a consent record (CASL)", () => {
+  it("stores the address unconfirmed, with the topics and the exact consent wording", async () => {
+    const { db, writes } = makeDb();
+    const res = await follow(
+      db,
+      "email=Reader%40Example.com&topic=Housing&topic=Prices+%26+markets",
+      {
+        "cf-connecting-ip": "203.0.113.9",
+      },
+    );
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("Nothing is sent until you do.");
+    const insert = writes.find((w) => /INSERT INTO pub_subscriptions/i.test(w.sql));
+    expect(insert, "an address must actually be written").toBeTruthy();
+    expect(insert?.args).toContain("reader@example.com");
+    expect(insert?.args).toContain(JSON.stringify(["Housing", "Prices & markets"]));
+    const consent = JSON.parse(String(insert?.args[7])) as Record<string, unknown>;
+    expect(consent.ip).toBe("203.0.113.9");
+    expect(consent.source).toContain("/follow");
+    expect(consent.topics).toEqual(["Housing", "Prices & markets"]);
+    // The sentence the page showed for these picks, word for word.
+    expect(consent.wording).toBe(
+      "By subscribing you agree to receive Canopticon's weekly email from Chris Telford, covering Housing and Prices & markets. You'll confirm by email first, and you can unsubscribe at any time with one click. Contact: canopticon.com",
+    );
+    expect(String(consent.at)).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("drops topics the site does not have, and treats none as everything", async () => {
+    const { db, writes } = makeDb();
+    await follow(db, "email=a%40b.co&topic=Not+a+topic");
+    const insert = writes.find((w) => /INSERT INTO pub_subscriptions/i.test(w.sql));
+    const consent = JSON.parse(String(insert?.args[7])) as { wording: string; topics: string[] };
+    expect(consent.topics).toEqual([]);
+    expect(consent.wording).toContain("covering everything published");
+  });
+
+  it("rejects a malformed address without writing anything", async () => {
+    const { db, writes } = makeDb();
+    const res = await follow(db, "email=not-an-email");
+    expect(res.status).toBe(400);
+    expect(writes.filter((w) => /INSERT|UPDATE/i.test(w.sql))).toHaveLength(0);
+  });
+
+  it("updates a repeat sign-up instead of writing a second row", async () => {
+    const { db, writes } = makeDb({ existingEmail: "reader@example.com" });
+    const res = await follow(db, "email=reader%40example.com&topic=Housing");
+    expect(res.status).toBe(200);
+    expect(writes.filter((w) => /INSERT/i.test(w.sql))).toHaveLength(0);
+    expect(writes.some((w) => /UPDATE pub_subscriptions SET topics/i.test(w.sql))).toBe(true);
   });
 });
 

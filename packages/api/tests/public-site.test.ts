@@ -58,20 +58,15 @@ describe("public site — Phase 1 skeleton", () => {
   });
 
   it("each primary destination renders real surfaces without JS", async () => {
-    // The three doors are Essays, Research and About. /topics and
-    // /investigations used to be in this list; both redirect to /research
-    // now (docs/the-record.md §9) and are asserted as redirects below.
-    for (const path of ["/essays", "/research"]) {
+    // The Black Box doors: the Library and About in the nav, and the index
+    // pages the footer reaches. Every one is complete server-side.
+    for (const path of ["/library", "/about", "/ideas", "/investigations", "/follow", "/search"]) {
       const res = await app.fetch(new Request(`http://test${path}`), env);
       expect(res.status, `path ${path}`).toBe(200);
       const html = await res.text();
-      // The Record shell renders server-side (wordmark + nav).
-      expect(html, `path ${path} shell`).toContain('class="wordmark"');
-      expect(html, `path ${path} nav`).toContain(">Essays<");
-      expect(html, `path ${path} nav`).toContain(">Research<");
-      // Empty corpus → graceful empty state, not a crash.
-      expect(html, `path ${path} empty state`).toMatch(/No .* yet|is empty|No published/i);
-      // Confirms no client-side rendering needed — content sits in HTML.
+      expect(html, `path ${path} shell`).toContain('class="wm"');
+      expect(html, `path ${path} nav`).toContain(">Library<");
+      expect(html, `path ${path} nav`).toContain(">About<");
       expect(html).not.toContain("__NEXT_DATA__");
     }
   });
@@ -81,7 +76,7 @@ describe("public site — Phase 1 skeleton", () => {
       const res = await app.fetch(new Request(`http://test${path}`), env);
       expect(res.status, `path ${path}`).toBe(404);
       const html = await res.text();
-      expect(html).toContain("We don't have a page here.");
+      expect(html).toContain("There is no page at this address.");
     }
   });
 
@@ -90,7 +85,7 @@ describe("public site — Phase 1 skeleton", () => {
     // go to search for the subject, so a citation already in the world still
     // answers for something.
     const expected: Record<string, string> = {
-      "/topics": "/research",
+      "/topics": "/library",
       "/investigations/some-doc": "/p/some-doc",
       "/briefs/some-doc": "/p/some-doc",
       "/activity": "/",
@@ -101,7 +96,7 @@ describe("public site — Phase 1 skeleton", () => {
       "/record/mark-carney": "/search?q=mark%20carney",
       "/t/mark-carney": "/search?q=mark%20carney",
       "/ct/mark-carney": "/search?q=mark%20carney",
-      "/topics/housing": "/search?q=housing",
+      "/topics/not-a-topic": "/search?q=not%20a%20topic",
     };
     for (const [from, to] of Object.entries(expected)) {
       const res = await app.fetch(new Request(`http://test${from}`), env);
@@ -133,8 +128,8 @@ describe("public site — Phase 1 skeleton", () => {
     expect(res.status).toBe(404);
     expect(res.headers.get("content-type")).toMatch(/text\/html/);
     const html = await res.text();
-    expect(html).toContain("Not found");
-    expect(html).toContain("/nope-not-real");
+    expect(html).toContain("Nothing here");
+    expect(html).toContain("/search?q=nope%20not%20real");
   });
 
   it("unknown /v1 path returns JSON, not HTML", async () => {
@@ -152,9 +147,11 @@ describe("public site — Phase 1 skeleton", () => {
 // A reachable page that describes the wrong product is worse than no page.
 describe("retired rooms redirect to the surface that does their job", () => {
   for (const [from, to] of Object.entries({
-    "/how-it-works": "/method",
-    "/investigations": "/research",
-    "/patterns": "/research",
+    "/how-it-works": "/about#m-rules",
+    "/method": "/about#m-rules",
+    "/patterns": "/library?kind=Research",
+    "/research": "/library?kind=Research",
+    "/essays": "/library?kind=Article",
     "/watchlist": "/desk",
     "/videos": "/",
   })) {
@@ -172,8 +169,11 @@ describe("retired rooms redirect to the surface that does their job", () => {
     expect(res.status).not.toBe(200);
   });
 
-  it("/method no longer describes signed analyses, lenses or a second judge", async () => {
-    const res = await app.fetch(new Request("http://test/method"), env);
+  it("About describes what is actually here, and nothing that is not", async () => {
+    // /method folded into /about (docs/blackbox/ROUTES.md). The page it
+    // replaced once described a second judge and signed analyses that were
+    // never built; the guard against that kind of drift stays.
+    const res = await app.fetch(new Request("http://test/about"), env);
     const html = await res.text();
     for (const stale of [
       "One file, two views",
@@ -183,8 +183,7 @@ describe("retired rooms redirect to the surface that does their job", () => {
     ]) {
       expect(html, stale).not.toContain(stale);
     }
-    // And it does describe what is there.
-    expect(html).toContain("Verified quotes");
-    expect(html).toContain("Findings");
+    expect(html).toContain("Who writes this");
+    expect(html).toContain('id="m-rules"');
   });
 });

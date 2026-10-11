@@ -17,6 +17,44 @@
 
 ---
 
+# THE BLACK BOX SITE — the public record since 2026-10-11
+
+> **`docs/blackbox/README.md` is the design spec and its prototypes are the
+> tie-breaker.** Everything public is now rendered by `packages/api/src/site/`;
+> `src/public/` is the old public site, still mounted behind it for the few
+> routes not yet rebuilt (and the desk), and is residue to delete (build
+> order step 9). Where this section and older text below disagree, this
+> section wins.
+
+- **The content store.** `packages/api/content/` holds the record as files:
+  `research/` (public documents), `research-held/` (private — stored, never
+  served), `articles/` (the essay contract: `<q doc section>` = verbatim),
+  `papers/`, `pages/` (hand-built pages ported as-is: About, three concepts,
+  one open problem), and the derived JSON lists. `scripts/build-content.mjs`
+  compiles it into `src/site/content/store.gen.json` (gitignored) and FAILS
+  the build if any `<q>` is not a literal substring of its document. Wrangler
+  runs it via `[build]`; `typecheck` and `test` run it first. Read the store
+  only through `src/site/content/store.ts` — the accessors are where "held"
+  and "projects are private" are enforced. `tests/site.test.ts` pins both.
+- **Routes.** `src/site/routes.ts` is mounted in front of `src/public/routes.ts`
+  and calls `next()` for what it does not own. `/library` is the public
+  Library; the operator console is at **`/desk`** (it was `/library`).
+  Documents uploaded after the handoff live only in D1 and render through the
+  same document page (guarded by `OWN_UPLOADS_SQL`).
+- **Design.** `src/site/styles.ts` (served at `/site.css`) and `src/site/layout.ts`.
+  Paper palette, Geist, cobalt = interaction, brick = the author's marks,
+  green = verified. No box-shadows. Reading column 720px. `/site.js` is
+  enhancement only (`/` focuses search, progress bar, TOC, cite copy,
+  passage finding, hovercards); every page is whole without it.
+- **Adding an article** means adding `content/articles/<slug>.md` and a row in
+  `content/library.json`, then deploying. The verbatim check runs at build.
+- **To look at it:** `pnpm tsx scripts/look-site.mts <outDir> <width> <path…>`;
+  to check every receipt lands: `scripts/check-receipts.mts`.
+- **Email** waits on a mailing address (CASL): `lib/email.ts` sends nothing
+  without both `RESEND_API_KEY` and `MAILING_ADDRESS`.
+
+---
+
 # THE PRIMARY PRODUCT — the record
 
 > **`docs/the-record.md` is the product definition; `docs/HANDOFF.md` is where

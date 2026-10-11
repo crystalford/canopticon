@@ -122,6 +122,12 @@ export function listedArticles(): Article[] {
     .sort((x, y) => y.date.localeCompare(x.date));
 }
 
+/** An article's topic: its own front matter, or its library row's when the
+ *  front matter left it empty (several did). */
+export function topicOf(a: Article | Paper): string {
+  return a.topic || libraryRowForRoute(articleRoute(a.slug))?.topic || "McLuhan & media theory";
+}
+
 export function writingFor(a: Article | Paper): Writing {
   if (a.kind === "Article") {
     return {
@@ -130,7 +136,7 @@ export function writingFor(a: Article | Paper): Writing {
       kind: "Article",
       title: a.title,
       dek: a.dek,
-      topic: a.topic,
+      topic: topicOf(a),
       date: a.date,
       minutes: articleMinutes(a),
       quotes: a.quotes ?? articleQuotes(a.body).length,
@@ -142,7 +148,7 @@ export function writingFor(a: Article | Paper): Writing {
     kind: "Paper",
     title: a.title,
     dek: a.dek ?? "",
-    topic: a.topic ?? "McLuhan & media theory",
+    topic: topicOf(a),
     date: a.date,
     minutes: paperMinutes(a),
     quotes: 0,

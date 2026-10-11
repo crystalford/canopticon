@@ -5,7 +5,6 @@
 // of the file. Nothing calls a model; the parse IS the recognition.
 
 import { describe, expect, it } from "vitest";
-import app from "../src/index.ts";
 import { looksLikeEssay, looksLikeTetrad, parseTetrad } from "../src/lib/essay";
 import { essayTetradLd, pieceJsonLd } from "../src/public/machine";
 
@@ -88,67 +87,7 @@ const PIECE = {
   updated_at: "2026-09-14T00:00:00.000Z",
 };
 
-function makeDb(): D1Database {
-  const mk = (sql: string) => {
-    let bound: unknown[] = [];
-    const stmt = {
-      bind(...args: unknown[]) {
-        bound = args;
-        return stmt;
-      },
-      async first() {
-        if (/FROM users/i.test(sql)) return { id: "u1" };
-        if (/FROM pieces WHERE user_id = \? AND slug = \?/i.test(sql)) {
-          return bound[1] === PIECE.slug ? PIECE : null;
-        }
-        if (/COUNT\(\*\)/i.test(sql)) return { n: 0 };
-        return null;
-      },
-      async all() {
-        return { results: [] };
-      },
-      async run() {
-        return { results: [], meta: { changes: 0 } };
-      },
-    };
-    return stmt;
-  };
-  return {
-    prepare: (sql: string) => mk(sql),
-    dump: async () => new ArrayBuffer(0),
-    batch: async () => [],
-    exec: async () => ({ count: 0, duration: 0 }),
-  } as unknown as D1Database;
-}
-
-const env = { ANTHROPIC_API_KEY: "test", LOG_LEVEL: "error", DB: makeDb() };
-
 describe("the tetrad page", () => {
-  it("renders section.tetrad with four cells and no FAQ markup", async () => {
-    const res = await app.fetch(new Request("http://test/p/the-smartphone"), env);
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toMatch(/<section class="tetrad"/);
-    expect(html.match(/class="tetrad-cell"/g)).toHaveLength(4);
-    for (const id of ["enhances", "obsolesces", "retrieves", "reverses"]) {
-      expect(html).toContain(`id="${id}"`);
-    }
-    expect(html).toContain("Reverses into");
-    expect(html).toContain("<em>speed</em>");
-    expect(html).toContain("<li>two</li>");
-    expect(html).toContain("Every medium does four things at once.");
-    expect(html).not.toContain("FAQPage");
-    expect(html).not.toContain("In this essay");
-    // Structured data: what it is about, and its four named parts.
-    expect(html).toContain('"about":[{"@type":"Thing","name":"The smartphone"}]');
-    expect(html).toContain('"@type":"WebPageElement","name":"Enhances"');
-    expect(html).toContain("https://canopticon.com/p/the-smartphone#reverses");
-    // Sources still list.
-    expect(html).toContain("Laws of Media");
-    // Nothing on the page needs JS.
-    expect(html).not.toMatch(/<script(?![^>]*application\/ld\+json)[^>]*>/);
-  });
-
   it("emits hasPart for the four quadrants and no FAQ", () => {
     const ld = pieceJsonLd(PIECE as never, { tetrad: essayTetradLd(TETRAD) });
     expect(ld).toContain('"hasPart":[');

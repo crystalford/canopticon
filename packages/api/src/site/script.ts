@@ -92,7 +92,10 @@ export const SITE_JS = `(function () {
   function landOnPassage() {
     var h = "";
     try { h = decodeURIComponent((location.hash || "").slice(1)); } catch (err) { h = (location.hash || "").slice(1); }
-    var q = new URLSearchParams(location.search).get("q") || (h.indexOf("q=") === 0 ? h.slice(2).split(":~:")[0] : "");
+    // ?q= is a passage only on a document page; everywhere else it is a
+    // search or a filter and must not move the reader.
+    var fromSearch = d.getElementById("doc-body") ? new URLSearchParams(location.search).get("q") : "";
+    var q = fromSearch || (h.indexOf("q=") === 0 ? h.slice(2).split(":~:")[0] : "");
     var go = function (el) { if (el) scrollTo({ top: el.getBoundingClientRect().top + scrollY - 110, behavior: "smooth" }); };
     if (!q) { if (/^s-\\d+$/.test(h)) go(d.getElementById(h)); return; }
     var nc = function (c) {
@@ -187,6 +190,28 @@ export const SITE_JS = `(function () {
   d.addEventListener("focusout", hide);
   d.addEventListener("keydown", function (e) { if (e.key === "Escape") hide(); });
   addEventListener("scroll", hide, { passive: true });
+
+  // ---- follow: the consent sentence and the feed address track the boxes --------
+  var ff = d.querySelector("[data-follow-form]");
+  if (ff) {
+    var every = ff.querySelector("[data-everything]");
+    var boxes = Array.prototype.slice.call(ff.querySelectorAll("[data-topic]"));
+    var consent = ff.querySelector("[data-consent]");
+    var feed = d.querySelector("[data-feed-url]");
+    var phrase = function (p) {
+      if (!p.length) return "everything published";
+      if (p.length === 1) return p[0];
+      return p.slice(0, -1).join(", ") + " and " + p[p.length - 1];
+    };
+    var sync = function () {
+      var picked = boxes.filter(function (b) { return b.checked; });
+      if (every) every.checked = picked.length === 0;
+      if (consent) consent.textContent = "By subscribing you agree to receive Canopticon's weekly email from Chris Telford, covering " + phrase(picked.map(function (b) { return b.value; })) + ". You'll confirm by email first, and you can unsubscribe at any time with one click. Contact: canopticon.com";
+      if (feed) feed.textContent = picked.length ? "canopticon.com/feed.xml?t=" + picked.map(function (b) { return b.getAttribute("data-topic"); }).join(",") : "canopticon.com/feed.xml";
+    };
+    boxes.forEach(function (b) { b.addEventListener("change", sync); });
+    if (every) every.addEventListener("change", function () { if (every.checked) boxes.forEach(function (b) { b.checked = false; }); sync(); });
+  }
 
   // ---- mark useful (this browser only) ------------------------------------------
   var KEY = "canopticon.useful";

@@ -216,7 +216,7 @@ app.post("/library/research/:id/publish", async (c) => {
   }
   // A published brief is a new public URL: one IndexNow ping, fire-and-forget,
   // inert without INDEXNOW_KEY (lib/indexnow.ts).
-  const ping = pingIndexNow(c.env, [`/p/${row.slug}`, "/research", "/sitemap.xml"]).catch(() => {});
+  const ping = pingIndexNow(c.env, [`/p/${row.slug}`, "/library", "/sitemap.xml"]).catch(() => {});
   try {
     c.executionCtx.waitUntil(ping);
   } catch {

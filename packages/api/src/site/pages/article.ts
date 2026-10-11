@@ -15,6 +15,7 @@ import {
   listedArticles,
   paperMinutes,
   seriesPapers,
+  topicOf,
   writingFor,
 } from "../data";
 import { esc, linkPill, pill, shell } from "../layout";
@@ -85,7 +86,8 @@ function shortTitle(t: string): string {
   return i > 20 ? t.slice(0, i) : t;
 }
 
-export function renderArticle(a: Article, opts: { signedIn?: boolean } = {}): string {
+export function renderArticle(a0: Article, opts: { signedIn?: boolean } = {}): string {
+  const a = { ...a0, topic: topicOf(a0) };
   const ctx = { docTitle };
   const body = articleHtml(a.body, ctx);
   const quotes = a.quotes ?? articleQuotes(a.body).length;
@@ -127,8 +129,8 @@ export function renderArticle(a: Article, opts: { signedIn?: boolean } = {}): st
 
   const others = listedArticles().filter((x) => x.slug !== a.slug);
   const next = [
-    ...others.filter((x) => x.topic === a.topic),
-    ...others.filter((x) => x.topic !== a.topic),
+    ...others.filter((x) => topicOf(x) === a.topic),
+    ...others.filter((x) => topicOf(x) !== a.topic),
   ]
     .slice(0, 2)
     .map((x) => ({ ...writingFor(x), title: shortTitle(x.title) }));
@@ -168,7 +170,7 @@ export function renderArticle(a: Article, opts: { signedIn?: boolean } = {}): st
 /** A paper's own opening: "# Title", an italic subtitle, a dateline. The
  *  subtitle is the dek; the rest is shown by the page's own header. */
 function paperParts(p: Paper): { subtitle: string; abstract: string; rest: string } {
-  let src = p.body.replace(/^#\s+.*\n+/, "");
+  let src = p.body.trimStart().replace(/^#\s+.*\n+/, "");
   let subtitle = "";
   const sub = /^\*([^*\n]+)\*\s*\n+/.exec(src);
   if (sub) {
@@ -209,7 +211,7 @@ function referenceCount(p: Paper): number {
 export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string {
   const { subtitle, abstract, rest } = paperParts(p);
   const body = documentHtml(rest);
-  const topic = p.topic ?? "McLuhan & media theory";
+  const topic = topicOf(p);
   const minutes = paperMinutes(p);
   const refs = Math.max(0, referenceCount(p));
   const url = `https://canopticon.com/articles/${p.slug}`;

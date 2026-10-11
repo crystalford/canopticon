@@ -108,7 +108,7 @@ app.post("/feed/upload", async (c) => {
     // Upload IS publication, so this is the moment to tell the engines that
     // honour IndexNow. Fire-and-forget; inert without INDEXNOW_KEY. Guarded
     // like the dig route: c.executionCtx throws where there is none (tests).
-    const ping = pingIndexNow(c.env, [`/p/${p.slug}`, "/research", "/sitemap.xml"]).catch(() => {});
+    const ping = pingIndexNow(c.env, [`/p/${p.slug}`, "/library", "/sitemap.xml"]).catch(() => {});
     try {
       c.executionCtx.waitUntil(ping);
     } catch {
