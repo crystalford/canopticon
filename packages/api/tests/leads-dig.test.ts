@@ -73,7 +73,7 @@ describe("what the dig button must refuse", () => {
     // A lead with an empty seed would start a run against an empty query and
     // burn a research budget on nothing.
     const res = await dig({ seed: "   ", angle: "an angle with no subject" });
-    expect(res.headers.get("location") ?? "").toContain("/desk?error=");
+    expect(res.headers.get("location") ?? "").toContain("/desk/workbench?error=");
     expect(res.headers.get("location") ?? "").not.toContain("/op/research");
   });
 });

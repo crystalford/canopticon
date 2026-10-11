@@ -14,6 +14,7 @@
 // was. `createAndExtract` now lives in routes/upload.ts.
 
 import { operatorApp } from "./routes/app";
+import deskRoutes from "./routes/desk";
 import exportRoutes from "./routes/export";
 import leadsRoutes from "./routes/leads";
 import processingRoutes from "./routes/processing";
@@ -60,6 +61,7 @@ app.route("/", researchRoutes);
 app.route("/", processingRoutes);
 app.route("/", leadsRoutes);
 app.route("/", exportRoutes);
+app.route("/", deskRoutes);
 app.route("/", readingsRoutes);
 
 // ---- 301 redirects from old screen paths -------------------------------
@@ -67,24 +69,24 @@ app.route("/", readingsRoutes);
 // maps to the new surface that absorbed its functionality.
 
 const redirects: Record<string, string> = {
-  "/console": "/desk",
-  "/ingest": "/desk",
-  "/workbench": "/desk",
-  "/leads": "/desk",
+  "/console": "/desk/workbench",
+  "/ingest": "/desk/workbench",
+  "/workbench": "/desk/workbench",
+  "/leads": "/desk/workbench",
   "/patterns": "/library?kind=Research",
-  "/editorial": "/desk",
-  "/build": "/desk",
-  "/publish": "/desk",
+  "/editorial": "/desk/workbench",
+  "/build": "/desk/workbench",
+  "/publish": "/desk/workbench",
   "/briefs": "/library?kind=Research",
   // Unmounted 2026-09-24 (docs/the-record.md §9).
   "/out": "/",
-  "/synthesis": "/desk",
+  "/synthesis": "/desk/workbench",
   "/studio": "/",
   "/outputs": "/library?kind=Research",
   "/records": "/library?kind=Research",
   "/proposals": "/library?kind=Research",
   "/faces": "/",
-  "/answers": "/desk",
+  "/answers": "/desk/workbench",
 };
 
 for (const [from, to] of Object.entries(redirects)) {

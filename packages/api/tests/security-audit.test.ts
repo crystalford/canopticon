@@ -136,7 +136,7 @@ describe("redirect targets are confined to this site", () => {
       const res = await postForm(env, "/op/research/advance", { return_to: bad });
       expect(res.status).toBe(302);
       const loc = res.headers.get("location") ?? "";
-      expect(loc.startsWith("/desk?research=")).toBe(true);
+      expect(loc.startsWith("/desk/workbench?research=")).toBe(true);
     },
   );
 

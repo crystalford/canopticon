@@ -29,6 +29,17 @@ await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
 const port = (server.address() as { port: number }).port;
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 const page = await browser.newPage({ viewport: { width: Number(width), height: 900 } });
+// LOOK_AS_OPERATOR=1 signs the browser in, so /desk renders rather than its
+// sign-in page.
+if (process.env.LOOK_AS_OPERATOR) {
+  const { signSession, buildSessionCookie } = await import("../src/auth/session.ts");
+  const { SESSION_SECRET } = await import("./fixture.mts");
+  const cookie = buildSessionCookie(
+    await signSession({ uid: "u1", exp: Math.floor(Date.now() / 1000) + 3600 }, SESSION_SECRET),
+  ).split(";")[0] as string;
+  const [name, value] = cookie.split("=") as [string, string];
+  await page.context().addCookies([{ name, value, domain: "127.0.0.1", path: "/" }]);
+}
 if (process.env.OFFLINE_HELPER) {
   const { offline } = await import(process.env.OFFLINE_HELPER);
   await offline(page);
