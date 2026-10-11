@@ -13,8 +13,8 @@
 // routes/app.ts, and this file mounts them at "/" so every path is what it
 // was. `createAndExtract` now lives in routes/upload.ts.
 
+import adminRoutes from "./routes/admin";
 import { operatorApp } from "./routes/app";
-import deskRoutes from "./routes/desk";
 import exportRoutes from "./routes/export";
 import leadsRoutes from "./routes/leads";
 import processingRoutes from "./routes/processing";
@@ -42,9 +42,9 @@ const OP_GET_REDIRECTS: Array<[string, string]> = [
   ["/studio", "/"],
   ["/outputs", "/research"],
   // The operator console moved from /library (now the public Library) to
-  // /desk; /op/library is where upload and the action endpoints land.
-  ["/library", "/desk"],
-  ["/desk", "/desk"],
+  // /admin; /op/library is where upload and the action endpoints land.
+  ["/library", "/admin"],
+  ["/admin", "/admin"],
 ];
 for (const [from, to] of OP_GET_REDIRECTS) {
   app.get(from, (c) => {
@@ -61,7 +61,7 @@ app.route("/", researchRoutes);
 app.route("/", processingRoutes);
 app.route("/", leadsRoutes);
 app.route("/", exportRoutes);
-app.route("/", deskRoutes);
+app.route("/", adminRoutes);
 app.route("/", readingsRoutes);
 
 // ---- 301 redirects from old screen paths -------------------------------
@@ -69,24 +69,24 @@ app.route("/", readingsRoutes);
 // maps to the new surface that absorbed its functionality.
 
 const redirects: Record<string, string> = {
-  "/console": "/desk/workbench",
-  "/ingest": "/desk/workbench",
-  "/workbench": "/desk/workbench",
-  "/leads": "/desk/workbench",
+  "/console": "/admin/workbench",
+  "/ingest": "/admin/workbench",
+  "/workbench": "/admin/workbench",
+  "/leads": "/admin/workbench",
   "/patterns": "/library?kind=Research",
-  "/editorial": "/desk/workbench",
-  "/build": "/desk/workbench",
-  "/publish": "/desk/workbench",
+  "/editorial": "/admin/workbench",
+  "/build": "/admin/workbench",
+  "/publish": "/admin/workbench",
   "/briefs": "/library?kind=Research",
   // Unmounted 2026-09-24 (docs/the-record.md §9).
   "/out": "/",
-  "/synthesis": "/desk/workbench",
+  "/synthesis": "/admin/workbench",
   "/studio": "/",
   "/outputs": "/library?kind=Research",
   "/records": "/library?kind=Research",
   "/proposals": "/library?kind=Research",
   "/faces": "/",
-  "/answers": "/desk/workbench",
+  "/answers": "/admin/workbench",
 };
 
 for (const [from, to] of Object.entries(redirects)) {

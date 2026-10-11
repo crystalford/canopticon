@@ -25,11 +25,11 @@ const app = operatorApp();
 // time passed.
 app.post("/leads/dig", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk/workbench");
+  if (!userId) return c.redirect("/admin/workbench");
   const form = await c.req.parseBody();
   const seed = typeof form.seed === "string" ? form.seed.trim() : "";
   const angle = typeof form.angle === "string" ? form.angle.trim() || undefined : undefined;
-  if (!seed) return c.redirect("/desk/workbench?error=that+lead+carried+nothing+to+search+for");
+  if (!seed) return c.redirect("/admin/workbench?error=that+lead+carried+nothing+to+search+for");
 
   const kind = typeof form.kind === "string" ? form.kind : "";
   const str = (k: string) => (typeof form[k] === "string" ? (form[k] as string).trim() : "");
@@ -84,7 +84,7 @@ app.post("/leads/dig", async (c) => {
     // separate screen for this and there should not be: the answer belongs
     // under the question it settles.
     const back = str("piece_slug");
-    return c.redirect(back ? `/p/${encodeURIComponent(back)}#leads` : "/desk/workbench#leads");
+    return c.redirect(back ? `/p/${encodeURIComponent(back)}#leads` : "/admin/workbench#leads");
   }
 
   const { researchOnDemand } = await import("../../graph/lib/deep-research");

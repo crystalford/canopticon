@@ -6,9 +6,16 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
-## 2026-10-11, later — The desk: nothing publishes without Publish
+## 2026-10-11, evening — It is called Admin
 
-- **`/desk`**, the operator's page from the handoff: drop, choose or paste a
+- The operator's page is **Admin**, at `/admin` (it shipped for an hour as
+  `/desk`, the handoff's route name; `/desk` and everything under it now
+  301 to `/admin`). The workbench is `/admin/workbench`; the actions are
+  `/op/admin/*`; the status key on an upload is `admin_status`.
+
+## 2026-10-11, later — Admin: nothing publishes without Publish
+
+- **`/admin`**, the operator's page from the handoff: drop, choose or paste a
   link; each file is read and sorted by its shape (research, paper, article,
   or personal and held private) and waits as a card with Publish, Keep
   private, Remove and Review. Failed reads ask for a text version. Held
@@ -16,9 +23,9 @@ product became the publication.
 - **Upload is no longer publication.** The pipeline and IndexNow run on
   Publish. Every decision can be undone this week, except Remove, which
   clears the typed graph before the row.
-- Documents published from the desk join the public Library, topics,
+- Documents published from Admin join the public Library, topics,
   feeds, llms.txt and the sitemap with the content store.
-- The old operator console is `/desk/workbench`.
+- The old operator console is `/admin/workbench`.
 
 ## 2026-10-11 — Black Box: the redesigned public record
 
@@ -44,8 +51,8 @@ page from its prototypes.
   llms-full.txt, sitemap, `.md` and `.json` twins.
 - **Follow** stores a CASL consent record per subscriber (migration 0064).
   Nothing is emailed until a key *and* a mailing address exist.
-- **The operator console moved from `/library` to `/desk`.** `/library` is
-  the public Library now. The desk itself is not yet redesigned (step 8).
+- **The operator console moved from `/library` to `/admin`.** `/library` is
+  the public Library now. Admin itself is not yet redesigned (step 8).
 - Old URLs redirect per `docs/blackbox/ROUTES.md`.
 
 ## 2026-09-24, later — The seam, the audit, the tidy (PR #183)

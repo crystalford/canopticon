@@ -91,7 +91,7 @@ describe("public site — Phase 1 skeleton", () => {
       "/activity": "/",
       "/instruments": "/",
       "/studio/anything/here": "/",
-      "/bulk-expand": "/desk",
+      "/bulk-expand": "/admin",
       "/s/mark-carney": "/search?q=mark%20carney",
       "/record/mark-carney": "/search?q=mark%20carney",
       "/t/mark-carney": "/search?q=mark%20carney",
@@ -152,7 +152,7 @@ describe("retired rooms redirect to the surface that does their job", () => {
     "/patterns": "/library?kind=Research",
     "/research": "/library?kind=Research",
     "/essays": "/library?kind=Article",
-    "/watchlist": "/desk",
+    "/watchlist": "/admin",
     "/videos": "/",
   })) {
     it(`${from} → ${to}`, async () => {

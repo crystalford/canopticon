@@ -1,4 +1,4 @@
-// The desk — "Nothing publishes without Publish" (docs/blackbox/README.md §Desk).
+// Admin — "Nothing publishes without Publish" (docs/blackbox/README.md §Desk).
 //
 // What these pin: an upload is read, sorted and HELD, never published on the
 // drop; the sorter reads shape, not a model; every card is a working form;
@@ -9,10 +9,10 @@ import { describe, expect, it } from "vitest";
 import { buildSessionCookie, signSession } from "../src/auth/session";
 import app from "../src/index";
 import { sortUpload } from "../src/lib/sort-upload";
-import type { DeskModel, DeskPiece } from "../src/site/desk-data";
-import { renderDesk } from "../src/site/pages/desk";
+import type { AdminModel, AdminPiece } from "../src/site/admin-data";
+import { renderAdmin } from "../src/site/pages/admin";
 
-const SECRET = "test-secret-for-desk";
+const SECRET = "test-secret-for-admin";
 
 interface Call {
   sql: string;
@@ -39,7 +39,7 @@ function makeDb(
         },
         async all() {
           calls.push({ sql, args });
-          if (/'\$\.desk'\) IS NOT NULL/.test(sql)) return { results: opts.rows ?? [] };
+          if (/'\$\.desk'\)\) IS NOT NULL/.test(sql)) return { results: opts.rows ?? [] };
           return { results: [] };
         },
         async run() {
@@ -75,7 +75,7 @@ async function signedIn(path: string, init: RequestInit = {}): Promise<Request> 
   });
 }
 
-const piece = (over: Partial<DeskPiece> = {}): DeskPiece => ({
+const piece = (over: Partial<AdminPiece> = {}): AdminPiece => ({
   id: "p1",
   slug: "a-report",
   title: "A Report",
@@ -84,7 +84,7 @@ const piece = (over: Partial<DeskPiece> = {}): DeskPiece => ({
   head: "",
   createdAt: "2026-10-11T12:00:00Z",
   publishedAt: null,
-  desk: "waiting",
+  adminStatus: "waiting",
   sortedAs: "research",
   sortedWhy: "has a TL;DR or key findings and numbered sources",
   topic: "",
@@ -92,7 +92,7 @@ const piece = (over: Partial<DeskPiece> = {}): DeskPiece => ({
   ...over,
 });
 
-const empty: DeskModel = { waiting: [], failed: [], kept: [], published: [] };
+const empty: AdminModel = { waiting: [], failed: [], kept: [], published: [] };
 
 describe("sorting an upload: shape before model", () => {
   it.each([
@@ -110,27 +110,27 @@ describe("sorting an upload: shape before model", () => {
   });
 });
 
-describe("the desk page", () => {
+describe("the Admin page", () => {
   it("is for the author only: a reader is asked to sign in", async () => {
     const { db } = makeDb();
-    const res = await app.fetch(new Request("http://test/desk"), envWith(db));
+    const res = await app.fetch(new Request("http://test/admin"), envWith(db));
     expect(res.status).toBe(401);
-    expect(await res.text()).toContain('href="/op/login?next=%2Fdesk"');
+    expect(await res.text()).toContain('href="/op/login?next=%2Fadmin"');
   });
 
   it("shows a waiting upload as a card with Publish, Keep private, Remove and Review", () => {
-    const html = renderDesk({ ...empty, waiting: [piece()] });
-    expect(html).toContain('action="/op/desk/p1/publish"');
-    expect(html).toContain('formaction="/op/desk/p1/private"');
-    expect(html).toContain('formaction="/op/desk/p1/remove"');
-    expect(html).toContain('href="/desk/review/p1"');
+    const html = renderAdmin({ ...empty, waiting: [piece()] });
+    expect(html).toContain('action="/op/admin/p1/publish"');
+    expect(html).toContain('formaction="/op/admin/p1/private"');
+    expect(html).toContain('formaction="/op/admin/p1/remove"');
+    expect(html).toContain('href="/admin/review/p1"');
     expect(html).toContain('name="sorted_as" value="research" checked');
     expect(html).toContain("Ready to publish");
     expect(html).toContain("1 waiting");
   });
 
   it("holds a personal file private, and says publishing it is a choice", () => {
-    const html = renderDesk({
+    const html = renderAdmin({
       ...empty,
       waiting: [piece({ sortedAs: "personal", sortedWhy: "names you or your health" })],
     });
@@ -139,26 +139,30 @@ describe("the desk page", () => {
   });
 
   it("asks for a text version of a file that could not be read", () => {
-    const html = renderDesk({ ...empty, failed: [piece({ chars: 0, filename: "scan.pdf" })] });
+    const html = renderAdmin({ ...empty, failed: [piece({ chars: 0, filename: "scan.pdf" })] });
     expect(html).toContain("Needs a text version");
     expect(html).toContain('action="/op/library/p1/replace"');
     expect(html).toContain("scan.pdf");
   });
 
   it("offers Undo on what was decided this week", () => {
-    const html = renderDesk({
+    const html = renderAdmin({
       ...empty,
       published: [
-        piece({ status: "published", desk: "published", publishedAt: new Date().toISOString() }),
+        piece({
+          status: "published",
+          adminStatus: "published",
+          publishedAt: new Date().toISOString(),
+        }),
       ],
-      kept: [piece({ id: "p2", desk: "private" })],
+      kept: [piece({ id: "p2", adminStatus: "private" })],
     });
-    expect(html).toContain('action="/op/desk/p1/unpublish"');
-    expect(html).toContain('action="/op/desk/p2/undo"');
+    expect(html).toContain('action="/op/admin/p1/unpublish"');
+    expect(html).toContain('action="/op/admin/p2/undo"');
   });
 
   it("says plainly when nothing is waiting", () => {
-    expect(renderDesk(empty)).toContain("Nothing waiting. Add something above.");
+    expect(renderAdmin(empty)).toContain("Nothing waiting. Add something above.");
   });
 
   it("reads the operator's own uploads, signed in", async () => {
@@ -175,23 +179,23 @@ describe("the desk page", () => {
           published_at: null,
           metadata: JSON.stringify({
             ingested_from: "feed-upload",
-            desk: "waiting",
+            admin_status: "waiting",
             sorted_as: "paper",
           }),
         },
       ],
     });
-    const res = await app.fetch(await signedIn("/desk"), envWith(db));
+    const res = await app.fetch(await signedIn("/admin"), envWith(db));
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("From D1");
     expect(html).toContain('name="sorted_as" value="paper" checked');
-    const q = calls.find((c) => /'\$\.desk'\) IS NOT NULL/.test(c.sql));
+    const q = calls.find((c) => /'\$\.desk'\)\) IS NOT NULL/.test(c.sql));
     expect(q?.sql).toContain("feed-upload");
   });
 });
 
-describe("the desk's buttons", () => {
+describe("Admin's buttons", () => {
   const owned = {
     id: "p1",
     slug: "a-report",
@@ -213,12 +217,12 @@ describe("the desk's buttons", () => {
   };
 
   it("Publish publishes, files it as chosen, and only then queues the pipeline", async () => {
-    const { res, calls } = await post("/op/desk/p1/publish", {
+    const { res, calls } = await post("/op/admin/p1/publish", {
       sorted_as: "paper",
       topic: "Housing",
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toMatch(/^\/desk\?done=Published/);
+    expect(res.headers.get("location")).toMatch(/^\/admin\?done=Published/);
     expect(calls.some((c) => /SET publication_status = 'published'/.test(c.sql))).toBe(true);
     const meta = calls.find((c) => /json_set/.test(c.sql));
     expect(meta?.args).toEqual(["published", "paper", "was set by you", "Housing", "p1"]);
@@ -226,25 +230,25 @@ describe("the desk's buttons", () => {
   });
 
   it("ignores a topic the site has no hub for", async () => {
-    const { calls } = await post("/op/desk/p1/publish", { topic: "Not a topic" });
+    const { calls } = await post("/op/admin/p1/publish", { topic: "Not a topic" });
     const meta = calls.find((c) => /json_set/.test(c.sql));
     expect(meta?.args).toEqual(["published", "p1"]);
   });
 
   it("Keep private keeps it off the site", async () => {
-    const { calls } = await post("/op/desk/p1/private");
+    const { calls } = await post("/op/admin/p1/private");
     expect(calls.some((c) => /publication_status = 'published'/.test(c.sql))).toBe(false);
     expect(calls.find((c) => /json_set/.test(c.sql))?.args[0]).toBe("private");
   });
 
-  it("Unpublish takes it off the site and puts it back on the desk", async () => {
-    const { calls } = await post("/op/desk/p1/unpublish");
+  it("Unpublish takes it off the site and puts it back in Admin", async () => {
+    const { calls } = await post("/op/admin/p1/unpublish");
     expect(calls.some((c) => /SET publication_status = 'working-material'/.test(c.sql))).toBe(true);
     expect(calls.find((c) => /json_set/.test(c.sql))?.args[0]).toBe("waiting");
   });
 
   it("Remove clears the graph before the row, never the row alone", async () => {
-    const { calls } = await post("/op/desk/p1/remove");
+    const { calls } = await post("/op/admin/p1/remove");
     const purge = calls.findIndex((c) => /DELETE FROM nodes|FROM quotes|readings/i.test(c.sql));
     const del = calls.findIndex((c) => /DELETE FROM pieces/.test(c.sql));
     expect(purge).toBeGreaterThan(-1);
@@ -254,10 +258,10 @@ describe("the desk's buttons", () => {
   it("refuses a document that is not one of the operator's uploads", async () => {
     const { db, calls } = makeDb({});
     const res = await app.fetch(
-      await signedIn("/op/desk/nope/publish", { method: "POST", body: new URLSearchParams({}) }),
+      await signedIn("/op/admin/nope/publish", { method: "POST", body: new URLSearchParams({}) }),
       envWith(db),
     );
-    expect(res.headers.get("location")).toMatch(/^\/desk\?error=/);
+    expect(res.headers.get("location")).toMatch(/^\/admin\?error=/);
     expect(calls.some((c) => /^UPDATE/i.test(c.sql.trim()))).toBe(false);
     // And the lookup itself is the own-uploads guard.
     expect(calls.find((c) => /FROM pieces\s+WHERE id = \?/.test(c.sql))?.sql).toContain(

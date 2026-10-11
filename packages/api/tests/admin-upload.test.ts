@@ -54,7 +54,7 @@ function makeEnv() {
   return { env, inserts };
 }
 
-describe("a drop on the desk", () => {
+describe("a drop in Admin", () => {
   it("is held as working-material, sorted, and waiting", async () => {
     const { env, inserts } = makeEnv();
     const bytes = new TextEncoder().encode("## TL;DR\nRents fell.");
@@ -66,7 +66,7 @@ describe("a drop on the desk", () => {
     expect(piece.published_at).toBeUndefined();
     const meta = JSON.parse(String(piece.metadata)) as Record<string, unknown>;
     expect(meta.ingested_from).toBe("feed-upload");
-    expect(meta.desk).toBe("waiting");
+    expect(meta.admin_status).toBe("waiting");
     expect(meta.sorted_as).toBe("research");
     // Nothing queued for the pipeline: that waits for Publish.
     expect(inserts.some((i) => i.table === "piece_processing")).toBe(false);

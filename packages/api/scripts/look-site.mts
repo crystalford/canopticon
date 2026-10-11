@@ -29,7 +29,7 @@ await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
 const port = (server.address() as { port: number }).port;
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 const page = await browser.newPage({ viewport: { width: Number(width), height: 900 } });
-// LOOK_AS_OPERATOR=1 signs the browser in, so /desk renders rather than its
+// LOOK_AS_OPERATOR=1 signs the browser in, so /admin renders rather than its
 // sign-in page.
 if (process.env.LOOK_AS_OPERATOR) {
   const { signSession, buildSessionCookie } = await import("../src/auth/session.ts");

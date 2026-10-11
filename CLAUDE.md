@@ -22,7 +22,7 @@
 > **`docs/blackbox/README.md` is the design spec and its prototypes are the
 > tie-breaker.** Everything public is now rendered by `packages/api/src/site/`;
 > `src/public/` is the old public site, still mounted behind it for the few
-> routes not yet rebuilt (and the desk), and is residue to delete (build
+> routes not yet rebuilt (and Admin's workbench), and is residue to delete (build
 > order step 9). Where this section and older text below disagree, this
 > section wins.
 
@@ -38,7 +38,7 @@
   and "projects are private" are enforced. `tests/site.test.ts` pins both.
 - **Routes.** `src/site/routes.ts` is mounted in front of `src/public/routes.ts`
   and calls `next()` for what it does not own. `/library` is the public
-  Library; the operator console is at **`/desk`** (it was `/library`).
+  Library; the operator console is at **`/admin`** (it was `/library`).
   Documents uploaded after the handoff live only in D1 and render through the
   same document page (guarded by `OWN_UPLOADS_SQL`).
 - **Design.** `src/site/styles.ts` (served at `/site.css`) and `src/site/layout.ts`.
@@ -52,10 +52,10 @@
   to check every receipt lands: `scripts/check-receipts.mts`.
 - **Email** waits on a mailing address (CASL): `lib/email.ts` sends nothing
   without both `RESEND_API_KEY` and `MAILING_ADDRESS`.
-- **The desk** is `/desk` (`site/pages/desk.ts`, actions in
-  `operator/routes/desk.ts` under `/op/desk/*`): Add something, Waiting for
+- **Admin** is `/admin` (`site/pages/admin.ts`, actions in
+  `operator/routes/admin.ts` under `/op/admin/*`): Add something, Waiting for
   you, Decided this week. The old operator console — processing, leads,
-  research, the export — is `/desk/workbench`. Published desk uploads join
+  research, the export — is `/admin/workbench`. Published Admin uploads join
   every public list through `site/uploads.ts` → `setUploadedRows()`.
 
 ---
@@ -175,7 +175,7 @@ still be incoherent for the reader this corpus actually has.**
    recorded, by code — not by an operator's say-so. Quotes that fail are
    dropped. `/q/<id>` is the public receipt.
 2. **Nothing publishes without Publish** (since 2026-10-11, the Black Box
-   desk; this replaces "upload is authorization"). A file dropped on `/desk`
+   Admin page; this replaces "upload is authorization"). A file dropped on `/admin`
    is read, sorted by its shape (`lib/sort-upload.ts`: research, paper,
    article, or personal — held private) and waits as working-material. One
    button publishes it; the pipeline and IndexNow run then, not on the drop.

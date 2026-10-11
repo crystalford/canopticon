@@ -23,10 +23,10 @@ const app = operatorApp();
 // second rename cannot overwrite it with the first rename's output.
 app.post("/pieces/:id/title", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk/workbench");
+  if (!userId) return c.redirect("/admin/workbench");
   const form = await c.req.parseBody();
   const title = typeof form.title === "string" ? form.title.trim() : "";
-  if (!title) return c.redirect("/desk/workbench?error=a+title+cannot+be+empty");
+  if (!title) return c.redirect("/admin/workbench?error=a+title+cannot+be+empty");
 
   const { run } = await import("../../lib/d1");
   await run(
@@ -39,7 +39,7 @@ app.post("/pieces/:id/title", async (c) => {
       WHERE id = ? AND user_id = ?`,
     [title, new Date().toISOString(), new Date().toISOString(), c.req.param("id"), userId],
   ).catch(() => {});
-  return c.redirect("/desk/workbench?renamed=1");
+  return c.redirect("/admin/workbench?renamed=1");
 });
 
 // Manual extraction trigger. The pivot decoupled upload from extraction;
@@ -64,7 +64,7 @@ app.post("/process/advance", async (c) => {
   const piece = c.req.query("piece") ?? undefined;
   const { advanceProcessing, describeProcessing } = await import("../../graph/lib/processing");
   const r = await advanceProcessing(c.env, userId, piece);
-  if (!wantsJson) return c.redirect("/desk/workbench");
+  if (!wantsJson) return c.redirect("/admin/workbench");
   return c.json({
     ok: true,
     piece_id: r.piece_id,
@@ -78,36 +78,36 @@ app.post("/process/advance", async (c) => {
 // Queue every published document that has never been processed to the end.
 app.post("/process/all", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk/workbench");
+  if (!userId) return c.redirect("/admin/workbench");
   const { enqueueEverything, ensureProcessingTable } = await import("../../graph/lib/processing");
   await ensureProcessingTable(c.env);
   const n = await enqueueEverything(c.env, userId);
-  return c.redirect(`/desk/workbench?queued=${n}`);
+  return c.redirect(`/admin/workbench?queued=${n}`);
 });
 
 // Re-process one document from the start (a new version, a new model, or a
 // row that never finished). Retry resumes a failed row at the step it failed.
 app.post("/library/:id/reprocess", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk/workbench");
+  if (!userId) return c.redirect("/admin/workbench");
   const { enqueueProcessing, ensureProcessingTable } = await import("../../graph/lib/processing");
   await ensureProcessingTable(c.env);
   await enqueueProcessing(c.env, userId, c.req.param("id"), { restart: true });
-  return c.redirect("/desk/workbench?queued=1");
+  return c.redirect("/admin/workbench?queued=1");
 });
 app.post("/library/:id/retry", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk/workbench");
+  if (!userId) return c.redirect("/admin/workbench");
   const { retryProcessing } = await import("../../graph/lib/processing");
   await retryProcessing(c.env, userId, c.req.param("id"));
-  return c.redirect("/desk/workbench?queued=1");
+  return c.redirect("/admin/workbench?queued=1");
 });
 
 // Put a machine-chosen title back. original_title has the name the document
 // arrived with; title_approved_at marks that a person decided this time.
 app.post("/pieces/:id/title/revert", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk/workbench");
+  if (!userId) return c.redirect("/admin/workbench");
   await run(
     c.env.DB,
     `UPDATE pieces
@@ -116,7 +116,7 @@ app.post("/pieces/:id/title/revert", async (c) => {
       WHERE id = ? AND user_id = ? AND original_title IS NOT NULL`,
     [new Date().toISOString(), new Date().toISOString(), c.req.param("id"), userId],
   ).catch(() => {});
-  return c.redirect("/desk/workbench?renamed=1");
+  return c.redirect("/admin/workbench?renamed=1");
 });
 
 export default app;
