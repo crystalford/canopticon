@@ -1,0 +1,46 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Canopticon — Canadian media",
+  "home_page_url": "https://canopticon.com/",
+  "feed_url": "https://canopticon.com/feeds/canadian-media.json",
+  "description": "Questions researched in depth, and articles written from what the research found.",
+  "language": "en-CA",
+  "authors": [
+    {
+      "name": "Chris Telford",
+      "url": "https://canopticon.com/about"
+    }
+  ],
+  "hubs": [
+    {
+      "type": "WebSub",
+      "url": "https://pubsubhubbub.appspot.com/"
+    }
+  ],
+  "items": [
+    {
+      "id": "https://canopticon.com/articles/bill-c-11-and-canadian-creators-in-2026",
+      "url": "https://canopticon.com/articles/bill-c-11-and-canadian-creators-in-2026",
+      "title": "Bill C-11 and Canadian creators in 2026: what the CRTC has actually imposed, and what is still a prediction",
+      "summary": "Creators were told the Online Streaming Act would cost them their foreign audiences by teaching recommendation systems that Canadian videos go unwatched. Three years after royal assent the regulator has imposed no discoverability requirement on anyone, the money is stayed by a court, and no study has measured the harm.",
+      "content_text": "Creators were told the Online Streaming Act would cost them their foreign audiences by teaching recommendation systems that Canadian videos go unwatched. Three years after royal assent the regulator has imposed no discoverability requirement on anyone, the money is stayed by a court, and no study has measured the harm.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "Canadian media",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fact-check-bill-c-11-algorithmic-discoverability-canadian-digital",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fact-check-bill-c-11-algorithmic-discoverability-canadian-digital",
+      "title": "Fact-Check: Bill C-11, Algorithmic Discoverability, and Canadian Digital Creators",
+      "summary": "Canadian creators' watch times have already \"cratered\" and that their global reach has been \"actively suppressed.",
+      "content_text": "Canadian creators' watch times have already \"cratered\" and that their global reach has been \"actively suppressed.",
+      "date_published": "2026-07-22T12:00:00Z",
+      "tags": [
+        "Canadian media",
+        "Research"
+      ]
+    }
+  ]
+}

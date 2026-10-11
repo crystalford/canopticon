@@ -1,0 +1,118 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Canopticon — ADHD & attention",
+  "home_page_url": "https://canopticon.com/",
+  "feed_url": "https://canopticon.com/feeds/adhd-and-attention.json",
+  "description": "Questions researched in depth, and articles written from what the research found.",
+  "language": "en-CA",
+  "authors": [
+    {
+      "name": "Chris Telford",
+      "url": "https://canopticon.com/about"
+    }
+  ],
+  "hubs": [
+    {
+      "type": "WebSub",
+      "url": "https://pubsubhubbub.appspot.com/"
+    }
+  ],
+  "items": [
+    {
+      "id": "https://canopticon.com/articles/paying-yourself-to-do-your-own-tasks",
+      "url": "https://canopticon.com/articles/paying-yourself-to-do-your-own-tasks",
+      "title": "Paying yourself to do your own tasks: what the incentive trials show, and whether an earn-back subscription could work",
+      "summary": "Financial incentives move behaviour while they run, and losses move people more than equal gains. Paying yourself a wage from your own pocket removes most of what the trials rely on; a subscription you earn back by doing the work is a loss-framed stake, and the research rates it the version most likely to work. Nobody has tested it.",
+      "content_text": "Financial incentives move behaviour while they run, and losses move people more than equal gains. Paying yourself a wage from your own pocket removes most of what the trials rely on; a subscription you earn back by doing the work is a loss-framed stake, and the research rates it the version most likely to work. Nobody has tested it.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "ADHD & attention",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/articles/missed-workouts-and-broken-streaks",
+      "url": "https://canopticon.com/articles/missed-workouts-and-broken-streaks",
+      "title": "Missed workouts and broken streaks: how fast strength, mood and habit actually decay",
+      "summary": "Two weeks away from the gym costs almost nothing in muscle — strength holds and the body keeps a record that makes the regain fast. What drains in that time is mood, dopamine tone and the automatic habit, which is exactly what restarting runs on.",
+      "content_text": "Two weeks away from the gym costs almost nothing in muscle — strength holds and the body keeps a record that makes the regain fast. What drains in that time is mood, dopamine tone and the automatic habit, which is exactly what restarting runs on.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "ADHD & attention",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=uber-for-your-own-to-do-list-feasibility-and-prior-art-review-of-a-pai",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=uber-for-your-own-to-do-list-feasibility-and-prior-art-review-of-a-pai",
+      "title": "Uber for Your Own To-Do List: Feasibility and Prior-Art Review of a Paid, AI-Dispatched Task Queue",
+      "summary": "Prior art: Nobody has built \"Uber for your own tasks\". The nearby products are commitment-stake apps (Beeminder, stickK, Forfeit), pay-for-health apps (Sweatcoin, Evidation), RPG and gamified task managers (Habitica, Finch)…",
+      "content_text": "Prior art: Nobody has built \"Uber for your own tasks\". The nearby products are commitment-stake apps (Beeminder, stickK, Forfeit), pay-for-health apps (Sweatcoin, Evidation), RPG and gamified task managers (Habitica, Finch)…",
+      "date_published": "2026-10-01T12:00:00Z",
+      "tags": [
+        "ADHD & attention",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-13-big-swings-pressure-tested",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-13-big-swings-pressure-tested",
+      "title": "Big Swings, Pressure-Tested",
+      "summary": "Ship the newsletter first, as the inventory engine. Build it on Amazon SES ($0.10 per 1,000 emails, $24.95/month standard dedicated IP) with a Cloudflare control plane. Cloudflare's own FAQ says Email Service \"is intended…",
+      "content_text": "Ship the newsletter first, as the inventory engine. Build it on Amazon SES ($0.10 per 1,000 emails, $24.95/month standard dedicated IP) with a Cloudflare control plane. Cloudflare's own FAQ says Email Service \"is intended…",
+      "date_published": "2026-09-27T12:00:00Z",
+      "tags": [
+        "ADHD & attention",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-momentum-trap-neurobiology-and-behavioral-mechanics-of-adhd-habit-",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-momentum-trap-neurobiology-and-behavioral-mechanics-of-adhd-habit-",
+      "title": "The Momentum Trap: Neurobiology and Behavioral Mechanics of ADHD Habit Collapse",
+      "summary": "Momentum is real and mechanistically distinct from starting fresh: established behavior is protected by \"behavioral momentum\" (reinforcement-built resistance to disruption) and by context-cued automaticity that offloads…",
+      "content_text": "Momentum is real and mechanistically distinct from starting fresh: established behavior is protected by \"behavioral momentum\" (reinforcement-built resistance to disruption) and by context-cued automaticity that offloads…",
+      "date_published": "2026-09-27T12:00:00Z",
+      "tags": [
+        "ADHD & attention",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=content-that-is-the-ad-buying-curious-attention-in-late-2026-and-the-s",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=content-that-is-the-ad-buying-curious-attention-in-late-2026-and-the-s",
+      "title": "Content That Is the Ad: Buying Curious Attention in Late 2026, and the Stack Behind It",
+      "summary": "Bottom line: The cheapest curious readers are still on the old feeds.",
+      "content_text": "Bottom line: The cheapest curious readers are still on the old feeds.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "ADHD & attention",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=diagnosing-the-feed-why-scrolling-works-why-x-feels-like-a-town-square",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=diagnosing-the-feed-why-scrolling-works-why-x-feels-like-a-town-square",
+      "title": "Diagnosing the Feed: Why Scrolling Works, Why X Feels Like a Town Square, Where Content Turns Into Advertising, and How CANOPTICON Can Use All Three",
+      "summary": "The best-supported reason people keep scrolling isn't a \"dopamine slot machine.",
+      "content_text": "The best-supported reason people keep scrolling isn't a \"dopamine slot machine.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "ADHD & attention",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=narrow-the-goal-or-broaden-the-substitutes-the-neurobiology-and-behavi",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=narrow-the-goal-or-broaden-the-substitutes-the-neurobiology-and-behavi",
+      "title": "Narrow the Goal or Broaden the Substitutes? The Neurobiology and Behavioral Science of Intention Specificity, Goal Substitution, and ADHD Exercise Adherence",
+      "summary": "The evidence does not support \"narrow the goal to gym-only\" for most people with ADHD.",
+      "content_text": "The evidence does not support \"narrow the goal to gym-only\" for most people with ADHD.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "ADHD & attention",
+        "Research"
+      ]
+    }
+  ]
+}

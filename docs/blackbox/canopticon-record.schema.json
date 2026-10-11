@@ -1,0 +1,1012 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://canopticon.com/schema/record.json",
+  "title": "Canopticon record — the model every page renders from",
+  "description": "One document in; one read; sixteen kinds of derivation, each a verbatim span or dropped; three filing axes; links, never pages. Written to be built against. Every property a page shows is here; nothing a page shows is computed at render.",
+  "$defs": {
+    "Piece": {
+      "type": "object",
+      "description": "A document. Whole, never edited. Published at upload. One row in `pieces`.",
+      "required": [
+        "id",
+        "slug",
+        "title",
+        "kind",
+        "status",
+        "source_id",
+        "published_at",
+        "body_md"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ULID"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Permanent. A new version keeps it."
+        },
+        "title": {
+          "type": "string",
+          "description": "The headline. From the first H1 with any series marker removed by SERIES_MARKER (a regex, no model), tested against 16 real titles: /^(?:<project>[,:]?\\s*)?(?:(?:Fourth|Fifth|Sixth|Seventh|Eighth|Ninth|Tenth|\\w+teenth|\\d+(?:st|nd|rd|th)?)\\s+)?(?:Research\\s+)?Pass(?:\\s+(?:Six|Seven|Eight|Nine|Ten|\\d+))?[:\\s—-]+|\\s*[—:-]\\s*(?:A\\s+)?(?:\\w+\\s+)?(?:Research\\s+)?Pass(?:\\s+for\\s+<project>)?\\s*$|\\s*\\((?:Research\\s+)?Pass\\s*\\d+[^)]*\\)/i. The project name is stripped only when it is the prefix that filed the piece. No match → unchanged. The slug is made from this. The read may also replace a filename-shaped title with a verbatim line. The original is always kept in title_original and emitted as alternativeHeadline."
+        },
+        "sequence": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "The number the series marker carried, if any. Order within a project, never identity: ties and gaps sort by published_at. Default parent_piece_id is the previous sequence in the project, until the operator sets lineage explicitly. Emitted as CreativeWorkSeries.position."
+        },
+        "series_marker": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The exact text removed, e.g. 'Ancaster Pass 18:', '— Eighth Research Pass for Ancaster', '(Research Pass 19, September 2026)'. Shown on the bench with Revert."
+        },
+        "title_original": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dek": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The document's own italic line or first sentence. Never written for it."
+        },
+        "kind": {
+          "$ref": "#/$defs/Kind"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "published",
+            "read",
+            "failed"
+          ],
+          "description": "The three words. `published` = live, not yet read. `read` = derivations exist. `failed` = one sentence in failure_reason and a Retry."
+        },
+        "visibility": {
+          "type": "string",
+          "enum": [
+            "public",
+            "held",
+            "evidence_only"
+          ],
+          "description": "public = everything served (upload is publication). held = a personal document, nothing served (404). evidence_only = derived blocks served, body and case sections absent, a labelled bar per held section. Chosen on the desk; the read proposes held for any document about its author."
+        },
+        "section_roles": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string",
+            "enum": [
+              "evidence",
+              "case"
+            ]
+          },
+          "description": "One per section, for personal documents. case = the subject is the author rather than the literature. Derivations anchored only in a case section are desk-only."
+        },
+        "failure_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The exact string the read wrote. e.g. 'PDF has no text layer — nothing was read.'"
+        },
+        "source_id": {
+          "type": "string",
+          "description": "The stored text this piece is rendered from and verified against."
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        },
+        "project_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Axis 1. Zero or one. Read from a title prefix ('Ancaster Pass 16 …', 'ALDERSHOT —'), confirmed by the operator. Most pieces are null: standalone."
+        },
+        "topic_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Axis 3. Zero or more. Every topic appears on public pages; status=undone topics are removed and never named again."
+        },
+        "parent_piece_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Lineage: grew from. Set at upload or at publish. Never inferred."
+        },
+        "author_id": {
+          "type": "string"
+        },
+        "published_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "read_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "Also the sitemap lastmod. Never fabricated."
+        },
+        "body_md": {
+          "type": "string",
+          "description": "The document, byte-exact."
+        },
+        "license": {
+          "type": "string",
+          "default": "CC BY 4.0"
+        },
+        "receipt": {
+          "$ref": "#/$defs/ReadReceipt"
+        }
+      }
+    },
+    "Kind": {
+      "type": "string",
+      "description": "Axis 2. Read from the file's shape and its own word for itself; operator can change it. A closed list — add to it deliberately.",
+      "enum": [
+        "essay",
+        "research-pass",
+        "report",
+        "spec",
+        "dossier",
+        "blueprint",
+        "product-bible",
+        "design-brief",
+        "frontier-scan",
+        "standard",
+        "memo",
+        "audit",
+        "brief",
+        "paper",
+        "tetrad",
+        "note"
+      ]
+    },
+    "Origin": {
+      "type": "object",
+      "description": "How the document arrived. Kept beside it forever; shown as 'Arrived as' in the rail.",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "upload",
+            "url",
+            "compose",
+            "run"
+          ]
+        },
+        "filename": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri",
+          "description": "For method=url: the pasted link, e.g. a claude.ai/public/artifacts/… page. Fetched at the edge; JS pages rendered by Browser Rendering; stored as Markdown. Emitted in JSON-LD as isBasedOn when the link is not the author's own."
+        },
+        "fetched_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sha256": {
+          "type": "string",
+          "description": "Of the stored bytes. An identical file is refused before anything is written."
+        }
+      }
+    },
+    "Source": {
+      "type": "object",
+      "description": "The extracted text a piece is verified against. First 8 KB inline, the rest in R2.",
+      "required": [
+        "id",
+        "content_text",
+        "char_count",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "content_text": {
+          "type": "string"
+        },
+        "char_count": {
+          "type": "integer",
+          "maximum": 200000
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "r2_key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ReadReceipt": {
+      "type": "object",
+      "description": "What the read did. Shown as the strip under every title; nothing is hidden, including drops.",
+      "required": [
+        "read_at",
+        "model",
+        "chars_read",
+        "spans_verified",
+        "spans_dropped",
+        "cost_cents"
+      ],
+      "properties": {
+        "read_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "model": {
+          "type": "string",
+          "description": "e.g. anthropic/claude-opus-4.1 via AI Gateway"
+        },
+        "chars_read": {
+          "type": "integer",
+          "description": "Equal to source.char_count — 'Read in full'. If a document ever exceeds one call, the read is split by section and this still equals the total; there is no partial read."
+        },
+        "spans_verified": {
+          "type": "integer"
+        },
+        "spans_dropped": {
+          "type": "integer",
+          "description": "Proposed spans that were not a literal substring of the source. Always shown."
+        },
+        "shape_blocks": {
+          "type": "integer",
+          "description": "How many blocks came from the file's own shape (no model): TL;DR, Key Findings, Decisions, Kill criteria, Caveats, Sources."
+        },
+        "cost_cents": {
+          "type": "number"
+        },
+        "duration_ms": {
+          "type": "integer"
+        }
+      }
+    },
+    "Quote": {
+      "type": "object",
+      "description": "A verbatim span. The primitive everything else points at. One receipt page (/q/<id>) each.",
+      "required": [
+        "id",
+        "piece_id",
+        "text",
+        "start",
+        "end",
+        "anchor"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "piece_id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string",
+          "description": "Exactly as in source.content_text[start:end]. Re-located by code at every render; if it no longer matches, the item is hidden and counted, never shown wrong."
+        },
+        "start": {
+          "type": "integer"
+        },
+        "end": {
+          "type": "integer"
+        },
+        "section": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The § label shown inline: '§2', 'TL;DR', 'KF3'. From the nearest heading above start."
+        },
+        "anchor": {
+          "type": "string",
+          "description": "Content-addressed: 'q-' + first 6 hex of sha256(text). Survives re-reads and new versions as long as the words do. This is the citable fragment: /p/<slug>#q-8a3f2c."
+        }
+      }
+    },
+    "Derivation": {
+      "type": "object",
+      "description": "One thing the read found. Every derivation has exactly one quote it is anchored to, or it does not exist. The machine never adds a judgment: `standing`, `source_type` and `verb` are the document's own words.",
+      "required": [
+        "id",
+        "piece_id",
+        "kind",
+        "quote_id",
+        "origin"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "piece_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "summary",
+            "contents",
+            "distillation",
+            "source",
+            "figure",
+            "event",
+            "finding",
+            "claim",
+            "evidence",
+            "question",
+            "definition",
+            "thread",
+            "prediction",
+            "recommendation",
+            "protocol",
+            "relation",
+            "term",
+            "thesis"
+          ]
+        },
+        "quote_id": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "shape",
+            "read"
+          ],
+          "description": "shape = from the file's structure, no model (TL;DR, headings, numbered Key Findings, 'Decision N', 'Kill criteria', 'Caveats', '## Sources', [n] markers). read = from the one model call."
+        },
+        "order": {
+          "type": "integer",
+          "description": "Document order. Pages never reorder within a kind."
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The short form shown in a table cell or a list."
+        },
+        "figure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=figure. The number as written: '83.2%', 'HR 4.56', 'n = 814,689', '48–72 h'."
+        },
+        "measures": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=figure. What it measures, in the document's words."
+        },
+        "period": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=figure|event. The date or range as written."
+        },
+        "attributed_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=figure|claim. Who reported or said it, as written."
+        },
+        "source_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=figure. The document's OWN rating of the source, verbatim or near: 'independent', 'vendor', 'vendor claim', 'rule', 'regulator', 'third-party review', 'assumption', 'the document's own design'. null when the document gives none. Never assigned by the machine."
+        },
+        "rejected": {
+          "type": "boolean",
+          "default": false,
+          "description": "kind=figure. True when the document itself says not to rely on it ('Do not cite them', 'treat as marketing'). Rendered struck through, kept so nothing lifts it as fact."
+        },
+        "standing": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=claim. The document's own word for what the claim is: 'independent evidence', 'vendor claim', 'rule', 'interpretation', 'assumption', 'invention — to validate', 'clinical — flagged'. Replaces the old pro/critical/neutral stance."
+        },
+        "direction": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "supports",
+            "undercuts",
+            "complicates",
+            "corroborates",
+            "rebuts",
+            null
+          ],
+          "description": "kind=evidence. As the document frames it. Between this document's own facts and claims only — never across documents."
+        },
+        "target_derivation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=evidence. The claim it bears on."
+        },
+        "answer_quote_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=question. The sentence that answers, verbatim. The question is rendered as a heading, the answer as its first sentence — page structure, not FAQ markup."
+        },
+        "resolves_when": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=prediction. Shown only on the document, project and topic pages, in context, never as a bare list on the desk or front. The document's own condition, when stated: 'the 90-day read-out', 'a published study'."
+        },
+        "resolved_by_piece_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=prediction. Set by the operator when a later document answers it; the two pages then link. No score."
+        },
+        "starred": {
+          "type": "boolean",
+          "default": false,
+          "description": "kind=recommendation. The document's own ★ / RECOMMENDED marker."
+        },
+        "subject": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=relation. As written."
+        },
+        "verb": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=relation. The verb as the document wrote it — 'shut down by', 'requires', 'authored', 'credits'. Not a taxonomy."
+        },
+        "object": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "kind=relation."
+        },
+        "term_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "person",
+            "organization",
+            "product",
+            "work",
+            "concept",
+            "place",
+            "rule",
+            "regulator",
+            null
+          ],
+          "description": "kind=term."
+        },
+        "is_thesis_proposed": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "kind=thesis. The sentence where the document states its own central claim or names its contribution as novel ('the genuine wedge', 'should stop being … and become …', 'Novel theoretical contribution'). Verbatim. Shown on Essays as a proposed thesis; the operator may also type a thesis of their own. Dismissed → Ignore."
+        },
+        "outbound_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri",
+          "description": "kind=source. Resolved from a URL in the text, a DOI, or a [n] entry. Every resolvable source is an outbound link and a JSON-LD `citation`. null = listed as written, linked to nothing."
+        },
+        "citation_marker": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "kind=source. The document's own [n]. In-body markers link to #s-<n>; the sources list is numbered as the document numbers it."
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "finding",
+            "reasoning",
+            "recommendation",
+            "premise"
+          ],
+          "description": "What kind of statement the anchoring passage is. finding = a fact about the world with a source; reasoning = the document's own inference; recommendation = advice to the author; premise = the author's own decision or assumption echoed back (\"given that you send the newsletter yourself…\"). Articles may quote only finding and reasoning as evidence; recommendation and premise may be mentioned, labelled as such, never used to support a claim. Set at read time; editable on the desk."
+        }
+      }
+    },
+    "Project": {
+      "type": "object",
+      "description": "Axis 1: something the operator is making, with a sequence of its own. Not a subject. Ancaster, Aldershot, Canopticon. A hub page only once its note is written.",
+      "required": [
+        "id",
+        "name",
+        "slug"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "title_prefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Patterns that file a new upload here automatically: 'Ancaster Pass', 'Ancaster,', 'ALDERSHOT', 'Aldershot:'. Operator-edited."
+        },
+        "note_md": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Written by the operator. Its existence is what makes /c/<slug> indexable; without it the hub is noindex."
+        },
+        "indexed": {
+          "type": "boolean",
+          "description": "Derived: note_md != null."
+        }
+      }
+    },
+    "Topic": {
+      "type": "object",
+      "description": "Axis 3: what documents are about. Named by the read from recurring terms and applied at once; rename or undo on the desk; crosses projects. Never created by the machine alone.",
+      "required": [
+        "id",
+        "name",
+        "slug",
+        "status",
+        "term_labels"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Named by the read from the top term; the operator may rename it on the desk."
+        },
+        "slug": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "live",
+            "undone"
+          ],
+          "description": "live: filed and shown on every public page the moment the read names it. undone: removed by the operator; never named again."
+        },
+        "term_labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The evidence: the terms behind the topic, matched by lower(label). Edit the list and the topic follows."
+        },
+        "named_because": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Shown on the bench: 'FINTRAC, RPAA, GST/HST, 1099-K and merchant of record appear in 4 Ancaster documents and nowhere else.'"
+        },
+        "note_md": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Same rule as projects: the note makes the page."
+        },
+        "indexed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Reading": {
+      "type": "object",
+      "description": "The operator's note on a passage. The human half of verification. Public, in the margin.",
+      "required": [
+        "id",
+        "piece_id",
+        "quote_id",
+        "text_md",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "piece_id": {
+          "type": "string"
+        },
+        "quote_id": {
+          "type": "string"
+        },
+        "text_md": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Ignore": {
+      "type": "object",
+      "description": "Anything the operator dismissed from the bench. It never returns.",
+      "required": [
+        "kind",
+        "key"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "term",
+            "topic",
+            "prediction"
+          ]
+        },
+        "key": {
+          "type": "string"
+        },
+        "ignored_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Protocol": {
+      "type": "object",
+      "description": "A test the document asks its reader to run. One per document at most; every field is a verbatim span. A protocol with no measure is a recommendation. See HANDOFF.md → Protocol.",
+      "required": [
+        "piece_id",
+        "goal_quote_id",
+        "action_quote_id",
+        "measure_quote_id"
+      ],
+      "properties": {
+        "piece_id": {
+          "type": "string"
+        },
+        "goal_quote_id": {
+          "type": "string"
+        },
+        "trigger_quote_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "action_quote_id": {
+          "type": "string"
+        },
+        "measure_quote_id": {
+          "type": "string"
+        },
+        "duration_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Parsed from the text ('two weeks' → 14); null when the document gives none."
+        },
+        "success_quote_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kill_quote_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Set when the document states a stop condition ('less than 10 percentage points above baseline')."
+        }
+      }
+    },
+    "Tracker": {
+      "type": "object",
+      "description": "Desk-only. A protocol the operator started. Nothing here is served publicly; a completed or stopped tracker may be written up as a piece of kind 'result' that grew from the proposing document.",
+      "required": [
+        "piece_id",
+        "state"
+      ],
+      "properties": {
+        "piece_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "waiting",
+            "running",
+            "stopped",
+            "complete"
+          ]
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "days_logged": {
+          "type": "integer"
+        },
+        "log": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string"
+              },
+              "entry": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "result_piece_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "Draft": {
+      "type": "object",
+      "description": "An essay in progress. One row per draft; sections stream in. See HANDOFF.md → The essay engine.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "thesis_text": {
+          "type": "string"
+        },
+        "thesis_quote_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Set when the thesis is a document's own sentence."
+        },
+        "pitch_kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "grounding_piece_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "n": {
+                "type": "integer"
+              },
+              "title": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "drafting",
+                  "landed",
+                  "edited"
+                ]
+              },
+              "markdown": {
+                "type": "string"
+              },
+              "quotes_verified": {
+                "type": "integer"
+              },
+              "quotes_dropped": {
+                "type": "integer"
+              },
+              "unreceipted_sentences": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "words": {
+          "type": "integer"
+        },
+        "cost_usd": {
+          "type": "number"
+        },
+        "model": {
+          "type": "string"
+        },
+        "published_piece_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "Pitch": {
+      "type": "object",
+      "description": "NOT a table. Five queries, each producing a candidate issue for the Letter with a verbatim hook. No model. Dismissed pitches go to Ignore.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "thesis-stated",
+            "just-read",
+            "shared-across-projects",
+            "same-measure-disagrees",
+            "source-leaned-on",
+            "prediction-answered"
+          ]
+        },
+        "hook_quote_id": {
+          "type": "string"
+        },
+        "piece_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "because": {
+          "type": "string"
+        }
+      }
+    },
+    "Link": {
+      "type": "object",
+      "description": "NOT a table. A query, shown here as the shape the renderer consumes. Shared term → link both ways at the passage. Named source → link outward. Lineage → grew from / into. Same measure → figures grouped by lower(measures) across pieces, never reconciled.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "shared-term",
+            "outbound-source",
+            "lineage",
+            "same-measure",
+            "answered-by"
+          ]
+        },
+        "from_piece_id": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string",
+          "description": "A piece id + quote anchor, or an outbound URL."
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "MachineTwins": {
+      "type": "object",
+      "description": "What exists beside every page, and its indexing rule. All emitted from this model; none computed at render by a model.",
+      "properties": {
+        "/p/<slug>": {
+          "const": "HTML. Indexed. JSON-LD: Article (headline, datePublished, dateModified=read_at, author Person with sameAs, isPartOf CreativeWorkSeries=project when project_id, isBasedOn=parent or origin.url, citation[]=sources with outbound_url, mentions[]=DefinedTerm per topic and per term, hasPart[]=Quotation for readings, license). No FAQPage markup — question/answer is page structure."
+        },
+        "/p/<slug>.md": {
+          "const": "Byte-exact body with front matter. X-Robots-Tag: noindex. Link: <page>; rel=canonical."
+        },
+        "/p/<slug>.json": {
+          "const": "This model for one piece. noindex."
+        },
+        "/q/<id>": {
+          "const": "Receipt. noindex; canonical = /p/<slug>#<anchor>."
+        },
+        "/c/<project>": {
+          "const": "Hub. Indexed only when project.note_md exists; else noindex."
+        },
+        "/t/<topic>": {
+          "const": "Hub. Indexed only when note_md exists; else noindex."
+        },
+        "/essays/<slug>": {
+          "const": "An essay. Person-written; indexed; cites record pages and the outside sources they name (citation[]); parent_piece_id = the pitch's document; optionally sent by email via Resend when the key is set."
+        },
+        "/research?project=&kind=&topic=": {
+          "const": "Filter. Always noindex."
+        },
+        "/search": {
+          "const": "FTS5 over quotes and pieces. Always noindex."
+        },
+        "/llms.txt": {
+          "const": "One line per indexed page, grouped by project then topic, using dek or first sentence. Fetches counted, not assumed."
+        },
+        "/sitemap.xml": {
+          "const": "Indexed pages only, lastmod = read_at or published_at. IndexNow ping on publish and new version."
+        },
+        "/feed.json": {
+          "const": "Indexed pages, newest first."
+        }
+      }
+    },
+    "Rules": {
+      "type": "array",
+      "description": "The invariants. A build that violates one is wrong.",
+      "const": [
+        "Upload is publication. A new version keeps the slug and the origin.",
+        "The headline is the author's title with any series marker removed by a rule; the original is kept and shown; the number is order, not a name; the body is never edited.",
+        "Each document is read once, whole, in one call. Three statuses. No chunks, no passes, no tab-open poller.",
+        "Every derivation has one quote; the quote is a literal substring of the source, re-checked at render. Dropped counts are always shown.",
+        "The machine adds no judgment: standing, source_type, verb, rejected and starred are the document's own words. Nothing is graded, reconciled or summarised across documents.",
+        "The machine makes links; only a person makes pages. Hubs are indexed only with a written note. Filters, search, receipts and twins are noindex.",
+        "Nothing publishes until the operator approves or edits it; the page records how it was made (drafted with Claude and approved, or written by the operator). A draft arrives whole — quotes verified, outside sources linked, counter-evidence and the settling test as sections, unreceipted sentences dotted — and is labelled as Claude's until then.",
+        "No model runs at render time, anywhere.",
+        "The record never edits the author's prose to please an engine. Structure and receipts are added around the text; the text is never touched.",
+        "AI crawlers are allowed at the edge and the allowance is checked weekly; fetches, referrals and queries are shown on the bench per document.",
+        "Anything the operator ignores never returns."
+      ]
+    }
+  }
+}

@@ -175,7 +175,7 @@ export async function buildBrief(env: Env, briefId: string, userId: string): Pro
     }
     verifiedClaims.push({
       claim_text: isAssertion && !text.includes(attribution) ? `${attribution}: ${text}` : text,
-      source_url: q.piece_slug ? `/library/${q.piece_slug}` : "",
+      source_url: q.piece_slug ? `/p/${q.piece_slug}` : "",
       source_quote: q.verbatim_text,
       offset: q.byte_offset,
       kind: isAssertion ? "assertion" : "fact",

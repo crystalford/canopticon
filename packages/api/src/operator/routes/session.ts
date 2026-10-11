@@ -9,7 +9,7 @@ import { operatorApp } from "./app";
 const app = operatorApp();
 
 // /op/library/:slug → /library/:slug (preserve the slug)
-app.get("/library/:slug", (c) => c.redirect(`/library/${c.req.param("slug")}`, 302));
+app.get("/library/:slug", (c) => c.redirect(`/p/${c.req.param("slug")}`, 302));
 
 // Lightweight status endpoint for the Feed processing banner to poll. Returns
 // the piece's digestion state from orchestrator_events without renderering HTML.

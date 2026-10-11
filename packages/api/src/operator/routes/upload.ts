@@ -108,7 +108,7 @@ app.post("/feed/upload", async (c) => {
     // Upload IS publication, so this is the moment to tell the engines that
     // honour IndexNow. Fire-and-forget; inert without INDEXNOW_KEY. Guarded
     // like the dig route: c.executionCtx throws where there is none (tests).
-    const ping = pingIndexNow(c.env, [`/p/${p.slug}`, "/research", "/sitemap.xml"]).catch(() => {});
+    const ping = pingIndexNow(c.env, [`/p/${p.slug}`, "/library", "/sitemap.xml"]).catch(() => {});
     try {
       c.executionCtx.waitUntil(ping);
     } catch {
@@ -367,16 +367,16 @@ async function ensureUniqueSlug(db: D1Database, userId: string, base: string): P
 // channel with the video's own publish date. See graph/lib/video-intake.ts.
 app.post("/library/import-video", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
+  if (!userId) return c.redirect("/desk");
   const form = await c.req.parseBody();
   const url = typeof form.url === "string" ? form.url.trim() : "";
-  if (!url) return c.redirect("/library");
+  if (!url) return c.redirect("/desk");
   const { requestVideoImport } = await import("../../graph/lib/video-intake");
   const result = await requestVideoImport(c.env, userId, url);
   if (!result.ok || !result.importId) {
-    return c.redirect(`/library?video_error=${encodeURIComponent(result.error ?? "failed")}`);
+    return c.redirect(`/desk?video_error=${encodeURIComponent(result.error ?? "failed")}`);
   }
-  return c.redirect(`/library?importing=${encodeURIComponent(result.importId)}`);
+  return c.redirect(`/desk?importing=${encodeURIComponent(result.importId)}`);
 });
 
 // JSON status for the same live-polling banner pattern as /research-status.
@@ -399,7 +399,7 @@ app.get("/library/import-video/:id/status", async (c) => {
       warn: false,
       headline: "Transcribed and queued for extraction",
       pieceId: row.piece_id,
-      ...(piece ? { reviewUrl: `/library/${piece.slug}` } : {}),
+      ...(piece ? { reviewUrl: `/p/${piece.slug}` } : {}),
     });
   }
   if (row.status === "failed") {
@@ -487,7 +487,7 @@ app.post("/library/delete", async (c) => {
 // ?error=same+file when the upload is byte-identical to the current source.
 app.post("/library/:id/replace", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library?error=No%20operator%20user");
+  if (!userId) return c.redirect("/desk?error=No%20operator%20user");
   const pieceId = c.req.param("id");
   const piece = await one<{
     id: string;
@@ -500,11 +500,11 @@ app.post("/library/:id/replace", async (c) => {
     "SELECT id, slug, title, body_md, metadata FROM pieces WHERE id = ? AND user_id = ?",
     [pieceId, userId],
   );
-  if (!piece) return c.redirect("/library?error=No%20document");
+  if (!piece) return c.redirect("/desk?error=No%20document");
   const form = await c.req.formData();
   const file = form.get("file");
   if (!file || typeof file === "string") {
-    return c.redirect(`/library?error=${encodeURIComponent("No file in form data")}`);
+    return c.redirect(`/desk?error=${encodeURIComponent("No file in form data")}`);
   }
   const f = file as unknown as File;
   const bytes = new Uint8Array(await f.arrayBuffer());
@@ -528,7 +528,7 @@ app.post("/library/:id/replace", async (c) => {
     currentSha = u?.sha256 ?? null;
   }
   if (currentSha && currentSha === sha256) {
-    return c.redirect("/library?error=same+file");
+    return c.redirect("/desk?error=same+file");
   }
 
   // Readings are read BEFORE the purge: their quotes cascade away with the
@@ -597,7 +597,7 @@ app.post("/library/:id/replace", async (c) => {
   }
 
   await enqueueProcessing(c.env, userId, pieceId, { restart: true });
-  return c.redirect(`/library?replaced=1&readings_lost=${lost}`);
+  return c.redirect(`/desk?replaced=1&readings_lost=${lost}`);
 });
 
 export default app;

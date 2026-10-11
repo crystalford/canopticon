@@ -1,0 +1,142 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Canopticon — Prices & markets",
+  "home_page_url": "https://canopticon.com/",
+  "feed_url": "https://canopticon.com/feeds/prices-and-markets.json",
+  "description": "Questions researched in depth, and articles written from what the research found.",
+  "language": "en-CA",
+  "authors": [
+    {
+      "name": "Chris Telford",
+      "url": "https://canopticon.com/about"
+    }
+  ],
+  "hubs": [
+    {
+      "type": "WebSub",
+      "url": "https://pubsubhubbub.appspot.com/"
+    }
+  ],
+  "items": [
+    {
+      "id": "https://canopticon.com/articles/measuring-the-economy-with-new-instruments",
+      "url": "https://canopticon.com/articles/measuring-the-economy-with-new-instruments",
+      "title": "Measuring the economy with new instruments: scraped prices, card-spending trackers and satellite imagery",
+      "summary": "Four old arguments explain why an economy resists being computed, and none of them have gone away. What computation did change is measurement — scraped prices, card records and satellite images that report what is happening weeks before the official numbers do.",
+      "content_text": "Four old arguments explain why an economy resists being computed, and none of them have gone away. What computation did change is measurement — scraped prices, card records and satellite images that report what is happening weeks before the official numbers do.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "Prices & markets",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Essay%20Haggle.dc.html",
+      "url": "https://canopticon.com/Canopticon%20Essay%20Haggle.dc.html",
+      "title": "Personalised pricing software and the return of haggling, run from the seller's side",
+      "summary": "From the middle of the nineteenth century everyone paid the number on the tag. Pricing software is bringing the bazaar back — except this time the seller reads you, and you see nothing.",
+      "content_text": "From the middle of the nineteenth century everyone paid the number on the tag. Pricing software is bringing the bazaar back — except this time the seller reads you, and you see nothing.",
+      "date_published": "2026-10-03T12:00:00Z",
+      "tags": [
+        "Prices & markets",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-pattern-beneath-the-pattern-housing-recessions-and-policy-in-canad",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-pattern-beneath-the-pattern-housing-recessions-and-policy-in-canad",
+      "title": "Engineered Booms and Busts: How Policy Drives Canada's Housing-Led Recessions",
+      "summary": "Across five decades, Canada's recessions are not random market accidents but are repeatedly detonated by identifiable policy decisions — above all Bank of Canada interest-rate cycles acting on an economy where housing and…",
+      "content_text": "Across five decades, Canada's recessions are not random market accidents but are repeatedly detonated by identifiable policy decisions — above all Bank of Canada interest-rate cycles acting on an economy where housing and…",
+      "date_published": "2026-09-27T12:00:00Z",
+      "tags": [
+        "Prices & markets",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=realpage-north-algorithmic-rent-setting-in-canada-a-forensic-investiga",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=realpage-north-algorithmic-rent-setting-in-canada-a-forensic-investiga",
+      "title": "RealPage North: Algorithmic Rent-Setting in Canada — Forensic Investigation and Detection-Instrument Feasibility",
+      "summary": "The genuine Canadian story is forensic-historical, not live: algorithmic revenue-management software (RealPage's YieldStar/AIRM/LRO; Yardi's Revenue IQ/RENTmaximizer) was used here from at least 2017, grew gradually, then…",
+      "content_text": "The genuine Canadian story is forensic-historical, not live: algorithmic revenue-management software (RealPage's YieldStar/AIRM/LRO; Yardi's Revenue IQ/RENTmaximizer) was used here from at least 2017, grew gradually, then…",
+      "date_published": "2026-09-27T12:00:00Z",
+      "tags": [
+        "Prices & markets",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=participation-income-earned-income-supplements-and-work-sharing-a-poli",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=participation-income-earned-income-supplements-and-work-sharing-a-poli",
+      "title": "Participation Income, Earned-Income Supplements, and Work-Sharing: A Policy Framework for Canada",
+      "summary": "Participation income is the stronger bet for Canada.",
+      "content_text": "Participation income is the stronger bet for Canada.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Prices & markets",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-a-ground-up-blueprint-for-an-agentic-documentary-video-essay",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-a-ground-up-blueprint-for-an-agentic-documentary-video-essay",
+      "title": "ALDERSHOT: A Ground-Up Blueprint for an Agentic Documentary & Video-Essay Engine",
+      "summary": "STORM-style multi-perspective research + Dramatron/Re3/DOC hierarchical drafting + evaluator-optimizer critique loops), NOT the footage-matching layer.",
+      "content_text": "STORM-style multi-perspective research + Dramatron/Re3/DOC hierarchical drafting + evaluator-optimizer critique loops), NOT the footage-matching layer.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Prices & markets",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canopticon-a-cloudflare-native-pipeline-for-automated-filmmaker-grade-",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canopticon-a-cloudflare-native-pipeline-for-automated-filmmaker-grade-",
+      "title": "CANOPTICON: A Cloudflare-Native Pipeline for Automated, Filmmaker-Grade Daily News Shorts",
+      "summary": "Remotion) must run in Cloudflare Containers (max standard-4 = 4 vCPU / 12 GiB, CPU-only, no GPU), and your distinctive narrator voice should come from ElevenLabs, not Workers AI.",
+      "content_text": "Remotion) must run in Cloudflare Containers (max standard-4 = 4 vCPU / 12 GiB, CPU-only, no GPU), and your distinctive narrator voice should come from ElevenLabs, not Workers AI.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Prices & markets",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=code-generated-animation-for-automated-documentary-frameworks-visual-v",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=code-generated-animation-for-automated-documentary-frameworks-visual-v",
+      "title": "Code-Generated Animation for Automated Documentary: Frameworks, Visual Vocabularies & a Cloudflare-Native Build Plan",
+      "summary": "Build the primary visual layer in Remotion (React) and render it as chunked, parallel jobs on a Cloudflare-native stack (Workers + Durable Objects + Queues + Containers + R2), reserving Manim/GLSL/Three.",
+      "content_text": "Build the primary visual layer in Remotion (React) and render it as chunked, parallel jobs on a Cloudflare-native stack (Workers + Durable Objects + Queues + Containers + R2), reserving Manim/GLSL/Three.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Prices & markets",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-architecture-of-the-forensic-video-essay-how-the-best-investigativ",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-architecture-of-the-forensic-video-essay-how-the-best-investigativ",
+      "title": "The Architecture of the Forensic Video Essay: How the Best Investigative Channels Build Their Scripts",
+      "summary": "MEANS\") until roughly the 60–75% mark — the \"forensic turn\" that separates an essay from a news report.",
+      "content_text": "MEANS\") until roughly the 60–75% mark — the \"forensic turn\" that separates an essay from a news report.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Prices & markets",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-telescope-problem-where-ai-and-real-time-data-make-the-invisible-e",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-telescope-problem-where-ai-and-real-time-data-make-the-invisible-e",
+      "title": "The Telescope Problem: Where AI and Real-Time Data Make the Invisible Economy Legible",
+      "summary": "The real white space is instrumentation, not theory. Economics resists being \"solved\" by computation for structural reasons (reflexivity, the Lucas Critique, Goodhart's Law, performativity) — but those same limits…",
+      "content_text": "The real white space is instrumentation, not theory. Economics resists being \"solved\" by computation for structural reasons (reflexivity, the Lucas Critique, Goodhart's Law, performativity) — but those same limits…",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Prices & markets",
+        "Research"
+      ]
+    }
+  ]
+}

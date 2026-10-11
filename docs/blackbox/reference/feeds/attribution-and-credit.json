@@ -1,0 +1,274 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Canopticon — Attribution & credit",
+  "home_page_url": "https://canopticon.com/",
+  "feed_url": "https://canopticon.com/feeds/attribution-and-credit.json",
+  "description": "Questions researched in depth, and articles written from what the research found.",
+  "language": "en-CA",
+  "authors": [
+    {
+      "name": "Chris Telford",
+      "url": "https://canopticon.com/about"
+    }
+  ],
+  "hubs": [
+    {
+      "type": "WebSub",
+      "url": "https://pubsubhubbub.appspot.com/"
+    }
+  ],
+  "items": [
+    {
+      "id": "https://canopticon.com/articles/who-will-count-an-ai-assistants-influence",
+      "url": "https://canopticon.com/articles/who-will-count-an-ai-assistants-influence",
+      "title": "Who will count an AI assistant's influence: advertising attribution after the agent",
+      "summary": "Every shift in how advertising is paid for happened when a new party could count a new event. The agent that now does the buying can count the one that matters — and reports it to no one.",
+      "content_text": "Every shift in how advertising is paid for happened when a new party could count a new event. The agent that now does the buying can count the one that matters — and reports it to no one.",
+      "date_published": "2026-10-02T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-self-serve-buy-side-teardown-money-flow-legal-guardrails-and-",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-self-serve-buy-side-teardown-money-flow-legal-guardrails-and-",
+      "title": "Self-Serve Buy Side: Teardown, Money Flow, Legal Guardrails and a 30/90-Day Spec",
+      "summary": "No competitor sells proof. Paved, Passionfroot, beehiiv, EthicalAds and SponsorCal report clicks, opens, impressions and reviews at best. I found no creator or newsletter marketplace offering holdout lift, verified…",
+      "content_text": "No competitor sells proof. Paved, Passionfroot, beehiiv, EthicalAds and SponsorCal report clicks, opens, impressions and reviews at best. I found no creator or newsletter marketplace offering holdout lift, verified…",
+      "date_published": "2026-09-27T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-publisher-profile-build-it-from-public-signals-verify-it-with",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-publisher-profile-build-it-from-public-signals-verify-it-with",
+      "title": "Publisher Profile: Build It From Public Signals, Verify It With OAuth, Sell It as a Signed Audience Card",
+      "summary": "Build it from public content, verify it with OAuth, and never blur the two. YouTube's Analytics API gives consented age, gender, geography and traffic-source data. Its June 2026 derived-metrics amendment allows custom scores…",
+      "content_text": "Build it from public content, verify it with OAuth, and never blur the two. YouTube's Analytics API gives consented age, gender, geography and traffic-source data. Its June 2026 derived-metrics amendment allows custom scores…",
+      "date_published": "2026-09-27T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-seventeenth-pass-what-owning-the-redirect-is-really-for-and-w",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-seventeenth-pass-what-owning-the-redirect-is-really-for-and-w",
+      "title": "What Owning the Redirect Is Really For",
+      "summary": "Owning the redirect is worth something, but not for conversion. Its real value is maintenance and evidence. Old links rot and programs change: Amazon cut commissions again in 2026, by as much as 50% according to Adweek, and…",
+      "content_text": "Owning the redirect is worth something, but not for conversion. Its real value is maintenance and evidence. Old links rot and programs change: Amazon cut commissions again in 2026, by as much as 50% according to Adweek, and…",
+      "date_published": "2026-09-27T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-16-the-setup-handoff-page-the-agent-layer-and-the-thin-s",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-16-the-setup-handoff-page-the-agent-layer-and-the-thin-s",
+      "title": "The Setup Handoff Page, the Agent Layer, and the Thin Spots",
+      "summary": "The redesign is right, but it has to be built in tiers. Tier A covers Framer, where the remix link is referral-tracked, and Railway, where the template deploy pays the author a usage kickback. It can honestly say \"open her…",
+      "content_text": "The redesign is right, but it has to be built in tiers. Tier A covers Framer, where the remix link is referral-tracked, and Railway, where the template deploy pays the author a usage kickback. It can honestly say \"open her…",
+      "date_published": "2026-09-27T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=oral-only-interventions-across-every-layer-of-skin-structure-a-complet",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=oral-only-interventions-across-every-layer-of-skin-structure-a-complet",
+      "title": "Oral Interventions for Skin Aging: A Complete Layer-by-Layer Evidence Audit",
+      "summary": "The oral skin-aging field has now expanded well beyond Type I/III collagen and HA: there are genuine human RCTs for oral elastin peptides (VGPG Elastin), eggshell membrane (MKARE), phytoceramides (Lipowheat, rice/konjac)…",
+      "content_text": "The oral skin-aging field has now expanded well beyond Type I/III collagen and HA: there are genuine human RCTs for oral elastin peptides (VGPG Elastin), eggshell membrane (MKARE), phytoceramides (Lipowheat, rice/konjac)…",
+      "date_published": "2026-09-27T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-18-the-engagement-layer-evidence-mechanics-and-the-exper",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-18-the-engagement-layer-evidence-mechanics-and-the-exper",
+      "title": "The Engagement Layer — Evidence, Mechanics, and the Experiment That Would Prove It",
+      "summary": "Decisions are delayed, and credit is lost in the gap. Baymard finds 43% of US cart abandoners were \"just browsing / not ready to buy.\" Swym's vendor data puts the average visit-to-purchase journey at 41 days. Impact.com's…",
+      "content_text": "Decisions are delayed, and credit is lost in the gap. Baymard finds 43% of US cart abandoners were \"just browsing / not ready to buy.\" Swym's vendor data puts the average visit-to-purchase journey at 41 days. Impact.com's…",
+      "date_published": "2026-09-26T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-3-pressure-testing-trust-mediated-sponsorship-verdict-and-two-bets",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-3-pressure-testing-trust-mediated-sponsorship-verdict-and-two-bets",
+      "title": "ANCASTER Pass 3: Pressure-Testing \"Trust-Mediated Sponsorship\" — Verdict and Two Bets",
+      "summary": "SERVING + first-party click/promo-code ATTRIBUTION for a creator's OWN direct sponsors, unified across formats.",
+      "content_text": "SERVING + first-party click/promo-code ATTRIBUTION for a creator's OWN direct sponsors, unified across formats.",
+      "date_published": "2026-09-20T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten",
+      "title": "When \"Healed\" Is the Treatment Working: The Stopping Mechanism in Maintenance-Dependent Conditions",
+      "summary": "The pattern you describe is well documented in pieces but has no single name.",
+      "content_text": "The pattern you describe is well documented in pieces but has no single name.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=omega-3-krill-gut-brain-skin-axis-and-psilocybin-for-skin-aging-a-thre",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=omega-3-krill-gut-brain-skin-axis-and-psilocybin-for-skin-aging-a-thre",
+      "title": "Omega-3/Krill, Gut–Brain–Skin Axis, and Psilocybin for Skin Aging: A Three-Part Evidence Audit",
+      "summary": "TEWL that track the omega-3 index; pure fish-oil RCTs mostly measure UV/inflammation, not wrinkles, and EPA appears more potent than DHA in skin but no head-to-head wrinkle trial exists.",
+      "content_text": "TEWL that track the omega-3 index; pure fish-oil RCTs mostly measure UV/inflammation, not wrinkles, and EPA appears more potent than DHA in skin but no head-to-head wrinkle trial exists.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=portraiture-as-a-research-methodology-origins-epistemology-application",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=portraiture-as-a-research-methodology-origins-epistemology-application",
+      "title": "Portraiture as a Research Methodology: Origins, Epistemology, Applications, and Critique",
+      "summary": "Fenwick English (2000)—for the unchecked authority of the single \"truth-telling\" portraitist, its pursuit of an \"essence,\" and the difficulty of independently verifying its claims.",
+      "content_text": "Fenwick English (2000)—for the unchecked authority of the single \"truth-telling\" portraitist, its pursuit of an \"essence,\" and the difficulty of independently verifying its claims.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-six-the-carried-recommendation-pressure-tested",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-six-the-carried-recommendation-pressure-tested",
+      "title": "Ancaster, Pass Six: The Carried Recommendation, Pressure-Tested",
+      "summary": "The \"carried recommendation\" thesis holds up, but only in a narrower and stronger form than the hypothesis states.",
+      "content_text": "The \"carried recommendation\" thesis holds up, but only in a narrower and stronger form than the hypothesis states.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fourth-pass-pressure-testing-the-link-is-the-ad-and-choosing-",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fourth-pass-pressure-testing-the-link-is-the-ad-and-choosing-",
+      "title": "Ancaster, Fourth Pass: Pressure-Testing \"The Link Is the Ad\" and Choosing One Direction",
+      "summary": "Ancaster's defensible white space is not the link-in-bio page, which Linktree, Beacons, Stan and Dub already own.",
+      "content_text": "Ancaster's defensible white space is not the link-in-bio page, which Linktree, Beacons, Stan and Dub already own.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fifth-pass-seven-open-questions-on-journeys-codes-portability",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fifth-pass-seven-open-questions-on-journeys-codes-portability",
+      "title": "Ancaster, Fifth Pass: Seven Open Questions on Journeys, Codes, Portability, Merchant Demand, Program Permissions, Interactive Demos and Shopify Order Data",
+      "summary": "URLs capture only about 15–30% of the conversions that pixel-based household matching finds, and most of the rest arrives later through search, direct visits or another device.",
+      "content_text": "URLs capture only about 15–30% of the conversions that pixel-based household matching finds, and most of the rest arrives later through search, direct visits or another device.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-10-traffic-permissions-paid-amplification-signup-attribu",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-10-traffic-permissions-paid-amplification-signup-attribu",
+      "title": "Ancaster Pass 10: Traffic Permissions, Paid Amplification, Signup Attribution, Earnings Aggregation, In-House Program and Account Model",
+      "summary": "Chris's belief that he can't plug into PartnerStack is wrong.",
+      "content_text": "Chris's belief that he can't plug into PartnerStack is wrong.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-aldershot-product-bible-v1-0-september-2026",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-aldershot-product-bible-v1-0-september-2026",
+      "title": "The Aldershot Product Bible — v1.0 (September 2026)",
+      "summary": "Aldershot should win by being the one AI video editor that is predictable on price, honest about what it did, and better the longer you use it.",
+      "content_text": "Aldershot should win by being the one AI video editor that is predictable on price, honest about what it did, and better the longer you use it.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-a-delegation-first-ai-video-editor-product-concept-dossier",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-a-delegation-first-ai-video-editor-product-concept-dossier",
+      "title": "Aldershot: A Delegation-First AI Video Editor — Product Concept Dossier",
+      "summary": "Build Aldershot as a \"brief-to-cut\" delegation engine, not a better timeline.",
+      "content_text": "Build Aldershot as a \"brief-to-cut\" delegation engine, not a better timeline.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-vision-possibilities-dossier",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-vision-possibilities-dossier",
+      "title": "ALDERSHOT — Vision & Possibilities Dossier",
+      "summary": "Editing is shifting from manual timeline manipulation to natural-language direction; agentic editors (ChatCut, Descript's Underlord) already exist, but all of them keep a timeline as the ground truth.",
+      "content_text": "Editing is shifting from manual timeline manipulation to natural-language direction; agentic editors (ChatCut, Descript's Underlord) already exist, but all of them keep a timeline as the ground truth.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=design-brief-the-build-surface-for-aldershot-the-draft-room",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=design-brief-the-build-surface-for-aldershot-the-draft-room",
+      "title": "Design Brief: The Build Surface for Aldershot — \"The Draft Room\"",
+      "summary": "A surface where a video essay gets built — from a bare thesis to a structured, sourced, piece-by-piece argument — before (or alongside) Editor X.",
+      "content_text": "A surface where a video essay gets built — from a bare thesis to a structured, sourced, piece-by-piece argument — before (or alongside) Editor X.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=decision-report-which-economic-data-instrument-canopticon-should-build",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=decision-report-which-economic-data-instrument-canopticon-should-build",
+      "title": "Decision Report: Which Economic-Data Instrument CANOPTICON Should Build First",
+      "summary": "Build the Canadian \"Real Wealth Gap\" Tracker (Candidate 1) first.",
+      "content_text": "Build the Canadian \"Real Wealth Gap\" Tracker (Candidate 1) first.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-release-valve-hypothesis-a-forensic-map-of-wealth-concentration-me",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-release-valve-hypothesis-a-forensic-map-of-wealth-concentration-me",
+      "title": "The \"Release Valve\" Hypothesis: A Forensic Map of Wealth-Concentration Mechanics and the Design Space for Keeping Capital Circulating",
+      "summary": "Money is not conserved like energy; the conserved-quantity intuition is the weakest part of the framing.",
+      "content_text": "Money is not conserved like energy; the conserved-quantity intuition is the weakest part of the framing.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Attribution & credit",
+        "Research"
+      ]
+    }
+  ]
+}

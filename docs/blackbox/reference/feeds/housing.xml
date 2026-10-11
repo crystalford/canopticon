@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+<title>Canopticon — Housing</title>
+<link>https://canopticon.com/</link>
+<description>Questions researched in depth, and articles written from what the research found.</description>
+<language>en-ca</language>
+<atom:link rel="self" type="application/rss+xml" href="https://canopticon.com/feeds/housing.xml"/>
+<atom:link rel="hub" href="https://pubsubhubbub.appspot.com/"/>
+<lastBuildDate>Sat, 10 Oct 2026 12:00:00 GMT</lastBuildDate>
+<item>
+<title>Canadian recessions and the mortgage channel: rate decisions, CMHC, and five decades of housing-led downturns</title>
+<link>https://canopticon.com/articles/canadian-recessions-and-the-mortgage-channel</link>
+<guid isPermaLink="true">https://canopticon.com/articles/canadian-recessions-and-the-mortgage-channel</guid>
+<pubDate>Sat, 10 Oct 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Housing</category>
+<category>Article</category>
+<description>Every major Canadian downturn since 1980 carries a monetary-policy fingerprint, and housing is how the decision reaches people. The clearest case is 1990, where the campaign overshot its own target and Toronto prices did not pass their 1989 peak until 2002.</description>
+</item>
+<item>
+<title>Canada's short-term rental rules: supply, prices, and the mid-term rental tier that never formed</title>
+<link>https://canopticon.com/articles/canadas-short-term-rental-rules</link>
+<guid isPermaLink="true">https://canopticon.com/articles/canadas-short-term-rental-rules</guid>
+<pubDate>Sat, 10 Oct 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Housing</category>
+<category>Article</category>
+<description>Short-term rentals add flexible supply, and competition lowers prices. Canadian cities banned them anyway — and cut off a tier between a hotel and a lease just as it was forming.</description>
+</item>
+<item>
+<title>Canada's short-term rental bans and rents: what returned to the long-term market, and what actually moved prices</title>
+<link>https://canopticon.com/articles/canadas-short-term-rental-bans-and-rents</link>
+<guid isPermaLink="true">https://canopticon.com/articles/canadas-short-term-rental-bans-and-rents</guid>
+<pubDate>Sat, 10 Oct 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Housing</category>
+<category>Article</category>
+<description>Canadian cities restricted short-term rentals to bring homes back to renters. Few came back, rents fell for other reasons, and the bans squeezed a new kind of housing that sits between a hotel and a lease.</description>
+</item>
+<item>
+<title>Did Banning Airbnb Actually Fix Canadian Housing? An Evidence-Based Audit of the STR Restriction Experiment</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=did-banning-airbnb-actually-fix-canadian-housing-evidence-based-audit</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=did-banning-airbnb-actually-fix-canadian-housing-evidence-based-audit</guid>
+<pubDate>Wed, 22 Jul 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Housing</category>
+<category>Research</category>
+<description>Canadian housing affordability rests on a chain of causal assumptions — that STRs significantly reduce long-term housing supply, that banning them returns those units to the long-term rental (LTR) market, and that this added supply lowers rents.</description>
+</item>
+<item>
+<title>Hamilton's Short-Term Rental Crackdown and the &quot;Demand-Side Disruption&quot; Question</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=hamiltons-short-term-rental-crackdown-demand-side-disruption-question</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=hamiltons-short-term-rental-crackdown-demand-side-disruption-question</guid>
+<pubDate>Wed, 22 Jul 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Housing</category>
+<category>Research</category>
+<description>Hamilton, Ontario adopted one of Canada's stricter short-term rental (STR) regimes in January 2023, with full enforcement starting January 1, 2024.</description>
+</item>
+</channel>
+</rss>

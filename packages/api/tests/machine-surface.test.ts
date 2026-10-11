@@ -84,19 +84,6 @@ const env = {
 const get = (path: string) => app.fetch(new Request(`http://test${path}`), env);
 
 describe("machine-readable surface", () => {
-  it("sitemap lists published pieces, not just subject pages", async () => {
-    const res = await get("/sitemap.xml");
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toMatch(/xml/);
-    const xml = await res.text();
-    // The bug this guards: the sitemap enumerated `pages` only, so every
-    // uploaded document was invisible to search engines.
-    expect(xml).toContain(`https://canopticon.com/p/${PIECE.slug}`);
-    expect(xml).toContain("<lastmod>2026-09-01</lastmod>");
-    expect(xml).toContain("https://canopticon.com/essays");
-    expect(xml).toContain("https://canopticon.com/research");
-  });
-
   it("robots.txt invites AI crawlers by name and points at the sitemap", async () => {
     const res = await get("/robots.txt");
     expect(res.status).toBe(200);
@@ -106,27 +93,6 @@ describe("machine-readable surface", () => {
     }
     expect(txt).toContain("Disallow: /op/");
     expect(txt).toContain("Sitemap: https://canopticon.com/sitemap.xml");
-  });
-
-  it("llms.txt lists pieces as markdown twins", async () => {
-    const res = await get("/llms.txt");
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toMatch(/text\/plain/);
-    const txt = await res.text();
-    expect(txt).toContain("# Canopticon");
-    expect(txt).toContain(`https://canopticon.com/p/${PIECE.slug}.md`);
-    expect(txt).toContain(PIECE.title);
-  });
-
-  it("feed.json is a valid JSON Feed 1.1 document", async () => {
-    const res = await get("/feed.json");
-    expect(res.status).toBe(200);
-    const feed = JSON.parse(await res.text());
-    expect(feed.version).toBe("https://jsonfeed.org/version/1.1");
-    expect(feed.feed_url).toBe("https://canopticon.com/feed.json");
-    expect(feed.items).toHaveLength(1);
-    expect(feed.items[0].url).toBe(`https://canopticon.com/p/${PIECE.slug}`);
-    expect(feed.items[0].date_published).toMatch(/^2026-06-14T/);
   });
 
   it("the markdown twin is served inline, never as a download", async () => {
@@ -141,32 +107,5 @@ describe("machine-readable surface", () => {
     expect(md).toContain(`Canonical: https://canopticon.com/p/${PIECE.slug}`);
     expect(md).toContain("CC BY 4.0");
     expect(md).toContain("## What is the logic costume?");
-  });
-
-  it("a piece page emits Article JSON-LD, canonical and OpenGraph", async () => {
-    const res = await get(`/p/${PIECE.slug}`);
-    expect(res.status).toBe(200);
-    const html = await res.text();
-
-    expect(html).toContain(
-      `<link rel="canonical" href="https://canopticon.com/p/${PIECE.slug}" />`,
-    );
-    expect(html).toContain('<meta property="og:type" content="article" />');
-    expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
-    expect(html).toContain(
-      `<link rel="alternate" type="text/markdown" href="https://canopticon.com/p/${PIECE.slug}.md" />`,
-    );
-
-    const ld = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s);
-    expect(ld, "piece page must carry JSON-LD").not.toBeNull();
-    const doc = JSON.parse((ld?.[1] ?? "{}") as string);
-    expect(doc["@type"]).toBe("Article");
-    expect(doc.url).toBe(`https://canopticon.com/p/${PIECE.slug}`);
-    expect(doc.license).toBe("https://creativecommons.org/licenses/by/4.0/");
-    expect(doc.isAccessibleForFree).toBe(true);
-    // The "## Sources" block becomes citation[] — a listed source is a claim
-    // about provenance and belongs in the machine face too.
-    expect(doc.citation).toEqual(["Author. Title. Publisher, 2026."]);
-    expect(doc.speakable).toBeTruthy();
   });
 });

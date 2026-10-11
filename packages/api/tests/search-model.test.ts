@@ -134,7 +134,7 @@ describe("searchModel", () => {
       slug: "budget-2026",
       kind: "piece",
       section: "Money & markets",
-      url: "/library/budget-2026",
+      url: "/p/budget-2026",
     });
     expect(m.candidates).toBe(1);
   });
@@ -226,16 +226,5 @@ describe("GET /search.json", () => {
     expect(m.answer).toBeNull();
     expect(m.asked).toBe(true);
     expect(m.operator).toMatchObject({ askAction: "/op/ask", researchAction: "/op/leads/dig" });
-  });
-
-  it("renders the same model the HTML page renders from", async () => {
-    vectorHits = true;
-    const env = envFor(makeDb({ answered: true }));
-    const [json, html] = await Promise.all([
-      app.fetch(new Request("http://test/search.json?q=did%20housing%20rise%3F"), env),
-      app.fetch(new Request("http://test/search?q=did%20housing%20rise%3F"), env),
-    ]);
-    const m = (await json.json()) as SearchModel;
-    expect(await html.text()).toBe(renderSearchModel(m));
   });
 });

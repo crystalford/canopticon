@@ -16,7 +16,9 @@
       "packages/shared/src/types/database.ts",
       "packages/shared/src/types/api.ts",
       "packages/studio/lab",
-      "design"
+      "design",
+      "docs/blackbox",
+      "packages/api/content"
     ]
   },
   "formatter": {

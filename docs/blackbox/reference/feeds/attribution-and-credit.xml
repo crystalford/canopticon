@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+<title>Canopticon — Attribution &amp; credit</title>
+<link>https://canopticon.com/</link>
+<description>Questions researched in depth, and articles written from what the research found.</description>
+<language>en-ca</language>
+<atom:link rel="self" type="application/rss+xml" href="https://canopticon.com/feeds/attribution-and-credit.xml"/>
+<atom:link rel="hub" href="https://pubsubhubbub.appspot.com/"/>
+<lastBuildDate>Fri, 02 Oct 2026 12:00:00 GMT</lastBuildDate>
+<item>
+<title>Who will count an AI assistant's influence: advertising attribution after the agent</title>
+<link>https://canopticon.com/articles/who-will-count-an-ai-assistants-influence</link>
+<guid isPermaLink="true">https://canopticon.com/articles/who-will-count-an-ai-assistants-influence</guid>
+<pubDate>Fri, 02 Oct 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Article</category>
+<description>Every shift in how advertising is paid for happened when a new party could count a new event. The agent that now does the buying can count the one that matters — and reports it to no one.</description>
+</item>
+<item>
+<title>Self-Serve Buy Side: Teardown, Money Flow, Legal Guardrails and a 30/90-Day Spec</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-self-serve-buy-side-teardown-money-flow-legal-guardrails-and-</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-self-serve-buy-side-teardown-money-flow-legal-guardrails-and-</guid>
+<pubDate>Sun, 27 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>No competitor sells proof. Paved, Passionfroot, beehiiv, EthicalAds and SponsorCal report clicks, opens, impressions and reviews at best. I found no creator or newsletter marketplace offering holdout lift, verified…</description>
+</item>
+<item>
+<title>Publisher Profile: Build It From Public Signals, Verify It With OAuth, Sell It as a Signed Audience Card</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-publisher-profile-build-it-from-public-signals-verify-it-with</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-publisher-profile-build-it-from-public-signals-verify-it-with</guid>
+<pubDate>Sun, 27 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>Build it from public content, verify it with OAuth, and never blur the two. YouTube's Analytics API gives consented age, gender, geography and traffic-source data. Its June 2026 derived-metrics amendment allows custom scores…</description>
+</item>
+<item>
+<title>What Owning the Redirect Is Really For</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-seventeenth-pass-what-owning-the-redirect-is-really-for-and-w</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-seventeenth-pass-what-owning-the-redirect-is-really-for-and-w</guid>
+<pubDate>Sun, 27 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>Owning the redirect is worth something, but not for conversion. Its real value is maintenance and evidence. Old links rot and programs change: Amazon cut commissions again in 2026, by as much as 50% according to Adweek, and…</description>
+</item>
+<item>
+<title>The Setup Handoff Page, the Agent Layer, and the Thin Spots</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-16-the-setup-handoff-page-the-agent-layer-and-the-thin-s</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-16-the-setup-handoff-page-the-agent-layer-and-the-thin-s</guid>
+<pubDate>Sun, 27 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>The redesign is right, but it has to be built in tiers. Tier A covers Framer, where the remix link is referral-tracked, and Railway, where the template deploy pays the author a usage kickback. It can honestly say &quot;open her…</description>
+</item>
+<item>
+<title>Oral Interventions for Skin Aging: A Complete Layer-by-Layer Evidence Audit</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=oral-only-interventions-across-every-layer-of-skin-structure-a-complet</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=oral-only-interventions-across-every-layer-of-skin-structure-a-complet</guid>
+<pubDate>Sun, 27 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>The oral skin-aging field has now expanded well beyond Type I/III collagen and HA: there are genuine human RCTs for oral elastin peptides (VGPG Elastin), eggshell membrane (MKARE), phytoceramides (Lipowheat, rice/konjac)…</description>
+</item>
+<item>
+<title>The Engagement Layer — Evidence, Mechanics, and the Experiment That Would Prove It</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-18-the-engagement-layer-evidence-mechanics-and-the-exper</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-18-the-engagement-layer-evidence-mechanics-and-the-exper</guid>
+<pubDate>Sat, 26 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>Decisions are delayed, and credit is lost in the gap. Baymard finds 43% of US cart abandoners were &quot;just browsing / not ready to buy.&quot; Swym's vendor data puts the average visit-to-purchase journey at 41 days. Impact.com's…</description>
+</item>
+<item>
+<title>ANCASTER Pass 3: Pressure-Testing &quot;Trust-Mediated Sponsorship&quot; — Verdict and Two Bets</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-3-pressure-testing-trust-mediated-sponsorship-verdict-and-two-bets</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-3-pressure-testing-trust-mediated-sponsorship-verdict-and-two-bets</guid>
+<pubDate>Sun, 20 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>SERVING + first-party click/promo-code ATTRIBUTION for a creator's OWN direct sponsors, unified across formats.</description>
+</item>
+<item>
+<title>When &quot;Healed&quot; Is the Treatment Working: The Stopping Mechanism in Maintenance-Dependent Conditions</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>The pattern you describe is well documented in pieces but has no single name.</description>
+</item>
+<item>
+<title>Omega-3/Krill, Gut–Brain–Skin Axis, and Psilocybin for Skin Aging: A Three-Part Evidence Audit</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=omega-3-krill-gut-brain-skin-axis-and-psilocybin-for-skin-aging-a-thre</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=omega-3-krill-gut-brain-skin-axis-and-psilocybin-for-skin-aging-a-thre</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>TEWL that track the omega-3 index; pure fish-oil RCTs mostly measure UV/inflammation, not wrinkles, and EPA appears more potent than DHA in skin but no head-to-head wrinkle trial exists.</description>
+</item>
+<item>
+<title>Portraiture as a Research Methodology: Origins, Epistemology, Applications, and Critique</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=portraiture-as-a-research-methodology-origins-epistemology-application</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=portraiture-as-a-research-methodology-origins-epistemology-application</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>Fenwick English (2000)—for the unchecked authority of the single &quot;truth-telling&quot; portraitist, its pursuit of an &quot;essence,&quot; and the difficulty of independently verifying its claims.</description>
+</item>
+<item>
+<title>Ancaster, Pass Six: The Carried Recommendation, Pressure-Tested</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-six-the-carried-recommendation-pressure-tested</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-six-the-carried-recommendation-pressure-tested</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>The &quot;carried recommendation&quot; thesis holds up, but only in a narrower and stronger form than the hypothesis states.</description>
+</item>
+<item>
+<title>Ancaster, Fourth Pass: Pressure-Testing &quot;The Link Is the Ad&quot; and Choosing One Direction</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fourth-pass-pressure-testing-the-link-is-the-ad-and-choosing-</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fourth-pass-pressure-testing-the-link-is-the-ad-and-choosing-</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>Ancaster's defensible white space is not the link-in-bio page, which Linktree, Beacons, Stan and Dub already own.</description>
+</item>
+<item>
+<title>Ancaster, Fifth Pass: Seven Open Questions on Journeys, Codes, Portability, Merchant Demand, Program Permissions, Interactive Demos and Shopify Order Data</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fifth-pass-seven-open-questions-on-journeys-codes-portability</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fifth-pass-seven-open-questions-on-journeys-codes-portability</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>URLs capture only about 15–30% of the conversions that pixel-based household matching finds, and most of the rest arrives later through search, direct visits or another device.</description>
+</item>
+<item>
+<title>Ancaster Pass 10: Traffic Permissions, Paid Amplification, Signup Attribution, Earnings Aggregation, In-House Program and Account Model</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-10-traffic-permissions-paid-amplification-signup-attribu</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-10-traffic-permissions-paid-amplification-signup-attribu</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>Chris's belief that he can't plug into PartnerStack is wrong.</description>
+</item>
+<item>
+<title>The Aldershot Product Bible — v1.0 (September 2026)</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=the-aldershot-product-bible-v1-0-september-2026</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=the-aldershot-product-bible-v1-0-september-2026</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>Aldershot should win by being the one AI video editor that is predictable on price, honest about what it did, and better the longer you use it.</description>
+</item>
+<item>
+<title>Aldershot: A Delegation-First AI Video Editor — Product Concept Dossier</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-a-delegation-first-ai-video-editor-product-concept-dossier</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-a-delegation-first-ai-video-editor-product-concept-dossier</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>Build Aldershot as a &quot;brief-to-cut&quot; delegation engine, not a better timeline.</description>
+</item>
+<item>
+<title>ALDERSHOT — Vision &amp; Possibilities Dossier</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-vision-possibilities-dossier</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-vision-possibilities-dossier</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>Editing is shifting from manual timeline manipulation to natural-language direction; agentic editors (ChatCut, Descript's Underlord) already exist, but all of them keep a timeline as the ground truth.</description>
+</item>
+<item>
+<title>Design Brief: The Build Surface for Aldershot — &quot;The Draft Room&quot;</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=design-brief-the-build-surface-for-aldershot-the-draft-room</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=design-brief-the-build-surface-for-aldershot-the-draft-room</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>A surface where a video essay gets built — from a bare thesis to a structured, sourced, piece-by-piece argument — before (or alongside) Editor X.</description>
+</item>
+<item>
+<title>Decision Report: Which Economic-Data Instrument CANOPTICON Should Build First</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=decision-report-which-economic-data-instrument-canopticon-should-build</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=decision-report-which-economic-data-instrument-canopticon-should-build</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>Build the Canadian &quot;Real Wealth Gap&quot; Tracker (Candidate 1) first.</description>
+</item>
+<item>
+<title>The &quot;Release Valve&quot; Hypothesis: A Forensic Map of Wealth-Concentration Mechanics and the Design Space for Keeping Capital Circulating</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=the-release-valve-hypothesis-a-forensic-map-of-wealth-concentration-me</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=the-release-valve-hypothesis-a-forensic-map-of-wealth-concentration-me</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Attribution &amp; credit</category>
+<category>Research</category>
+<description>Money is not conserved like energy; the conserved-quantity intuition is the weakest part of the framing.</description>
+</item>
+</channel>
+</rss>

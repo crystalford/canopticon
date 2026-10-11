@@ -1,0 +1,166 @@
+{
+ "version": "https://jsonfeed.org/version/1.1",
+ "title": "Canopticon — Attention & feeds",
+ "home_page_url": "https://canopticon.com/",
+ "feed_url": "https://canopticon.com/feeds/attention-and-feeds.json",
+ "description": "Questions researched in depth, and articles written from what the research found.",
+ "language": "en-CA",
+ "authors": [
+  {
+   "name": "Chris Telford",
+   "url": "https://canopticon.com/about"
+  }
+ ],
+ "hubs": [
+  {
+   "type": "WebSub",
+   "url": "https://pubsubhubbub.appspot.com/"
+  }
+ ],
+ "items": [
+  {
+   "id": "https://canopticon.com/articles/paying-to-reach-curious-readers-in-2026",
+   "url": "https://canopticon.com/articles/paying-to-reach-curious-readers-in-2026",
+   "title": "Paying to reach curious readers in 2026: ChatGPT ads, feed ads, paid newsletter recommendations, and the labelling rules",
+   "summary": "ChatGPT now sells self-serve ads, but they cost about 3–8× more per impression than feed ads and are hard to measure, so the cheapest curious readers are still on Meta and Reddit. An ad can be the whole useful answer and still carry its label: the rules draw the line at fake people and hidden sponsors, not at ads that are worth reading.",
+   "content_text": "ChatGPT now sells self-serve ads, but they cost about 3–8× more per impression than feed ads and are hard to measure, so the cheapest curious readers are still on Meta and Reddit. An ad can be the whole useful answer and still carry its label: the rules draw the line at fake people and hidden sponsors, not at ads that are worth reading.",
+   "date_published": "2026-10-11T13:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/how-youtube-instagram-and-tiktok-rank-video-in-2026",
+   "url": "https://canopticon.com/articles/how-youtube-instagram-and-tiktok-rank-video-in-2026",
+   "title": "How YouTube, Instagram and TikTok rank video in 2026: satisfaction signals, AI content understanding, and penalties for reposting",
+   "summary": "Recommendation feeds have stopped scoring behaviour alone. A language model now watches the content and judges it — better than the crowd-sourced raters it replaced — while reposting is penalised in the ranking itself. Much of what creators are taught describes the system of a decade ago.",
+   "content_text": "Recommendation feeds have stopped scoring behaviour alone. A language model now watches the content and judges it — better than the crowd-sourced raters it replaced — while reposting is penalised in the ranking itself. Much of what creators are taught describes the system of a decade ago.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/why-people-keep-scrolling",
+   "url": "https://canopticon.com/articles/why-people-keep-scrolling",
+   "title": "Why people keep scrolling: habit, infinite feeds, and the evidence against the dopamine explanation",
+   "summary": "The best evidence says people keep scrolling because of habit and a feed that never ends — not because of a dopamine jackpot. And engagement-ranked feeds keep showing people what they say they do not want.",
+   "content_text": "The best evidence says people keep scrolling because of habit and a feed that never ends — not because of a dopamine jackpot. And engagement-ranked feeds keep showing people what they say they do not want.",
+   "date_published": "2026-10-09T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-frontier-scan-pass-7-the-agent-is-now-the-audience-and-right-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-frontier-scan-pass-7-the-agent-is-now-the-audience-and-right-",
+   "title": "Frontier Scan: The Agent Is Now the Audience, and Right Now It Reads Merchant Feeds, Not Creators",
+   "summary": "Frontier #1 (agents) matters most, and it changes the pass-six plan. Profound's tracking found feed-sourced ChatGPT picks jumping from 8.26% to 61.54% on 10 July 2026. OpenAI retired in-chat Instant Checkout in March 2026.…",
+   "content_text": "Frontier #1 (agents) matters most, and it changes the pass-six plan. Profound's tracking found feed-sourced ChatGPT picks jumping from 8.26% to 61.54% on 10 July 2026. OpenAI retired in-chat Instant Checkout in March 2026.…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=project-ancaster-what-influencer-advertising-systems-teach-an-indie-ad",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=project-ancaster-what-influencer-advertising-systems-teach-an-indie-ad",
+   "title": "Project Ancaster: What Influencer Advertising Systems Teach an Indie Ad Network — Strategy Memo (September 2026)",
+   "summary": "Ancaster's best move into the creator economy is not a new influencer marketplace.",
+   "content_text": "Ancaster's best move into the creator economy is not a new influencer marketplace.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-",
+   "title": "What Makes an Attribution Paradigm Shift — and Whether One Is Available to Ancaster in 2026",
+   "summary": "No shift on the scale of CPM→CPC→CPA is available for Ancaster to cause today.",
+   "content_text": "No shift on the scale of CPM→CPC→CPA is available for Ancaster to cause today.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=a-public-accept-the-offer-work-platform-does-it-exist-and-is-it-crazy",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=a-public-accept-the-offer-work-platform-does-it-exist-and-is-it-crazy",
+   "title": "A Public \"Accept-the-Offer\" Work Platform: Does It Exist, and Is It Crazy?",
+   "summary": "Pieces of it already run at scale around the world, from India's rural job guarantee to a fully evaluated universal job guarantee in Austria.",
+   "content_text": "Pieces of it already run at scale around the world, from India's rural job guarantee to a fully evaluated universal job guarantee in Austria.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-interstitial-standard-v1-interactive-pages-partner-powered-co",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-interstitial-standard-v1-interactive-pages-partner-powered-co",
+   "title": "Ancaster Interstitial Standard v1: Interactive Pages, Partner-Powered Components, and Feed-Native Offers",
+   "summary": "ElevenLabs voice), placed between the creator's endorsement and one dominant disclosed affiliate CTA.",
+   "content_text": "ElevenLabs voice), placed between the creator's endorsement and one dominant disclosed affiliate CTA.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-12-the-functional-toolset-and-the-integration-map",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-12-the-functional-toolset-and-the-integration-map",
+   "title": "Ancaster Pass 12: The Functional Toolset and the Integration Map",
+   "summary": "It should hand everything else to the platforms creators already use, through five native integrations (Stripe, Kit, beehiiv, Ghost, YouTube) plus a webhooks/Zapier/MCP layer.",
+   "content_text": "It should hand everything else to the platforms creators already use, through five native integrations (Stripe, Kit, beehiiv, Ghost, YouTube) plus a webhooks/Zapier/MCP layer.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-publisher-funnel-turning-a-creator-s-affiliate-links-into-creator-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-publisher-funnel-turning-a-creator-s-affiliate-links-into-creator-",
+   "title": "The Publisher Funnel: Turning a Creator's Affiliate Links into Creator-Owned Funnels — Eighth Research Pass for Ancaster",
+   "summary": "A publisher-owned funnel is worth building, but not for the reason the affiliate gurus give.",
+   "content_text": "A publisher-owned funnel is worth building, but not for the reason the affiliate gurus give.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-11-the-indie-saas-advertiser-side-buyer-reality-tools-pr",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-11-the-indie-saas-advertiser-side-buyer-reality-tools-pr",
+   "title": "Ancaster Pass 11: The Indie SaaS Advertiser Side — Buyer Reality, Tools, Pricing and the Cascade",
+   "summary": "Indie founders will not pay Ancaster to track affiliates, because tracking is already a $19–$49/month commodity and free inside several merchant-of-record platforms.",
+   "content_text": "Indie founders will not pay Ancaster to track affiliates, because tracking is already a $19–$49/month commodity and free inside several merchant-of-record platforms.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-state-of-algorithmic-quality-ai-content-assessment-and-discovery-a",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-state-of-algorithmic-quality-ai-content-assessment-and-discovery-a",
+   "title": "The State of Algorithmic Quality, AI Content Assessment, and Discovery Alternatives (June 2026)",
+   "summary": "AI content-understanding models (including Gemini and multimodal models) are running inside production recommendation systems, not just moderation or search.",
+   "content_text": "AI content-understanding models (including Gemini and multimodal models) are running inside production recommendation systems, not just moderation or search.",
+   "date_published": "2026-06-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  }
+ ]
+}

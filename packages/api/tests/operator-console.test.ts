@@ -45,8 +45,8 @@ describe("one site, permission layers — /op/* GET dissolves into public routes
     "/op/synthesis": "/",
     "/op/studio": "/",
     "/op/outputs": "/research",
-    "/op/library": "/library",
-    "/op/library/some-slug": "/library/some-slug",
+    "/op/library": "/desk",
+    "/op/library/some-slug": "/p/some-slug",
   })) {
     it(`${from} redirects to ${to}`, async () => {
       const res = await app.fetch(new Request(`http://test${from}`), env);
@@ -171,10 +171,10 @@ describe("public site is byte-stable for anonymous viewers (no regression)", () 
     // documents live at /research, so both go straight there — no chain.
     const pat = await app.fetch(new Request("http://test/patterns"), env);
     expect(pat.status).toBe(301);
-    expect(pat.headers.get("location")).toBe("/research");
+    expect(pat.headers.get("location")).toBe("/library?kind=Research");
+    // /investigations is a shelf again in the Black Box design.
     const inv = await app.fetch(new Request("http://test/investigations"), env);
-    expect(inv.status).toBe(301);
-    expect(inv.headers.get("location")).toBe("/research");
+    expect(inv.status).toBe(200);
   });
 
   // /about is a real page again — it answers "what is this publication",
@@ -183,14 +183,14 @@ describe("public site is byte-stable for anonymous viewers (no regression)", () 
   it("/about renders and /methodology still 301s into Method", async () => {
     const about = await app.fetch(new Request("http://test/about"), env);
     expect(about.status).toBe(200);
-    expect(await about.text()).toContain("What's published here");
+    expect(await about.text()).toContain("Who writes this");
 
     const methodology = await app.fetch(new Request("http://test/methodology"), env);
     expect(methodology.status).toBe(301);
-    expect(methodology.headers.get("location")).toBe("/method");
+    expect(methodology.headers.get("location")).toBe("/about#m-rules");
 
     const method = await app.fetch(new Request("http://test/method"), env);
-    expect(method.status).toBe(200);
+    expect(method.status).toBe(301);
   });
 
   it("public site serves the favicon", async () => {
@@ -200,7 +200,7 @@ describe("public site is byte-stable for anonymous viewers (no regression)", () 
   });
 
   it("anonymous /research renders without an operator strip", async () => {
-    const res = await app.fetch(new Request("http://test/research"), env);
+    const res = await app.fetch(new Request("http://test/library"), env);
     expect(res.status).toBe(200);
     const html = await res.text();
     // The operator strip only renders when is_operator=true. Anonymous view

@@ -212,7 +212,7 @@ function renderLineage(l: LibraryLineage | null): string {
     const name = escapeHtml(l.parentTitle ?? l.parentSlug ?? "a document");
     parts.push(
       l.parentSlug
-        ? `Grew from <a class="ac" href="/library/${escapeAttr(l.parentSlug)}">${name}</a>`
+        ? `Grew from <a class="ac" href="/p/${escapeAttr(l.parentSlug)}">${name}</a>`
         : `Grew from ${name}`,
     );
   }

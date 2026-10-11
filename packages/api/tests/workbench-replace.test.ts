@@ -155,7 +155,7 @@ describe("POST /op/library/:id/replace — a new version", () => {
     const { env, calls } = makeEnv();
     const res = await replace(env, NEW_BODY);
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/library?replaced=1&readings_lost=1");
+    expect(res.headers.get("location")).toBe("/desk?replaced=1&readings_lost=1");
 
     const update = calls.find((c) => /UPDATE pieces SET body_md = \?/.test(c.sql));
     expect(update).toBeDefined();
@@ -206,7 +206,7 @@ describe("POST /op/library/:id/replace — a new version", () => {
   it("refuses the same file before writing anything", async () => {
     const { env, calls } = makeEnv({ metadata: { content_sha256: await sha256(OLD_BODY) } });
     const res = await replace(env, OLD_BODY);
-    expect(res.headers.get("location")).toBe("/library?error=same+file");
+    expect(res.headers.get("location")).toBe("/desk?error=same+file");
     expect(calls.some((c) => /INSERT|UPDATE|DELETE/.test(c.sql))).toBe(false);
   });
 });

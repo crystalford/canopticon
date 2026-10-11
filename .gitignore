@@ -62,3 +62,6 @@ packages/studio/films/strategies/out/*.webm
 
 # Screenshot output from packages/api/scripts/look.mts
 .look/
+
+# Generated content store (scripts/build-content.mjs)
+packages/api/src/site/content/store.gen.json

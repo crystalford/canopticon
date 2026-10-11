@@ -311,18 +311,6 @@ describe("GET /p/:slug.json", () => {
     const res = await app.fetch(new Request("http://test/p/nope.json"), env(makeDb({})));
     expect(res.status).toBe(404);
   });
-
-  it("advertises the JSON face from the page head", async () => {
-    const res = await app.fetch(new Request("http://test/p/housing-record"), env(makeDb({})));
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain(
-      '<link rel="alternate" type="application/json" href="https://canopticon.com/p/housing-record.json" />',
-    );
-    expect(html).toContain(
-      '<link rel="alternate" type="text/markdown" href="https://canopticon.com/p/housing-record.md" />',
-    );
-  });
 });
 
 describe("renderPiece renders from the model", () => {

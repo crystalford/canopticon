@@ -21,18 +21,18 @@ async function readingRedirect(db: D1Database, userId: string, pieceId: string):
     "SELECT slug FROM pieces WHERE id = ? AND user_id = ?",
     [pieceId, userId],
   );
-  return p ? `/p/${p.slug}` : "/library";
+  return p ? `/p/${p.slug}` : "/desk";
 }
 
 // form: piece_id, passage (verbatim, ≥40 chars), note (markdown)
 app.post("/readings", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library?error=No%20operator%20user");
+  if (!userId) return c.redirect("/desk?error=No%20operator%20user");
   const form = await c.req.parseBody();
   const pieceId = typeof form.piece_id === "string" ? form.piece_id.trim() : "";
   const passage = typeof form.passage === "string" ? form.passage : "";
   const note = typeof form.note === "string" ? form.note : "";
-  if (!pieceId) return c.redirect("/library?error=No%20document");
+  if (!pieceId) return c.redirect("/desk?error=No%20document");
   const back = await readingRedirect(c.env.DB, userId, pieceId);
   const { createReading } = await import("../../lib/readings");
   const result = await createReading(c.env, userId, pieceId, passage, note);
@@ -42,14 +42,14 @@ app.post("/readings", async (c) => {
 
 app.post("/readings/:id/delete", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library?error=No%20operator%20user");
+  if (!userId) return c.redirect("/desk?error=No%20operator%20user");
   const id = c.req.param("id");
   const row = await one<{ piece_id: string }>(
     c.env.DB,
     "SELECT piece_id FROM readings WHERE id = ? AND user_id = ?",
     [id, userId],
   );
-  const back = row ? await readingRedirect(c.env.DB, userId, row.piece_id) : "/library";
+  const back = row ? await readingRedirect(c.env.DB, userId, row.piece_id) : "/desk";
   const { deleteReading } = await import("../../lib/readings");
   await deleteReading(c.env.DB, userId, id);
   return c.redirect(`${back}#readings`);

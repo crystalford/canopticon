@@ -227,7 +227,7 @@ describe("how a settled lead reads", () => {
       quotes: [{ text: "A quote", piece_id: "p1", slug: "doc-a", title: "Doc A" }],
       discarded: 0,
     });
-    expect(html).toContain('href="/library/doc-a"');
+    expect(html).toContain('href="/p/doc-a"');
     expect(html).toContain("Doc A");
   });
 });

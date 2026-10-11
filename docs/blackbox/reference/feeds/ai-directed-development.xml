@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+<title>Canopticon — AI-directed development</title>
+<link>https://canopticon.com/</link>
+<description>Questions researched in depth, and articles written from what the research found.</description>
+<language>en-ca</language>
+<atom:link rel="self" type="application/rss+xml" href="https://canopticon.com/feeds/ai-directed-development.xml"/>
+<atom:link rel="hub" href="https://pubsubhubbub.appspot.com/"/>
+<lastBuildDate>Sat, 10 Oct 2026 12:00:00 GMT</lastBuildDate>
+<item>
+<title>Language models and idea diversity: homogenisation within a session, across users, and between companies</title>
+<link>https://canopticon.com/articles/language-models-and-idea-diversity</link>
+<guid isPermaLink="true">https://canopticon.com/articles/language-models-and-idea-diversity</guid>
+<pubDate>Sat, 10 Oct 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>AI-directed development</category>
+<category>Article</category>
+<description>Ask a language model for something new and it pulls toward what everyone else would say — across companies, over long sessions, and across everyone using it. Real novelty has a shape the models do not reach for on their own.</description>
+</item>
+<item>
+<title>Unverified hunches in AI-assisted software work: the certainty handoff and one-sided memory</title>
+<link>https://canopticon.com/articles/unverified-hunches-in-ai-assisted-software-work</link>
+<guid isPermaLink="true">https://canopticon.com/articles/unverified-hunches-in-ai-assisted-software-work</guid>
+<pubDate>Fri, 09 Oct 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>AI-directed development</category>
+<category>Article</category>
+<description>A hunch that feels right gets handed to a collaborator as if it had been checked. When the collaborator is an AI that starts every session blank, nobody checks it at all.</description>
+</item>
+<item>
+<title>Correct but Not Yet Known: The Science of Treating a Fast Intuition as a Verified Conclusion</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>AI-directed development</category>
+<category>Research</category>
+<description>Valerie Thompson's &quot;Feeling of Rightness&quot; and Ackerman &amp; Thompson's meta-reasoning framework describe this gate.</description>
+</item>
+<item>
+<title>Stateless Partners, Shared Traces: Common Ground, Stigmergy and Naturalistic Decision Making in AI-Directed Software Development</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=stateless-partners-shared-traces-common-ground-stigmergy-and-naturalis</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=stateless-partners-shared-traces-common-ground-stigmergy-and-naturalis</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>AI-directed development</category>
+<category>Research</category>
+<description>NDM has never been applied to directing coding agents.</description>
+</item>
+<item>
+<title>ALDERSHOT: How It Works, Moment to Moment — A &quot;How It Works&quot; Dossier</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-how-it-works-moment-to-moment-a-how-it-works-dossier</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-how-it-works-moment-to-moment-a-how-it-works-dossier</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>AI-directed development</category>
+<category>Research</category>
+<description>The core feel never changes; only the number of doors that open changes.</description>
+</item>
+<item>
+<title>The Creative-Layer Dossier for ALDERSHOT: Montage, the &quot;Device Object,&quot; and the Sourcing Engine</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=the-creative-layer-dossier-for-aldershot-montage-the-device-object-and</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=the-creative-layer-dossier-for-aldershot-montage-the-device-object-and</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>AI-directed development</category>
+<category>Research</category>
+<description>Write-A-Video, SKALD, ESA), match-cut discovery (Netflix's WACV 2023 system), shot-type classification (MovieShots/SGNet), aesthetic scoring (LAION), and multimodal retrieval (Twelve Labs Marengo, CLIP/SigLIP).</description>
+</item>
+<item>
+<title>ALDERSHOT — Build Blueprint, Competitive Landscape &amp; Product/UX Design</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-build-blueprint-competitive-landscape-product-ux-design</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-build-blueprint-competitive-landscape-product-ux-design</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>AI-directed development</category>
+<category>Research</category>
+<description>Build it as a &quot;script-is-the-timeline&quot; agentic documentary engine, not another NLE.</description>
+</item>
+<item>
+<title>Eight Innovative Animation &amp; Visualization Ideas for Code-First Documentary Production</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=eight-innovative-animation-visualization-ideas-for-code-first-document</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=eight-innovative-animation-visualization-ideas-for-code-first-document</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>AI-directed development</category>
+<category>Research</category>
+<description>Seven of the eight ideas are technically shippable today in a code-first stack (Remotion + Web Audio/Tone.</description>
+</item>
+<item>
+<title>Speculative &amp; Emerging Oral Compounds for Skin Aging — Mechanism-First Tier Report (Pass 1)</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=speculative-emerging-oral-compounds-for-skin-aging-mechanism-first-tie</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=speculative-emerging-oral-compounds-for-skin-aging-mechanism-first-tie</guid>
+<pubDate>Tue, 01 Sep 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>AI-directed development</category>
+<category>Research</category>
+<description>Almost everything in this universe is &quot;mechanism-plus-preclinical,&quot; not proven by oral skin RCTs.</description>
+</item>
+<item>
+<title>A Unified Cloudflare-Native Research System for Thesis-Depth Work: Landscape, Architecture, and Feasibility (June 2026)</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=a-unified-cloudflare-native-research-system-for-thesis-depth-work-land</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=a-unified-cloudflare-native-research-system-for-thesis-depth-work-land</guid>
+<pubDate>Mon, 01 Jun 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>AI-directed development</category>
+<category>Research</category>
+<description>Cloudflare Worker, with the LLM-native paid tools (Elicit, Consensus, OpenAI/Gemini Deep Research, Perplexity Sonar) bolted on as optional &quot;synthesis&quot; layers, NOT as the coverage backbone.</description>
+</item>
+</channel>
+</rss>

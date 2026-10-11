@@ -65,13 +65,13 @@ ${skipped ? `  <p class="xp-note">${skipped} document${skipped === 1 ? " has" : 
   <h1>Download the reports</h1>
   <p class="phead-dek">There are no uploaded reports to download yet.</p>
 </header>
-<section class="sec"><p><a href="/library">Back to the library →</a></p></section>`;
+<section class="sec"><p><a href="/desk">Back to the library →</a></p></section>`;
 
   return renderPage({
     title: "Download the reports",
     description: "Every uploaded report as markdown, in zips small enough to open anywhere.",
     body,
-    activeNav: "/library",
+    activeNav: "/desk",
     zone: "library",
   });
 }

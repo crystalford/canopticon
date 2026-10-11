@@ -1,0 +1,322 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Canopticon — McLuhan & media theory",
+  "home_page_url": "https://canopticon.com/",
+  "feed_url": "https://canopticon.com/feeds/mcluhan-and-media-theory.json",
+  "description": "Questions researched in depth, and articles written from what the research found.",
+  "language": "en-CA",
+  "authors": [
+    {
+      "name": "Chris Telford",
+      "url": "https://canopticon.com/about"
+    }
+  ],
+  "hubs": [
+    {
+      "type": "WebSub",
+      "url": "https://pubsubhubbub.appspot.com/"
+    }
+  ],
+  "items": [
+    {
+      "id": "https://canopticon.com/Canopticon%20Paper%20Krasis.dc.html",
+      "url": "https://canopticon.com/Canopticon%20Paper%20Krasis.dc.html",
+      "title": "Krasis",
+      "summary": "The synthesis of the series. McLuhan said every medium changes the ratio among our senses; the paper series tests that literally, from ADHD and typing to drugs and addiction, and find one configuration that media, drugs and illness all re-temper.",
+      "content_text": "The synthesis of the series. McLuhan said every medium changes the ratio among our senses; the paper series tests that literally, from ADHD and typing to drugs and addiction, and find one configuration that media, drugs and illness all re-temper.",
+      "date_published": "2026-10-05T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Paper"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Paper%20Exocrasis.dc.html",
+      "url": "https://canopticon.com/Canopticon%20Paper%20Exocrasis.dc.html",
+      "title": "Exocrasis",
+      "summary": "The computing environment, not the screen, is the medium: keyboard, memory, search and network move part of the configuration of the senses and of memory outside the body.",
+      "content_text": "The computing environment, not the screen, is the medium: keyboard, memory, search and network move part of the configuration of the senses and of memory outside the body.",
+      "date_published": "2026-10-05T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Paper"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Paper%20Heterocrasis.dc.html",
+      "url": "https://canopticon.com/Canopticon%20Paper%20Heterocrasis.dc.html",
+      "title": "Heterocrasis",
+      "summary": "ADHD as a different starting balance of the senses. The strongest difference is in overall gain; the body and inner speech are mixed; binding is not looser.",
+      "content_text": "ADHD as a different starting balance of the senses. The strongest difference is in overall gain; the body and inner speech are mixed; binding is not looser.",
+      "date_published": "2026-10-05T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Paper"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Paper%20Pharmakrasis.dc.html",
+      "url": "https://canopticon.com/Canopticon%20Paper%20Pharmakrasis.dc.html",
+      "title": "Pharmakrasis",
+      "summary": "Each class of drug sets its own balance of the senses — and the evidence for that is better than for any medium. When a drug meets a medium, as music does in psychedelic therapy, the two make a third thing.",
+      "content_text": "Each class of drug sets its own balance of the senses — and the evidence for that is better than for any medium. When a drug meets a medium, as music does in psychedelic therapy, the two make a third thing.",
+      "date_published": "2026-10-05T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Paper"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Paper%20Narcocrasis.dc.html",
+      "url": "https://canopticon.com/Canopticon%20Paper%20Narcocrasis.dc.html",
+      "title": "Narcocrasis",
+      "summary": "In dependence, what goes unseen is not the drug but the shifted baseline: the allostatic state is the medium, the drug its content. Two routes back — one turns the gain down, one makes the ground visible.",
+      "content_text": "In dependence, what goes unseen is not the drug but the shifted baseline: the allostatic state is the medium, the drug its content. Two routes back — one turns the gain down, one makes the ground visible.",
+      "date_published": "2026-10-05T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Paper"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Paper%20Typomora.dc.html",
+      "url": "https://canopticon.com/Canopticon%20Paper%20Typomora.dc.html",
+      "title": "Typomora",
+      "summary": "McLuhan said electric media would bring back the voice. For fifty years computers made us type instead. The delay was the keyboard, not a mistake in the theory — and it is ending.",
+      "content_text": "McLuhan said electric media would bring back the voice. For fifty years computers made us type instead. The delay was the keyboard, not a mistake in the theory — and it is ending.",
+      "date_published": "2026-10-04T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Paper"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Paper%20Syncrasis.dc.html",
+      "url": "https://canopticon.com/Canopticon%20Paper%20Syncrasis.dc.html",
+      "title": "Sensory syncrasis",
+      "summary": "McLuhan meant his \"sense ratios\" literally. The brain science he reached for failed; predictive processing now gives the idea a mechanism, a name and five tests.",
+      "content_text": "McLuhan meant his \"sense ratios\" literally. The brain science he reached for failed; predictive processing now gives the idea a mechanism, a name and five tests.",
+      "date_published": "2026-10-04T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Paper"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=typomora-neuroscience-naming-and-framing-for-paper-3-the-typed-delay-a",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=typomora-neuroscience-naming-and-framing-for-paper-3-the-typed-delay-a",
+      "title": "Typomora: Neuroscience, Naming and Framing for Paper 3",
+      "summary": "The neuroscience: Literacy measurably changes the brain. Dehaene et al. (2010, Science) found increased responses to letters in the visual word form area (VWFA), a small displacement of face responses, and enhanced…",
+      "content_text": "The neuroscience: Literacy measurably changes the brain. Dehaene et al. (2010, Science) found increased responses to letters in the visual word form area (VWFA), a small displacement of face responses, and enhanced…",
+      "date_published": "2026-10-04T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-computing-environment-and-sensory-syncrasis-evidence-review-for-pa",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-computing-environment-and-sensory-syncrasis-evidence-review-for-pa",
+      "title": "The Computing Environment and Sensory Syncrasis: Evidence Review for Paper 2",
+      "summary": "What the environment tunes toward: an outward-facing, fast-switching, offloaded mode. Readers calibrate less carefully and process expository text more shallowly on screens (g ≈ −0.21). Memory shifts toward external stores…",
+      "content_text": "What the environment tunes toward: an outward-facing, fast-switching, offloaded mode. Readers calibrate less carefully and process expository text more shallowly on screens (g ≈ −0.21). Memory shifts toward external stores…",
+      "date_published": "2026-10-04T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=sensory-syncrasis-evidence-base-screens-paper-a-and-adhd-paper-b",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=sensory-syncrasis-evidence-base-screens-paper-a-and-adhd-paper-b",
+      "title": "Sensory Syncrasis Evidence Base: Screens (Paper A) and ADHD (Paper B)",
+      "summary": "Paper A (Screens): Change is real but mostly domain-specific and often enhancing. Action video games causally improve perceptual and attentional skills (Bediou et al. 2018: g = 0.34 in intervention studies, g = 0.55…",
+      "content_text": "Paper A (Screens): Change is real but mostly domain-specific and often enhancing. Action video games causally improve perceptual and attentional skills (Bediou et al. 2018: g = 0.34 in intervention studies, g = 0.55…",
+      "date_published": "2026-10-04T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
+      "title": "The Precision Ratio, Revisited: Why \"Ratio\" Is Half Right, and What to Call the Whole",
+      "summary": "Naming study",
+      "content_text": "Naming study",
+      "date_published": "2026-10-04T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-medium-becomes-the-ground-mcluhan-s-media-theory-and-the-allostati",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-medium-becomes-the-ground-mcluhan-s-media-theory-and-the-allostati",
+      "title": "The Medium Becomes the Ground: McLuhan and the Allostatic Model of Addiction (rebuilt)",
+      "summary": "Work linking McLuhan to drugs and addiction exists only at the level of discourse and metaphor. The nearest example is Hartogsohn & Vudka (2023, Transcultural Psychiatry), which is about smartphone \"addiction\" and McLuhan's…",
+      "content_text": "Work linking McLuhan to drugs and addiction exists only at the level of discourse and metaphor. The nearest example is Hartogsohn & Vudka (2023, Transcultural Psychiatry), which is about smartphone \"addiction\" and McLuhan's…",
+      "date_published": "2026-10-04T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-medium-becomes-the-ground-foundation-research-on-sense-ratios-prec",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-medium-becomes-the-ground-foundation-research-on-sense-ratios-prec",
+      "title": "The Medium Becomes the Ground: Foundation Research on Sense Ratios, Precision, Interoception, Allostasis and Addiction",
+      "summary": "Historiography: McLuhan stated in physiological terms that media \"alter sense ratios or patterns of perception steadily and without any resistance,\" funded and ran media-comparison experiments in the 1950s, and in…",
+      "content_text": "Historiography: McLuhan stated in physiological terms that media \"alter sense ratios or patterns of perception steadily and without any resistance,\" funded and ran media-comparison experiments in the 1950s, and in…",
+      "date_published": "2026-10-04T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/articles/the-counter-irritant-spiral",
+      "url": "https://canopticon.com/articles/the-counter-irritant-spiral",
+      "title": "The counter-irritant spiral: McLuhan, Hans Selye, and relief that deepens the need for relief",
+      "summary": "In 1964 McLuhan, reading the stress researcher Hans Selye, described relief that deepens the need for relief \"like a drug habit.\" What users stop noticing is not the drug but their own shifted baseline.",
+      "content_text": "In 1964 McLuhan, reading the stress researcher Hans Selye, described relief that deepens the need for relief \"like a drug habit.\" What users stop noticing is not the drug but their own shifted baseline.",
+      "date_published": "2026-10-01T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=price-without-discovery-from-the-signal-to-the-instruction",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=price-without-discovery-from-the-signal-to-the-instruction",
+      "title": "Price Without Discovery: From Market Signal to Algorithmic Instruction",
+      "summary": "The lead thesis is sound and publishable: for two centuries the price was understood as an emergent signal no one sets (Hayek, 1945); algorithmic, dynamic, and surveillance pricing increasingly make the price computed and…",
+      "content_text": "The lead thesis is sound and publishable: for two centuries the price was understood as an emergent signal no one sets (Hayek, 1945); algorithmic, dynamic, and surveillance pricing increasingly make the price computed and…",
+      "date_published": "2026-09-27T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=after-the-net-comes-up-tom-tyler-s-procrustean-probe-the-tetrad-debate",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=after-the-net-comes-up-tom-tyler-s-procrustean-probe-the-tetrad-debate",
+      "title": "After the Net Comes Up: Tom Tyler's \"Procrustean Probe,\" the Tetrad Debate, and What CANOPTICON Should Do After Ingestion",
+      "summary": "Tom Tyler's point is more useful than a simple \"the tetrad is vague.",
+      "content_text": "Tom Tyler's point is more useful than a simple \"the tetrad is vague.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=net-casting-a-practice-for-turning-ai-research-into-a-generative-mind-",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=net-casting-a-practice-for-turning-ai-research-into-a-generative-mind-",
+      "title": "Net-Casting: A Practice for Turning AI Research Into a Generative, Mind-Changing Craft",
+      "summary": "The core finding is that AI research agents drift toward consensus by default, so novelty does not come from better questions alone.",
+      "content_text": "The core finding is that AI research agents drift toward consensus by default, so novelty does not come from better questions alone.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-network-that-is-the-model-architectures-for-a-generative-substrate",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-network-that-is-the-model-architectures-for-a-generative-substrate",
+      "title": "The Network That Is the Model: Architectures for a Generative-Substrate Social Medium",
+      "summary": "The most ambitious version is buildable in fragments today but not as a monolith: no existing platform makes a continuously-learning generative model the core substrate of a human social network.",
+      "content_text": "The most ambitious version is buildable in fragments today but not as a monolith: no existing platform makes a continuously-learning generative model the core substrate of a human social network.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-notebooklm-constructs-coherent-narratives-and-how-to-replicate-it-",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-notebooklm-constructs-coherent-narratives-and-how-to-replicate-it-",
+      "title": "How NotebookLM Constructs Coherent Narratives — and How to Replicate It for Video-Essay Scripts",
+      "summary": "NotebookLM does not use a published, special \"argument-structuring algorithm.",
+      "content_text": "NotebookLM does not use a published, special \"argument-structuring algorithm.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-price-frontier-from-discovery-to-administration-a-canopticon-resea",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-price-frontier-from-discovery-to-administration-a-canopticon-resea",
+      "title": "The Price Frontier: From Discovery to Administration — A CANOPTICON Research Brief",
+      "summary": "Canada the technology \"wins\" have NOT cleanly offset the housing/food \"losses,\" because the risers are non-substitutable necessities that dominate household budgets and have outrun wages over 2000–2026.",
+      "content_text": "Canada the technology \"wins\" have NOT cleanly offset the housing/food \"losses,\" because the risers are non-substitutable necessities that dominate household budgets and have outrun wages over 2000–2026.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=research-pass-medium-becomes-ground-evidence-map-seven-theoretical",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=research-pass-medium-becomes-ground-evidence-map-seven-theoretical",
+      "title": "Research Pass for “The Medium Becomes the Ground”: an evidence map for seven theoretical claims",
+      "summary": "This report assesses the empirical and theoretical literature underpinning seven distinct claims in the perspective paper. For each, the existing evidence is summarized, key authors and works are flagged, and the paper's clai",
+      "content_text": "This report assesses the empirical and theoretical literature underpinning seven distinct claims in the perspective paper. For each, the existing evidence is summarized, key authors and works are flagged, and the paper's clai",
+      "date_published": "2026-07-22T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=acoustic-return-research-pass-mcluhan-voice-interfaces-fifty-year",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=acoustic-return-research-pass-mcluhan-voice-interfaces-fifty-year",
+      "title": "The Acoustic Return: A Research Pass on McLuhan, Voice Interfaces, and the Fifty-Year Visual Detour",
+      "summary": "This research pass maps each of the six requested threads, identifies the strongest anchors, and flags the genuine gaps where the paper's contribution is most original.",
+      "content_text": "This research pass maps each of the six requested threads, identifies the strongest anchors, and flags the genuine gaps where the paper's contribution is most original.",
+      "date_published": "2026-07-22T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=comprehensive-map-marshall-mcluhans-thought-concepts-neuroscience",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=comprehensive-map-marshall-mcluhans-thought-concepts-neuroscience",
+      "title": "A Comprehensive Map of Marshall McLuhan's Thought: Concepts, Neuroscience, Unexplored Territory, and Critical Reception",
+      "summary": "Marshall McLuhan (1911–1980) is one of the most cited and least carefully read theorists of the twentieth century.",
+      "content_text": "Marshall McLuhan (1911–1980) is one of the most cited and least carefully read theorists of the twentieth century.",
+      "date_published": "2026-07-22T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=deep-research-pass-the-medium-becomes-the-ground",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=deep-research-pass-the-medium-becomes-the-ground",
+      "title": "Deep Research Pass: \"The Medium Becomes the Ground\"",
+      "summary": "Strongest contributions are highlighted in each thread, and a final synthesis identifies what distinguishes the paper from existing work.",
+      "content_text": "Strongest contributions are highlighted in each thread, and a final synthesis identifies what distinguishes the paper from existing work.",
+      "date_published": "2026-07-22T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=examined-cognition-substrates-metacognition-methods-looking-looking",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=examined-cognition-substrates-metacognition-methods-looking-looking",
+      "title": "The Examined Cognition: Substrates of Metacognition and Methods for Looking at the Looking",
+      "summary": "Petitmengin) and neurophenomenology (Varela) for first- and second-person rigor; contemplative training to render the self-model opaque (Metzinger); and interpretability/introspection probes (Jack Lindsey, Anthropic, October 2025) for machine analogues.",
+      "content_text": "Petitmengin) and neurophenomenology (Varela) for first- and second-person rigor; contemplative training to render the self-model opaque (Metzinger); and interpretability/introspection probes (Jack Lindsey, Anthropic, October 2025) for machine analogues.",
+      "date_published": "2026-07-22T12:00:00Z",
+      "tags": [
+        "McLuhan & media theory",
+        "Research"
+      ]
+    }
+  ]
+}

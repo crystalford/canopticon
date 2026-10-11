@@ -173,12 +173,12 @@ app.use("*", async (c, next) => {
   // working indicator and sign out. Same bar, same height, same rules.
   const status = await renderWorkStatusBadge(c.env.DB).catch(() => null);
   const statusHtml = status
-    ? `<a href="/library" class="nav-op-status${status.live ? " live" : ""}" title="${status.title}"><span class="nav-op-dot"></span>${status.text}</a>`
+    ? `<a href="/desk" class="nav-op-status${status.live ? " live" : ""}" title="${status.title}"><span class="nav-op-dot"></span>${status.text}</a>`
     : "";
   const withNav = html
     .replace(
       '<div class="nav-links">\n      ',
-      '<div class="nav-links">\n      <a href="/library" class="nav-op">Library</a>\n      ',
+      '<div class="nav-links">\n      <a href="/desk" class="nav-op">Library</a>\n      ',
     )
     .replace(
       '<a href="/search" class="nav-search"><span class="q">/</span> Search</a>',
@@ -376,8 +376,8 @@ app.get("/essays", async (c) => htmlResponse(await renderEssaysIndex(c.env)));
 // on each document's own page, beside the thing they are about. The index was
 // a second copy of that, stripped of context, competing with its own sources.
 // Both paths now 301 to /research, which is where the numbers actually live.
-app.get("/numbers", (c) => c.redirect("/research", 301));
-app.get("/figures", (c) => c.redirect("/research", 301));
+app.get("/numbers", (c) => c.redirect("/library?kind=Research", 301));
+app.get("/figures", (c) => c.redirect("/library?kind=Research", 301));
 app.get("/research", async (c) => htmlResponse(await renderResearchIndex(c.env)));
 
 // Section hubs — one per entry of the closed list in graph/lib/topics.ts
@@ -418,18 +418,18 @@ function sectionsWithDocuments(
 // describes the wrong product is worse than no page, and a citation already in
 // the world must still land somewhere useful, so each goes to the live surface
 // that does its job now: subject-shaped URLs go to search for that subject.
-app.get("/watchlist", (c) => c.redirect("/library", 301));
+app.get("/watchlist", (c) => c.redirect("/desk", 301));
 app.get("/videos", (c) => c.redirect("/", 301));
 app.get("/activity", (c) => c.redirect("/", 301));
 app.get("/instruments", (c) => c.redirect("/", 301));
-app.get("/topics", (c) => c.redirect("/research", 301));
+app.get("/topics", (c) => c.redirect("/library?kind=Research", 301));
 app.get("/topics/:slug", (c) => c.redirect(searchFor(c.req.param("slug")), 301));
 
 // ---- Investigations -------------------------------------------------------
 // The index described "signed analyses", "intent badges" and "the fabric era"
 // over a list that was just every published piece again. The documents live
 // at /research; this is where the room was pointing anyway.
-app.get("/investigations", (c) => c.redirect("/research", 301));
+app.get("/investigations", (c) => c.redirect("/library?kind=Research", 301));
 
 app.get("/investigations/:slug", (c) => c.redirect(`/p/${c.req.param("slug")}`, 301));
 
@@ -750,7 +750,7 @@ for (const prefix of [
 ]) {
   app.get(`/${prefix}/:slug`, (c) => c.redirect(searchFor(c.req.param("slug")), 301));
 }
-app.get("/doc/:slug", (c) => c.redirect(`/library/${c.req.param("slug")}`, 301));
+app.get("/doc/:slug", (c) => c.redirect(`/p/${c.req.param("slug")}`, 301));
 
 app.get("/record", (c) => c.redirect("/", 301));
 
@@ -764,7 +764,7 @@ app.get("/record", (c) => c.redirect("/", 301));
 //
 // Part 18: "Patterns" dissolves as a destination — pattern pieces surface
 // inside Investigations (intent badges).
-app.get("/patterns", (c) => c.redirect("/research", 301));
+app.get("/patterns", (c) => c.redirect("/library?kind=Research", 301));
 
 // ---- Library --------------------------------------------------------------
 
@@ -780,7 +780,7 @@ app.get("/patterns", (c) => c.redirect("/research", 301));
 // than once, not being able to find where to upload. This was why.
 //
 // Now it says what it is and where the door is.
-app.get("/library", async (c) => {
+app.get("/desk", async (c) => {
   if (!c.get("is_operator")) return htmlResponse(renderSignedOut(), { status: 401 });
   const ingested = c.req.query("ingested");
   const error = c.req.query("error");
@@ -897,7 +897,7 @@ app.get("/search.json", async (c) => {
   });
 });
 
-app.get("/bulk-expand", (c) => c.redirect("/library", 301));
+app.get("/bulk-expand", (c) => c.redirect("/desk", 301));
 app.get("/studio/*", (c) => c.redirect("/", 301));
 
 // Citations — operator-only view of AI-crawler hits on public pages

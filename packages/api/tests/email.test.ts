@@ -41,7 +41,7 @@ describe("nothing sends without a key", () => {
 describe("what goes in the message", () => {
   function capture() {
     const calls: Array<Record<string, unknown>> = [];
-    const env = { RESEND_API_KEY: "test-key" } as Env;
+    const env = { RESEND_API_KEY: "test-key", MAILING_ADDRESS: "PO Box 1, Hamilton ON" } as Env;
     const orig = globalThis.fetch;
     globalThis.fetch = (async (_url: string, init: { body: string }) => {
       calls.push(JSON.parse(init.body));
@@ -80,7 +80,7 @@ describe("what goes in the message", () => {
   it("reports the provider's own reason when a send is rejected", async () => {
     // A bad key and an unverified sending domain both yield zero sends and
     // are indistinguishable without this.
-    const env = { RESEND_API_KEY: "bad" } as Env;
+    const env = { RESEND_API_KEY: "bad", MAILING_ADDRESS: "PO Box 1" } as Env;
     const orig = globalThis.fetch;
     globalThis.fetch = (async () =>
       ({
@@ -93,5 +93,30 @@ describe("what goes in the message", () => {
     expect(r.ok).toBe(false);
     expect(r.reason).toContain("403");
     expect(r.reason).toContain("domain not verified");
+  });
+
+  it("names the sender and a mailing address in every message (CASL)", async () => {
+    const { env, calls, restore } = capture();
+    await sendConfirmation(env, "reader@example.com", "abc123");
+    restore();
+    const body = String(calls[0]?.text ?? "");
+    expect(body).toContain("Chris Telford");
+    expect(body).toContain("PO Box 1, Hamilton ON");
+  });
+});
+
+describe("no mailing address, no mail", () => {
+  it("refuses to send anything until a mailing address is set", async () => {
+    const orig = globalThis.fetch;
+    let called = false;
+    globalThis.fetch = (async () => {
+      called = true;
+      return { ok: true } as Response;
+    }) as unknown as typeof fetch;
+    const r = await sendConfirmation({ RESEND_API_KEY: "k" } as Env, "reader@example.com", "t");
+    globalThis.fetch = orig;
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/MAILING_ADDRESS/);
+    expect(called).toBe(false);
   });
 });

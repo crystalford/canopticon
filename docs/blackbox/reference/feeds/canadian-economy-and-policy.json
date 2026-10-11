@@ -1,0 +1,130 @@
+{
+ "version": "https://jsonfeed.org/version/1.1",
+ "title": "Canopticon — Canadian economy & policy",
+ "home_page_url": "https://canopticon.com/",
+ "feed_url": "https://canopticon.com/feeds/canadian-economy-and-policy.json",
+ "description": "Questions researched in depth, and articles written from what the research found.",
+ "language": "en-CA",
+ "authors": [
+  {
+   "name": "Chris Telford",
+   "url": "https://canopticon.com/about"
+  }
+ ],
+ "hubs": [
+  {
+   "type": "WebSub",
+   "url": "https://pubsubhubbub.appspot.com/"
+  }
+ ],
+ "items": [
+  {
+   "id": "https://canopticon.com/articles/how-canadas-public-sector-employees-vote",
+   "url": "https://canopticon.com/articles/how-canadas-public-sector-employees-vote",
+   "title": "How Canada's public-sector employees vote: the Canadian Election Study evidence, Ottawa's ridings, and the union endorsements",
+   "summary": "Public-sector workers in Canada lean modestly left of private-sector workers, and most of that lean belongs to unionized professionals and managers. The city crews whose unions endorse the NDP vote much like their private-sector counterparts, and no released poll gives a party-by-party split to settle it.",
+   "content_text": "Public-sector workers in Canada lean modestly left of private-sector workers, and most of that lean belongs to unionized professionals and managers. The city crews whose unions endorse the NDP vote much like their private-sector counterparts, and no released poll gives a party-by-party split to settle it.",
+   "date_published": "2026-10-11T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/temporary-foreign-workers-and-canadian-innovation",
+   "url": "https://canopticon.com/articles/temporary-foreign-workers-and-canadian-innovation",
+   "title": "Temporary foreign workers and Canadian innovation: what the automation evidence shows, and the study nobody has run",
+   "summary": "The research that says immigration drives innovation studies points-selected skilled migration. Canada's intake since 2016 has been mostly temporary and low-wage, and the causal work on cheap labour runs the other way — a 1% rise in low-skill wages lifts automation patenting 2–5%. The Canadian version of that study has never been done.",
+   "content_text": "The research that says immigration drives innovation studies points-selected skilled migration. Canada's intake since 2016 has been mostly temporary and low-wage, and the causal work on cheap labour runs the other way — a 1% rise in low-skill wages lifts automation patenting 2–5%. The Canadian version of that study has never been done.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/immigrants-temporary-residents-and-canadas-job-growth-since-2020",
+   "url": "https://canopticon.com/articles/immigrants-temporary-residents-and-canadas-job-growth-since-2020",
+   "title": "Immigrants, temporary residents and Canada's job growth since 2020: what the Labour Force Survey can and cannot show",
+   "summary": "Nearly all of Canada's post-pandemic job growth went to immigrants and temporary residents. But no Canadian government table publishes that split the way the American one does — every version of the figure is built by hand from an annual series that undercounts the very group it counts.",
+   "content_text": "Nearly all of Canada's post-pandemic job growth went to immigrants and temporary residents. But no Canadian government table publishes that split the way the American one does — every version of the figure is built by hand from an annual series that undercounts the very group it counts.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canadas-64m-investment-in-latvian-military-infrastructure-fact-check",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canadas-64m-investment-in-latvian-military-infrastructure-fact-check",
+   "title": "Canada's €64M \"Investment\" in Latvian Military Infrastructure: Fact-Check",
+   "summary": "The €64M is a Canadian Department of National Defence (DND) outlay under Operation REASSURANCE.",
+   "content_text": "The €64M is a Canadian Department of National Defence (DND) outlay under Operation REASSURANCE.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canadian-equivalent-9-10-jobs-foreign-born-claim-statscan-based-reality",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canadian-equivalent-9-10-jobs-foreign-born-claim-statscan-based-reality",
+   "title": "The Canadian Equivalent of the \"9-of-10 Jobs to Foreign-Born\" Claim: A StatsCan-Based Reality Check",
+   "summary": "The Canadian story is even more lopsided than the US one — but for different reasons.",
+   "content_text": "The Canadian story is even more lopsided than the US one — but for different reasons.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fact-check-gap-analysis-tax-regulatory-anatomy-small-commercial",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fact-check-gap-analysis-tax-regulatory-anatomy-small-commercial",
+   "title": "Fact-Check & Gap Analysis: Tax and Regulatory Anatomy of a Small Commercial Storefront on Barton Street East, Hamilton",
+   "summary": "Most of the diagram's headline figures are correct or close, but five need updating: the commercial-to-residential ratio is 2.",
+   "content_text": "Most of the diagram's headline figures are correct or close, but five need updating: the commercial-to-residential ratio is 2.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-do-canadian-public-sector-employees-vote-a-look-at-the-evidence",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-do-canadian-public-sector-employees-vote-a-look-at-the-evidence",
+   "title": "How Do Canadian Public Sector Employees Vote? A Look at the Evidence",
+   "summary": "NDP and Liberals, and away from the Conservatives — but the effect is more modest than American partisan rhetoric about a \"deep state\" or a \"public class\" would suggest.",
+   "content_text": "NDP and Liberals, and away from the Conservatives — but the effect is more modest than American partisan rhetoric about a \"deep state\" or a \"public class\" would suggest.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=mass-immigration-suppression-domestic-innovation-canada-research-brief",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=mass-immigration-suppression-domestic-innovation-canada-research-brief",
+   "title": "Mass Immigration and the Suppression of Domestic Innovation in Canada: A Research Brief",
+   "summary": "The dominant public narrative — that immigration \"drives innovation\" — rests almost entirely on studies of high-skilled, points-selected immigration in the United States (chiefly the work of William Kerr and collaborators on H-1B and ethnic patenting).",
+   "content_text": "The dominant public narrative — that immigration \"drives innovation\" — rests almost entirely on studies of high-skilled, points-selected immigration in the United States (chiefly the work of William Kerr and collaborators on H-1B and ethnic patenting).",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-canadian-economic-dossier-1994-may-2026",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-canadian-economic-dossier-1994-may-2026",
+   "title": "The Canadian Economic Dossier (1994–May 2026)",
+   "summary": "Canada's industrial base has thinned for thirty years and accelerated its restructuring under Trudeau into a state-financed EV/critical-minerals model now visibly failing under Trump-era tariffs and slumping EV demand.",
+   "content_text": "Canada's industrial base has thinned for thirty years and accelerated its restructuring under Trudeau into a state-financed EV/critical-minerals model now visibly failing under Trump-era tariffs and slumping EV demand.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  }
+ ]
+}

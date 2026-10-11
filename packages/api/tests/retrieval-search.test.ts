@@ -67,7 +67,7 @@ describe("/search — passages first", () => {
     const iD = html.indexOf(">Documents<");
     expect(iP).toBeGreaterThan(-1);
     expect(iD).toBeGreaterThan(iP);
-    expect(html.indexOf("/library/medium-ground")).toBeGreaterThan(iD);
+    expect(html.lastIndexOf("/p/medium-ground")).toBeGreaterThan(iD);
     expect(html).toContain("<b>1</b> passage and <b>1</b> document for <b>allostasis</b>");
     expect(html).not.toContain("<script");
   });

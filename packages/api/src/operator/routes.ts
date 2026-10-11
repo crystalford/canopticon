@@ -40,7 +40,10 @@ const OP_GET_REDIRECTS: Array<[string, string]> = [
   ["/synthesis", "/"],
   ["/studio", "/"],
   ["/outputs", "/research"],
-  ["/library", "/library"],
+  // The operator console moved from /library (now the public Library) to
+  // /desk; /op/library is where upload and the action endpoints land.
+  ["/library", "/desk"],
+  ["/desk", "/desk"],
 ];
 for (const [from, to] of OP_GET_REDIRECTS) {
   app.get(from, (c) => {
@@ -64,24 +67,24 @@ app.route("/", readingsRoutes);
 // maps to the new surface that absorbed its functionality.
 
 const redirects: Record<string, string> = {
-  "/console": "/library",
-  "/ingest": "/library",
-  "/workbench": "/library",
-  "/leads": "/library",
-  "/patterns": "/research",
-  "/editorial": "/library",
-  "/build": "/library",
-  "/publish": "/library",
-  "/briefs": "/research",
+  "/console": "/desk",
+  "/ingest": "/desk",
+  "/workbench": "/desk",
+  "/leads": "/desk",
+  "/patterns": "/library?kind=Research",
+  "/editorial": "/desk",
+  "/build": "/desk",
+  "/publish": "/desk",
+  "/briefs": "/library?kind=Research",
   // Unmounted 2026-09-24 (docs/the-record.md §9).
   "/out": "/",
-  "/synthesis": "/library",
+  "/synthesis": "/desk",
   "/studio": "/",
-  "/outputs": "/research",
-  "/records": "/research",
-  "/proposals": "/research",
+  "/outputs": "/library?kind=Research",
+  "/records": "/library?kind=Research",
+  "/proposals": "/library?kind=Research",
   "/faces": "/",
-  "/answers": "/library",
+  "/answers": "/desk",
 };
 
 for (const [from, to] of Object.entries(redirects)) {

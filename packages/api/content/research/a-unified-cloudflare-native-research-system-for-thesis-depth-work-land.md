@@ -1,0 +1,140 @@
+---
+id: a-unified-cloudflare-native-research-system-for-thesis-depth-work-land
+title: "A Unified Cloudflare-Native Research System for Thesis-Depth Work: Landscape, Architecture, and Feasibility (June 2026)"
+kind: "Feasibility review"
+topic: "AI-directed development"
+date: "2026-06-01"
+shelf: ""
+listed_in_library: true
+source_file: "uploads/archive-5/cloudflare-research-multiplexer.md"
+---
+
+# A Unified Cloudflare-Native Research System for Thesis-Depth Work: Landscape, Architecture, and Feasibility (June 2026)
+
+## TL;DR
+- **A unified Cloudflare-native research multiplexer is genuinely buildable in 2026 — but the winning architecture is a "free-and-open metadata backbone" (OpenAlex + Semantic Scholar + arXiv + Crossref + Unpaywall, all with real APIs and generous/free terms) wrapped in a Cloudflare Worker, with the LLM-native paid tools (Elicit, Consensus, OpenAI/Gemini Deep Research, Perplexity Sonar) bolted on as optional "synthesis" layers, NOT as the coverage backbone.** Google Scholar has no API and never will; design around it, not through it.
+- **The single biggest structural constraint is not Cloudflare — it's the asymmetry of API terms.** OpenAlex/Semantic Scholar/arXiv/Unpaywall are free and permit programmatic aggregation; Elicit and Consensus explicitly *prohibit* using their APIs to build external/commercial products and cap caching; Google Scholar scraping violates ToS. A solo builder can ship a production *personal* tool freely, but a *commercial* product faces real licensing walls on the value-added layers.
+- **The contrarian/heterodox capability is the most defensible reason to build your own system** rather than just paying for Consensus or Gemini Deep Research: mainstream tools optimize for "scientific consensus" and citation weight, which structurally *buries* heterodox arguments. A custom multiplexer can deliberately query RePEc/IDEAS, SSRN, and specific heterodox journals, weight by argument-stance rather than citation count, and prompt an LLM to surface dissent explicitly — something no off-the-shelf product does well.
+
+## Key Findings
+
+1. **Google Scholar remains API-hostile and that has not changed in 2026.** There is no official API, none is in beta, and scraping violates Google's ToS. The only programmatic access is third-party scrapers (SerpApi, Scrapingdog, Apify, ScrapingBee) that scrape on your behalf — legally grey and operationally fragile. Treat Scholar as a manual spot-check tool, not infrastructure.
+
+2. **OpenAlex is the correct coverage backbone for a Canadian, multi-field system.** It is built by OurResearch, a 501(c)3 nonprofit and the fifth organization to commit to the Principles for Open Scholarly Infrastructure (POSI) — the University of Victoria became its first institutional Member supporter under the new $5,000/yr membership launched Feb 10, 2026. It indexes 477 million works (per OpenAlex's Feb 10, 2026 Q1 Town Hall recap: "OpenAlex now indexes 477 million works—the largest connected repository of scholarship ever published," after adding 192M new works from DataCite/repositories in the late-2025 "Walden" rewrite), all under a CC0 license, with a fast modern free REST API. In September 2025 OurResearch rebranded to OpenAlex, "encompassing both Unpaywall and Unsub" (per arXiv:2512.16434).
+
+3. **Semantic Scholar adds AI-native features (TLDRs, influential-citation classification, SPECTER2 embeddings, recommendations) on ~200M+ papers with a free API** — but commercial use requires a separate negotiated license with AI2, and default rate limits are tight (shared public pool; 1 request/sec with a free key).
+
+4. **Elicit and Consensus are powerful but legally boxed-in for a builder.** Elicit's API exists (Pro plan+, ~138M papers, async report generation) but its ToS *prohibits building external/commercial products* and caps caching at 30 days. Consensus's API is application-only at ~$0.10/call plus a platform fee. Both are better consumed as *manual* research surfaces or as a licensed synthesis layer than embedded in a product.
+
+5. **Cloudflare's catalogue can host the entire system** — Workers (compute + outbound fetch), D1 (SQL cache/dedup store), Vectorize (semantic dedup/search), Workers AI (cheap embeddings), R2 (zero-egress PDF/snapshot storage), Queues/Workflows (long fan-out), and Durable Objects (per-query state). There are NO built-in connectors to research databases — every integration is custom `fetch()` code — but the primitives are well-suited and the February 2026 lifting of the 1,000-subrequest cap (now 10,000, configurable to 10M on paid) removes the main fan-out blocker.
+
+6. **The LLM-native "deep research" layer is now a commodity with three serious API options** — OpenAI o3/o4-mini-deep-research, Google Gemini Deep Research / Deep Research Max, and Perplexity Sonar Deep Research — all of which support MCP connectors, meaning your custom research APIs can be plugged into any of them. Anthropic's Claude offers a server-side web search tool and the Agent SDK + MCP. Multi-LLM staging (cheap model for planning, deep-research model for gathering, frontier model for synthesis/critique) is a real, documented pattern.
+
+7. **MCP is the integration lingua franca and the smartest bet for a solo builder.** Mature open-source research MCP servers already exist (paper-search-mcp covering 20+ sources incl. arXiv/OpenAlex/Semantic Scholar/Crossref/Unpaywall; openalex-research-mcp; Scientific-Papers-MCP; PapersFlow). You can deploy a custom MCP server *on Cloudflare Workers* (remote MCP with OAuth via workers-oauth-provider) that wraps your multiplexer and connect it to Claude, ChatGPT, or Gemini as a seamless tool.
+
+## Details
+
+### 1. The research-tools landscape for thesis-depth work
+
+**Google Scholar.** Best for: broadest single-box coverage including grey literature, theses, books, working papers, and court opinions; citation counts and "cited by." Weak on: structured export, deduplication, advanced filtering, and any automation. API: **none, and none planned**; scraping violates the ToS and triggers CAPTCHAs/IP bans. Integration: none official. Cost: free to humans. Third-party scraper "APIs" exist (Scrapingdog ~$0.001/call and up, SerpApi ~$0.015/call, Apify, ScrapingBee from ~$49/mo) but carry ToS and reliability risk. **Verdict: indispensable for manual coverage checks, unusable as production infrastructure.**
+
+**Semantic Scholar.** Best for: AI-enriched metadata — TLDR one-sentence summaries, influential-citation classification, SPECTER2 embeddings, paper/author graph traversal, recommendations across ~200M+ papers all disciplines. Weak on: full text (metadata/abstracts only), and tight default rate limits. API: free public endpoint (shared pool, throttled), free API key gives 1 request/sec; bulk dataset downloads available for local querying. Commercial use requires a separate AI2 license. Integrates widely (Elicit, Consensus, Connected Papers, Litmaps all build on it). Cost: free for research/non-commercial. **Verdict: the AI-feature backbone; pair with OpenAlex for coverage.**
+
+**OpenAlex.** Best for: comprehensive open metadata graph (477M works, authors, institutions, venues, funders, topics), best-in-class non-English and Diamond/Global-South coverage, CC0 license, daily-updated. A free REST API key gives $1/day of free usage; full snapshots are free and CC0; higher limits/snapshots are a paid plan. Weak on: AI-native summarization (it's a graph/index, not a synthesizer) and full text. Coverage quality: Culbert et al., "Reference Coverage Analysis of OpenAlex compared to Web of Science and Scopus" (Scientometrics, 2025; arXiv:2401.16359) found that, "restricted to a cleaned dataset of 16,788,282 recent publications shared by all three databases, OpenAlex has average source reference numbers and internal coverage rates comparable to both Web of Science and Scopus." On breadth, Simard et al. (2024) found OpenAlex indexes >12,500 Diamond OA journal titles, including "more than 60% of all Diamond OA journals not found in WoS or Scopus." **Verdict: the coverage backbone — especially for economics, sociology, law, media theory where non-English and grey literature matter.**
+
+**Unpaywall / open-access layer.** Unpaywall is now a subroutine of OpenAlex; its free API (email parameter required, up to 100,000 calls/day) resolves a DOI to a legal open-access full-text location across 50,000+ journals and 5,000+ repositories. This is the legitimate, lawful way to get full text. Sci-Hub, by contrast, is copyright-infringing (it has not uploaded new papers since 2021 pending Indian litigation; downloading via Sci-Hub may breach Canadian copyright law) — **exclude it from any production system on legal grounds.** The lawful stack is Unpaywall → Crossref → arXiv/PMC/CORE/repository copies.
+
+**arXiv & open repositories.** arXiv has a free, no-auth API (Atom XML), but a strict rate limit of **1 request per 3 seconds** — confirmed in arXiv's official API Terms of Use (info.arxiv.org/help/api/tou.html), with bursts up to 4/sec with a 1-sec sleep tolerated on the bulk endpoint; arXiv staff confirmed on their API Discussion group (2026) they have made enforcement changes "recently and over time, as the total use of our endpoints change." OAI-PMH is the preferred bulk interface, and the ToS explicitly permits metadata storage, research use, discovery tools, and citation graphs. Commercial projects are asked to review brand guidelines and consider becoming an arXiv affiliate. For economics specifically, **RePEc/IDEAS, EconPapers, and SSRN** are the critical preprint/working-paper layers; for Canadian law, **CanLII** (and the open-source A2AJ alternative, which offers an API, Hugging Face datasets, and an MCP server for ~116,000 decisions and ~5,000 statutes) matter more than journal indexes.
+
+**Emerging LLM-native academic search.** Elicit (~138M papers, async report/systematic-review generation, Research Agent; Plus $10–12/mo, Pro $42–49/mo, Scale $169/mo; API on Pro+ but **ToS forbids building external/commercial products** and limits caching to 30 days); Consensus ("Consensus Meter" agreement visualization, GPT-driven synthesis over 200M+ papers; Free with caps, Pro ~$10/mo, Deep ~$45/mo; **API is application-only at ~$0.10/call + platform fee**); plus Scite, SciSpace, Undermind, Connected Papers, Litmaps. **Coverage-maximizing combination for your fields:** OpenAlex (breadth + non-English) + Semantic Scholar (AI features + CS/quant) + arXiv (econ/tech preprints) + RePEc/SSRN (heterodox econ + working papers) + CanLII/A2AJ (Canadian law) + Unpaywall (full text). Layer Elicit or Consensus on top *manually* for systematic-review synthesis.
+
+### 2. Cloudflare-native capabilities for research aggregation
+
+**(a) Can Workers call external research APIs and cache/normalize?** Yes — this is the core use case. Workers make outbound `fetch()` subrequests, normalize JSON, and write to D1/KV/R2. Cloudflare does **not** bill outbound subrequests, only inbound requests to your Worker.
+
+**(b) Does Vectorize have built-in research-DB connectors?** **No.** Vectorize is a generic vector database. You generate embeddings (via Workers AI's `@cf/baai/bge-*` models or bring-your-own from OpenAI/Cohere/Semantic Scholar's SPECTER2) and upsert them; every connection to a research source is custom code. Vectorize is ideal for *semantic deduplication* (catching the same paper indexed differently across sources) and *similarity ranking*, with metadata pointing back to D1 rows or R2 objects.
+
+**(c) Existing open-source research-aggregation on Cloudflare?** No flagship project specifically combines academic aggregation *on Cloudflare*, but the pattern is well-trodden: Cloudflare's own RAG tutorials (Workers AI + Vectorize + D1), the Nuxt+Vectorize data-normalization series, and numerous remote-MCP-on-Workers examples demonstrate every needed building block. The closest domain analogues are the research MCP servers (paper-search-mcp, openalex-research-mcp, Scientific-Papers-MCP, PapersFlow) which you can either reuse or port to a Worker.
+
+**(d) Architecture of a "research multiplexer."** A Worker receives a query → fans out parallel `fetch()` to N source APIs (OpenAlex, Semantic Scholar, arXiv, Crossref, RePEc, etc.) → normalizes each into a common schema → deduplicates by DOI/title (with Vectorize for fuzzy/semantic dedup) → writes unified records to D1 → optionally enriches with Unpaywall full-text links and embeddings → optionally pipes to an LLM for synthesis. Use **Workflows** (durable, up to 10M subrequests configurable, multi-minute) for big fan-outs, **Queues** for async enrichment, **Durable Objects** for per-query session state, and **Cron Triggers** for scheduled "research alerts."
+
+**(e) Cloudflare limitations at scale.** The real constraints:
+- **6 simultaneous open outbound connections per Worker invocation** — the key throttle for parallel API fan-out. You must batch/throttle to ~6 in-flight requests (and note `wrangler dev` does NOT enforce this, so it works locally and breaks in prod).
+- **Subrequest cap:** as of Feb 11, 2026, paid Workers default to **10,000 subrequests/invocation, configurable up to 10 million**; free plan stuck at 50 external subrequests.
+- **CPU time:** 30s per invocation default (resettable on Durable Objects per request); but CPU time excludes time waiting on `fetch()`, so I/O-bound aggregation is fine.
+- **Egress:** R2 has **zero egress fees** (confirmed), a major advantage for caching PDFs/snapshots.
+- **D1:** 10 GB hard cap per database (shard across many DBs), single-threaded per DB.
+- **Third-party API rate limits — not Cloudflare's — are the binding constraint** (arXiv 1 req/3s; Semantic Scholar 1 req/s; OpenAlex $1/day free).
+
+**Cloudflare cost model (verified June 2026):** Workers Paid is **$5/mo** (10M requests + 30M CPU-ms included; +$0.30/M requests, +$0.02/M CPU-ms). D1: 25B rows read + 50M rows written + 5GB free, then +$0.001/M read, +$1/M written, +$0.75/GB-mo. R2: **$0.015/GB-mo storage, $4.50/M Class A, $0.36/M Class B, zero egress**. Vectorize: 50M queried + 10M stored dimensions free, then +$0.01/M queried, +$0.05/100M stored. Workers AI: 10,000 neurons/day free, then **$0.011/1,000 neurons**. KV: 10M reads + 1M writes + 1GB free, then +$0.50/M reads, +$5/M writes, +$0.50/GB-mo. **For a solo builder, a personal-scale system runs essentially within free tiers + the $5/mo Workers Paid base.**
+
+### 3. LLM research tools and integration landscape
+
+**(a) OpenAI.** Yes — **o3-deep-research and o4-mini-deep-research** are available via the Responses API (not Chat Completions), released to API June 26–27, 2025. They run an autonomous search-read-synthesize loop with always-on web search, code interpreter, and MCP connectors. Pricing: o3-deep-research $10/M input, $40/M output; o4-mini-deep-research $2/M input, $8/M output; web search $10/1,000 calls (always on for deep-research models). Real-world cost: a single o3 query can run ~$1–$30; o4-mini ~$0.10–$1.50. Use background mode + webhooks (queries take 2–3 minutes).
+
+**(b) Other frontier LLMs.** **Google Gemini Deep Research / Deep Research Max** (Interactions API, built on Gemini 3.1 Pro; supports MCP, file search, native charts; benchmarked SOTA on DeepSearchQA/BrowseComp; background async). **Anthropic Claude** offers a server-side web search tool ($10/1,000 searches + tokens), web fetch, the Agent SDK, advanced tool use (tool search, programmatic tool calling), and is the leading MCP host. **Perplexity Sonar** (Sonar $1/$1 per M, Sonar Pro $3/$15 per M, Sonar Deep Research with multi-component billing incl. search/citation/reasoning tokens; bundled web search + citations; a single Sonar Deep Research query ≈ $0.40–$0.82). **Meta Llama** is available open-weight (incl. on Workers AI) but has no first-party deep-research product — you'd build the loop yourself.
+
+**(c) Specialized "research LLMs."** Meta's Galactica was withdrawn in 2022 and has no direct successor as a standalone model; the function has migrated into (i) retrieval-grounded products (Elicit, Consensus, Undermind) built on Semantic Scholar/OpenAlex corpora, and (ii) the general deep-research agents above. There is no current purpose-built open academic-synthesis foundation model worth depending on; grounding a general frontier model in a clean corpus beats a specialized but stale model.
+
+**(d) Multi-LLM staging.** A documented, effective pattern: cheap/fast model (e.g., Gemini Flash or Haiku) for **query planning/decomposition** → deep-research agent (o4-mini-deep-research or Gemini Deep Research) for **gathering** → frontier model (Claude Opus / GPT-5.x / Gemini Pro) for **synthesis and adversarial critique/fact-checking**. Separating "gathering" from "reasoning" reliably improves quality. Perplexity's "Model Council" and Google's Flash→Deep Research→Pro tutorials productize exactly this.
+
+**(e) MCP research ecosystem.** Mature and growing. Open-source servers: **paper-search-mcp** (arXiv, PubMed, bioRxiv, Google Scholar, Semantic Scholar, Crossref, OpenAlex, CORE, Europe PMC, SSRN, Unpaywall, etc.), **openalex-research-mcp** (citation networks, author/venue analytics), **Scientific-Papers-MCP**, **PapersFlow** (474M+ papers, hosted, no key for public tools). Publishers are entering: **Wiley AI Gateway** launched an official MCP server (Oct 2025; supports Claude, Le Chat, Perplexity). You can **build a custom MCP server wrapping Semantic Scholar/OpenAlex/your multiplexer and host it on Cloudflare Workers** (remote MCP, OAuth handled by workers-oauth-provider, each session backed by a Durable Object) and connect it to Claude, ChatGPT, or Gemini. **This is the single highest-leverage move for a solo builder.**
+
+### 4. What a unified CANOPTICON research system could look like
+
+**Architecture (feasible today on Cloudflare):**
+
+1. **Ingress Worker / MCP server** receives a query (e.g., "algorithmic pricing + Canadian competition law + heterodox economics"). Hosted as a remote MCP server on Workers so it's usable from Claude/ChatGPT/Gemini *and* as a standalone API.
+2. **Query planner** (cheap LLM) decomposes into sub-queries and routes each to the right source: OpenAlex + Semantic Scholar (broad), arXiv + RePEc/SSRN (econ/heterodox + preprints), CanLII/A2AJ (Canadian law), Crossref (DOIs), Unpaywall (full text).
+3. **Parallel dispatch** via Workflows, throttled to ~6 concurrent connections, respecting each source's rate limit (arXiv 1/3s, S2 1/s).
+4. **Normalization** into a common schema; **deduplication** by DOI/title plus **Vectorize** semantic dedup (SPECTER2 or bge embeddings) to merge the same work indexed differently.
+5. **Confidence tiering:** Tier 1 = peer-reviewed + high influential-citation count + multiple-source agreement; Tier 2 = reputable journal/single-source; Tier 3 = preprint/working paper/grey literature (flagged, not discarded — critical for heterodox capture).
+6. **Cache** unified records in **D1** (keyed by normalized query + source), full-text PDFs/snapshots in **R2** (zero egress), embeddings in Vectorize. Future identical/similar queries hit cache first.
+7. **Optional synthesis** via the deep-research/LLM layer (multi-LLM staging), fed *only* the deduplicated, tiered corpus.
+8. **Contrarian surfacing** (see §6) as an explicit, separate output section.
+
+**Feasible with current APIs/Cloudflare:** the entire metadata backbone, caching, dedup, confidence tiering, MCP exposure, and multi-LLM synthesis. **Requires custom engineering:** all source connectors (no built-in connectors), the dedup/normalization logic, the confidence-tiering heuristics, rate-limit orchestration, and the contrarian-weighting logic. **Blocked by ToS / rate limits:** embedding Google Scholar (scraping ToS), embedding Elicit or Consensus output into an *external/commercial* product (their API ToS), Sci-Hub full text (copyright); Semantic Scholar *commercial* use needs an AI2 license; arXiv commercial use wants affiliate review.
+
+### 5. The specific question of the Google Scholar API
+
+Confirmed current (2026) status: **no official API, none in beta, none planned.** Google's ToS prohibits scraping/systematic retrieval. Legitimate programmatic options:
+- **None directly from Google.**
+- **Third-party scrapers** (SerpApi, Scrapingdog, ScrapingBee, Apify) scrape Scholar for you — they shift but do not eliminate ToS risk, and results can be incomplete/unstable.
+- **Unpaywall does NOT wrap Scholar** — it uses its own index of 50,000+ journals and 5,000+ repositories (now via OpenAlex). It resolves DOIs to legal OA copies; it is not a Scholar substitute for *discovery* but is the right full-text layer.
+- **Lens.org** legitimately ingests scholarly + patent literature (200M+ scholarly records, 136M+ patents, cross-mapped citations) and offers **Scholarly and Patent APIs (released 2020) — but only via paid institutional subscription**, not open self-serve; pricing is by use case/volume on request. Strong for science-and-technology/innovation and patent-linked research, weaker as a general Scholar replacement.
+- **Best practical substitute for "Scholar-like coverage with a real API": OpenAlex + Semantic Scholar + Crossref + arXiv together** match or exceed Scholar's coverage in most fields (Culbert et al. 2025 find OpenAlex citation coverage comparable to Scopus/WoS on a 16.8M-publication shared corpus), with lawful, free, structured access.
+
+### 6. Contrarian / heterodox research capability
+
+Mainstream AI research tools structurally bury heterodoxy: Consensus's "Consensus Meter" rewards agreement; citation-weighted ranking rewards incumbency; deep-research agents optimize for "well-supported" claims. **To surface dissent systematically rather than by accident, a custom system should:**
+
+1. **Query heterodox-dense sources directly:** RePEc/IDEAS and EconPapers (NEP email-alert preprints — studies show heterodox papers are disproportionately downloaded there), SSRN (working papers escaping mainstream-journal gatekeeping), MPRA (Munich Personal RePEc Archive), and named heterodox journals (e.g., *Cambridge Journal of Economics*, *Review of Political Economy*, *Journal of Post Keynesian Economics*, *Review of Evolutionary Political Economy*, *Real-World Economics Review*). For your other fields, the analogues are critical/heterodox venues in law (critical legal studies, law-and-political-economy) and media theory.
+2. **Invert the ranking signal:** add a "stance/novelty" weighting that *boosts* low-citation, recent, single-source preprints that explicitly *contest* a mainstream claim, rather than burying them. Use the LLM to classify each source's stance (supports / complicates / contests the mainstream thesis) — analogous to Scite's supporting/contrasting citations and Elicit's argument-mapping, but applied deliberately.
+3. **Use Elicit's data-extraction / argument-mapping and Consensus's systematic synthesis as *manual* counterweights** to confirm whether a contrarian claim is isolated or part of a suppressed minority literature.
+4. **Mine targeted arXiv categories** (econ.GN, q-fin, cs.CY for tech-and-society) for preprints that haven't yet been filtered by journal gatekeeping.
+5. **Prompt the synthesis LLM adversarially:** require a dedicated "Strongest contrarian/heterodox case" section and a "What would have to be true for the mainstream view to be wrong?" pass — using a *different* model for critique than for synthesis to reduce single-model bias.
+
+This combination — direct heterodox-source querying + stance-based reweighting + adversarial multi-LLM critique — is precisely what off-the-shelf tools do *not* do, and is the strongest justification for building CANOPTICON's own multiplexer rather than renting one.
+
+## Recommendations
+
+**Stage 1 — Prove the backbone (days, ~$0–5/mo).** Build a single Cloudflare Worker that fans out to **OpenAlex + Semantic Scholar + arXiv + Crossref**, normalizes to a common schema, dedupes by DOI/title, and caches in D1. Add Unpaywall for full-text links. This delivers ~80% of coverage value at near-zero cost and zero ToS risk. Benchmark: can you reproduce a manual Scholar search's top 20 results across your five fields? If yes, the backbone is sound.
+
+**Stage 2 — Expose as an MCP server + add semantic dedup.** Port the multiplexer to a remote MCP server on Workers (OAuth via workers-oauth-provider). Add Vectorize semantic dedup and confidence tiering. Now you can drive it from Claude/ChatGPT/Gemini *and* programmatically. Benchmark: does connecting it to Claude beat Claude's default web search on a hard Canadian-focused query? (Aaron Tay's testing — see Caveats — suggests generic LLMs already rival specialized tools, so the bar is real.)
+
+**Stage 3 — Add the heterodox layer.** Wire in RePEc/IDEAS, SSRN, MPRA, CanLII/A2AJ, and a curated heterodox-journal list. Implement stance classification + inverted ranking. This is your differentiator. Benchmark: for a query where you *know* a strong heterodox thesis exists, does the system surface it in the top results when Consensus/Gemini bury it?
+
+**Stage 4 — Layer synthesis selectively.** Add multi-LLM staging (cheap planner → deep-research gatherer → frontier synthesizer + separate-model critic). Use o4-mini-deep-research or Perplexity Sonar for cost-efficient gathering; reserve o3-deep-research / Gemini Deep Research Max for high-stakes queries. Budget alert: deep-research calls are the dominant cost ($0.40–$30/query) — cache aggressively and gate behind explicit user intent.
+
+**Thresholds that should change the plan:**
+- If you intend to **commercialize/distribute** the product → you must drop embedded Elicit/Consensus output, negotiate an AI2 license for Semantic Scholar commercial use, and review arXiv affiliate terms. Stay personal-use and these all stay free.
+- If **arXiv/Semantic Scholar 429s** become chronic at your volume → switch to local snapshot/bulk downloads (both offer them) queried from R2/D1 rather than live API.
+- If **per-query LLM cost** exceeds your tolerance → default to Perplexity Sonar or o4-mini-deep-research and make o3/Gemini-Max opt-in.
+
+## Caveats
+
+- **API terms change frequently.** Pricing and ToS cited here are verified to June 2026 from official sources, but Elicit/Consensus/OpenAI/Gemini pricing in particular has shifted multiple times in 12 months; re-verify before committing code. Several pricing figures (Elicit/Consensus tiers) come from secondary aggregator sites and disagree on exact numbers — treat ranges as approximate and confirm on the vendor's own pricing page.
+- **The "no built-in connectors" reality means real engineering.** Cloudflare gives you excellent primitives but zero domain-specific glue; budget for maintaining ~6–10 source connectors as their APIs drift.
+- **Legal line on full text is bright:** Unpaywall/OA repositories = lawful; Sci-Hub = infringing and a production liability. Do not blur it.
+- **Generic LLMs are surprisingly competitive.** Aaron Tay (academic librarian, Singapore Management University) reports a librarian who "tested 11 queries across multiple tools... Claude (again without any special MCP servers) ended up on top ahead of Consensus, Elicit, and Primo Research Assistant, though not by a statistically significant margin" — partly because some queries were best answered by monographs/grey literature where tools relying on OpenAlex/Semantic Scholar are weak. Validate that your custom system actually beats "just ask Claude with web search" before over-investing — the marginal value is highest precisely in the heterodox/Canadian-niche queries where indexes are thin.
+- **Benchmark numbers for deep-research agents are vendor-reported and methodology-sensitive** (OpenAI, Google, and Anthropic all claim leads on overlapping benchmarks using different scaffolding); treat cross-vendor comparisons as directional, not definitive.
