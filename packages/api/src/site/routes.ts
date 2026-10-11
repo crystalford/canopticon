@@ -49,7 +49,7 @@ import { renderStatic } from "./pages/static";
 import { renderTopic } from "./pages/topic";
 import { SITE_JS } from "./script";
 import { SITE_CSS } from "./styles";
-import { shortDate } from "./theme";
+import { kindColours, shortDate } from "./theme";
 import { refreshUploads } from "./uploads";
 
 const app = new Hono<AuthContext>();
@@ -255,7 +255,7 @@ app.get("/sitemap.xml", () => {
     {
       headers: {
         "content-type": "application/xml; charset=utf-8",
-        "cache-control": "public, max-age=3600",
+        "cache-control": "public, max-age=300",
       },
     },
   );
@@ -408,6 +408,26 @@ app.get("/feeds/:file", (c, next) => {
     : new Response(jsonFeed(feedItems([topic]), self, title), {
         headers: feedHeaders("application/feed+json; charset=utf-8", self),
       });
+});
+
+// Hovercards (site.js): a link's kind, title, dek and stat, for the public
+// rows only — the same list the Library shows a reader.
+app.get("/hovercards.json", () => {
+  const out: Record<
+    string,
+    { kind: string; title: string; dek: string; meta: string; bg: string; fg: string }
+  > = {};
+  for (const r of libraryItems()) {
+    if (!/^\/(articles|p|concepts|open)\/[^/#?]+$/.test(r.route)) continue;
+    const [bg, fg] = kindColours(r.kind);
+    out[r.route] = { kind: r.kind, title: r.title, dek: r.dek ?? "", meta: r.stat ?? "", bg, fg };
+  }
+  return new Response(JSON.stringify(out), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "public, max-age=3600",
+    },
+  });
 });
 
 app.get(
