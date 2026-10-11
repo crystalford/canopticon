@@ -213,6 +213,28 @@ export const SITE_JS = `(function () {
     if (every) every.addEventListener("change", function () { if (every.checked) boxes.forEach(function (b) { b.checked = false; }); sync(); });
   }
 
+  // ---- the desk: a chosen file sends itself; a dropped one goes the same way --
+  d.querySelectorAll("[data-autosubmit]").forEach(function (inp) {
+    inp.addEventListener("change", function () { if (inp.files && inp.files.length && inp.form) inp.form.submit(); });
+  });
+  var drop = d.querySelector("[data-drop]");
+  var upForm = d.querySelector("[data-upload-form]");
+  if (drop && upForm) {
+    var fileInput = upForm.querySelector('input[type="file"]');
+    ["dragenter", "dragover"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); });
+    });
+    ["dragleave", "drop"].forEach(function (ev) {
+      drop.addEventListener(ev, function () { drop.classList.remove("over"); });
+    });
+    drop.addEventListener("drop", function (e) {
+      e.preventDefault();
+      if (!e.dataTransfer || !e.dataTransfer.files.length || !fileInput) return;
+      fileInput.files = e.dataTransfer.files;
+      upForm.submit();
+    });
+  }
+
   // ---- mark useful (this browser only) ------------------------------------------
   var KEY = "canopticon.useful";
   var useful = [];

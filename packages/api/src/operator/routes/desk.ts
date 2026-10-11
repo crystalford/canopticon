@@ -1,0 +1,201 @@
+// The desk's buttons (site/pages/desk.ts). docs/blackbox/README.md §Desk:
+// "Nothing publishes without Publish." Every action is a plain form POST,
+// scoped to the operator's own uploads (OWN_UPLOADS_SQL), and every one has
+// an undo except Remove, which says what it does.
+
+import { OWN_UPLOADS_SQL } from "../../admin/runtime";
+import { purgeTypedGraphForPiece } from "../../graph/lib/digestion-typed";
+import { enqueueProcessing, ensureProcessingTable } from "../../graph/lib/processing";
+import { one, run } from "../../lib/d1";
+import { pingIndexNow } from "../../lib/indexnow";
+import { isSortedAs } from "../../lib/sort-upload";
+import { resolveOperatorId } from "../../public/data";
+import { hubTopics } from "../../site/data";
+import { invalidateUploads } from "../../site/uploads";
+import { operatorApp } from "./app";
+import { createAndExtract, mimeForName } from "./upload";
+
+const app = operatorApp();
+
+const back = (msg: string) => `/desk?done=${encodeURIComponent(msg)}`;
+const fail = (msg: string) => `/desk?error=${encodeURIComponent(msg)}`;
+
+interface Owned {
+  id: string;
+  slug: string;
+  title: string;
+  publication_status: string;
+  published_at: string | null;
+}
+
+async function owned(db: D1Database, userId: string, id: string): Promise<Owned | null> {
+  return one<Owned>(
+    db,
+    `SELECT id, slug, title, publication_status, published_at FROM pieces
+      WHERE id = ? AND user_id = ? AND ${OWN_UPLOADS_SQL}`,
+    [id, userId],
+  ).catch(() => null);
+}
+
+/** The card's own choices — how it is read, and the topic it files under. */
+async function choices(c: { req: { formData(): Promise<FormData> } }): Promise<{
+  sortedAs: string | null;
+  topic: string | null;
+}> {
+  const form = await c.req.formData().catch(() => new FormData());
+  const s = String(form.get("sorted_as") ?? "");
+  const t = String(form.get("topic") ?? "");
+  return {
+    sortedAs: isSortedAs(s) ? s : null,
+    // Only a topic the site has a hub for; anything else files under Other.
+    topic: hubTopics().some((h) => h.name === t) ? t : null,
+  };
+}
+
+async function setDesk(
+  db: D1Database,
+  id: string,
+  desk: string,
+  extra: { sortedAs?: string | null; topic?: string | null } = {},
+): Promise<void> {
+  const sets = ["'$.desk', ?"];
+  const args: unknown[] = [desk];
+  if (extra.sortedAs) {
+    sets.push("'$.sorted_as', ?", "'$.sorted_why', ?");
+    args.push(extra.sortedAs, "was set by you");
+  }
+  if (extra.topic) {
+    sets.push("'$.library_topic', ?");
+    args.push(extra.topic);
+  }
+  await run(
+    db,
+    `UPDATE pieces SET metadata = json_set(COALESCE(metadata, '{}'), ${sets.join(", ")}) WHERE id = ?`,
+    [...args, id],
+  );
+}
+
+app.post("/desk/:id/publish", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect(fail("No operator user"));
+  const p = await owned(c.env.DB, userId, c.req.param("id"));
+  if (!p) return c.redirect(fail("That document is not on the desk"));
+  const pick = await choices(c);
+  await run(
+    c.env.DB,
+    `UPDATE pieces SET publication_status = 'published', published_at = COALESCE(published_at, ?)
+      WHERE id = ?`,
+    [new Date().toISOString(), p.id],
+  );
+  await setDesk(c.env.DB, p.id, "published", pick);
+  // Now, and only now, the pipeline reads it and the engines hear of it.
+  await ensureProcessingTable(c.env);
+  await enqueueProcessing(c.env, userId, p.id);
+  invalidateUploads();
+  const ping = pingIndexNow(c.env, [`/p/${p.slug}`, "/library", "/sitemap.xml"]).catch(() => {});
+  try {
+    c.executionCtx.waitUntil(ping);
+  } catch {
+    // No execution context (tests): the ping is already running.
+  }
+  return c.redirect(back(`Published “${p.title}”.`));
+});
+
+app.post("/desk/:id/private", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect(fail("No operator user"));
+  const p = await owned(c.env.DB, userId, c.req.param("id"));
+  if (!p) return c.redirect(fail("That document is not on the desk"));
+  await setDesk(c.env.DB, p.id, "private", await choices(c));
+  return c.redirect(back(`Kept “${p.title}” private.`));
+});
+
+app.post("/desk/:id/undo", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect(fail("No operator user"));
+  const p = await owned(c.env.DB, userId, c.req.param("id"));
+  if (!p) return c.redirect(fail("That document is not on the desk"));
+  await setDesk(c.env.DB, p.id, "waiting");
+  return c.redirect(back(`“${p.title}” is waiting again.`));
+});
+
+app.post("/desk/:id/unpublish", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect(fail("No operator user"));
+  const p = await owned(c.env.DB, userId, c.req.param("id"));
+  if (!p) return c.redirect(fail("That document is not on the desk"));
+  await run(c.env.DB, "UPDATE pieces SET publication_status = 'working-material' WHERE id = ?", [
+    p.id,
+  ]);
+  await setDesk(c.env.DB, p.id, "waiting");
+  invalidateUploads();
+  return c.redirect(back(`“${p.title}” is off the site and waiting again.`));
+});
+
+// Remove: the graph first (nodes carry no foreign key to pieces, so deleting
+// the piece alone would leave its quotes unmoored — CLAUDE.md), then the row.
+app.post("/desk/:id/remove", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect(fail("No operator user"));
+  const p = await owned(c.env.DB, userId, c.req.param("id"));
+  if (!p) return c.redirect(fail("That document is not on the desk"));
+  await purgeTypedGraphForPiece(c.env, userId, p.id);
+  await run(c.env.DB, "DELETE FROM pieces WHERE id = ? AND user_id = ?", [p.id, userId]);
+  invalidateUploads();
+  return c.redirect(back(`Removed “${p.title}”.`));
+});
+
+// Paste a link: fetch the file once, then the same door as a dropped file.
+const MAX_LINK_BYTES = 20 * 1024 * 1024;
+app.post("/desk/link", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect(fail("No operator user"));
+  const form = await c.req.formData();
+  let url: URL;
+  try {
+    url = new URL(String(form.get("url") ?? ""));
+    if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("scheme");
+  } catch {
+    return c.redirect(fail("That is not a web address."));
+  }
+  const res = await fetch(url.toString(), { redirect: "follow" }).catch(() => null);
+  if (!res?.ok)
+    return c.redirect(fail(`Could not fetch ${url.hostname} (${res?.status ?? "no answer"}).`));
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.length > MAX_LINK_BYTES) return c.redirect(fail("That file is over 20 MB."));
+  const type = (res.headers.get("content-type") ?? "").split(";")[0]?.trim() ?? "";
+  const last = decodeURIComponent(url.pathname.split("/").pop() || url.hostname);
+  let name = /\.[a-z0-9]{2,5}$/i.test(last) ? last : `${last}.txt`;
+  let body: Uint8Array = bytes;
+  if (type === "text/html") {
+    // A web page: keep its text, not its markup.
+    const text = new TextDecoder()
+      .decode(bytes)
+      .replace(/<(script|style|nav|footer|header)[\s\S]*?<\/\1>/gi, "")
+      .replace(/<\/(p|div|h[1-6]|li|br|tr)>/gi, "\n\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    body = new TextEncoder().encode(`Source: ${url.toString()}\n\n${text}`);
+    name = name.replace(/\.[a-z0-9]{2,5}$/i, "") + ".md";
+  }
+  const p = await createAndExtract(
+    c.env,
+    userId,
+    body,
+    name,
+    type === "text/html" ? "text/markdown" : type || mimeForName(name),
+    body.length,
+    {
+      hold: true,
+      extraMetadata: { source_url: url.toString() },
+    },
+  );
+  return c.redirect(
+    p.duplicate ? "/desk?dedup=1" : `/desk?uploaded=${encodeURIComponent(p.pieceId)}`,
+  );
+});
+
+export default app;

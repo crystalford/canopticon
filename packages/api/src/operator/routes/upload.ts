@@ -14,7 +14,7 @@ import {
   looksLikeTetrad,
   parseEssay,
 } from "../../lib/essay";
-import { pingIndexNow } from "../../lib/indexnow";
+import { sortUpload } from "../../lib/sort-upload";
 import { resolveOperatorId } from "../../public/data";
 import { operatorApp } from "./app";
 
@@ -39,9 +39,38 @@ app.post("/feed/upload", async (c) => {
     }
     await ensureProcessingTable(c.env);
     const form = await c.req.formData();
-    const file = form.get("file");
-    if (!file || typeof file === "string") {
+    const files = form.getAll("file").filter((x) => typeof x !== "string") as unknown as File[];
+    const file = files[0];
+    if (!file) {
       return c.redirect(`/op/library?error=${encodeURIComponent("No file in form data")}`);
+    }
+    // Several files chosen at once: each is read, sorted and held, exactly as
+    // a single drop would be.
+    if (files.length > 1) {
+      const ids: string[] = [];
+      let dupes = 0;
+      for (const one of files.slice(0, ZIP_MAX_ENTRIES)) {
+        try {
+          const p = await createAndExtract(
+            c.env,
+            userId,
+            one.stream(),
+            one.name,
+            one.type,
+            one.size,
+            {
+              hold: true,
+            },
+          );
+          ids.push(p.pieceId);
+          if (p.duplicate) dupes++;
+        } catch {
+          // a bad file is skipped; the rest still land
+        }
+      }
+      return c.redirect(
+        `/op/library?ingested=${ids.length}&dupes=${dupes}&uploaded=${encodeURIComponent(ids.slice(0, 5).join(","))}`,
+      );
     }
     const f = file as unknown as File;
     const isZip = f.type.includes("zip") || /\.zip$/i.test(f.name);
@@ -81,13 +110,11 @@ app.post("/feed/upload", async (c) => {
             base,
             mimeForName(base),
             bytes.length,
+            { hold: true },
           );
           pieceIds.push(p.pieceId);
-          if (p.duplicate) {
-            zipDupes++;
-          } else if (p.sourceId) {
-            await enqueueProcessing(c.env, userId, p.pieceId);
-          }
+          // Held: the pipeline runs when the operator publishes it.
+          if (p.duplicate) zipDupes++;
         } catch {
           // skip a bad entry; keep ingesting the rest
         }
@@ -97,22 +124,14 @@ app.post("/feed/upload", async (c) => {
       );
     }
 
-    // Single-file: store, publish, queue the pipeline. The drop is the
-    // trigger; the library page it lands on does the rest while open. A
-    // duplicate upload is already banked and already queued or processed.
-    const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size);
+    // Single file: store, read, sort, and hold it on the desk. Publishing —
+    // the pipeline, IndexNow — happens on the desk's Publish button
+    // (operator/routes/desk.ts), never on the drop.
+    const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size, {
+      hold: true,
+    });
     if (p.duplicate) {
       return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}&dedup=1`);
-    }
-    if (p.sourceId) await enqueueProcessing(c.env, userId, p.pieceId);
-    // Upload IS publication, so this is the moment to tell the engines that
-    // honour IndexNow. Fire-and-forget; inert without INDEXNOW_KEY. Guarded
-    // like the dig route: c.executionCtx throws where there is none (tests).
-    const ping = pingIndexNow(c.env, [`/p/${p.slug}`, "/library", "/sitemap.xml"]).catch(() => {});
-    try {
-      c.executionCtx.waitUntil(ping);
-    } catch {
-      // No execution context — the promise is already running.
     }
     return c.redirect(
       `/op/library?piece=${encodeURIComponent(p.pieceId)}&uploaded=${encodeURIComponent(p.pieceId)}`,
@@ -170,6 +189,10 @@ export async function createAndExtract(
     publishedAt?: string | undefined;
     ingestedFrom?: string | undefined;
     extraMetadata?: Record<string, unknown> | undefined;
+    /** The desk's rule (docs/blackbox/README.md §Desk): "Nothing publishes
+     *  without Publish." A held upload is stored, read and sorted, and waits
+     *  on the desk as working-material until the operator publishes it. */
+    hold?: boolean | undefined;
   } = {},
 ): Promise<CreatedPiece & { duplicate?: boolean }> {
   // Materialize to bytes so we can hash + put in R2 deterministically.
@@ -235,12 +258,12 @@ export async function createAndExtract(
     // document was permanently unclickable. "Upload is authorization. No
     // confirmation gauntlets" (CLAUDE.md) — the upload itself is the
     // publish decision.
-    publication_status: "published",
+    publication_status: opts.hold ? "working-material" : "published",
     // opts.publishedAt lets a caller supply the material's OWN real date
     // (a video's actual upload date, e.g.) instead of "now" — "now" is
     // only honest when there genuinely is no other date, as with a plain
     // file drop.
-    published_at: opts.publishedAt ?? nowIso,
+    ...(opts.hold ? {} : { published_at: opts.publishedAt ?? nowIso }),
     body_md,
     // No byline default — "the operator" is internal vocabulary and this
     // string renders directly on public piece pages ("By the operator").
@@ -258,6 +281,17 @@ export async function createAndExtract(
       // seen once and then gone, and these notes are worth having next to
       // the piece whenever the operator next looks at it.
       ...(parsedEssay ? { essay_lint: lintEssay(parsedEssay) } : {}),
+      ...(opts.hold
+        ? (() => {
+            const s = sortUpload(body_md);
+            return {
+              desk: "waiting",
+              sorted_as: s.as,
+              sorted_why: s.why,
+              uploaded_at: nowIso,
+            };
+          })()
+        : {}),
       ...opts.extraMetadata,
     }),
   });
@@ -310,7 +344,7 @@ async function contentSha256(bytes: Uint8Array): Promise<string> {
     .join("");
 }
 
-function mimeForName(filename: string): string {
+export function mimeForName(filename: string): string {
   const ext = (filename.split(".").pop() ?? "").toLowerCase();
   if (ext === "pdf") return "application/pdf";
   if (ext === "docx")
@@ -367,16 +401,18 @@ async function ensureUniqueSlug(db: D1Database, userId: string, base: string): P
 // channel with the video's own publish date. See graph/lib/video-intake.ts.
 app.post("/library/import-video", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk");
+  if (!userId) return c.redirect("/desk/workbench");
   const form = await c.req.parseBody();
   const url = typeof form.url === "string" ? form.url.trim() : "";
-  if (!url) return c.redirect("/desk");
+  if (!url) return c.redirect("/desk/workbench");
   const { requestVideoImport } = await import("../../graph/lib/video-intake");
   const result = await requestVideoImport(c.env, userId, url);
   if (!result.ok || !result.importId) {
-    return c.redirect(`/desk?video_error=${encodeURIComponent(result.error ?? "failed")}`);
+    return c.redirect(
+      `/desk/workbench?video_error=${encodeURIComponent(result.error ?? "failed")}`,
+    );
   }
-  return c.redirect(`/desk?importing=${encodeURIComponent(result.importId)}`);
+  return c.redirect(`/desk/workbench?importing=${encodeURIComponent(result.importId)}`);
 });
 
 // JSON status for the same live-polling banner pattern as /research-status.
@@ -487,7 +523,7 @@ app.post("/library/delete", async (c) => {
 // ?error=same+file when the upload is byte-identical to the current source.
 app.post("/library/:id/replace", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk?error=No%20operator%20user");
+  if (!userId) return c.redirect("/desk/workbench?error=No%20operator%20user");
   const pieceId = c.req.param("id");
   const piece = await one<{
     id: string;
@@ -500,11 +536,11 @@ app.post("/library/:id/replace", async (c) => {
     "SELECT id, slug, title, body_md, metadata FROM pieces WHERE id = ? AND user_id = ?",
     [pieceId, userId],
   );
-  if (!piece) return c.redirect("/desk?error=No%20document");
+  if (!piece) return c.redirect("/desk/workbench?error=No%20document");
   const form = await c.req.formData();
   const file = form.get("file");
   if (!file || typeof file === "string") {
-    return c.redirect(`/desk?error=${encodeURIComponent("No file in form data")}`);
+    return c.redirect(`/desk/workbench?error=${encodeURIComponent("No file in form data")}`);
   }
   const f = file as unknown as File;
   const bytes = new Uint8Array(await f.arrayBuffer());
@@ -528,7 +564,7 @@ app.post("/library/:id/replace", async (c) => {
     currentSha = u?.sha256 ?? null;
   }
   if (currentSha && currentSha === sha256) {
-    return c.redirect("/desk?error=same+file");
+    return c.redirect("/desk/workbench?error=same+file");
   }
 
   // Readings are read BEFORE the purge: their quotes cascade away with the
@@ -597,7 +633,7 @@ app.post("/library/:id/replace", async (c) => {
   }
 
   await enqueueProcessing(c.env, userId, pieceId, { restart: true });
-  return c.redirect(`/desk?replaced=1&readings_lost=${lost}`);
+  return c.redirect(`/desk/workbench?replaced=1&readings_lost=${lost}`);
 });
 
 export default app;

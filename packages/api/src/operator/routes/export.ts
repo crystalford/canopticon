@@ -42,7 +42,7 @@ async function ownUploads(db: D1Database, userId: string) {
 // GET /op/export — the list of downloads.
 app.get("/export", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk");
+  if (!userId) return c.redirect("/desk/workbench");
   const { parts, skipped } = archiveParts(await ownUploads(c.env.DB, userId));
   let first = 1;
   const summaries = parts.map((docs, i) => {
@@ -73,7 +73,7 @@ app.get("/export", async (c) => {
 // shrank.
 app.get("/export/research.zip", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/desk");
+  if (!userId) return c.redirect("/desk/workbench");
 
   const wanted = Number.parseInt(c.req.query("part") ?? "", 10);
   const { parts, skipped } = archiveParts(await ownUploads(c.env.DB, userId));

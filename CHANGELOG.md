@@ -6,6 +6,20 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-11, later — The desk: nothing publishes without Publish
+
+- **`/desk`**, the operator's page from the handoff: drop, choose or paste a
+  link; each file is read and sorted by its shape (research, paper, article,
+  or personal and held private) and waits as a card with Publish, Keep
+  private, Remove and Review. Failed reads ask for a text version. Held
+  documents and names awaiting a scholarly check are listed.
+- **Upload is no longer publication.** The pipeline and IndexNow run on
+  Publish. Every decision can be undone this week, except Remove, which
+  clears the typed graph before the row.
+- Documents published from the desk join the public Library, topics,
+  feeds, llms.txt and the sitemap with the content store.
+- The old operator console is `/desk/workbench`.
+
 ## 2026-10-11 — Black Box: the redesigned public record
 
 The redesign handoff (`docs/blackbox/`) rebuilt inside the Worker, page by

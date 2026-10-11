@@ -103,7 +103,7 @@ export function renderSubscribeError(message: string): string {
 /**
  * The operator's way back in.
  *
- * `/desk` is where uploading happens and it is session-gated. It used to
+ * `/desk/workbench` is where uploading happens and it is session-gated. It used to
  * redirect a signed-out visitor to `/research`, which meant a lapsed cookie
  * looked exactly like the page not existing. Saying so, and pointing at the
  * door, costs one page and removes the only genuinely blocking bug on the site.

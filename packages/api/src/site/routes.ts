@@ -11,6 +11,7 @@ import { one } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
 import {
   allPapers,
+  anyResearchDoc,
   article,
   libraryItems,
   paper,
@@ -20,6 +21,7 @@ import {
   term,
 } from "./content/store";
 import { docViewFromStore, hubTopics, listedArticles, topicBySlug } from "./data";
+import { deskModel } from "./desk-data";
 import {
   SITE as FEED_SITE,
   feedHeaders,
@@ -33,6 +35,7 @@ import {
 import { html } from "./layout";
 import { passageHref } from "./md";
 import { renderArticle, renderPaper } from "./pages/article";
+import { renderDesk } from "./pages/desk";
 import { type DocView, renderDocument } from "./pages/document";
 import { consentWording, followTopics, renderFollow } from "./pages/follow";
 import { renderFront } from "./pages/front";
@@ -45,8 +48,17 @@ import { renderStatic } from "./pages/static";
 import { renderTopic } from "./pages/topic";
 import { SITE_JS } from "./script";
 import { SITE_CSS } from "./styles";
+import { shortDate } from "./theme";
+import { refreshUploads } from "./uploads";
 
 const app = new Hono<AuthContext>();
+
+// Published desk uploads join the public lists (site/uploads.ts). Cached per
+// isolate for a minute; the static assets do not need them.
+app.use("*", async (c, next) => {
+  if (!/^\/(site\.(css|js)|favicon)/.test(c.req.path)) await refreshUploads(c.env);
+  await next();
+});
 type Env = AuthContext["Bindings"];
 
 const signedIn = (c: { get: (k: "is_operator") => unknown }) => c.get("is_operator") === true;
@@ -107,6 +119,88 @@ app.get("/investigations", (c) =>
     ),
   ),
 );
+
+// ---- the desk (signed in) -------------------------------------------------------
+
+const signIn = (path: string) =>
+  renderNotice({
+    title: "Sign in to use the desk",
+    body: "The desk is where uploads wait for a decision. It is only for the author.",
+    path,
+    links: [{ href: `/op/login?next=${encodeURIComponent(path)}`, label: "Sign in" }],
+  });
+
+app.get("/desk", async (c) => {
+  if (!signedIn(c)) return html(signIn("/desk"), { status: 401 });
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  const model = userId
+    ? await deskModel(c.env, userId)
+    : { waiting: [], failed: [], kept: [], published: [] };
+  return html(
+    renderDesk(model, {
+      uploaded: c.req.query("uploaded"),
+      ingested: c.req.query("ingested"),
+      dupes: c.req.query("dupes"),
+      dedup: c.req.query("dedup"),
+      error: c.req.query("error"),
+      done: c.req.query("done"),
+    }),
+  );
+});
+
+/** A private read of a waiting upload or a held document: the same page a
+ *  reader would get, marked private and kept out of every index. */
+app.get("/desk/review/:id", async (c) => {
+  if (!signedIn(c)) return html(signIn(c.req.path), { status: 401 });
+  const id = c.req.param("id");
+  const held = anyResearchDoc(id);
+  let view: DocView | null = held
+    ? {
+        id: held.id,
+        title: held.title,
+        kind: held.kind,
+        topic: held.topic,
+        date: held.date,
+        dateLabel: held.date ? shortDate(held.date) : "",
+        shelf: "",
+        body: held.body,
+        citedBy: [],
+      }
+    : null;
+  if (!view) {
+    const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+    const row = userId
+      ? await one<{ slug: string; title: string; body_md: string | null; created_at: string }>(
+          c.env.DB,
+          `SELECT slug, title, body_md, created_at FROM pieces WHERE id = ? AND user_id = ? AND ${OWN_UPLOADS_SQL}`,
+          [id, userId],
+        ).catch(() => null)
+      : null;
+    if (row) {
+      view = {
+        id: row.slug,
+        title: row.title,
+        kind: "Waiting on the desk",
+        topic: "Other",
+        date: row.created_at.slice(0, 10),
+        dateLabel: shortDate(row.created_at.slice(0, 10)),
+        shelf: "",
+        body: row.body_md ?? "",
+        citedBy: [],
+      };
+    }
+  }
+  if (!view) return html(renderNotFound(c.req.path, true), { status: 404 });
+  const page = renderDocument(view, { signedIn: true })
+    .replace("<head>", '<head>\n<meta name="robots" content="noindex,nofollow" />')
+    .replace(
+      '<div class="dwrap">',
+      '<p class="d-flash bad" style="margin:0 0 20px">Private — this is not published. <a href="/desk" class="ulink">Back to the desk</a></p><div class="dwrap">',
+    );
+  return new Response(page, {
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "private, no-store" },
+  });
+});
 
 // ---- sitemap -------------------------------------------------------------------
 
@@ -533,7 +627,6 @@ async function uploadedDoc(env: Env, slug: string): Promise<DocView | null> {
     // Unreadable metadata files the document under Other; the page still serves.
   }
   const date = (row.published_at ?? "").slice(0, 10);
-  const { shortDate } = await import("./theme");
   return {
     id: row.slug,
     title: row.title,

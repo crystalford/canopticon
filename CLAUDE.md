@@ -52,6 +52,11 @@
   to check every receipt lands: `scripts/check-receipts.mts`.
 - **Email** waits on a mailing address (CASL): `lib/email.ts` sends nothing
   without both `RESEND_API_KEY` and `MAILING_ADDRESS`.
+- **The desk** is `/desk` (`site/pages/desk.ts`, actions in
+  `operator/routes/desk.ts` under `/op/desk/*`): Add something, Waiting for
+  you, Decided this week. The old operator console — processing, leads,
+  research, the export — is `/desk/workbench`. Published desk uploads join
+  every public list through `site/uploads.ts` → `setUploadedRows()`.
 
 ---
 
@@ -169,8 +174,12 @@ still be incoherent for the reader this corpus actually has.**
    is checked as a literal substring of a stored source, with its byte offset
    recorded, by code — not by an operator's say-so. Quotes that fail are
    dropped. `/q/<id>` is the public receipt.
-2. **Upload is authorization.** The operator approves by uploading; there are
-   no confirmation gauntlets and no draft→publish rail for documents.
+2. **Nothing publishes without Publish** (since 2026-10-11, the Black Box
+   desk; this replaces "upload is authorization"). A file dropped on `/desk`
+   is read, sorted by its shape (`lib/sort-upload.ts`: research, paper,
+   article, or personal — held private) and waits as working-material. One
+   button publishes it; the pipeline and IndexNow run then, not on the drop.
+   Every decision has an Undo except Remove.
 3. **Nothing is written twice.** A page, its `.md` twin, its JSON-LD, the
    sitemap, `llms.txt` and the feed are all generated from one query over one
    table. They cannot drift apart because there is only one of them. New

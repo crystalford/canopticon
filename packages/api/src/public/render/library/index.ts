@@ -117,7 +117,7 @@ ${operator ? PROCESS_LIVE_JS : ""}
     description:
       "Every source document the rest is built on. Each row shows what it fed — facts extracted, subjects it touched.",
     body,
-    activeNav: "/desk",
+    activeNav: "/desk/workbench",
     zone: "library",
   });
 }

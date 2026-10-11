@@ -147,6 +147,11 @@ export function publicResearch(): ResearchDoc[] {
   return Object.values(STORE.research).filter(isPublic);
 }
 
+/** Held documents. The desk's read only — never call from a public route. */
+export function heldResearch(): ResearchDoc[] {
+  return Object.values(STORE.research).filter((d) => d.visibility === "held");
+}
+
 /** The desk's read: held documents included. Never call from a public route. */
 export function anyResearchDoc(id: string): ResearchDoc | null {
   return STORE.research[id] ?? null;
@@ -171,7 +176,21 @@ export function allPapers(): Paper[] {
 /** Projects are private (README §Rules): they route to the desk and never
  *  appear in a public list. Everything else in library.json is public. */
 export function libraryItems(opts: { signedIn?: boolean } = {}): LibraryItem[] {
-  return STORE.library.filter((r) => opts.signedIn || r.kind !== "Project");
+  const own = STORE.library.filter((r) => opts.signedIn || r.kind !== "Project");
+  return UPLOADED.length ? [...UPLOADED, ...own] : own;
+}
+
+/**
+ * Documents published from the desk after the handoff live only in D1. They
+ * join every list through here, so the Library, topics, feeds, llms.txt and
+ * the sitemap stay one list (standing rule 3). Set by the site's middleware
+ * (site/uploads.ts) from a short-lived cache; a row the store already holds
+ * is never listed twice.
+ */
+let UPLOADED: LibraryItem[] = [];
+export function setUploadedRows(rows: LibraryItem[]): void {
+  const known = new Set(STORE.library.map((r) => r.route));
+  UPLOADED = rows.filter((r) => !known.has(r.route) && !STORE.research[r.doc ?? ""]);
 }
 
 export const questions = (): DerivedRow[] => STORE.questions;

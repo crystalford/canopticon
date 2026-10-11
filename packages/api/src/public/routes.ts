@@ -173,12 +173,12 @@ app.use("*", async (c, next) => {
   // working indicator and sign out. Same bar, same height, same rules.
   const status = await renderWorkStatusBadge(c.env.DB).catch(() => null);
   const statusHtml = status
-    ? `<a href="/desk" class="nav-op-status${status.live ? " live" : ""}" title="${status.title}"><span class="nav-op-dot"></span>${status.text}</a>`
+    ? `<a href="/desk/workbench" class="nav-op-status${status.live ? " live" : ""}" title="${status.title}"><span class="nav-op-dot"></span>${status.text}</a>`
     : "";
   const withNav = html
     .replace(
       '<div class="nav-links">\n      ',
-      '<div class="nav-links">\n      <a href="/desk" class="nav-op">Library</a>\n      ',
+      '<div class="nav-links">\n      <a href="/desk/workbench" class="nav-op">Library</a>\n      ',
     )
     .replace(
       '<a href="/search" class="nav-search"><span class="q">/</span> Search</a>',
@@ -780,7 +780,7 @@ app.get("/patterns", (c) => c.redirect("/library?kind=Research", 301));
 // than once, not being able to find where to upload. This was why.
 //
 // Now it says what it is and where the door is.
-app.get("/desk", async (c) => {
+app.get("/desk/workbench", async (c) => {
   if (!c.get("is_operator")) return htmlResponse(renderSignedOut(), { status: 401 });
   const ingested = c.req.query("ingested");
   const error = c.req.query("error");

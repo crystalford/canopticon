@@ -992,6 +992,77 @@ function makeDb(): D1Database {
           };
         }
         // The id-to-slug map consolidation uses to credit a lead's other side.
+        // The desk (site/desk-data.ts): what is waiting, what was decided.
+        if (/'\$\.desk'\) IS NOT NULL/.test(sql)) {
+          const meta = (o: Record<string, unknown>) =>
+            JSON.stringify({ ingested_from: "feed-upload", ...o });
+          return {
+            results: [
+              {
+                id: "desk-1",
+                slug: "rents-after-the-ban",
+                title: "Rents After the Ban: Toronto, Vancouver and Montreal, 2023–2026",
+                publication_status: "working-material",
+                chars: 31200,
+                head: "## TL;DR\nRents fell for other reasons [1].",
+                created_at: "2026-10-11T09:00:00Z",
+                published_at: null,
+                metadata: meta({
+                  desk: "waiting",
+                  sorted_as: "research",
+                  sorted_why: "has a TL;DR or key findings and numbered sources",
+                }),
+              },
+              {
+                id: "desk-2",
+                slug: "why-i-stopped-the-routine",
+                title: "Why I stopped the routine that was working",
+                publication_status: "working-material",
+                chars: 8400,
+                head: "My doctor changed my medication in March.",
+                created_at: "2026-10-10T18:00:00Z",
+                published_at: null,
+                metadata: meta({
+                  desk: "waiting",
+                  sorted_as: "personal",
+                  sorted_why: "names you or your health",
+                }),
+              },
+              {
+                id: "desk-3",
+                slug: "the-quiet-part",
+                title: "The Quiet Part",
+                publication_status: "published",
+                chars: 12000,
+                head: "",
+                created_at: "2026-10-09T12:00:00Z",
+                published_at: new Date().toISOString(),
+                metadata: meta({ desk: "published", sorted_as: "article" }),
+              },
+            ],
+          };
+        }
+        if (/length\(trim\(body_md\)\) < 40/.test(sql)) {
+          return {
+            results: [
+              {
+                id: "desk-4",
+                slug: "scan",
+                title: "budget-2026-estimates",
+                publication_status: "working-material",
+                chars: 0,
+                head: "",
+                created_at: "2026-09-28T12:00:00Z",
+                published_at: null,
+                metadata: JSON.stringify({
+                  ingested_from: "feed-upload",
+                  desk: "waiting",
+                  original_filename: "budget-2026-estimates.pdf",
+                }),
+              },
+            ],
+          };
+        }
         if (/SELECT id, slug FROM pieces/i.test(sql)) {
           return { results: ALL.map((p) => ({ id: p.id, slug: p.slug })) };
         }

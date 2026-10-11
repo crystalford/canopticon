@@ -423,6 +423,51 @@ a.facet:hover { filter: brightness(.96); }
 .f-card p { margin: 6px 0 12px; font-size: 14px; line-height: 1.55; color: var(--ink-2); }
 .f-code { font-family: var(--mono); font-size: 13px; }
 
+/* ---- the desk ---------------------------------------------------------------- */
+
+.d-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.d-h1 { font-size: clamp(28px, 3vw, 36px); line-height: 1.1; font-weight: 500; letter-spacing: -.02em; margin: 0; }
+.d-count { padding: 2px 9px; border-radius: 999px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.d-links { margin-left: auto; display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; }
+.d-flash { margin: 16px 0 0; padding: 10px 14px; border-radius: 10px; background: var(--green-bg); color: var(--green-ink); font-size: 14px; }
+.d-flash.bad { background: var(--clay-bg); color: var(--clay-ink); }
+.d-add { margin-top: 20px; padding: 22px 24px; border: 1.5px dashed #cfc9bb; border-radius: 14px; background: var(--card); }
+.d-add.over { border-color: var(--cobalt); background: var(--cobalt-soft); }
+.d-add-h { font-size: 17px; font-weight: 600; color: var(--ink); }
+.d-add-p { font-size: 14px; line-height: 1.5; color: var(--ink-2); margin-top: 4px; max-width: 80ch; }
+.d-add-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: center; }
+.d-url { flex: 1 1 280px; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 6px 0 14px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); margin: 0; }
+.d-url:focus-within { border-color: var(--cobalt); }
+.d-url input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; font-size: 14px; color: var(--ink); outline: none; padding: 0; }
+.d-files { margin: 0; }
+.d-btn { appearance: none; margin: 0; font: inherit; cursor: pointer; display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--rule); background: var(--card); color: var(--ink); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.d-btn:hover { background: var(--paper); border-color: var(--rule-2); color: var(--ink); }
+.d-btn.link { border-radius: 999px; font-weight: 400; }
+.d-btn.quiet { font-weight: 400; color: var(--ink-2); }
+.d-btn.file { position: relative; overflow: hidden; }
+.d-btn.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.d-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); align-items: start; margin-top: 12px; gap: 12px; }
+.d-card { background: var(--card); border: 1px solid var(--hair); border-radius: 14px; padding: 16px 20px; }
+.d-card.muted { opacity: .72; }
+.d-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.d-chip { padding: 2px 9px; border-radius: 999px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.d-when { margin-left: auto; font-size: 13px; color: var(--ink-2); }
+.d-title { font-size: 18px; line-height: 1.3; font-weight: 500; letter-spacing: -.01em; color: var(--ink); margin-top: 10px; overflow-wrap: anywhere; }
+.d-note { font-size: 14px; line-height: 1.55; color: var(--ink-2); margin-top: 4px; }
+.d-note code { font-family: var(--mono); font-size: 12px; background: var(--tint); padding: 1px 4px; border-radius: 4px; }
+.d-form { margin: 0; }
+.d-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; font-size: 13px; color: var(--ink-2); }
+.d-lab { margin-right: 2px; }
+.d-kind input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.d-kind span { display: inline-block; padding: 3px 10px; border-radius: 10px; border: 1px solid var(--rule); color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; }
+.d-kind input:checked + span { background: var(--tint); border-color: var(--tint); color: var(--ink); }
+.d-kind input:focus-visible + span { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+.d-select { height: 30px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--rule); background: var(--card); font: inherit; font-size: 13px; color: var(--ink); }
+.d-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.d-clear { grid-column: 1 / -1; padding: 16px 20px; border-radius: 14px; background: var(--green-wash); color: var(--green-ink); font-size: 14px; }
+.d-how { margin-top: 32px; padding: 18px 22px; border-radius: 14px; background: var(--tint-2); font-size: 14px; line-height: 1.6; color: var(--body); }
+.d-how strong { font-weight: 600; color: var(--ink); }
+
 /* ---- the document page --------------------------------------------------- */
 
 .dwrap { display: flex; flex-wrap: wrap; gap: 40px 36px; align-items: flex-start; }
