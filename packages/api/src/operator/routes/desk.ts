@@ -179,7 +179,7 @@ app.post("/desk/link", async (c) => {
       .replace(/\n{3,}/g, "\n\n")
       .trim();
     body = new TextEncoder().encode(`Source: ${url.toString()}\n\n${text}`);
-    name = name.replace(/\.[a-z0-9]{2,5}$/i, "") + ".md";
+    name = `${name.replace(/\.[a-z0-9]{2,5}$/i, "")}.md`;
   }
   const p = await createAndExtract(
     c.env,
