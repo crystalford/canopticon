@@ -48,6 +48,7 @@ export function citedBy(docId: string): Citation[] {
   if (!citations) {
     citations = new Map();
     for (const a of allArticles()) {
+      if (a.withdrawn) continue;
       const counts = new Map<string, number>();
       for (const q of articleQuotes(a.body)) counts.set(q.doc, (counts.get(q.doc) ?? 0) + 1);
       for (const [doc, n] of counts) {

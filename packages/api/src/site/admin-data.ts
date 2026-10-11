@@ -4,7 +4,7 @@
 
 import { OWN_UPLOADS_SQL } from "../admin/runtime";
 import type { Env } from "../env";
-import { all } from "../lib/d1";
+import { all, one } from "../lib/d1";
 import { type SortedAs, isSortedAs, sortUpload } from "../lib/sort-upload";
 
 export interface AdminPiece {
@@ -112,4 +112,18 @@ export async function adminModel(env: Env, userId: string): Promise<AdminModel> 
         (p.publishedAt ?? "") > weekAgo,
     ),
   };
+}
+
+/** The count on the Admin pill: uploads waiting for a decision, plus files
+ *  that could not be read. One small query, signed-in requests only. */
+export async function waitingCount(env: Env, userId: string): Promise<number> {
+  const r = await one<{ n: number }>(
+    env.DB,
+    `SELECT COUNT(*) AS n FROM pieces
+      WHERE user_id = ? AND ${OWN_UPLOADS_SQL}
+        AND (COALESCE(json_extract(metadata, '$.admin_status'), json_extract(metadata, '$.desk')) = 'waiting'
+             OR body_md IS NULL OR length(trim(body_md)) < 40)`,
+    [userId],
+  ).catch(() => null);
+  return r?.n ?? 0;
 }

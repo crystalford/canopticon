@@ -50,6 +50,17 @@ import { callResearchWriter, resolveWriter } from "../../llm/router";
 import { locateVerbatim } from "./digestion-typed";
 import { readFullExtractedText } from "./extract";
 
+/** docs/blackbox/RESEARCH-PROMPT.md "Stay on this question": research tools
+ *  framed polling, fentanyl and feeds through McLuhan (23 documents), and
+ *  pulled the author's projects into public findings. Every writer prompt
+ *  carries this line. */
+const STAY_ON_QUESTION = (where: string | null) =>
+  `\n- STAY ON THIS QUESTION. Do not frame findings through Marshall McLuhan or media theory, and do not bring in the operator's other projects or earlier research, unless the subject is about them. ${
+    where
+      ? `If a connection seems to matter, put it in one sentence under ${where}, marked "outside the question".`
+      : "If a connection seems to matter, leave it out: the gaps are written separately."
+  }`;
+
 const EXCERPT_CHARS_PER_SOURCE = 5000; // was 3000 — more raw material now that the writer is gpt-oss-120b, not Scout
 const REPORT_MAX_TOKENS = 4000; // matches hard_extraction's proven-safe budget for this exact model+effort
 const MAX_FOLLOWUP_QUERIES = 2; // pass 2's added searches — each runs its own expandRecord
@@ -249,7 +260,7 @@ RULES:
 - Every substantive claim should be traceable to something in the supplied excerpts. Do not invent facts the excerpts don't support.
 - Close with a short "Still open" section: what these sources DON'T cover, or where they disagree.
 - This is a briefing document for a researcher deciding what to look into next — not a final verdict, not a signed reading.
-- Plain, direct prose. No throat-clearing intro, no "in conclusion."${angleLine}${followupLine}
+- Plain, direct prose. No throat-clearing intro, no "in conclusion."${STAY_ON_QUESTION('"Still open"')}${angleLine}${followupLine}
 
 Return ONLY JSON:
 {
@@ -889,7 +900,7 @@ RULES:
 - Propose between ${OUTLINE_MIN_SECTIONS} and ${OUTLINE_MAX_SECTIONS} sections, organised by theme, not by source. Together they should cover what these sources can actually establish about the subject, in an order a reader can follow.
 - Each section gets a heading (short, specific, no numbering), a one-line brief saying what that section must establish, and the labels of the sources it should draw on (e.g. ["S1", "S4"]). Name only sources that actually bear on it; a section may have several.
 - Do not propose a section the sources cannot support. Gaps are reported at assembly, not planned as sections.
-- No introduction or conclusion sections: the summary and the gaps are written separately after every section exists.${angleLine}
+- No introduction or conclusion sections: the summary and the gaps are written separately after every section exists.${STAY_ON_QUESTION(null)}${angleLine}
 
 Return ONLY JSON:
 {
@@ -987,7 +998,7 @@ Section ${opts.position} of ${opts.total}.
 RULES:
 - 600 to 1,200 words of plain, direct prose in Markdown. Sub-headings (###) only if they help. No preamble.
 - Every substantive claim must be traceable to the supplied sources. Do not invent facts they do not support. Where the sources disagree, say so.
-- Name the source in the prose where it matters ("the IAB guidance says…"), but DO NOT quote the sources in the prose. Put every quotation in "quotes" instead: 2 to ${SECTION_MAX_QUOTES} passages copied EXACTLY, character for character, from the source text, each at least one full sentence, with the source label. They will be checked mechanically against the source and any that do not match word for word will be dropped.${angleLine}
+- Name the source in the prose where it matters ("the IAB guidance says…"), but DO NOT quote the sources in the prose. Put every quotation in "quotes" instead: 2 to ${SECTION_MAX_QUOTES} passages copied EXACTLY, character for character, from the source text, each at least one full sentence, with the source label. They will be checked mechanically against the source and any that do not match word for word will be dropped.${STAY_ON_QUESTION(null)}${angleLine}
 
 Return ONLY JSON:
 {
@@ -1111,7 +1122,7 @@ RULES:
 - "title": a short title for the brief.
 - "summary": ONE paragraph that stands alone, stating what the sections establish. Every sentence must be supported by a section below; introduce NO claim, figure or source the sections do not already contain.
 - "gaps": a list of what this brief could not establish — questions the sections raise and leave open, points where the sources disagree, and figures given without a named source. Each item one sentence. Drawn from the sections only.
-- Plain, direct prose. No throat-clearing.${angleLine}
+- Plain, direct prose. No throat-clearing.${STAY_ON_QUESTION('"gaps"')}${angleLine}
 
 Return ONLY JSON:
 { "title": "…", "summary": "…", "gaps": ["…", "…"] }`,

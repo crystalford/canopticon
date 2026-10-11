@@ -67,14 +67,30 @@ export const SITE_JS = `(function () {
   d.addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest("[data-copy-cite]");
     if (!b) return;
-    var row = b.closest(".cite-row");
-    var text = row && row.querySelector("[data-cite-text]");
+    // Built pages mark their cite line; the ported papers keep the
+    // prototype's markup, where the line is the button's sibling span.
+    var row = b.closest(".cite-row") || b.parentElement;
+    var text = row && (row.querySelector("[data-cite-text]") || row.querySelector("span"));
     if (!text || !navigator.clipboard) return;
     navigator.clipboard.writeText(text.textContent.trim()).then(function () {
       var label = b.querySelector("span");
       if (!label) return;
       label.textContent = "Copied";
       setTimeout(function () { label.textContent = "Copy"; }, 1800);
+    });
+  });
+
+  // ---- copy a research prompt ("This thread is still open") -------------------
+  d.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-copy-prompt]");
+    if (!b || !navigator.clipboard) return;
+    var text = b.parentElement && b.parentElement.querySelector("[data-prompt-text]");
+    if (!text) return;
+    navigator.clipboard.writeText(text.textContent.trim()).then(function () {
+      var label = b.querySelector("span");
+      if (!label) return;
+      label.textContent = "Copied";
+      setTimeout(function () { label.textContent = "Copy prompt"; }, 1800);
     });
   });
 
@@ -199,15 +215,16 @@ export const SITE_JS = `(function () {
     var consent = ff.querySelector("[data-consent]");
     var feed = d.querySelector("[data-feed-url]");
     var phrase = function (p) {
-      if (!p.length) return "everything published";
+      if (!p.length) return "anything on the site";
       if (p.length === 1) return p[0];
-      return p.slice(0, -1).join(", ") + " and " + p[p.length - 1];
+      return p.length + " topics";
     };
     var sync = function () {
       var picked = boxes.filter(function (b) { return b.checked; });
       if (every) every.checked = picked.length === 0;
       if (consent) consent.textContent = "By subscribing you agree to receive Canopticon's weekly email from Chris Telford, covering " + phrase(picked.map(function (b) { return b.value; })) + ". You'll confirm by email first, and you can unsubscribe at any time with one click. Contact: canopticon.com";
-      if (feed) feed.textContent = picked.length ? "canopticon.com/feed.xml?t=" + picked.map(function (b) { return b.getAttribute("data-topic"); }).join(",") : "canopticon.com/feed.xml";
+      var slugs = picked.map(function (b) { return b.getAttribute("data-topic"); });
+      if (feed) feed.textContent = !slugs.length ? "canopticon.com/feed.xml" : slugs.length === 1 ? "canopticon.com/feeds/" + slugs[0] + ".xml" : "canopticon.com/feed.xml?t=" + slugs.join(",");
     };
     boxes.forEach(function (b) { b.addEventListener("change", sync); });
     if (every) every.addEventListener("change", function () { if (every.checked) boxes.forEach(function (b) { b.checked = false; }); sync(); });
@@ -254,5 +271,22 @@ export const SITE_JS = `(function () {
       paintU();
     });
   });
+  // "Marked useful": the server sent every row newest-first; lift the marked
+  // ones to the top, keeping their order, and renumber.
+  var lib = d.querySelector("[data-useful-sort]");
+  if (lib) {
+    var rows = [].slice.call(lib.querySelectorAll(".lib-row"));
+    var marked = function (r) {
+      var b = r.querySelector("[data-useful]");
+      return b && useful.indexOf(b.getAttribute("data-useful")) > -1;
+    };
+    var ordered = rows.filter(marked).concat(rows.filter(function (r) { return !marked(r); }));
+    var tail = rows.length ? rows[rows.length - 1].nextSibling : null;
+    ordered.forEach(function (r, i) {
+      lib.insertBefore(r, tail);
+      var n = r.querySelector(".lib-rank");
+      if (n) n.textContent = String(i + 1).padStart(2, "0");
+    });
+  }
 })();
 `;

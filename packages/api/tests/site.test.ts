@@ -10,7 +10,9 @@ import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseFrontMatter, verbatimNormal } from "../scripts/build-content.mjs";
 import app from "../src/index";
+import { privatePage, staticPage } from "../src/site/content/store";
 import { articleQuotes } from "../src/site/md";
+import { matchLabels } from "../src/site/pages/article";
 import { searchTerms } from "../src/site/pages/search";
 import { SITE_CSS } from "../src/site/styles";
 
@@ -50,9 +52,10 @@ describe("the content store", () => {
     expect(body).toBe("Body");
   });
 
-  it("forgives only emphasis and whitespace when checking a quote", () => {
-    expect(verbatimNormal("a **bold**\n  claim")).toBe("a bold claim");
-    // Not quote style, not case, not punctuation.
+  it("forgives only emphasis and code marks when checking a quote (ESSAY-CONTRACT §4)", () => {
+    expect(verbatimNormal("a **bold** `code` claim")).toBe("a bold code claim");
+    // Not whitespace, not quote style, not case, not punctuation.
+    expect(verbatimNormal("a\n  claim")).not.toBe(verbatimNormal("a claim"));
     expect(verbatimNormal("“x”")).not.toBe(verbatimNormal('"x"'));
     expect(verbatimNormal("X")).not.toBe(verbatimNormal("x"));
   });
@@ -87,6 +90,66 @@ describe("projects are private", () => {
     expect(lib).not.toContain("/admin/projects/");
     expect(lib).not.toContain(">Projects<");
     expect(await text("/sitemap.xml")).not.toContain("/admin");
+  });
+
+  it("a project page asks a reader to sign in, and is not a public page", async () => {
+    for (const p of ["/admin/projects/aldershot", "/admin/projects/ancaster"]) {
+      const res = await get(p);
+      expect(res.status).toBe(401);
+      expect(await res.text()).not.toContain("Ported as-is");
+    }
+    expect(staticPage("/admin/projects/aldershot")).toBeNull();
+    expect(privatePage("/admin/projects/aldershot")?.title).toBe("Aldershot");
+    expect(privatePage("/about")).toBeNull();
+  });
+});
+
+describe("a withdrawn draft", () => {
+  it("says so, keeps out of search engines and is credited nowhere", async () => {
+    const html = await text("/articles/the-change-you-stop-seeing");
+    expect(html).toContain("Withdrawn draft.");
+    expect(html).toContain('<meta name="robots" content="noindex,follow" />');
+    const doc = await text(
+      "/p/when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten",
+    );
+    expect(doc).not.toContain("/articles/the-change-you-stop-seeing");
+    const problem = await text("/open/where-does-voice-beat-typing");
+    expect(problem).not.toContain("/articles/the-change-you-stop-seeing");
+    expect(await text("/sitemap.xml")).not.toContain("the-change-you-stop-seeing");
+  });
+});
+
+describe("what the Markdown export dropped", () => {
+  it("names figures render as cards, their quotes still verified", async () => {
+    const html = await text("/articles/self-extinguishing-maintenance");
+    expect(html).toContain('<div class="names">');
+    expect(html).toContain('<div class="name-l">The belief</div>');
+    expect(html).not.toContain("The cycleSelf-extinguishing");
+  });
+
+  it("contents labels follow the headings they name", () => {
+    const heads = [
+      "Coffee is close to the worst",
+      "The smell is the protein",
+      "What is coming",
+    ].map((text, i) => ({ n: String(i + 1), text, href: `#e-${i + 1}` }));
+    const byPosition = matchLabels(heads, ["Coffee’s acidity", "The smell", "What is coming"]);
+    expect(byPosition.map((h) => h.text)).toEqual([
+      "Coffee’s acidity",
+      "The smell",
+      "What is coming",
+    ]);
+    // The prototype's own list swaps two; the words put them back.
+    const swapped = matchLabels(heads, ["Coffee’s acidity", "What is coming", "The smell"]);
+    expect(swapped.map((h) => h.href)).toEqual(["#e-1", "#e-2", "#e-3"]);
+    expect(swapped[1]?.text).toBe("The smell");
+  });
+
+  it("the thread a Dispatch article leaves open is on the page, honest about its prompts", async () => {
+    const html = await text("/articles/paying-yourself-to-do-your-own-tasks");
+    expect(html).toContain("This thread is still open");
+    expect(html).toContain('href="/open/cash-micro-incentives-for-task-completion-in-adu"');
+    expect(html).toMatch(/data-copy-prompt|Prompt not written yet/);
   });
 });
 
@@ -226,6 +289,11 @@ describe("the library", () => {
     expect(html).toContain("Open the Housing topic page");
     expect(html).toMatch(/2 items/);
     expect(html).toContain('href="/library?kind=Research&amp;topic=housing&amp;sort=az"');
+  });
+
+  it("offers Marked useful only to the author, who is the only one who can mark", async () => {
+    expect(await text("/library")).not.toContain("Marked useful");
+    expect(await text("/library?sort=useful")).not.toContain("data-useful-sort");
   });
 
   it("is finite: fifty rows a page, and a pager with an end", async () => {

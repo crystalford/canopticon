@@ -167,7 +167,7 @@ describe("follow — double opt-in with a consent record (CASL)", () => {
     expect(consent.topics).toEqual(["Housing", "Prices & markets"]);
     // The sentence the page showed for these picks, word for word.
     expect(consent.wording).toBe(
-      "By subscribing you agree to receive Canopticon's weekly email from Chris Telford, covering Housing and Prices & markets. You'll confirm by email first, and you can unsubscribe at any time with one click. Contact: canopticon.com",
+      "By subscribing you agree to receive Canopticon's weekly email from Chris Telford, covering 2 topics. You'll confirm by email first, and you can unsubscribe at any time with one click. Contact: canopticon.com",
     );
     expect(String(consent.at)).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
@@ -178,7 +178,7 @@ describe("follow — double opt-in with a consent record (CASL)", () => {
     const insert = writes.find((w) => /INSERT INTO pub_subscriptions/i.test(w.sql));
     const consent = JSON.parse(String(insert?.args[7])) as { wording: string; topics: string[] };
     expect(consent.topics).toEqual([]);
-    expect(consent.wording).toContain("covering everything published");
+    expect(consent.wording).toContain("covering anything on the site");
   });
 
   it("rejects a malformed address without writing anything", async () => {

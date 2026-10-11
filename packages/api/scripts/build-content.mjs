@@ -77,15 +77,31 @@ function scalar(raw) {
   return unentity(raw);
 }
 
-/** What "a literal substring" is measured against: emphasis markers and
- *  backslash escapes removed, whitespace collapsed. Nothing else is forgiven —
- *  not case, not quote style, not punctuation. */
+/** What "a literal substring" is measured against — docs/blackbox/ESSAY-CONTRACT.md
+ *  §4: the comparison strips Markdown formatting characters, emphasis (**, *)
+ *  and code backticks, "and nothing else — never curly/straight quote
+ *  normalisation, never whitespace collapsing". Those alter the characters of
+ *  a quotation and hide real mismatches. */
+/** content/prompts/<name>.md → the text inside its first fenced block (the
+ *  prompt to paste), or the whole file when it has none. Optional folder. */
+function readPrompts() {
+  const dir = join(CONTENT, "prompts");
+  const out = {};
+  let files = [];
+  try {
+    files = readdirSync(dir).filter((f) => f.endsWith(".md"));
+  } catch {
+    return out;
+  }
+  for (const f of files) {
+    const md = readFileSync(join(dir, f), "utf8");
+    out[f.slice(0, -3)] = (/```[^\n]*\n([\s\S]*?)```/.exec(md)?.[1] ?? md).trim();
+  }
+  return out;
+}
+
 export function verbatimNormal(s) {
-  return s
-    .replace(/[*_`]/g, "")
-    .replace(/\\([^\w\s])/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
+  return s.replace(/[*`]/g, "");
 }
 
 const readJson = (f) => JSON.parse(readFileSync(join(CONTENT, f), "utf8"));
@@ -156,6 +172,23 @@ function build() {
       if (!research[b.id]) failures.push(`${a.slug}: based on a missing document ${b.id}`);
     }
   }
+  // The McLuhan-bias audit (docs/blackbox/RESEARCH-PROMPT.md, "Stay on this
+  // question"): research tools framed unrelated subjects through McLuhan. A
+  // quote that mentions him, taken from a document that is not about him, is
+  // flagged here before it reaches a reader. A warning, not a gate: the quote
+  // is still verbatim, the author decides.
+  const mcluhan = [];
+  for (const a of Object.values(articles)) {
+    for (const m of a.body.matchAll(/<q\s+([^>]*)>([\s\S]*?)<\/q>/g)) {
+      const doc = /doc="([^"]*)"/.exec(m[1])?.[1];
+      const src = doc ? research[doc] : undefined;
+      if (!src || !/mcluhan/i.test(m[2])) continue;
+      if (/mcluhan|media theory|tetrad/i.test(String(src.title ?? ""))) continue;
+      mcluhan.push(`${a.slug}: quotes McLuhan from ${doc}, which is not about him`);
+    }
+  }
+  for (const w of mcluhan) console.warn(`content: ${w}`);
+
   if (failures.length) {
     console.error(`content: ${failures.length} of ${checked} checks failed — nothing publishes:`);
     for (const f of failures) console.error(`  ${f}`);
@@ -190,6 +223,11 @@ function build() {
     articles,
     papers,
     pages,
+    // Per-article details the hand-built prototype pages carry and the
+    // Markdown export did not: short contents labels, the named sources, the
+    // "one of a pair" note, curated read-next picks.
+    articleExtras: readJson("article-extras.json"),
+    prompts: readPrompts(),
     verified: { quotes: checked },
   };
   mkdirSync(dirname(OUT), { recursive: true });

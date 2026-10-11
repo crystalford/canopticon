@@ -19,8 +19,10 @@ Two teeth that do not quite touch trap food. Cleaning the gap after meals keeps 
 
 The research behind this article looked for a name for that whole cycle — treat until healed, stop, relapse, because the cause never went away — and found only names for pieces of it. Health psychology has one for the belief; adherence research has one for the stopping. <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Introduction">What is missing from the literature is a general, cross-domain account of the full loop (symptom → maintenance → remission misread as cure → stopping → relapse caused by an unchanged structural cause).</q> So it proposed two names, one for what happens and one for what you believe.
 
-The cycleSelf-extinguishing maintenance<q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="G">a maintenance behavior that, by succeeding, removes the symptom that cues and reinforces it, so that the successful state is misread as cure and the behavior stops, while an unchanged underlying cause guarantees relapse.</q>In plain terms: the treatment works so well that you stop needing to think about it — and stop.
-        The beliefRemission-as-cure error<q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="G">"remission-as-cure error" (reading a maintained state as a resolved one)</q>In plain terms: taking "it is fine while I keep doing this" to mean "it is fine".
+<figure data-kind="names">
+- The cycle | Self-extinguishing maintenance | <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="G">a maintenance behavior that, by succeeding, removes the symptom that cues and reinforces it, so that the successful state is misread as cure and the behavior stops, while an unchanged underlying cause guarantees relapse.</q> | In plain terms: the treatment works so well that you stop needing to think about it — and stop.
+- The belief | Remission-as-cure error | <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="G">"remission-as-cure error" (reading a maintained state as a resolved one)</q> | In plain terms: taking "it is fine while I keep doing this" to mean "it is fine".
+</figure>
 
 ## Feeling better is the most common reason people stop treatment
 
@@ -66,7 +68,7 @@ Why would anyone stop something that works? Because the problem itself was what 
 
 People also judge whether to keep going by how things look now. The leading account of why people maintain a behaviour holds that continuing depends on <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="A">perceived satisfaction with received outcomes</q>. That works for exercise, where feeling fitter keeps you going. For a maintained condition it does the opposite: the outcome looks finished, so the effort feels finished too.
 
-The skin and the gums show how fast the reversal is. When long-term moisturiser use stops, dryness rises <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="C">within 1 day after discontinuation</q>. Gums inflamed by a few weeks without cleaning recover quickly once cleaning resumes, and <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="D">That quick reversibility is exactly what teaches the wrong lesson: the tissue looks cured within days, but only while cleaning continues.</q>
+The skin and the gums show how fast the reversal is. When long-term moisturiser use stops, dryness rises <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="C">within 1 day after discontinuation</q>. Gums inflamed by a few weeks without cleaning recover quickly once cleaning resumes, and <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="D">That quick reversibility is exactly what teaches the wrong lesson: the tissue *looks* cured within days, but only while cleaning continues.</q>
 
 > **Objection: The reward-and-cue account is a theory, not a finding**
 >

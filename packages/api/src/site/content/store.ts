@@ -90,6 +90,9 @@ export interface Article {
   title: string;
   dek: string;
   date: string;
+  /** A withdrawn draft: still at its URL, says so at the top, linked from
+   *  nowhere and kept out of search engines. */
+  withdrawn?: string;
   why?: string;
   thesis?: string;
   based_on?: BasedOn[];
@@ -112,10 +115,27 @@ export interface Paper {
 
 export interface StaticPage {
   route: string;
+  /** Long pages (the papers) carry the reading-progress bar. */
+  progress?: boolean;
+  /** An Admin-only page (the projects). Never returned by staticPage(). */
+  private?: boolean;
   title: string;
   description: string;
   ld: unknown[];
   body: string;
+}
+
+export interface ArticleExtras {
+  toc?: string[];
+  pair?: { before: string; label: string; route: string; after: string };
+  /** Named sources; may carry <em> and nothing else. */
+  sources?: string[];
+  readNext?: Array<{ route: string; kind: string; min: string; title: string; dek: string }>;
+  /** The open problem the article leaves, linked beside its topic. */
+  openProblem?: string;
+  /** "This thread is still open": the next research questions, each with
+   *  the name of its prompt in content/prompts/ (absent until written). */
+  thread?: { intro: string; items: Array<{ title: string; desc: string; prompt?: string }> };
 }
 
 interface Store {
@@ -129,6 +149,9 @@ interface Store {
   articles: Record<string, Article>;
   papers: Record<string, Paper>;
   pages: Record<string, StaticPage>;
+  articleExtras: Record<string, ArticleExtras>;
+  /** content/prompts/<name>.md: the research prompts an article offers. */
+  prompts: Record<string, string>;
   verified: { quotes: number };
 }
 
@@ -203,4 +226,19 @@ export const timeline = (topic: string): TimelineWork[] => STORE.timeline[topic]
 export const verifiedQuoteCount = (): number => STORE.verified.quotes;
 
 /** A hand-built page by its route ("/about", "/concepts/cpai"…). */
-export const staticPage = (route: string): StaticPage | null => STORE.pages[route] ?? null;
+export const staticPage = (route: string): StaticPage | null => {
+  const p = STORE.pages[route];
+  return p && !p.private ? p : null;
+};
+
+/** Projects are private (README §Rules): their pages are for Admin only, and
+ *  this is the one accessor that returns them. */
+export const privatePage = (route: string): StaticPage | null => {
+  const p = STORE.pages[route];
+  return p?.private ? p : null;
+};
+
+export const articleExtras = (slug: string): ArticleExtras => STORE.articleExtras[slug] ?? {};
+
+/** A research prompt's text — the fenced block of content/prompts/<name>.md. */
+export const researchPrompt = (name: string): string | null => STORE.prompts?.[name] ?? null;

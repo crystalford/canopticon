@@ -43,6 +43,13 @@ export function esc(s: string | number | null | undefined): string {
     .replace(/'/g, "&#39;");
 }
 
+/** How many things are waiting in Admin, for the header pill on every page
+ *  (set per request by the site middleware, signed-in requests only). */
+let WAITING = 0;
+export function setWaiting(n: number): void {
+  WAITING = n;
+}
+
 export function shell(a: ShellArgs): string {
   const canonical = `${SITE}${a.path}`;
   const title = a.title ? `${esc(a.title)} · Canopticon` : "Canopticon";
@@ -85,11 +92,10 @@ ${beacon(a.analyticsToken)}</body>
 
 function header(a: ShellArgs): string {
   const cur = (k: ShellArgs["nav"]) => (a.nav === k ? ' aria-current="page"' : "");
+  const waiting = a.waiting ?? WAITING;
   const admin = a.signedIn
     ? `<a href="/admin" class="admin">Admin${
-        a.waiting
-          ? `<span class="admin-n" title="${a.waiting} things waiting">${a.waiting}</span>`
-          : ""
+        waiting ? `<span class="admin-n" title="${waiting} things waiting">${waiting}</span>` : ""
       }</a>`
     : "";
   return `<div class="hd"><header class="hd-in"><a href="/" class="wm">canopticon</a><nav aria-label="Primary" class="nav"><a href="/library"${cur("library")}>Library</a><a href="/about"${cur("about")}>About</a></nav><a href="/search" class="hd-search"${cur("search")}>Search <span aria-hidden="true" class="kbd">/</span></a>${admin}</header>${
@@ -98,7 +104,7 @@ function header(a: ShellArgs): string {
 }
 
 function footer(): string {
-  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">A research and development notebook by Chris Telford. Every quote links back to its source. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><a href="/library?kind=Article">Articles</a><a href="/library?kind=Research">Research</a><a href="/ideas">Ideas</a><a href="/investigations">Investigations</a><a href="/follow">Follow</a><a href="/about">About</a><a href="/feed.xml">Feed</a><a href="/llms.txt">llms.txt</a></nav></div></footer>`;
+  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">A research and development notebook by Chris Telford. Every quote links back to its source. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><a href="/library?kind=Article">Articles</a><a href="/library?kind=Research">Research</a><a href="/library?kind=Concept">Ideas</a><a href="/investigations">Investigations</a><a href="/follow">Follow</a><a href="/about">About</a><a href="/about#m-machines">Feed</a><a href="/about#m-machines">llms.txt</a></nav></div></footer>`;
 }
 
 function beacon(token: string | undefined): string {
