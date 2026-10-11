@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+<title>Canopticon — Habits &amp; maintenance</title>
+<link>https://canopticon.com/</link>
+<description>Questions researched in depth, and articles written from what the research found.</description>
+<language>en-ca</language>
+<atom:link rel="self" type="application/rss+xml" href="https://canopticon.com/feeds/habits-and-maintenance.xml"/>
+<atom:link rel="hub" href="https://pubsubhubbub.appspot.com/"/>
+<lastBuildDate>Sun, 04 Oct 2026 12:00:00 GMT</lastBuildDate>
+<item>
+<title>Fixed times versus flexible routines in exercise habits: what the paid-to-exercise trials found</title>
+<link>https://canopticon.com/articles/fixed-times-versus-flexible-routines-in-exercise-habits</link>
+<guid isPermaLink="true">https://canopticon.com/articles/fixed-times-versus-flexible-routines-in-exercise-habits</guid>
+<pubDate>Sun, 04 Oct 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Habits &amp; maintenance</category>
+<category>Article</category>
+<description>Paid to exercise at a set time, people did less than those paid to exercise whenever they liked — and quit faster afterwards. What helps is a fixed start and an open workout.</description>
+</item>
+<item>
+<title>Self-extinguishing maintenance: treatments that stop because they are working, and the relapse that follows</title>
+<link>https://canopticon.com/articles/self-extinguishing-maintenance</link>
+<guid isPermaLink="true">https://canopticon.com/articles/self-extinguishing-maintenance</guid>
+<pubDate>Sun, 04 Oct 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Habits &amp; maintenance</category>
+<category>Article</category>
+<description>Some problems only stay fixed while you keep treating them — a gap between two teeth, toes pressed too tight. The treatment works, the problem vanishes, it looks cured, you stop, and it comes back. This research named the cycle and the mistake behind it.</description>
+</item>
+<item>
+<title>Time Blindness, Task-Hopping, and Why a Delivery Queue Feels Easy</title>
+<link>https://canopticon.com/Canopticon%20Doc.dc.html?d=time-blindness-task-hopping-and-why-doordash-feels-easy-an-evidence-ba</link>
+<guid isPermaLink="true">https://canopticon.com/Canopticon%20Doc.dc.html?d=time-blindness-task-hopping-and-why-doordash-feels-easy-an-evidence-ba</guid>
+<pubDate>Thu, 01 Oct 2026 12:00:00 GMT</pubDate>
+<dc:creator>Chris Telford</dc:creator>
+<category>Habits &amp; maintenance</category>
+<category>Research</category>
+<description>&quot;Time blindness&quot; is a popular term, not a diagnosis. Large meta-analyses find that people with ADHD judge time intervals less accurately and less consistently. The best-known pooled result is Metcalfe et al. (2024), with…</description>
+</item>
+</channel>
+</rss>

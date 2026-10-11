@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://canopticon.com/schema/site-records.json",
+  "title": "Canopticon public-site records (Black Box, 11 Oct 2026)",
+  "description": "Records the redesigned public site renders. Extends canopticon-record.schema.json (Piece, Quote, Derivation, Topic…), which still governs the read. Every file in content/ validates against one of these.",
+  "$defs": {
+    "Kind": { "type": "string", "enum": ["Research", "Build brief", "Article", "Paper", "Concept", "Open problem", "Question", "Figure", "Project"] },
+    "Topic": { "type": "string", "description": "One of the Library topics; slug rule: lowercase, & → and, non-alphanumerics → -.", "examples": ["McLuhan & media theory", "Prices & markets", "Attention & feeds"] },
+    "LibraryItem": {
+      "type": "object", "description": "content/library.json — one row per listed thing. The Library, Front, Topic pages, Search and the feeds all read this list.",
+      "required": ["href", "route", "kind", "topic", "date", "title", "dek", "stat"],
+      "properties": {
+        "href": { "type": "string", "description": "Prototype file link (reference only)." },
+        "route": { "type": "string", "description": "Production route. See ROUTES.md." },
+        "kind": { "$ref": "#/$defs/Kind" }, "topic": { "$ref": "#/$defs/Topic" },
+        "date": { "type": "string", "format": "date" }, "dateLabel": { "type": "string" },
+        "title": { "type": "string" }, "dek": { "type": "string" },
+        "stat": { "type": "string", "description": "Right-hand meta line, e.g. '48 quotes · 9 min' or '41 figures · 59 sources'. Computed, never typed." },
+        "doc": { "type": "string", "description": "Research rows: the document id (= /p/<id>)." },
+        "sub": { "type": "string" }, "src": { "type": "string" },
+        "min": { "type": "integer" }, "quotes": { "type": "integer" }, "sources": { "type": "integer" }, "own": { "type": "integer" }, "coined": { "type": "integer" },
+        "shelf": { "type": "string", "description": "'investigation' rows appear on /investigations, not in Topic hubs." }
+      }
+    },
+    "Article": {
+      "type": "object", "description": "content/articles/<slug>.md front matter. Body is Markdown; every verbatim quotation is <q doc=\"<doc id>\" section=\"<section label>\">exact text</q>; [label](doc:<id>) is a plain link to a document. Text outside <q> is the author's own (render with the dotted 'no receipt' underline).",
+      "required": ["slug", "kind", "topic", "title", "dek", "date", "thesis", "based_on", "quotes", "words"],
+      "properties": {
+        "slug": { "type": "string" }, "file": { "type": "string" }, "kind": { "const": "Article" }, "topic": { "$ref": "#/$defs/Topic" },
+        "title": { "type": "string" }, "dek": { "type": "string" }, "date": { "type": "string", "format": "date" },
+        "why": { "type": "string", "description": "'Why I asked' — the author's reason, shown above the thesis. Empty for two articles that open with it in the body." },
+        "thesis": { "type": "string" },
+        "based_on": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "label": { "type": "string" } } } },
+        "quotes": { "type": "integer" }, "words": { "type": "integer" }, "cite": { "type": "string" }
+      }
+    },
+    "Paper": {
+      "type": "object", "description": "content/papers/<slug>.md — the author's own work; body is the uploaded Markdown with its reference list. Highlighted text is still a verbatim quote tied to a reference; no dotted underlines.",
+      "required": ["slug", "title", "date"],
+      "properties": { "slug": { "type": "string" }, "file": { "type": "string" }, "kind": { "const": "Paper" }, "title": { "type": "string" }, "dek": { "type": "string" }, "topic": { "type": "string" }, "date": { "type": "string" }, "source_upload": { "type": "string" }, "series": { "type": "string", "description": "e.g. 'McLuhan and the senses'; items show 'Part of' with links to the others." } }
+    },
+    "Concept": {
+      "type": "object", "description": "content/terms.json — coined or adopted terms (route /concepts/<id>). Reaches the public only after the prior-art check (TERMS.md). Three concepts also have hand-built long pages (Concept, Concept CPAI, Concept Overhearer).",
+      "required": ["id", "title", "body"],
+      "properties": { "id": { "type": "string" }, "kick": { "$ref": "#/$defs/Topic" }, "title": { "type": "string" }, "body": { "type": "string" }, "foot": { "type": "string", "description": "e.g. 'scholarly check pending'" }, "from": { "type": "string" }, "artHref": { "type": "string" }, "artRoute": { "type": "string" }, "artTitle": { "type": "string" }, "artKind": { "type": "string" }, "docHref": { "type": "string" }, "docRoute": { "type": "string" } }
+    },
+    "OpenProblem": {
+      "type": "object", "description": "content/problems.json — a gap a document states (route /open/<id>). Links to the document that stated it and, where one exists, the article or paper that leans on it.",
+      "required": ["id", "title", "body"],
+      "properties": { "id": { "type": "string" }, "kick": { "$ref": "#/$defs/Topic" }, "title": { "type": "string" }, "body": { "type": "string" }, "foot": { "type": "string" }, "from": { "type": "string" }, "artRoute": { "type": "string" }, "docRoute": { "type": "string" } }
+    },
+    "Question": { "type": "object", "description": "content/questions.json — a question a document asks, linked to the passage (Topic page 'Questions').", "required": ["route", "topic", "title"], "properties": { "route": { "type": "string" }, "topic": { "type": "string" }, "title": { "type": "string" }, "dek": { "type": "string", "description": "the document it comes from" }, "date": { "type": "string" } } },
+    "KeyFigure": { "type": "object", "description": "content/key-figures.json — a figure stated in a document (Topic page 'Key figures', Search).", "required": ["route", "topic", "title", "v"], "properties": { "route": { "type": "string" }, "topic": { "type": "string" }, "title": { "type": "string", "description": "the sentence carrying the figure, verbatim" }, "v": { "type": "string", "description": "the figure itself" }, "dek": { "type": "string" } } },
+    "TopicTimelineWork": { "type": "object", "description": "content/topic-timeline.json — dated works the topic's research cites; shown only for topics with ≥4.", "properties": { "year": { "type": "integer" }, "title": { "type": "string" }, "author": { "type": "string" }, "n": { "type": "integer", "description": "how many documents cite it" }, "docs": { "type": "array" } } },
+    "ImportItem": { "type": "object", "description": "content/import-list.json — every research document, where its text is, and whether it is already on the live site.", "properties": { "id": { "type": "string" }, "route": { "type": "string" }, "title": { "type": "string" }, "kind": { "type": "string" }, "topic": { "type": "string" }, "date": { "type": "string" }, "file": { "type": "string" }, "visibility": { "enum": ["public", "held"] }, "origin": { "type": "string" } } },
+    "Subscriber": { "type": "object", "description": "Email follow (BACKEND.md). Double opt-in.", "required": ["email", "status", "consent"], "properties": { "email": { "type": "string" }, "status": { "enum": ["pending", "confirmed", "unsubscribed"] }, "topics": { "type": "array", "items": { "$ref": "#/$defs/Topic" } }, "consent": { "$ref": "#/$defs/ConsentRecord" } } },
+    "ConsentRecord": { "type": "object", "description": "CASL: keep 3 years after unsubscribe.", "required": ["at", "ip", "source", "wording"], "properties": { "at": { "type": "string", "format": "date-time" }, "ip": { "type": "string" }, "source": { "type": "string", "description": "page + form" }, "topics": { "type": "array" }, "wording": { "type": "string", "description": "the exact consent text shown" } } },
+    "AdminCard": { "type": "object", "description": "/desk 'Waiting for you' — one card per decision.", "properties": { "kind": { "type": "string" }, "status": { "type": "string" }, "title": { "type": "string" }, "note": { "type": "string" }, "when": { "type": "string" }, "link": { "type": "string" }, "linkLabel": { "type": "string" }, "yesLabel": { "type": "string" }, "noLabel": { "type": "string" } } }
+  }
+}

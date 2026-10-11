@@ -1,0 +1,94 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Canopticon — Health & self-care",
+  "home_page_url": "https://canopticon.com/",
+  "feed_url": "https://canopticon.com/feeds/health-and-self-care.json",
+  "description": "Questions researched in depth, and articles written from what the research found.",
+  "language": "en-CA",
+  "authors": [
+    {
+      "name": "Chris Telford",
+      "url": "https://canopticon.com/about"
+    }
+  ],
+  "hubs": [
+    {
+      "type": "WebSub",
+      "url": "https://pubsubhubbub.appspot.com/"
+    }
+  ],
+  "items": [
+    {
+      "id": "https://canopticon.com/articles/whey-protein-in-hot-black-coffee",
+      "url": "https://canopticon.com/articles/whey-protein-in-hot-black-coffee",
+      "title": "Whey protein in hot black coffee: why it curdles, what the heat-stable versions cost, and what is coming",
+      "summary": "Collagen disappears into a hot cup; whey turns it into pale lumps that smell of sulfur. Coffee's acidity sits almost exactly where whey is least stable, and it is served above the temperature that unfolds the protein. The heat-stable ingredients that exist solve it by cutting the protein up, which makes it bitter.",
+      "content_text": "Collagen disappears into a hot cup; whey turns it into pale lumps that smell of sulfur. Coffee's acidity sits almost exactly where whey is least stable, and it is served above the temperature that unfolds the protein. The heat-stable ingredients that exist solve it by cutting the protein up, which makes it bitter.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "Health & self-care",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/articles/alcohol-blackouts-how-ethanol-blocks-memory-formation",
+      "url": "https://canopticon.com/articles/alcohol-blackouts-how-ethanol-blocks-memory-formation",
+      "title": "Alcohol blackouts: how ethanol blocks memory formation, and why drinking speed decides it",
+      "summary": "In an alcohol blackout the drinker is awake, talking and deciding, while the brain's ability to save the night is chemically held shut. Nothing comes back afterwards because nothing was stored — and how fast the drinking goes decides whether it happens at all.",
+      "content_text": "In an alcohol blackout the drinker is awake, talking and deciding, while the brain's ability to save the night is chemically held shut. Nothing comes back afterwards because nothing was stored — and how fast the drinking goes decides whether it happens at all.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "Health & self-care",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=instant-dissolving-whey-for-hot-coffee-where-the-science-and-manufactu",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=instant-dissolving-whey-for-hot-coffee-where-the-science-and-manufactu",
+      "title": "Instant-Dissolving Whey for Hot Coffee: Where the Science and Manufacturing Stand (September 2026)",
+      "summary": "You cannot buy a whey protein today that goes into hot black coffee at 20–30 g the way collagen does: instantly, with no taste and no texture.",
+      "content_text": "You cannot buy a whey protein today that goes into hot black coffee at 20–30 g the way collagen does: instantly, with no taste and no texture.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Health & self-care",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=medicinal-mushrooms-for-gut-healing-in-alcohol-recovery-an-evidence-ra",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=medicinal-mushrooms-for-gut-healing-in-alcohol-recovery-an-evidence-ra",
+      "title": "Medicinal Mushrooms for Gut Healing in Alcohol Recovery: An Evidence Ranking",
+      "summary": "Lion's Mane (Hericium erinaceus) has the most directly relevant evidence for repairing the gastric/intestinal lining and ethanol-induced ulcers — these two should be your foundation.",
+      "content_text": "Lion's Mane (Hericium erinaceus) has the most directly relevant evidence for repairing the gastric/intestinal lining and ethanol-induced ulcers — these two should be your foundation.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Health & self-care",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=mushrooms-for-skin-health-wrinkles-what-the-oral-systemic-evidence-act",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=mushrooms-for-skin-health-wrinkles-what-the-oral-systemic-evidence-act",
+      "title": "Mushrooms for Skin Health & Wrinkles: What the Oral/Systemic Evidence Actually Shows",
+      "summary": "Frontiers in Medicine), an EGT-rich oyster mushroom (Pleurotus/hiratake) RCT in 80 women.",
+      "content_text": "Frontiers in Medicine), an EGT-rich oyster mushroom (Pleurotus/hiratake) RCT in 80 women.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Health & self-care",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-neurobiology-of-alcohol-blackouts-how-ethanol-silences-the-brain-s",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-neurobiology-of-alcohol-blackouts-how-ethanol-silences-the-brain-s",
+      "title": "The Neurobiology of Alcohol Blackouts: How Ethanol Silences the Brain's Memory-Writing Machinery",
+      "summary": "An alcohol blackout is not unconsciousness or brain-cell death — it is a temporary, drug-induced anterograde amnesia in which the hippocampus is chemically prevented from converting ongoing experience into lasting…",
+      "content_text": "An alcohol blackout is not unconsciousness or brain-cell death — it is a temporary, drug-induced anterograde amnesia in which the hippocampus is chemically prevented from converting ongoing experience into lasting…",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Health & self-care",
+        "Research"
+      ]
+    }
+  ]
+}

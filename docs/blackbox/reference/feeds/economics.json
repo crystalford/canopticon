@@ -1,0 +1,46 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Canopticon — Economics",
+  "home_page_url": "https://canopticon.com/",
+  "feed_url": "https://canopticon.com/feeds/economics.json",
+  "description": "Questions researched in depth, and articles written from what the research found.",
+  "language": "en-CA",
+  "authors": [
+    {
+      "name": "Chris Telford",
+      "url": "https://canopticon.com/about"
+    }
+  ],
+  "hubs": [
+    {
+      "type": "WebSub",
+      "url": "https://pubsubhubbub.appspot.com/"
+    }
+  ],
+  "items": [
+    {
+      "id": "https://canopticon.com/articles/topping-up-low-wages-in-canada",
+      "url": "https://canopticon.com/articles/topping-up-low-wages-in-canada",
+      "title": "Topping up low wages in Canada: the Canada Workers Benefit, employer capture, and the workers who never file",
+      "summary": "Canada already runs the alternative to a basic income — a refundable credit that tops up low earnings automatically. Two things decide whether it works: employers absorb part of any wage subsidy where no floor exists, and about 9% of eligible earners never file a return.",
+      "content_text": "Canada already runs the alternative to a basic income — a refundable credit that tops up low earnings automatically. Two things decide whether it works: employers absorb part of any wage subsidy where no floor exists, and about 9% of eligible earners never file a return.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "Economics",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/articles/job-guarantees-in-austria-france-and-india",
+      "url": "https://canopticon.com/articles/job-guarantees-in-austria-france-and-india",
+      "title": "Job guarantees in Austria, France and India: employment effects, cost per job, and the designs that trap people",
+      "summary": "A job for anyone who wants one sounds utopian. It has been tried — in an Austrian town, in 83 French territories and across rural India. It works, it costs money, and the design decides whether it is a springboard or a trap.",
+      "content_text": "A job for anyone who wants one sounds utopian. It has been tried — in an Austrian town, in 83 French territories and across rural India. It works, it costs money, and the design decides whether it is a springboard or a trap.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "Economics",
+        "Article"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+---
+id: the-unreliability-ledger-a-forensic-case-study-of-canada-as-a-bilatera
+title: "The Unreliability Ledger: A Forensic Case Study of Canada as a Bilateral Partner to the United States"
+kind: "Research"
+topic: "Canadian politics & power"
+date: "2026-09-01"
+shelf: "investigation"
+listed_in_library: true
+source_file: "uploads/Canopticon Research Documents-20260927T175515Z-1-001/The Unreliability Ledger_ A Forensic Case Study of Canada as a Bilateral Partner to the United States.md"
+---
+
+# The Unreliability Ledger: A Forensic Case Study of Canada as a Bilateral Partner to the United States
+
+## TL;DR
+- **The documented pattern is real and repeats across every major file:** Canadian officials made firm public commitments (NATO 2%, the digital services tax, USMCA dairy access, the F-35), contradicted them privately or in campaigns, then reversed under U.S. pressure and reframed the retreat as strategy — leaving Canada, as of mid-2026, with Section 232 and Section 122 tariffs still in place, the CUSMA review unresolved, and a U.S. counterpart that openly says Ottawa won't honour commitments.
+- **The "unreliability" is as much personal as institutional:** Justin Trudeau privately told NATO Canada would "never" hit 2% while publicly calling Canada a "reliable partner"; François-Philippe Champagne said the digital services tax "is in force" on June 19, 2025, and Mark Carney rescinded it 10 days later; Carney declared the "old relationship" "over" on March 27, 2025, then called Trump "transformational," and apologized to Trump over an anti-tariff ad by November 1, 2025.
+- **By the relational test Chrystia Freeland herself invoked — "can you trust what this partner tells you" — the evidence cuts against Ottawa.** The U.S. failed differently: it defied dispute rulings (softwood lumber) and acted unlawfully on tariffs (IEEPA, struck down 6-3 by the Supreme Court on Feb. 20, 2026), but it was direct about its aims and its own courts corrected it. Canada's failure mode was saying one thing and doing another.
+
+## Key Findings
+
+1. **NATO 2% — the documented lie.** A leaked Pentagon assessment (reported by the Washington Post, April 19, 2023) stated Trudeau "told NATO officials that Canada will never reach 2% defense spending," even as he publicly insisted "Canada is a reliable partner to NATO." Per NATO's official "Defence Expenditure of NATO Countries (2014-2025)" series, Canada spent 1.20% of GDP in 2022. The same Pentagon document said Canadian "defense shortfalls" were "straining partner relationships." Carney later reversed the posture entirely — pledging on June 9, 2025 to hit 2% "this year," and agreeing on June 25, 2025 to a new 5%-of-GDP-by-2035 target — a swing that underscores how negotiable the prior "commitment" had been.
+
+2. **Digital Services Tax — an 11-day reversal.** Finance Minister François-Philippe Champagne said on June 19, 2025: "The (digital services tax) is in force and it's going to be applied." On June 29, 2025, after Trump suspended trade talks, Carney's government rescinded the DST entirely to restart negotiations. McGill political science professor Daniel Béland told the Associated Press: "Prime Minister Carney acted now to appease President Trump and have him agree to simply resume these negotiations, which is a clear victory for both the White House and big tech... President Trump forced PM Carney to do exactly what big tech wanted."
+
+3. **USMCA dairy — winning the panels, losing the trust.** A January 2022 USMCA panel found Canada breached its commitments by reserving most dairy tariff-rate quota for processors. Canada made minor changes; a second panel in November 2023 sided with Canada on all U.S. claims. U.S. industry and USTR called Canada's conduct "obstruction" and "playing games." By April 2026, USTR Jamieson Greer told the House Ways and Means Committee: "I think we're kind of at the end of our rope... there are two countries that have retaliated economically against the United States in the past year: The People's Republic of China and Canada. So that's kind of the company they're running in."
+
+4. **F-35 — serial reversal.** The Trudeau Liberals campaigned in 2015 against buying the F-35, then committed to 88 jets in January 2023; Carney ordered a fresh review in March 2025. The review remained unresolved into 2026.
+
+5. **Fentanyl/border — "totally false," then a billion-dollar response.** Trudeau called the U.S. fentanyl pretext "totally false" (March 4, 2025), noting under 1% of U.S. fentanyl comes from Canada — yet his government funded a C$1.3 billion border plan and appointed a "Fentanyl Czar," treating the pretext as real.
+
+6. **Huawei — last of the Five Eyes.** Trudeau said a decision was coming in "coming weeks" (Sept. 2021); the formal ban came May 19, 2022 — making Canada the last Five Eyes member to act.
+
+7. **Accountability was asymmetric.** Freeland was pushed out as finance minister in December 2024 and resigned; she then authored a book casting the U.S. as the "unreliable boyfriend." Champagne, who made the DST "in force" claim, became finance minister. Trudeau resigned amid collapsing support. Carney, who executed the reversals, governs on.
+
+## Details
+
+### Domain 1: NATO and Defence Spending
+**The commitment:** As a NATO member, Canada was bound by the 2014 Wales pledge to move toward 2% of GDP on defence. Trudeau publicly and repeatedly affirmed Canada as a "reliable partner."
+
+**The private contradiction:** The leaked Pentagon document — part of the 2023 Discord leaks, obtained by the Washington Post — recorded that Trudeau had "told NATO officials that Canada will never reach 2% defense spending." Canada's spending had been below 1.4% of GDP for over a quarter century. When asked directly, Trudeau "all but sidestepped the question," saying Canada would "do its share" while explaining that "governments are challenged with a whole bunch of different priorities." The document warned that "widespread defense shortfalls... strain partner relationships and alliance contributions."
+
+**The reversal:** Under Carney, Canada announced on June 9, 2025 it would hit 2% in fiscal 2025-26 — half a decade ahead of the prior 2030 timeline. The package included an additional $8.7 billion for National Defence and other departments plus $370 million for the Communications Security Establishment (per CBC News, Aug. 3, 2025). At The Hague on June 25, 2025, Canada signed on to the new 5%-of-GDP-by-2035 Defence Investment Pledge (3.5% core + 1.5% security-related). Carney said in a June 23 CNN interview that meeting the 5% target "would cost the federal treasury $150 billion per year," with roughly $107 billion in direct military spending and the rest for infrastructure. NATO's March 2026 Secretary General's report confirmed Canada hit an estimated 2% for 2025, with total defence expenditures "just over $61 billion."
+
+**The U.S. counterpoint:** The U.S. itself sat at roughly 3.2% of GDP — above the old 2% floor but below the new 3.5% core target. But the U.S. did not privately tell allies it would "never" meet a benchmark it publicly endorsed; that specific gap between private admission and public reassurance is the Canadian signature.
+
+### Domain 2: Trade — DST, Dairy, Tariffs
+**Digital Services Tax:** Introduced under the Trudeau government (announced 2020), the 3% DST on revenue from Canadian users of firms like Amazon, Google, Meta, Uber and Airbnb would have applied retroactively, leaving U.S. firms with an estimated US$2 billion bill. A June 11, 2025 letter signed by 21 members of Congress warned that U.S. companies would pay "90 per cent of the revenue Canada collects from the tax" and that it "will set a terrible precedent that will have long-lasting impacts on global tax and trade practices." Champagne insisted on June 19, 2025 it was "in force." Trump called it "a direct and blatant attack on our Country" and suspended talks on June 27. By June 29, Canada rescinded it, with Carney's government framing the retreat as support for "a resumption of negotiations toward the July 21, 2025, timeline."
+
+**Dairy:** The first USMCA panel (Jan. 2022) found Canada breached its TRQ commitments by reserving most in-quota volume for Canadian processors. After minor 2022 changes, a second panel (Nov. 24, 2023) found in Canada's favour on all U.S. claims. U.S. dairy bodies said the ruling let Canada "ignore its USMCA obligations" and set a "dangerous and damaging precedent." Into 2026, Greer told Congress dairy had been raised "repeatedly and frequently" but "Canada has not made any commitments."
+
+**Tariffs and the reversals:** Trump's IEEPA "trafficking tariffs" (EO 14193, Feb. 1, 2025) hit Canada with 25% (10% on energy). Canada retaliated on C$30 billion of U.S. goods (March 4) and threatened a second phase on C$125 billion. Carney declared on March 27, 2025 that "the old relationship we had with the United States... is over" and "it's clear the US is no longer a reliable partner." Yet by August 2025, Canada dropped retaliatory tariffs on CUSMA-compliant U.S. goods (effective Sept. 1), keeping countermeasures only on steel, aluminum and autos — a move the White House called "long overdue" and that Poilievre said broke Carney's "biggest election campaign promise." Trump terminated talks again on Oct. 23, 2025 over an Ontario anti-tariff ad featuring Ronald Reagan; Carney apologized on Nov. 1, 2025: "I did apologise to the president. The president was offended... things happen — we take the good with the bad — and I apologised."
+
+**The U.S. counterpoint (softwood lumber):** The U.S. is the unreliable actor on honouring dispute rulings. Its countervailing/anti-dumping duties on Canadian lumber were condemned five times by NAFTA Chapter 19 panels and three times by the WTO; in August 2005, the U.S. said it would not abide by the NAFTA Extraordinary Challenge Committee ruling (it ultimately complied in November 2005 and reached a settlement in 2006). The asymmetry: U.S. failures were about defying adverse rulings and legal limits; Canada's were about the gap between word and deed.
+
+**The U.S. counterpoint (IEEPA):** On Feb. 20, 2026, the Supreme Court ruled 6-3 in Learning Resources v. Trump / Trump v. V.O.S. Selections that "IEEPA does not authorize the President to impose tariffs," striking down both the trafficking and reciprocal tariffs. Trump revoked the IEEPA tariffs the same day, then replaced them with a 10% Section 122 surcharge (CUSMA-compliant goods exempt) and left Section 232 steel/aluminum/auto/lumber tariffs in place. The U.S. acted unlawfully — but its own courts corrected it and the government conceded refunds were likely.
+
+### Domain 3: Border/Fentanyl
+Trudeau called the tariff pretext "totally false" on March 4, 2025, correctly noting "far less than 1% of fentanyl flows and less than 1% of illegal crossings into the United States comes from Canada" (CBP seized 43 pounds of fentanyl at the northern border in FY2024 — 0.2% of its national total). Yet the same government funded a C$1.3 billion border plan, appointed a Fentanyl Czar, listed seven cartels as terrorist entities, and launched a joint strike force — a billion-dollar response to a threat it publicly branded fictitious.
+
+### Domain 4: Tech/Procurement
+**Huawei:** The 5G security review began in 2018. Trudeau said in September 2021 a decision was coming in "coming weeks." The ban came May 19, 2022 — Canada the last of the Five Eyes to act. Champagne, announcing it, insisted "this has never been about a race. This is about Canada. This is about our national security." Opposition and the NDP said the delay "cost Canadian consumers" and raised "serious questions... among our allies." (Note: the file was led by Trudeau and Industry Minister Champagne, not Foreign Minister Joly.)
+
+**F-35:** Campaigned against (2015), committed (Jan. 2023, 88 jets, C$19B), reviewed again (March 2025) — with the review unresolved into 2026 even as allies moved to sixth-generation aircraft. Defence analyst Philippe Lagassé: "We're out of runway. There's no more flexibility here."
+
+### Domain 5: The Carney Whiplash
+Carney's campaign rhetoric ("elbows up," "the old relationship... is over," "the US is no longer a reliable partner," March 27, 2025) gave way within months to: praising Trump as a "transformational president" (May 6, 2025 Oval Office), declining to match U.S. steel/aluminum tariffs, dropping the DST (June 29), dropping most retaliatory tariffs (Sept. 1), and apologizing over the Reagan ad (Nov. 1). Cross-spectrum critics — from The Tyee on the left (which charted his move "from 'Elbows Up' to Capitulation") to the Conservative opposition — described the trajectory as capitulation. The pattern: declare maximal resolve publicly, then retreat when direct pressure arrives.
+
+### Domain 6: The "Unreliable Boyfriend" Frame
+Freeland titled her October 2025 book *Unreliable Boyfriend: An Insider's View of Dealing with a Chaotic Superpower*, from a February 2025 Bill Maher quip that the U.S. is "not a very reliable boyfriend right now." The frame casts the U.S. as the chaotic, untrustworthy partner. But applied consistently — judging each party by whether you can trust what it tells you — the documented record shows the Canadian side saying one thing publicly and another privately (NATO 2%), declaring policies "in force" days before rescinding them (DST), and reversing campaign commitments in office (tariffs, F-35, the "old relationship"). The relational frame, ironically, illuminates Canadian behaviour more sharply than American: the U.S. under Trump was crude but legible — it said it wanted Canada as the "51st state," repeated it, and backed it with tariffs — whereas the Canadian pattern was to assert a position and then quietly abandon it.
+
+## Recommendations
+- **For analysts and negotiators:** Treat Canadian public commitments on contested files as provisional until codified in binding text. The DST sequence (firm "in force" statement to full rescission in 11 days) is the template: a near-term, specific Canadian commitment collapsed under direct pressure.
+- **Benchmark that would change this assessment:** A Canadian commitment that (a) is made publicly, (b) is questioned or pressured, and (c) is nonetheless honoured to the letter — e.g., sustained 2%+ NATO spending verified across multiple NATO annual reports, or a CUSMA dairy resolution that USTR certifies as compliant. The first such verified instance (2% confirmed for 2025) is recent and should be watched for durability through the 2029 review.
+- **For the U.S. side:** The reliability deficit runs both ways by domain. If Washington wants to invoke Canadian unreliability credibly, it should note its own record of defying dispute-settlement rulings (softwood) and acting beyond legal authority (IEEPA), both of which corrode the rules-based predictability it asks Canada to honour.
+- **Watch items:** the July 1, 2026 CUSMA joint review; whether Section 122 tariffs rise to the statutory 15% maximum; whether the F-35 review resolves; whether Canada sustains 2%+ NATO spending; whether trade talks resume after the October 2025 termination.
+
+## Caveats
+- The Pentagon "will never reach 2%" quote comes from a leaked classified assessment reported by the Washington Post; Trudeau never publicly confirmed the private remark, and his office referred questions to the Defence Ministry. It is sourced, but it is a leak, not an on-record admission.
+- The task's original premise attributed the Huawei "within weeks" promise and delay to Foreign Minister Mélanie Joly; the documented record shows the file was driven by Trudeau and Industry Minister Champagne. This correction is reflected above.
+- Several judgments here (e.g., "capitulation") are characterizations made by named critics across the political spectrum, presented as evidence of a credibility gap rather than as the report's own editorial conclusion.
+- The precise status of Canada-U.S. trade talks between the October 2025 termination and early 2026 is not pinned to a single authoritative source; "stalled" is the best-supported reading but not definitively documented.
+- Tariff figures and legal status are as of the February 2026 Supreme Court ruling and may have shifted with subsequent Section 122/Section 301 actions.
+- NATO spending percentages vary slightly by source and reporting year; figures here use NATO's official 2014-2025 expenditure series where available.

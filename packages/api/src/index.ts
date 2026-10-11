@@ -208,6 +208,7 @@ import { htmlResponse } from "./public/layout.ts";
 // Public site — server-rendered HTML at canopticon.com. Mounted last so
 // /v1, /op, and /health take precedence on overlapping paths.
 import publicSiteRoutes, { renderNotFound as renderPublicNotFound } from "./public/routes.ts";
+import blackBoxRoutes from "./site/routes.ts";
 
 // /auth/* — the operator's bootstrap into the one-site permission model
 // (spec v2.5 Part 9). Cloudflare Access gates this subtree at the edge so
@@ -220,6 +221,9 @@ app.route("/auth", authRoutes);
 // routes have their own auth posture).
 const publicShell = new Hono<App>();
 publicShell.use("*", attachAuthState());
+// The Black Box site answers first; whatever it has not rebuilt falls
+// through (next()) to the renderer that served it before.
+publicShell.route("/", blackBoxRoutes);
 publicShell.route("/", publicSiteRoutes);
 app.route("/", publicShell);
 

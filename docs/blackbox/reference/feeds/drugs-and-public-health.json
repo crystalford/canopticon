@@ -1,0 +1,106 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Canopticon — Drugs & public health",
+  "home_page_url": "https://canopticon.com/",
+  "feed_url": "https://canopticon.com/feeds/drugs-and-public-health.json",
+  "description": "Questions researched in depth, and articles written from what the research found.",
+  "language": "en-CA",
+  "authors": [
+    {
+      "name": "Chris Telford",
+      "url": "https://canopticon.com/about"
+    }
+  ],
+  "hubs": [
+    {
+      "type": "WebSub",
+      "url": "https://pubsubhubbub.appspot.com/"
+    }
+  ],
+  "items": [
+    {
+      "id": "https://canopticon.com/articles/fred-hutch-hsv-gene-therapy-in-2026",
+      "url": "https://canopticon.com/articles/fred-hutch-hsv-gene-therapy-in-2026",
+      "title": "Fred Hutch's HSV gene therapy in 2026: mouse and guinea-pig results, no human trial, and the antivirals arriving first",
+      "summary": "A gene therapy clears up to 97% of dormant herpes in mice. In the animal that relapses the way people do it clears above 30%, nobody has filed to test it in a person, and the drugs arriving first suppress the virus rather than remove it.",
+      "content_text": "A gene therapy clears up to 97% of dormant herpes in mice. In the animal that relapses the way people do it clears above 30%, nobody has filed to test it in a person, and the drugs arriving first suppress the virus rather than remove it.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "Drugs & public health",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/articles/opioid-deaths-and-overdose-calls-in-hamilton",
+      "url": "https://canopticon.com/articles/opioid-deaths-and-overdose-calls-in-hamilton",
+      "title": "Opioid deaths and overdose calls in Hamilton: why the two counts moved in opposite directions",
+      "summary": "Hamilton's opioid deaths have fallen every year since 2021, while paramedic calls for overdoses more than doubled. The death count is measuring a drug supply that no longer exists.",
+      "content_text": "Hamilton's opioid deaths have fallen every year since 2021, while paramedic calls for overdoses more than doubled. The death count is measuring a drug supply that no longer exists.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "Drugs & public health",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-fringe-pharmacopeia-of-hsv-latency-destruction-a-deep-hunt-survey-",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-fringe-pharmacopeia-of-hsv-latency-destruction-a-deep-hunt-survey-",
+      "title": "The Fringe Pharmacopeia of HSV Latency Destruction: A Deep-Hunt Survey of Natural, Botanical, Fungal, and Bioactive Compounds",
+      "summary": "No natural compound has been shown to destroy or eradicate HSV latency in human neurons.",
+      "content_text": "No natural compound has been shown to destroy or eradicate HSV latency in human neurons.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Drugs & public health",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=novel-and-underexplored-mechanisms-for-disrupting-and-destroying-hsv-l",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=novel-and-underexplored-mechanisms-for-disrupting-and-destroying-hsv-l",
+      "title": "Novel and Underexplored Mechanisms for Disrupting and Destroying HSV Latency: A Mechanistic Research Pass",
+      "summary": "The single most mature \"destruction\" approach is AAV-delivered meganuclease gene editing, which eliminated over 90% of latent virus from mouse superior cervical ganglia (Aubert et al.",
+      "content_text": "The single most mature \"destruction\" approach is AAV-delivered meganuclease gene editing, which eliminated over 90% of latent virus from mouse superior cervical ganglia (Aubert et al.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Drugs & public health",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-state-of-hsv-gene-therapy-development-fred-hutch-s-meganuclease-pr",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-state-of-hsv-gene-therapy-development-fred-hutch-s-meganuclease-pr",
+      "title": "The State of HSV Gene-Therapy Development: Fred Hutch's Meganuclease Program and the Broader Herpes-Cure Pipeline",
+      "summary": "The Fred Hutch/Jerome-lab HSV meganuclease program remains preclinical (pre-IND) as of mid-2026 — no IND has been filed and no human trial has begun.",
+      "content_text": "The Fred Hutch/Jerome-lab HSV meganuclease program remains preclinical (pre-IND) as of mid-2026 — no IND has been filed and no human trial has begun.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "Drugs & public health",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fentanyl-crisis-research-synthesis-sharpest-evidence-long-form-hamilton",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fentanyl-crisis-research-synthesis-sharpest-evidence-long-form-hamilton",
+      "title": "The Fentanyl Crisis Research Synthesis: Sharpest Evidence for a Long-Form Hamilton/Ontario Essay",
+      "summary": "This synthesis is organized by the four focus areas in your brief.",
+      "content_text": "This synthesis is organized by the four focus areas in your brief.",
+      "date_published": "2026-07-22T12:00:00Z",
+      "tags": [
+        "Drugs & public health",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-we-got-here-field-guide-fentanyl-crisis-canada-hamiltons-streets",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-we-got-here-field-guide-fentanyl-crisis-canada-hamiltons-streets",
+      "title": "How We Got Here: A Field Guide to the Fentanyl Crisis in Canada and on Hamilton's Streets",
+      "summary": "Hamilton in 2026 — the open wounds, the forward-leaning catatonia, the people who appear neither awake nor unconscious but suspended in some grotesque middle state — is not the same drug crisis Canada has been talking about for the last decade.",
+      "content_text": "Hamilton in 2026 — the open wounds, the forward-leaning catatonia, the people who appear neither awake nor unconscious but suspended in some grotesque middle state — is not the same drug crisis Canada has been talking about for the last decade.",
+      "date_published": "2026-07-22T12:00:00Z",
+      "tags": [
+        "Drugs & public health",
+        "Research"
+      ]
+    }
+  ]
+}

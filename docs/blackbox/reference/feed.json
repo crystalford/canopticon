@@ -1,0 +1,1510 @@
+{
+ "version": "https://jsonfeed.org/version/1.1",
+ "title": "Canopticon",
+ "home_page_url": "https://canopticon.com/",
+ "feed_url": "https://canopticon.com/feed.json",
+ "description": "Questions researched in depth, and articles written from what the research found.",
+ "language": "en-CA",
+ "authors": [
+  {
+   "name": "Chris Telford",
+   "url": "https://canopticon.com/about"
+  }
+ ],
+ "hubs": [
+  {
+   "type": "WebSub",
+   "url": "https://pubsubhubbub.appspot.com/"
+  }
+ ],
+ "items": [
+  {
+   "id": "https://canopticon.com/articles/portraiture-as-a-research-method",
+   "url": "https://canopticon.com/articles/portraiture-as-a-research-method",
+   "title": "Portraiture as a research method: Sara Lawrence-Lightfoot's \"painting with words\", how it differs from ethnography, and the case against it",
+   "summary": "Portraiture puts the researcher's own judgement at the centre of a study and measures success by whether readers recognise the truth of the portrait, not by whether anyone could repeat it. Its sharpest critic says that leaves no way to check the portraitist; its founder's answer is that a visible self demands more discipline, not less.",
+   "content_text": "Portraiture puts the researcher's own judgement at the centre of a study and measures success by whether readers recognise the truth of the portrait, not by whether anyone could repeat it. Its sharpest critic says that leaves no way to check the portraitist; its founder's answer is that a visible self demands more discipline, not less.",
+   "date_published": "2026-10-11T15:00:00Z",
+   "tags": [
+    "Video & design",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/how-investigative-youtube-video-essays-are-built",
+   "url": "https://canopticon.com/articles/how-investigative-youtube-video-essays-are-built",
+   "title": "How investigative YouTube video essays are built: the cold open, the late turn to meaning, and the channels that borrow the form without the evidence",
+   "summary": "The strongest forensic video essays open on an artifact, walk through evidence in the order a viewer would experience it, and say what it all means only late in the video. That delayed turn is what persuades, which is why the same structure works just as well for channels whose evidence does not hold up.",
+   "content_text": "The strongest forensic video essays open on an artifact, walk through evidence in the order a viewer would experience it, and say what it all means only late in the video. That delayed turn is what persuades, which is why the same structure works just as well for channels whose evidence does not hold up.",
+   "date_published": "2026-10-11T14:00:00Z",
+   "tags": [
+    "Video & design",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/paying-to-reach-curious-readers-in-2026",
+   "url": "https://canopticon.com/articles/paying-to-reach-curious-readers-in-2026",
+   "title": "Paying to reach curious readers in 2026: ChatGPT ads, feed ads, paid newsletter recommendations, and the labelling rules",
+   "summary": "ChatGPT now sells self-serve ads, but they cost about 3–8× more per impression than feed ads and are hard to measure, so the cheapest curious readers are still on Meta and Reddit. An ad can be the whole useful answer and still carry its label: the rules draw the line at fake people and hidden sponsors, not at ads that are worth reading.",
+   "content_text": "ChatGPT now sells self-serve ads, but they cost about 3–8× more per impression than feed ads and are hard to measure, so the cheapest curious readers are still on Meta and Reddit. An ad can be the whole useful answer and still carry its label: the rules draw the line at fake people and hidden sponsors, not at ads that are worth reading.",
+   "date_published": "2026-10-11T13:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/how-canadas-public-sector-employees-vote",
+   "url": "https://canopticon.com/articles/how-canadas-public-sector-employees-vote",
+   "title": "How Canada's public-sector employees vote: the Canadian Election Study evidence, Ottawa's ridings, and the union endorsements",
+   "summary": "Public-sector workers in Canada lean modestly left of private-sector workers, and most of that lean belongs to unionized professionals and managers. The city crews whose unions endorse the NDP vote much like their private-sector counterparts, and no released poll gives a party-by-party split to settle it.",
+   "content_text": "Public-sector workers in Canada lean modestly left of private-sector workers, and most of that lean belongs to unionized professionals and managers. The city crews whose unions endorse the NDP vote much like their private-sector counterparts, and no released poll gives a party-by-party split to settle it.",
+   "date_published": "2026-10-11T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/paying-yourself-to-do-your-own-tasks",
+   "url": "https://canopticon.com/articles/paying-yourself-to-do-your-own-tasks",
+   "title": "Paying yourself to do your own tasks: what the incentive trials show, and whether an earn-back subscription could work",
+   "summary": "Financial incentives move behaviour while they run, and losses move people more than equal gains. Paying yourself a wage from your own pocket removes most of what the trials rely on; a subscription you earn back by doing the work is a loss-framed stake, and the research rates it the version most likely to work. Nobody has tested it.",
+   "content_text": "Financial incentives move behaviour while they run, and losses move people more than equal gains. Paying yourself a wage from your own pocket removes most of what the trials rely on; a subscription you earn back by doing the work is a loss-framed stake, and the research rates it the version most likely to work. Nobody has tested it.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "ADHD & attention",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/canadian-recessions-and-the-mortgage-channel",
+   "url": "https://canopticon.com/articles/canadian-recessions-and-the-mortgage-channel",
+   "title": "Canadian recessions and the mortgage channel: rate decisions, CMHC, and five decades of housing-led downturns",
+   "summary": "Every major Canadian downturn since 1980 carries a monetary-policy fingerprint, and housing is how the decision reaches people. The clearest case is 1990, where the campaign overshot its own target and Toronto prices did not pass their 1989 peak until 2002.",
+   "content_text": "Every major Canadian downturn since 1980 carries a monetary-policy fingerprint, and housing is how the decision reaches people. The clearest case is 1990, where the campaign overshot its own target and Toronto prices did not pass their 1989 peak until 2002.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Housing",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/temporary-foreign-workers-and-canadian-innovation",
+   "url": "https://canopticon.com/articles/temporary-foreign-workers-and-canadian-innovation",
+   "title": "Temporary foreign workers and Canadian innovation: what the automation evidence shows, and the study nobody has run",
+   "summary": "The research that says immigration drives innovation studies points-selected skilled migration. Canada's intake since 2016 has been mostly temporary and low-wage, and the causal work on cheap labour runs the other way — a 1% rise in low-skill wages lifts automation patenting 2–5%. The Canadian version of that study has never been done.",
+   "content_text": "The research that says immigration drives innovation studies points-selected skilled migration. Canada's intake since 2016 has been mostly temporary and low-wage, and the causal work on cheap labour runs the other way — a 1% rise in low-skill wages lifts automation patenting 2–5%. The Canadian version of that study has never been done.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/whey-protein-in-hot-black-coffee",
+   "url": "https://canopticon.com/articles/whey-protein-in-hot-black-coffee",
+   "title": "Whey protein in hot black coffee: why it curdles, what the heat-stable versions cost, and what is coming",
+   "summary": "Collagen disappears into a hot cup; whey turns it into pale lumps that smell of sulfur. Coffee's acidity sits almost exactly where whey is least stable, and it is served above the temperature that unfolds the protein. The heat-stable ingredients that exist solve it by cutting the protein up, which makes it bitter.",
+   "content_text": "Collagen disappears into a hot cup; whey turns it into pale lumps that smell of sulfur. Coffee's acidity sits almost exactly where whey is least stable, and it is served above the temperature that unfolds the protein. The heat-stable ingredients that exist solve it by cutting the protein up, which makes it bitter.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Health & self-care",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/bill-c-11-and-canadian-creators-in-2026",
+   "url": "https://canopticon.com/articles/bill-c-11-and-canadian-creators-in-2026",
+   "title": "Bill C-11 and Canadian creators in 2026: what the CRTC has actually imposed, and what is still a prediction",
+   "summary": "Creators were told the Online Streaming Act would cost them their foreign audiences by teaching recommendation systems that Canadian videos go unwatched. Three years after royal assent the regulator has imposed no discoverability requirement on anyone, the money is stayed by a court, and no study has measured the harm.",
+   "content_text": "Creators were told the Online Streaming Act would cost them their foreign audiences by teaching recommendation systems that Canadian videos go unwatched. Three years after royal assent the regulator has imposed no discoverability requirement on anyone, the money is stayed by a court, and no study has measured the harm.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Canadian media",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/topping-up-low-wages-in-canada",
+   "url": "https://canopticon.com/articles/topping-up-low-wages-in-canada",
+   "title": "Topping up low wages in Canada: the Canada Workers Benefit, employer capture, and the workers who never file",
+   "summary": "Canada already runs the alternative to a basic income — a refundable credit that tops up low earnings automatically. Two things decide whether it works: employers absorb part of any wage subsidy where no floor exists, and about 9% of eligible earners never file a return.",
+   "content_text": "Canada already runs the alternative to a basic income — a refundable credit that tops up low earnings automatically. Two things decide whether it works: employers absorb part of any wage subsidy where no floor exists, and about 9% of eligible earners never file a return.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Economics",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/how-youtube-instagram-and-tiktok-rank-video-in-2026",
+   "url": "https://canopticon.com/articles/how-youtube-instagram-and-tiktok-rank-video-in-2026",
+   "title": "How YouTube, Instagram and TikTok rank video in 2026: satisfaction signals, AI content understanding, and penalties for reposting",
+   "summary": "Recommendation feeds have stopped scoring behaviour alone. A language model now watches the content and judges it — better than the crowd-sourced raters it replaced — while reposting is penalised in the ranking itself. Much of what creators are taught describes the system of a decade ago.",
+   "content_text": "Recommendation feeds have stopped scoring behaviour alone. A language model now watches the content and judges it — better than the crowd-sourced raters it replaced — while reposting is penalised in the ranking itself. Much of what creators are taught describes the system of a decade ago.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/measuring-the-economy-with-new-instruments",
+   "url": "https://canopticon.com/articles/measuring-the-economy-with-new-instruments",
+   "title": "Measuring the economy with new instruments: scraped prices, card-spending trackers and satellite imagery",
+   "summary": "Four old arguments explain why an economy resists being computed, and none of them have gone away. What computation did change is measurement — scraped prices, card records and satellite images that report what is happening weeks before the official numbers do.",
+   "content_text": "Four old arguments explain why an economy resists being computed, and none of them have gone away. What computation did change is measurement — scraped prices, card records and satellite images that report what is happening weeks before the official numbers do.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Prices & markets",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/immigrants-temporary-residents-and-canadas-job-growth-since-2020",
+   "url": "https://canopticon.com/articles/immigrants-temporary-residents-and-canadas-job-growth-since-2020",
+   "title": "Immigrants, temporary residents and Canada's job growth since 2020: what the Labour Force Survey can and cannot show",
+   "summary": "Nearly all of Canada's post-pandemic job growth went to immigrants and temporary residents. But no Canadian government table publishes that split the way the American one does — every version of the figure is built by hand from an annual series that undercounts the very group it counts.",
+   "content_text": "Nearly all of Canada's post-pandemic job growth went to immigrants and temporary residents. But no Canadian government table publishes that split the way the American one does — every version of the figure is built by hand from an annual series that undercounts the very group it counts.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/missed-workouts-and-broken-streaks",
+   "url": "https://canopticon.com/articles/missed-workouts-and-broken-streaks",
+   "title": "Missed workouts and broken streaks: how fast strength, mood and habit actually decay",
+   "summary": "Two weeks away from the gym costs almost nothing in muscle — strength holds and the body keeps a record that makes the regain fast. What drains in that time is mood, dopamine tone and the automatic habit, which is exactly what restarting runs on.",
+   "content_text": "Two weeks away from the gym costs almost nothing in muscle — strength holds and the body keeps a record that makes the regain fast. What drains in that time is mood, dopamine tone and the automatic habit, which is exactly what restarting runs on.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "ADHD & attention",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/alcohol-blackouts-how-ethanol-blocks-memory-formation",
+   "url": "https://canopticon.com/articles/alcohol-blackouts-how-ethanol-blocks-memory-formation",
+   "title": "Alcohol blackouts: how ethanol blocks memory formation, and why drinking speed decides it",
+   "summary": "In an alcohol blackout the drinker is awake, talking and deciding, while the brain's ability to save the night is chemically held shut. Nothing comes back afterwards because nothing was stored — and how fast the drinking goes decides whether it happens at all.",
+   "content_text": "In an alcohol blackout the drinker is awake, talking and deciding, while the brain's ability to save the night is chemically held shut. Nothing comes back afterwards because nothing was stored — and how fast the drinking goes decides whether it happens at all.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Health & self-care",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/fred-hutch-hsv-gene-therapy-in-2026",
+   "url": "https://canopticon.com/articles/fred-hutch-hsv-gene-therapy-in-2026",
+   "title": "Fred Hutch's HSV gene therapy in 2026: mouse and guinea-pig results, no human trial, and the antivirals arriving first",
+   "summary": "A gene therapy clears up to 97% of dormant herpes in mice. In the animal that relapses the way people do it clears above 30%, nobody has filed to test it in a person, and the drugs arriving first suppress the virus rather than remove it.",
+   "content_text": "A gene therapy clears up to 97% of dormant herpes in mice. In the animal that relapses the way people do it clears above 30%, nobody has filed to test it in a person, and the drugs arriving first suppress the virus rather than remove it.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Drugs & public health",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/job-guarantees-in-austria-france-and-india",
+   "url": "https://canopticon.com/articles/job-guarantees-in-austria-france-and-india",
+   "title": "Job guarantees in Austria, France and India: employment effects, cost per job, and the designs that trap people",
+   "summary": "A job for anyone who wants one sounds utopian. It has been tried — in an Austrian town, in 83 French territories and across rural India. It works, it costs money, and the design decides whether it is a springboard or a trap.",
+   "content_text": "A job for anyone who wants one sounds utopian. It has been tried — in an Austrian town, in 83 French territories and across rural India. It works, it costs money, and the design decides whether it is a springboard or a trap.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Economics",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/language-models-and-idea-diversity",
+   "url": "https://canopticon.com/articles/language-models-and-idea-diversity",
+   "title": "Language models and idea diversity: homogenisation within a session, across users, and between companies",
+   "summary": "Ask a language model for something new and it pulls toward what everyone else would say — across companies, over long sessions, and across everyone using it. Real novelty has a shape the models do not reach for on their own.",
+   "content_text": "Ask a language model for something new and it pulls toward what everyone else would say — across companies, over long sessions, and across everyone using it. Real novelty has a shape the models do not reach for on their own.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "AI-directed development",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/opioid-deaths-and-overdose-calls-in-hamilton",
+   "url": "https://canopticon.com/articles/opioid-deaths-and-overdose-calls-in-hamilton",
+   "title": "Opioid deaths and overdose calls in Hamilton: why the two counts moved in opposite directions",
+   "summary": "Hamilton's opioid deaths have fallen every year since 2021, while paramedic calls for overdoses more than doubled. The death count is measuring a drug supply that no longer exists.",
+   "content_text": "Hamilton's opioid deaths have fallen every year since 2021, while paramedic calls for overdoses more than doubled. The death count is measuring a drug supply that no longer exists.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Drugs & public health",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/canadas-short-term-rental-rules",
+   "url": "https://canopticon.com/articles/canadas-short-term-rental-rules",
+   "title": "Canada's short-term rental rules: supply, prices, and the mid-term rental tier that never formed",
+   "summary": "Short-term rentals add flexible supply, and competition lowers prices. Canadian cities banned them anyway — and cut off a tier between a hotel and a lease just as it was forming.",
+   "content_text": "Short-term rentals add flexible supply, and competition lowers prices. Canadian cities banned them anyway — and cut off a tier between a hotel and a lease just as it was forming.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Housing",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/canadas-short-term-rental-bans-and-rents",
+   "url": "https://canopticon.com/articles/canadas-short-term-rental-bans-and-rents",
+   "title": "Canada's short-term rental bans and rents: what returned to the long-term market, and what actually moved prices",
+   "summary": "Canadian cities restricted short-term rentals to bring homes back to renters. Few came back, rents fell for other reasons, and the bans squeezed a new kind of housing that sits between a hotel and a lease.",
+   "content_text": "Canadian cities restricted short-term rentals to bring homes back to renters. Few came back, rents fell for other reasons, and the bans squeezed a new kind of housing that sits between a hotel and a lease.",
+   "date_published": "2026-10-10T12:00:00Z",
+   "tags": [
+    "Housing",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/why-people-keep-scrolling",
+   "url": "https://canopticon.com/articles/why-people-keep-scrolling",
+   "title": "Why people keep scrolling: habit, infinite feeds, and the evidence against the dopamine explanation",
+   "summary": "The best evidence says people keep scrolling because of habit and a feed that never ends — not because of a dopamine jackpot. And engagement-ranked feeds keep showing people what they say they do not want.",
+   "content_text": "The best evidence says people keep scrolling because of habit and a feed that never ends — not because of a dopamine jackpot. And engagement-ranked feeds keep showing people what they say they do not want.",
+   "date_published": "2026-10-09T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/unverified-hunches-in-ai-assisted-software-work",
+   "url": "https://canopticon.com/articles/unverified-hunches-in-ai-assisted-software-work",
+   "title": "Unverified hunches in AI-assisted software work: the certainty handoff and one-sided memory",
+   "summary": "A hunch that feels right gets handed to a collaborator as if it had been checked. When the collaborator is an AI that starts every session blank, nobody checks it at all.",
+   "content_text": "A hunch that feels right gets handed to a collaborator as if it had been checked. When the collaborator is an AI that starts every session blank, nobody checks it at all.",
+   "date_published": "2026-10-09T12:00:00Z",
+   "tags": [
+    "AI-directed development",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Paper%20Krasis.dc.html",
+   "url": "https://canopticon.com/Canopticon%20Paper%20Krasis.dc.html",
+   "title": "Krasis",
+   "summary": "The synthesis of the series. McLuhan said every medium changes the ratio among our senses; the paper series tests that literally, from ADHD and typing to drugs and addiction, and find one configuration that media, drugs and illness all re-temper.",
+   "content_text": "The synthesis of the series. McLuhan said every medium changes the ratio among our senses; the paper series tests that literally, from ADHD and typing to drugs and addiction, and find one configuration that media, drugs and illness all re-temper.",
+   "date_published": "2026-10-05T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Paper"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Paper%20Exocrasis.dc.html",
+   "url": "https://canopticon.com/Canopticon%20Paper%20Exocrasis.dc.html",
+   "title": "Exocrasis",
+   "summary": "The computing environment, not the screen, is the medium: keyboard, memory, search and network move part of the configuration of the senses and of memory outside the body.",
+   "content_text": "The computing environment, not the screen, is the medium: keyboard, memory, search and network move part of the configuration of the senses and of memory outside the body.",
+   "date_published": "2026-10-05T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Paper"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Paper%20Heterocrasis.dc.html",
+   "url": "https://canopticon.com/Canopticon%20Paper%20Heterocrasis.dc.html",
+   "title": "Heterocrasis",
+   "summary": "ADHD as a different starting balance of the senses. The strongest difference is in overall gain; the body and inner speech are mixed; binding is not looser.",
+   "content_text": "ADHD as a different starting balance of the senses. The strongest difference is in overall gain; the body and inner speech are mixed; binding is not looser.",
+   "date_published": "2026-10-05T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Paper"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Paper%20Pharmakrasis.dc.html",
+   "url": "https://canopticon.com/Canopticon%20Paper%20Pharmakrasis.dc.html",
+   "title": "Pharmakrasis",
+   "summary": "Each class of drug sets its own balance of the senses — and the evidence for that is better than for any medium. When a drug meets a medium, as music does in psychedelic therapy, the two make a third thing.",
+   "content_text": "Each class of drug sets its own balance of the senses — and the evidence for that is better than for any medium. When a drug meets a medium, as music does in psychedelic therapy, the two make a third thing.",
+   "date_published": "2026-10-05T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Paper"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Paper%20Narcocrasis.dc.html",
+   "url": "https://canopticon.com/Canopticon%20Paper%20Narcocrasis.dc.html",
+   "title": "Narcocrasis",
+   "summary": "In dependence, what goes unseen is not the drug but the shifted baseline: the allostatic state is the medium, the drug its content. Two routes back — one turns the gain down, one makes the ground visible.",
+   "content_text": "In dependence, what goes unseen is not the drug but the shifted baseline: the allostatic state is the medium, the drug its content. Two routes back — one turns the gain down, one makes the ground visible.",
+   "date_published": "2026-10-05T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Paper"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/fixed-times-versus-flexible-routines-in-exercise-habits",
+   "url": "https://canopticon.com/articles/fixed-times-versus-flexible-routines-in-exercise-habits",
+   "title": "Fixed times versus flexible routines in exercise habits: what the paid-to-exercise trials found",
+   "summary": "Paid to exercise at a set time, people did less than those paid to exercise whenever they liked — and quit faster afterwards. What helps is a fixed start and an open workout.",
+   "content_text": "Paid to exercise at a set time, people did less than those paid to exercise whenever they liked — and quit faster afterwards. What helps is a fixed start and an open workout.",
+   "date_published": "2026-10-04T12:00:00Z",
+   "tags": [
+    "Habits & maintenance",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Paper%20Typomora.dc.html",
+   "url": "https://canopticon.com/Canopticon%20Paper%20Typomora.dc.html",
+   "title": "Typomora",
+   "summary": "McLuhan said electric media would bring back the voice. For fifty years computers made us type instead. The delay was the keyboard, not a mistake in the theory — and it is ending.",
+   "content_text": "McLuhan said electric media would bring back the voice. For fifty years computers made us type instead. The delay was the keyboard, not a mistake in the theory — and it is ending.",
+   "date_published": "2026-10-04T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Paper"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Paper%20Syncrasis.dc.html",
+   "url": "https://canopticon.com/Canopticon%20Paper%20Syncrasis.dc.html",
+   "title": "Sensory syncrasis",
+   "summary": "McLuhan meant his \"sense ratios\" literally. The brain science he reached for failed; predictive processing now gives the idea a mechanism, a name and five tests.",
+   "content_text": "McLuhan meant his \"sense ratios\" literally. The brain science he reached for failed; predictive processing now gives the idea a mechanism, a name and five tests.",
+   "date_published": "2026-10-04T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Paper"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/self-extinguishing-maintenance",
+   "url": "https://canopticon.com/articles/self-extinguishing-maintenance",
+   "title": "Self-extinguishing maintenance: treatments that stop because they are working, and the relapse that follows",
+   "summary": "Some problems only stay fixed while you keep treating them — a gap between two teeth, toes pressed too tight. The treatment works, the problem vanishes, it looks cured, you stop, and it comes back. This research named the cycle and the mistake behind it.",
+   "content_text": "Some problems only stay fixed while you keep treating them — a gap between two teeth, toes pressed too tight. The treatment works, the problem vanishes, it looks cured, you stop, and it comes back. This research named the cycle and the mistake behind it.",
+   "date_published": "2026-10-04T12:00:00Z",
+   "tags": [
+    "Habits & maintenance",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=typomora-neuroscience-naming-and-framing-for-paper-3-the-typed-delay-a",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=typomora-neuroscience-naming-and-framing-for-paper-3-the-typed-delay-a",
+   "title": "Typomora: Neuroscience, Naming and Framing for Paper 3",
+   "summary": "The neuroscience: Literacy measurably changes the brain. Dehaene et al. (2010, Science) found increased responses to letters in the visual word form area (VWFA), a small displacement of face responses, and enhanced…",
+   "content_text": "The neuroscience: Literacy measurably changes the brain. Dehaene et al. (2010, Science) found increased responses to letters in the visual word form area (VWFA), a small displacement of face responses, and enhanced…",
+   "date_published": "2026-10-04T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-computing-environment-and-sensory-syncrasis-evidence-review-for-pa",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-computing-environment-and-sensory-syncrasis-evidence-review-for-pa",
+   "title": "The Computing Environment and Sensory Syncrasis: Evidence Review for Paper 2",
+   "summary": "What the environment tunes toward: an outward-facing, fast-switching, offloaded mode. Readers calibrate less carefully and process expository text more shallowly on screens (g ≈ −0.21). Memory shifts toward external stores…",
+   "content_text": "What the environment tunes toward: an outward-facing, fast-switching, offloaded mode. Readers calibrate less carefully and process expository text more shallowly on screens (g ≈ −0.21). Memory shifts toward external stores…",
+   "date_published": "2026-10-04T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=sensory-syncrasis-evidence-base-screens-paper-a-and-adhd-paper-b",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=sensory-syncrasis-evidence-base-screens-paper-a-and-adhd-paper-b",
+   "title": "Sensory Syncrasis Evidence Base: Screens (Paper A) and ADHD (Paper B)",
+   "summary": "Paper A (Screens): Change is real but mostly domain-specific and often enhancing. Action video games causally improve perceptual and attentional skills (Bediou et al. 2018: g = 0.34 in intervention studies, g = 0.55…",
+   "content_text": "Paper A (Screens): Change is real but mostly domain-specific and often enhancing. Action video games causally improve perceptual and attentional skills (Bediou et al. 2018: g = 0.34 in intervention studies, g = 0.55…",
+   "date_published": "2026-10-04T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
+   "title": "The Precision Ratio, Revisited: Why \"Ratio\" Is Half Right, and What to Call the Whole",
+   "summary": "Naming study",
+   "content_text": "Naming study",
+   "date_published": "2026-10-04T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-medium-becomes-the-ground-mcluhan-s-media-theory-and-the-allostati",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-medium-becomes-the-ground-mcluhan-s-media-theory-and-the-allostati",
+   "title": "The Medium Becomes the Ground: McLuhan and the Allostatic Model of Addiction (rebuilt)",
+   "summary": "Work linking McLuhan to drugs and addiction exists only at the level of discourse and metaphor. The nearest example is Hartogsohn & Vudka (2023, Transcultural Psychiatry), which is about smartphone \"addiction\" and McLuhan's…",
+   "content_text": "Work linking McLuhan to drugs and addiction exists only at the level of discourse and metaphor. The nearest example is Hartogsohn & Vudka (2023, Transcultural Psychiatry), which is about smartphone \"addiction\" and McLuhan's…",
+   "date_published": "2026-10-04T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-medium-becomes-the-ground-foundation-research-on-sense-ratios-prec",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-medium-becomes-the-ground-foundation-research-on-sense-ratios-prec",
+   "title": "The Medium Becomes the Ground: Foundation Research on Sense Ratios, Precision, Interoception, Allostasis and Addiction",
+   "summary": "Historiography: McLuhan stated in physiological terms that media \"alter sense ratios or patterns of perception steadily and without any resistance,\" funded and ran media-comparison experiments in the 1950s, and in…",
+   "content_text": "Historiography: McLuhan stated in physiological terms that media \"alter sense ratios or patterns of perception steadily and without any resistance,\" funded and ran media-comparison experiments in the 1950s, and in…",
+   "date_published": "2026-10-04T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Essay%20Haggle.dc.html",
+   "url": "https://canopticon.com/Canopticon%20Essay%20Haggle.dc.html",
+   "title": "Personalised pricing software and the return of haggling, run from the seller's side",
+   "summary": "From the middle of the nineteenth century everyone paid the number on the tag. Pricing software is bringing the bazaar back — except this time the seller reads you, and you see nothing.",
+   "content_text": "From the middle of the nineteenth century everyone paid the number on the tag. Pricing software is bringing the bazaar back — except this time the seller reads you, and you see nothing.",
+   "date_published": "2026-10-03T12:00:00Z",
+   "tags": [
+    "Prices & markets",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/who-will-count-an-ai-assistants-influence",
+   "url": "https://canopticon.com/articles/who-will-count-an-ai-assistants-influence",
+   "title": "Who will count an AI assistant's influence: advertising attribution after the agent",
+   "summary": "Every shift in how advertising is paid for happened when a new party could count a new event. The agent that now does the buying can count the one that matters — and reports it to no one.",
+   "content_text": "Every shift in how advertising is paid for happened when a new party could count a new event. The agent that now does the buying can count the one that matters — and reports it to no one.",
+   "date_published": "2026-10-02T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/articles/the-counter-irritant-spiral",
+   "url": "https://canopticon.com/articles/the-counter-irritant-spiral",
+   "title": "The counter-irritant spiral: McLuhan, Hans Selye, and relief that deepens the need for relief",
+   "summary": "In 1964 McLuhan, reading the stress researcher Hans Selye, described relief that deepens the need for relief \"like a drug habit.\" What users stop noticing is not the drug but their own shifted baseline.",
+   "content_text": "In 1964 McLuhan, reading the stress researcher Hans Selye, described relief that deepens the need for relief \"like a drug habit.\" What users stop noticing is not the drug but their own shifted baseline.",
+   "date_published": "2026-10-01T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Article"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=uber-for-your-own-to-do-list-feasibility-and-prior-art-review-of-a-pai",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=uber-for-your-own-to-do-list-feasibility-and-prior-art-review-of-a-pai",
+   "title": "Uber for Your Own To-Do List: Feasibility and Prior-Art Review of a Paid, AI-Dispatched Task Queue",
+   "summary": "Prior art: Nobody has built \"Uber for your own tasks\". The nearby products are commitment-stake apps (Beeminder, stickK, Forfeit), pay-for-health apps (Sweatcoin, Evidation), RPG and gamified task managers (Habitica, Finch)…",
+   "content_text": "Prior art: Nobody has built \"Uber for your own tasks\". The nearby products are commitment-stake apps (Beeminder, stickK, Forfeit), pay-for-health apps (Sweatcoin, Evidation), RPG and gamified task managers (Habitica, Finch)…",
+   "date_published": "2026-10-01T12:00:00Z",
+   "tags": [
+    "ADHD & attention",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=time-blindness-task-hopping-and-why-doordash-feels-easy-an-evidence-ba",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=time-blindness-task-hopping-and-why-doordash-feels-easy-an-evidence-ba",
+   "title": "Time Blindness, Task-Hopping, and Why a Delivery Queue Feels Easy",
+   "summary": "\"Time blindness\" is a popular term, not a diagnosis. Large meta-analyses find that people with ADHD judge time intervals less accurately and less consistently. The best-known pooled result is Metcalfe et al. (2024), with…",
+   "content_text": "\"Time blindness\" is a popular term, not a diagnosis. Large meta-analyses find that people with ADHD judge time intervals less accurately and less consistently. The best-known pooled result is Metcalfe et al. (2024), with…",
+   "date_published": "2026-10-01T12:00:00Z",
+   "tags": [
+    "Habits & maintenance",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-self-serve-buy-side-teardown-money-flow-legal-guardrails-and-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-self-serve-buy-side-teardown-money-flow-legal-guardrails-and-",
+   "title": "Self-Serve Buy Side: Teardown, Money Flow, Legal Guardrails and a 30/90-Day Spec",
+   "summary": "No competitor sells proof. Paved, Passionfroot, beehiiv, EthicalAds and SponsorCal report clicks, opens, impressions and reviews at best. I found no creator or newsletter marketplace offering holdout lift, verified…",
+   "content_text": "No competitor sells proof. Paved, Passionfroot, beehiiv, EthicalAds and SponsorCal report clicks, opens, impressions and reviews at best. I found no creator or newsletter marketplace offering holdout lift, verified…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-publisher-profile-build-it-from-public-signals-verify-it-with",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-publisher-profile-build-it-from-public-signals-verify-it-with",
+   "title": "Publisher Profile: Build It From Public Signals, Verify It With OAuth, Sell It as a Signed Audience Card",
+   "summary": "Build it from public content, verify it with OAuth, and never blur the two. YouTube's Analytics API gives consented age, gender, geography and traffic-source data. Its June 2026 derived-metrics amendment allows custom scores…",
+   "content_text": "Build it from public content, verify it with OAuth, and never blur the two. YouTube's Analytics API gives consented age, gender, geography and traffic-source data. Its June 2026 derived-metrics amendment allows custom scores…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-seventeenth-pass-what-owning-the-redirect-is-really-for-and-w",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-seventeenth-pass-what-owning-the-redirect-is-really-for-and-w",
+   "title": "What Owning the Redirect Is Really For",
+   "summary": "Owning the redirect is worth something, but not for conversion. Its real value is maintenance and evidence. Old links rot and programs change: Amazon cut commissions again in 2026, by as much as 50% according to Adweek, and…",
+   "content_text": "Owning the redirect is worth something, but not for conversion. Its real value is maintenance and evidence. Old links rot and programs change: Amazon cut commissions again in 2026, by as much as 50% according to Adweek, and…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-16-the-setup-handoff-page-the-agent-layer-and-the-thin-s",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-16-the-setup-handoff-page-the-agent-layer-and-the-thin-s",
+   "title": "The Setup Handoff Page, the Agent Layer, and the Thin Spots",
+   "summary": "The redesign is right, but it has to be built in tiers. Tier A covers Framer, where the remix link is referral-tracked, and Railway, where the template deploy pays the author a usage kickback. It can honestly say \"open her…",
+   "content_text": "The redesign is right, but it has to be built in tiers. Tier A covers Framer, where the remix link is referral-tracked, and Railway, where the template deploy pays the author a usage kickback. It can honestly say \"open her…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-13-big-swings-pressure-tested",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-13-big-swings-pressure-tested",
+   "title": "Big Swings, Pressure-Tested",
+   "summary": "Ship the newsletter first, as the inventory engine. Build it on Amazon SES ($0.10 per 1,000 emails, $24.95/month standard dedicated IP) with a Cloudflare control plane. Cloudflare's own FAQ says Email Service \"is intended…",
+   "content_text": "Ship the newsletter first, as the inventory engine. Build it on Amazon SES ($0.10 per 1,000 emails, $24.95/month standard dedicated IP) with a Cloudflare control plane. Cloudflare's own FAQ says Email Service \"is intended…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "ADHD & attention",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-frontier-scan-pass-7-the-agent-is-now-the-audience-and-right-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-frontier-scan-pass-7-the-agent-is-now-the-audience-and-right-",
+   "title": "Frontier Scan: The Agent Is Now the Audience, and Right Now It Reads Merchant Feeds, Not Creators",
+   "summary": "Frontier #1 (agents) matters most, and it changes the pass-six plan. Profound's tracking found feed-sourced ChatGPT picks jumping from 8.26% to 61.54% on 10 July 2026. OpenAI retired in-chat Instant Checkout in March 2026.…",
+   "content_text": "Frontier #1 (agents) matters most, and it changes the pass-six plan. Profound's tracking found feed-sourced ChatGPT picks jumping from 8.26% to 61.54% on 10 July 2026. OpenAI retired in-chat Instant Checkout in March 2026.…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-pattern-beneath-the-pattern-housing-recessions-and-policy-in-canad",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-pattern-beneath-the-pattern-housing-recessions-and-policy-in-canad",
+   "title": "Engineered Booms and Busts: How Policy Drives Canada's Housing-Led Recessions",
+   "summary": "Across five decades, Canada's recessions are not random market accidents but are repeatedly detonated by identifiable policy decisions — above all Bank of Canada interest-rate cycles acting on an economy where housing and…",
+   "content_text": "Across five decades, Canada's recessions are not random market accidents but are repeatedly detonated by identifiable policy decisions — above all Bank of Canada interest-rate cycles acting on an economy where housing and…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "Prices & markets",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=price-without-discovery-from-the-signal-to-the-instruction",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=price-without-discovery-from-the-signal-to-the-instruction",
+   "title": "Price Without Discovery: From Market Signal to Algorithmic Instruction",
+   "summary": "The lead thesis is sound and publishable: for two centuries the price was understood as an emergent signal no one sets (Hayek, 1945); algorithmic, dynamic, and surveillance pricing increasingly make the price computed and…",
+   "content_text": "The lead thesis is sound and publishable: for two centuries the price was understood as an emergent signal no one sets (Hayek, 1945); algorithmic, dynamic, and surveillance pricing increasingly make the price computed and…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=realpage-north-algorithmic-rent-setting-in-canada-a-forensic-investiga",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=realpage-north-algorithmic-rent-setting-in-canada-a-forensic-investiga",
+   "title": "RealPage North: Algorithmic Rent-Setting in Canada — Forensic Investigation and Detection-Instrument Feasibility",
+   "summary": "The genuine Canadian story is forensic-historical, not live: algorithmic revenue-management software (RealPage's YieldStar/AIRM/LRO; Yardi's Revenue IQ/RENTmaximizer) was used here from at least 2017, grew gradually, then…",
+   "content_text": "The genuine Canadian story is forensic-historical, not live: algorithmic revenue-management software (RealPage's YieldStar/AIRM/LRO; Yardi's Revenue IQ/RENTmaximizer) was used here from at least 2017, grew gradually, then…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "Prices & markets",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=oral-only-interventions-across-every-layer-of-skin-structure-a-complet",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=oral-only-interventions-across-every-layer-of-skin-structure-a-complet",
+   "title": "Oral Interventions for Skin Aging: A Complete Layer-by-Layer Evidence Audit",
+   "summary": "The oral skin-aging field has now expanded well beyond Type I/III collagen and HA: there are genuine human RCTs for oral elastin peptides (VGPG Elastin), eggshell membrane (MKARE), phytoceramides (Lipowheat, rice/konjac)…",
+   "content_text": "The oral skin-aging field has now expanded well beyond Type I/III collagen and HA: there are genuine human RCTs for oral elastin peptides (VGPG Elastin), eggshell membrane (MKARE), phytoceramides (Lipowheat, rice/konjac)…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-momentum-trap-neurobiology-and-behavioral-mechanics-of-adhd-habit-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-momentum-trap-neurobiology-and-behavioral-mechanics-of-adhd-habit-",
+   "title": "The Momentum Trap: Neurobiology and Behavioral Mechanics of ADHD Habit Collapse",
+   "summary": "Momentum is real and mechanistically distinct from starting fresh: established behavior is protected by \"behavioral momentum\" (reinforcement-built resistance to disruption) and by context-cued automaticity that offloads…",
+   "content_text": "Momentum is real and mechanistically distinct from starting fresh: established behavior is protected by \"behavioral momentum\" (reinforcement-built resistance to disruption) and by context-cued automaticity that offloads…",
+   "date_published": "2026-09-27T12:00:00Z",
+   "tags": [
+    "ADHD & attention",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-18-the-engagement-layer-evidence-mechanics-and-the-exper",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-18-the-engagement-layer-evidence-mechanics-and-the-exper",
+   "title": "The Engagement Layer — Evidence, Mechanics, and the Experiment That Would Prove It",
+   "summary": "Decisions are delayed, and credit is lost in the gap. Baymard finds 43% of US cart abandoners were \"just browsing / not ready to buy.\" Swym's vendor data puts the average visit-to-purchase journey at 41 days. Impact.com's…",
+   "content_text": "Decisions are delayed, and credit is lost in the gap. Baymard finds 43% of US cart abandoners were \"just browsing / not ready to buy.\" Swym's vendor data puts the average visit-to-purchase journey at 41 days. Impact.com's…",
+   "date_published": "2026-09-26T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-3-pressure-testing-trust-mediated-sponsorship-verdict-and-two-bets",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-3-pressure-testing-trust-mediated-sponsorship-verdict-and-two-bets",
+   "title": "ANCASTER Pass 3: Pressure-Testing \"Trust-Mediated Sponsorship\" — Verdict and Two Bets",
+   "summary": "SERVING + first-party click/promo-code ATTRIBUTION for a creator's OWN direct sponsors, unified across formats.",
+   "content_text": "SERVING + first-party click/promo-code ATTRIBUTION for a creator's OWN direct sponsors, unified across formats.",
+   "date_published": "2026-09-20T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=after-the-net-comes-up-tom-tyler-s-procrustean-probe-the-tetrad-debate",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=after-the-net-comes-up-tom-tyler-s-procrustean-probe-the-tetrad-debate",
+   "title": "After the Net Comes Up: Tom Tyler's \"Procrustean Probe,\" the Tetrad Debate, and What CANOPTICON Should Do After Ingestion",
+   "summary": "Tom Tyler's point is more useful than a simple \"the tetrad is vague.",
+   "content_text": "Tom Tyler's point is more useful than a simple \"the tetrad is vague.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=project-ancaster-what-influencer-advertising-systems-teach-an-indie-ad",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=project-ancaster-what-influencer-advertising-systems-teach-an-indie-ad",
+   "title": "Project Ancaster: What Influencer Advertising Systems Teach an Indie Ad Network — Strategy Memo (September 2026)",
+   "summary": "Ancaster's best move into the creator economy is not a new influencer marketplace.",
+   "content_text": "Ancaster's best move into the creator economy is not a new influencer marketplace.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-",
+   "title": "What Makes an Attribution Paradigm Shift — and Whether One Is Available to Ancaster in 2026",
+   "summary": "No shift on the scale of CPM→CPC→CPA is available for Ancaster to cause today.",
+   "content_text": "No shift on the scale of CPM→CPC→CPA is available for Ancaster to cause today.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=content-that-is-the-ad-buying-curious-attention-in-late-2026-and-the-s",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=content-that-is-the-ad-buying-curious-attention-in-late-2026-and-the-s",
+   "title": "Content That Is the Ad: Buying Curious Attention in Late 2026, and the Stack Behind It",
+   "summary": "Bottom line: The cheapest curious readers are still on the old feeds.",
+   "content_text": "Bottom line: The cheapest curious readers are still on the old feeds.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "ADHD & attention",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-",
+   "title": "Correct but Not Yet Known: The Science of Treating a Fast Intuition as a Verified Conclusion",
+   "summary": "Valerie Thompson's \"Feeling of Rightness\" and Ackerman & Thompson's meta-reasoning framework describe this gate.",
+   "content_text": "Valerie Thompson's \"Feeling of Rightness\" and Ackerman & Thompson's meta-reasoning framework describe this gate.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "AI-directed development",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=diagnosing-the-feed-why-scrolling-works-why-x-feels-like-a-town-square",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=diagnosing-the-feed-why-scrolling-works-why-x-feels-like-a-town-square",
+   "title": "Diagnosing the Feed: Why Scrolling Works, Why X Feels Like a Town Square, Where Content Turns Into Advertising, and How CANOPTICON Can Use All Three",
+   "summary": "The best-supported reason people keep scrolling isn't a \"dopamine slot machine.",
+   "content_text": "The best-supported reason people keep scrolling isn't a \"dopamine slot machine.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "ADHD & attention",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=net-casting-a-practice-for-turning-ai-research-into-a-generative-mind-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=net-casting-a-practice-for-turning-ai-research-into-a-generative-mind-",
+   "title": "Net-Casting: A Practice for Turning AI Research Into a Generative, Mind-Changing Craft",
+   "summary": "The core finding is that AI research agents drift toward consensus by default, so novelty does not come from better questions alone.",
+   "content_text": "The core finding is that AI research agents drift toward consensus by default, so novelty does not come from better questions alone.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=a-public-accept-the-offer-work-platform-does-it-exist-and-is-it-crazy",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=a-public-accept-the-offer-work-platform-does-it-exist-and-is-it-crazy",
+   "title": "A Public \"Accept-the-Offer\" Work Platform: Does It Exist, and Is It Crazy?",
+   "summary": "Pieces of it already run at scale around the world, from India's rural job guarantee to a fully evaluated universal job guarantee in Austria.",
+   "content_text": "Pieces of it already run at scale around the world, from India's rural job guarantee to a fully evaluated universal job guarantee in Austria.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten",
+   "title": "When \"Healed\" Is the Treatment Working: The Stopping Mechanism in Maintenance-Dependent Conditions",
+   "summary": "The pattern you describe is well documented in pieces but has no single name.",
+   "content_text": "The pattern you describe is well documented in pieces but has no single name.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=stateless-partners-shared-traces-common-ground-stigmergy-and-naturalis",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=stateless-partners-shared-traces-common-ground-stigmergy-and-naturalis",
+   "title": "Stateless Partners, Shared Traces: Common Ground, Stigmergy and Naturalistic Decision Making in AI-Directed Software Development",
+   "summary": "NDM has never been applied to directing coding agents.",
+   "content_text": "NDM has never been applied to directing coding agents.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "AI-directed development",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=instant-dissolving-whey-for-hot-coffee-where-the-science-and-manufactu",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=instant-dissolving-whey-for-hot-coffee-where-the-science-and-manufactu",
+   "title": "Instant-Dissolving Whey for Hot Coffee: Where the Science and Manufacturing Stand (September 2026)",
+   "summary": "You cannot buy a whey protein today that goes into hot black coffee at 20–30 g the way collagen does: instantly, with no taste and no texture.",
+   "content_text": "You cannot buy a whey protein today that goes into hot black coffee at 20–30 g the way collagen does: instantly, with no taste and no texture.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Health & self-care",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=narrow-the-goal-or-broaden-the-substitutes-the-neurobiology-and-behavi",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=narrow-the-goal-or-broaden-the-substitutes-the-neurobiology-and-behavi",
+   "title": "Narrow the Goal or Broaden the Substitutes? The Neurobiology and Behavioral Science of Intention Specificity, Goal Substitution, and ADHD Exercise Adherence",
+   "summary": "The evidence does not support \"narrow the goal to gym-only\" for most people with ADHD.",
+   "content_text": "The evidence does not support \"narrow the goal to gym-only\" for most people with ADHD.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "ADHD & attention",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-fringe-pharmacopeia-of-hsv-latency-destruction-a-deep-hunt-survey-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-fringe-pharmacopeia-of-hsv-latency-destruction-a-deep-hunt-survey-",
+   "title": "The Fringe Pharmacopeia of HSV Latency Destruction: A Deep-Hunt Survey of Natural, Botanical, Fungal, and Bioactive Compounds",
+   "summary": "No natural compound has been shown to destroy or eradicate HSV latency in human neurons.",
+   "content_text": "No natural compound has been shown to destroy or eradicate HSV latency in human neurons.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Drugs & public health",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=omega-3-krill-gut-brain-skin-axis-and-psilocybin-for-skin-aging-a-thre",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=omega-3-krill-gut-brain-skin-axis-and-psilocybin-for-skin-aging-a-thre",
+   "title": "Omega-3/Krill, Gut–Brain–Skin Axis, and Psilocybin for Skin Aging: A Three-Part Evidence Audit",
+   "summary": "TEWL that track the omega-3 index; pure fish-oil RCTs mostly measure UV/inflammation, not wrinkles, and EPA appears more potent than DHA in skin but no head-to-head wrinkle trial exists.",
+   "content_text": "TEWL that track the omega-3 index; pure fish-oil RCTs mostly measure UV/inflammation, not wrinkles, and EPA appears more potent than DHA in skin but no head-to-head wrinkle trial exists.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=participation-income-earned-income-supplements-and-work-sharing-a-poli",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=participation-income-earned-income-supplements-and-work-sharing-a-poli",
+   "title": "Participation Income, Earned-Income Supplements, and Work-Sharing: A Policy Framework for Canada",
+   "summary": "Participation income is the stronger bet for Canada.",
+   "content_text": "Participation income is the stronger bet for Canada.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Prices & markets",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=portraiture-as-a-research-methodology-origins-epistemology-application",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=portraiture-as-a-research-methodology-origins-epistemology-application",
+   "title": "Portraiture as a Research Methodology: Origins, Epistemology, Applications, and Critique",
+   "summary": "Fenwick English (2000)—for the unchecked authority of the single \"truth-telling\" portraitist, its pursuit of an \"essence,\" and the difficulty of independently verifying its claims.",
+   "content_text": "Fenwick English (2000)—for the unchecked authority of the single \"truth-telling\" portraitist, its pursuit of an \"essence,\" and the difficulty of independently verifying its claims.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-six-the-carried-recommendation-pressure-tested",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-six-the-carried-recommendation-pressure-tested",
+   "title": "Ancaster, Pass Six: The Carried Recommendation, Pressure-Tested",
+   "summary": "The \"carried recommendation\" thesis holds up, but only in a narrower and stronger form than the hypothesis states.",
+   "content_text": "The \"carried recommendation\" thesis holds up, but only in a narrower and stronger form than the hypothesis states.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fourth-pass-pressure-testing-the-link-is-the-ad-and-choosing-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fourth-pass-pressure-testing-the-link-is-the-ad-and-choosing-",
+   "title": "Ancaster, Fourth Pass: Pressure-Testing \"The Link Is the Ad\" and Choosing One Direction",
+   "summary": "Ancaster's defensible white space is not the link-in-bio page, which Linktree, Beacons, Stan and Dub already own.",
+   "content_text": "Ancaster's defensible white space is not the link-in-bio page, which Linktree, Beacons, Stan and Dub already own.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fifth-pass-seven-open-questions-on-journeys-codes-portability",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-fifth-pass-seven-open-questions-on-journeys-codes-portability",
+   "title": "Ancaster, Fifth Pass: Seven Open Questions on Journeys, Codes, Portability, Merchant Demand, Program Permissions, Interactive Demos and Shopify Order Data",
+   "summary": "URLs capture only about 15–30% of the conversions that pixel-based household matching finds, and most of the rest arrives later through search, direct visits or another device.",
+   "content_text": "URLs capture only about 15–30% of the conversions that pixel-based household matching finds, and most of the rest arrives later through search, direct visits or another device.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-10-traffic-permissions-paid-amplification-signup-attribu",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-10-traffic-permissions-paid-amplification-signup-attribu",
+   "title": "Ancaster Pass 10: Traffic Permissions, Paid Amplification, Signup Attribution, Earnings Aggregation, In-House Program and Account Model",
+   "summary": "Chris's belief that he can't plug into PartnerStack is wrong.",
+   "content_text": "Chris's belief that he can't plug into PartnerStack is wrong.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-aldershot-product-bible-v1-0-september-2026",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-aldershot-product-bible-v1-0-september-2026",
+   "title": "The Aldershot Product Bible — v1.0 (September 2026)",
+   "summary": "Aldershot should win by being the one AI video editor that is predictable on price, honest about what it did, and better the longer you use it.",
+   "content_text": "Aldershot should win by being the one AI video editor that is predictable on price, honest about what it did, and better the longer you use it.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-interstitial-standard-v1-interactive-pages-partner-powered-co",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-interstitial-standard-v1-interactive-pages-partner-powered-co",
+   "title": "Ancaster Interstitial Standard v1: Interactive Pages, Partner-Powered Components, and Feed-Native Offers",
+   "summary": "ElevenLabs voice), placed between the creator's endorsement and one dominant disclosed affiliate CTA.",
+   "content_text": "ElevenLabs voice), placed between the creator's endorsement and one dominant disclosed affiliate CTA.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-12-the-functional-toolset-and-the-integration-map",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-12-the-functional-toolset-and-the-integration-map",
+   "title": "Ancaster Pass 12: The Functional Toolset and the Integration Map",
+   "summary": "It should hand everything else to the platforms creators already use, through five native integrations (Stripe, Kit, beehiiv, Ghost, YouTube) plus a webhooks/Zapier/MCP layer.",
+   "content_text": "It should hand everything else to the platforms creators already use, through five native integrations (Stripe, Kit, beehiiv, Ghost, YouTube) plus a webhooks/Zapier/MCP layer.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-a-delegation-first-ai-video-editor-product-concept-dossier",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-a-delegation-first-ai-video-editor-product-concept-dossier",
+   "title": "Aldershot: A Delegation-First AI Video Editor — Product Concept Dossier",
+   "summary": "Build Aldershot as a \"brief-to-cut\" delegation engine, not a better timeline.",
+   "content_text": "Build Aldershot as a \"brief-to-cut\" delegation engine, not a better timeline.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-publisher-funnel-turning-a-creator-s-affiliate-links-into-creator-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-publisher-funnel-turning-a-creator-s-affiliate-links-into-creator-",
+   "title": "The Publisher Funnel: Turning a Creator's Affiliate Links into Creator-Owned Funnels — Eighth Research Pass for Ancaster",
+   "summary": "A publisher-owned funnel is worth building, but not for the reason the affiliate gurus give.",
+   "content_text": "A publisher-owned funnel is worth building, but not for the reason the affiliate gurus give.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-how-it-works-moment-to-moment-a-how-it-works-dossier",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-how-it-works-moment-to-moment-a-how-it-works-dossier",
+   "title": "ALDERSHOT: How It Works, Moment to Moment — A \"How It Works\" Dossier",
+   "summary": "The core feel never changes; only the number of doors that open changes.",
+   "content_text": "The core feel never changes; only the number of doors that open changes.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "AI-directed development",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-11-the-indie-saas-advertiser-side-buyer-reality-tools-pr",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=ancaster-pass-11-the-indie-saas-advertiser-side-buyer-reality-tools-pr",
+   "title": "Ancaster Pass 11: The Indie SaaS Advertiser Side — Buyer Reality, Tools, Pricing and the Cascade",
+   "summary": "Indie founders will not pay Ancaster to track affiliates, because tracking is already a $19–$49/month commodity and free inside several merchant-of-record platforms.",
+   "content_text": "Indie founders will not pay Ancaster to track affiliates, because tracking is already a $19–$49/month commodity and free inside several merchant-of-record platforms.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-creative-layer-dossier-for-aldershot-montage-the-device-object-and",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-creative-layer-dossier-for-aldershot-montage-the-device-object-and",
+   "title": "The Creative-Layer Dossier for ALDERSHOT: Montage, the \"Device Object,\" and the Sourcing Engine",
+   "summary": "Write-A-Video, SKALD, ESA), match-cut discovery (Netflix's WACV 2023 system), shot-type classification (MovieShots/SGNet), aesthetic scoring (LAION), and multimodal retrieval (Twelve Labs Marengo, CLIP/SigLIP).",
+   "content_text": "Write-A-Video, SKALD, ESA), match-cut discovery (Netflix's WACV 2023 system), shot-type classification (MovieShots/SGNet), aesthetic scoring (LAION), and multimodal retrieval (Twelve Labs Marengo, CLIP/SigLIP).",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "AI-directed development",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-vision-possibilities-dossier",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-vision-possibilities-dossier",
+   "title": "ALDERSHOT — Vision & Possibilities Dossier",
+   "summary": "Editing is shifting from manual timeline manipulation to natural-language direction; agentic editors (ChatCut, Descript's Underlord) already exist, but all of them keep a timeline as the ground truth.",
+   "content_text": "Editing is shifting from manual timeline manipulation to natural-language direction; agentic editors (ChatCut, Descript's Underlord) already exist, but all of them keep a timeline as the ground truth.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-build-blueprint-competitive-landscape-product-ux-design",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-build-blueprint-competitive-landscape-product-ux-design",
+   "title": "ALDERSHOT — Build Blueprint, Competitive Landscape & Product/UX Design",
+   "summary": "Build it as a \"script-is-the-timeline\" agentic documentary engine, not another NLE.",
+   "content_text": "Build it as a \"script-is-the-timeline\" agentic documentary engine, not another NLE.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "AI-directed development",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=design-brief-the-build-surface-for-aldershot-the-draft-room",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=design-brief-the-build-surface-for-aldershot-the-draft-room",
+   "title": "Design Brief: The Build Surface for Aldershot — \"The Draft Room\"",
+   "summary": "A surface where a video essay gets built — from a bare thesis to a structured, sourced, piece-by-piece argument — before (or alongside) Editor X.",
+   "content_text": "A surface where a video essay gets built — from a bare thesis to a structured, sourced, piece-by-piece argument — before (or alongside) Editor X.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-a-ground-up-blueprint-for-an-agentic-documentary-video-essay",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-a-ground-up-blueprint-for-an-agentic-documentary-video-essay",
+   "title": "ALDERSHOT: A Ground-Up Blueprint for an Agentic Documentary & Video-Essay Engine",
+   "summary": "STORM-style multi-perspective research + Dramatron/Re3/DOC hierarchical drafting + evaluator-optimizer critique loops), NOT the footage-matching layer.",
+   "content_text": "STORM-style multi-perspective research + Dramatron/Re3/DOC hierarchical drafting + evaluator-optimizer critique loops), NOT the footage-matching layer.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Prices & markets",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=decision-report-which-economic-data-instrument-canopticon-should-build",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=decision-report-which-economic-data-instrument-canopticon-should-build",
+   "title": "Decision Report: Which Economic-Data Instrument CANOPTICON Should Build First",
+   "summary": "Build the Canadian \"Real Wealth Gap\" Tracker (Candidate 1) first.",
+   "content_text": "Build the Canadian \"Real Wealth Gap\" Tracker (Candidate 1) first.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canopticon-a-cloudflare-native-pipeline-for-automated-filmmaker-grade-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canopticon-a-cloudflare-native-pipeline-for-automated-filmmaker-grade-",
+   "title": "CANOPTICON: A Cloudflare-Native Pipeline for Automated, Filmmaker-Grade Daily News Shorts",
+   "summary": "Remotion) must run in Cloudflare Containers (max standard-4 = 4 vCPU / 12 GiB, CPU-only, no GPU), and your distinctive narrator voice should come from ElevenLabs, not Workers AI.",
+   "content_text": "Remotion) must run in Cloudflare Containers (max standard-4 = 4 vCPU / 12 GiB, CPU-only, no GPU), and your distinctive narrator voice should come from ElevenLabs, not Workers AI.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Prices & markets",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=eight-innovative-animation-visualization-ideas-for-code-first-document",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=eight-innovative-animation-visualization-ideas-for-code-first-document",
+   "title": "Eight Innovative Animation & Visualization Ideas for Code-First Documentary Production",
+   "summary": "Seven of the eight ideas are technically shippable today in a code-first stack (Remotion + Web Audio/Tone.",
+   "content_text": "Seven of the eight ideas are technically shippable today in a code-first stack (Remotion + Web Audio/Tone.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "AI-directed development",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=novel-and-underexplored-mechanisms-for-disrupting-and-destroying-hsv-l",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=novel-and-underexplored-mechanisms-for-disrupting-and-destroying-hsv-l",
+   "title": "Novel and Underexplored Mechanisms for Disrupting and Destroying HSV Latency: A Mechanistic Research Pass",
+   "summary": "The single most mature \"destruction\" approach is AAV-delivered meganuclease gene editing, which eliminated over 90% of latent virus from mouse superior cervical ganglia (Aubert et al.",
+   "content_text": "The single most mature \"destruction\" approach is AAV-delivered meganuclease gene editing, which eliminated over 90% of latent virus from mouse superior cervical ganglia (Aubert et al.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Drugs & public health",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-network-that-is-the-model-architectures-for-a-generative-substrate",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-network-that-is-the-model-architectures-for-a-generative-substrate",
+   "title": "The Network That Is the Model: Architectures for a Generative-Substrate Social Medium",
+   "summary": "The most ambitious version is buildable in fragments today but not as a monolith: no existing platform makes a continuously-learning generative model the core substrate of a human social network.",
+   "content_text": "The most ambitious version is buildable in fragments today but not as a monolith: no existing platform makes a continuously-learning generative model the core substrate of a human social network.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-state-of-hsv-gene-therapy-development-fred-hutch-s-meganuclease-pr",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-state-of-hsv-gene-therapy-development-fred-hutch-s-meganuclease-pr",
+   "title": "The State of HSV Gene-Therapy Development: Fred Hutch's Meganuclease Program and the Broader Herpes-Cure Pipeline",
+   "summary": "The Fred Hutch/Jerome-lab HSV meganuclease program remains preclinical (pre-IND) as of mid-2026 — no IND has been filed and no human trial has begun.",
+   "content_text": "The Fred Hutch/Jerome-lab HSV meganuclease program remains preclinical (pre-IND) as of mid-2026 — no IND has been filed and no human trial has begun.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Drugs & public health",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-notebooklm-constructs-coherent-narratives-and-how-to-replicate-it-",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-notebooklm-constructs-coherent-narratives-and-how-to-replicate-it-",
+   "title": "How NotebookLM Constructs Coherent Narratives — and How to Replicate It for Video-Essay Scripts",
+   "summary": "NotebookLM does not use a published, special \"argument-structuring algorithm.",
+   "content_text": "NotebookLM does not use a published, special \"argument-structuring algorithm.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=medicinal-mushrooms-for-gut-healing-in-alcohol-recovery-an-evidence-ra",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=medicinal-mushrooms-for-gut-healing-in-alcohol-recovery-an-evidence-ra",
+   "title": "Medicinal Mushrooms for Gut Healing in Alcohol Recovery: An Evidence Ranking",
+   "summary": "Lion's Mane (Hericium erinaceus) has the most directly relevant evidence for repairing the gastric/intestinal lining and ethanol-induced ulcers — these two should be your foundation.",
+   "content_text": "Lion's Mane (Hericium erinaceus) has the most directly relevant evidence for repairing the gastric/intestinal lining and ethanol-induced ulcers — these two should be your foundation.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Health & self-care",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=mushrooms-for-skin-health-wrinkles-what-the-oral-systemic-evidence-act",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=mushrooms-for-skin-health-wrinkles-what-the-oral-systemic-evidence-act",
+   "title": "Mushrooms for Skin Health & Wrinkles: What the Oral/Systemic Evidence Actually Shows",
+   "summary": "Frontiers in Medicine), an EGT-rich oyster mushroom (Pleurotus/hiratake) RCT in 80 women.",
+   "content_text": "Frontiers in Medicine), an EGT-rich oyster mushroom (Pleurotus/hiratake) RCT in 80 women.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Health & self-care",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=code-generated-animation-for-automated-documentary-frameworks-visual-v",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=code-generated-animation-for-automated-documentary-frameworks-visual-v",
+   "title": "Code-Generated Animation for Automated Documentary: Frameworks, Visual Vocabularies & a Cloudflare-Native Build Plan",
+   "summary": "Build the primary visual layer in Remotion (React) and render it as chunked, parallel jobs on a Cloudflare-native stack (Workers + Durable Objects + Queues + Containers + R2), reserving Manim/GLSL/Three.",
+   "content_text": "Build the primary visual layer in Remotion (React) and render it as chunked, parallel jobs on a Cloudflare-native stack (Workers + Durable Objects + Queues + Containers + R2), reserving Manim/GLSL/Three.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Prices & markets",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=speculative-emerging-oral-compounds-for-skin-aging-mechanism-first-tie",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=speculative-emerging-oral-compounds-for-skin-aging-mechanism-first-tie",
+   "title": "Speculative & Emerging Oral Compounds for Skin Aging — Mechanism-First Tier Report (Pass 1)",
+   "summary": "Almost everything in this universe is \"mechanism-plus-preclinical,\" not proven by oral skin RCTs.",
+   "content_text": "Almost everything in this universe is \"mechanism-plus-preclinical,\" not proven by oral skin RCTs.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "AI-directed development",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-architecture-of-the-forensic-video-essay-how-the-best-investigativ",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-architecture-of-the-forensic-video-essay-how-the-best-investigativ",
+   "title": "The Architecture of the Forensic Video Essay: How the Best Investigative Channels Build Their Scripts",
+   "summary": "MEANS\") until roughly the 60–75% mark — the \"forensic turn\" that separates an essay from a news report.",
+   "content_text": "MEANS\") until roughly the 60–75% mark — the \"forensic turn\" that separates an essay from a news report.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Prices & markets",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-price-frontier-from-discovery-to-administration-a-canopticon-resea",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-price-frontier-from-discovery-to-administration-a-canopticon-resea",
+   "title": "The Price Frontier: From Discovery to Administration — A CANOPTICON Research Brief",
+   "summary": "Canada the technology \"wins\" have NOT cleanly offset the housing/food \"losses,\" because the risers are non-substitutable necessities that dominate household budgets and have outrun wages over 2000–2026.",
+   "content_text": "Canada the technology \"wins\" have NOT cleanly offset the housing/food \"losses,\" because the risers are non-substitutable necessities that dominate household budgets and have outrun wages over 2000–2026.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-release-valve-hypothesis-a-forensic-map-of-wealth-concentration-me",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-release-valve-hypothesis-a-forensic-map-of-wealth-concentration-me",
+   "title": "The \"Release Valve\" Hypothesis: A Forensic Map of Wealth-Concentration Mechanics and the Design Space for Keeping Capital Circulating",
+   "summary": "Money is not conserved like energy; the conserved-quantity intuition is the weakest part of the framing.",
+   "content_text": "Money is not conserved like energy; the conserved-quantity intuition is the weakest part of the framing.",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Attribution & credit",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-neurobiology-of-alcohol-blackouts-how-ethanol-silences-the-brain-s",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-neurobiology-of-alcohol-blackouts-how-ethanol-silences-the-brain-s",
+   "title": "The Neurobiology of Alcohol Blackouts: How Ethanol Silences the Brain's Memory-Writing Machinery",
+   "summary": "An alcohol blackout is not unconsciousness or brain-cell death — it is a temporary, drug-induced anterograde amnesia in which the hippocampus is chemically prevented from converting ongoing experience into lasting…",
+   "content_text": "An alcohol blackout is not unconsciousness or brain-cell death — it is a temporary, drug-induced anterograde amnesia in which the hippocampus is chemically prevented from converting ongoing experience into lasting…",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Health & self-care",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-telescope-problem-where-ai-and-real-time-data-make-the-invisible-e",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-telescope-problem-where-ai-and-real-time-data-make-the-invisible-e",
+   "title": "The Telescope Problem: Where AI and Real-Time Data Make the Invisible Economy Legible",
+   "summary": "The real white space is instrumentation, not theory. Economics resists being \"solved\" by computation for structural reasons (reflexivity, the Lucas Critique, Goodhart's Law, performativity) — but those same limits…",
+   "content_text": "The real white space is instrumentation, not theory. Economics resists being \"solved\" by computation for structural reasons (reflexivity, the Lucas Critique, Goodhart's Law, performativity) — but those same limits…",
+   "date_published": "2026-09-01T12:00:00Z",
+   "tags": [
+    "Prices & markets",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=research-pass-medium-becomes-ground-evidence-map-seven-theoretical",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=research-pass-medium-becomes-ground-evidence-map-seven-theoretical",
+   "title": "Research Pass for “The Medium Becomes the Ground”: an evidence map for seven theoretical claims",
+   "summary": "This report assesses the empirical and theoretical literature underpinning seven distinct claims in the perspective paper. For each, the existing evidence is summarized, key authors and works are flagged, and the paper's clai",
+   "content_text": "This report assesses the empirical and theoretical literature underpinning seven distinct claims in the perspective paper. For each, the existing evidence is summarized, key authors and works are flagged, and the paper's clai",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=acoustic-return-research-pass-mcluhan-voice-interfaces-fifty-year",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=acoustic-return-research-pass-mcluhan-voice-interfaces-fifty-year",
+   "title": "The Acoustic Return: A Research Pass on McLuhan, Voice Interfaces, and the Fifty-Year Visual Detour",
+   "summary": "This research pass maps each of the six requested threads, identifies the strongest anchors, and flags the genuine gaps where the paper's contribution is most original.",
+   "content_text": "This research pass maps each of the six requested threads, identifies the strongest anchors, and flags the genuine gaps where the paper's contribution is most original.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canadas-64m-investment-in-latvian-military-infrastructure-fact-check",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canadas-64m-investment-in-latvian-military-infrastructure-fact-check",
+   "title": "Canada's €64M \"Investment\" in Latvian Military Infrastructure: Fact-Check",
+   "summary": "The €64M is a Canadian Department of National Defence (DND) outlay under Operation REASSURANCE.",
+   "content_text": "The €64M is a Canadian Department of National Defence (DND) outlay under Operation REASSURANCE.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canadian-equivalent-9-10-jobs-foreign-born-claim-statscan-based-reality",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canadian-equivalent-9-10-jobs-foreign-born-claim-statscan-based-reality",
+   "title": "The Canadian Equivalent of the \"9-of-10 Jobs to Foreign-Born\" Claim: A StatsCan-Based Reality Check",
+   "summary": "The Canadian story is even more lopsided than the US one — but for different reasons.",
+   "content_text": "The Canadian story is even more lopsided than the US one — but for different reasons.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canopticon-epistemological-framework-synthesis-across-seven-domains",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=canopticon-epistemological-framework-synthesis-across-seven-domains",
+   "title": "The CANOPTICON Epistemological Framework: a synthesis across seven domains",
+   "summary": "Bayesian probability, legal evidence standards, scientific methodology, and structured argumentation into a unified system for categorizing claims, grading evidence, rating sources, assigning confidence, and communicating uncertainty.",
+   "content_text": "Bayesian probability, legal evidence standards, scientific methodology, and structured argumentation into a unified system for categorizing claims, grading evidence, rating sources, assigning confidence, and communicating uncertainty.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian politics & power",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=comprehensive-map-marshall-mcluhans-thought-concepts-neuroscience",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=comprehensive-map-marshall-mcluhans-thought-concepts-neuroscience",
+   "title": "A Comprehensive Map of Marshall McLuhan's Thought: Concepts, Neuroscience, Unexplored Territory, and Critical Reception",
+   "summary": "Marshall McLuhan (1911–1980) is one of the most cited and least carefully read theorists of the twentieth century.",
+   "content_text": "Marshall McLuhan (1911–1980) is one of the most cited and least carefully read theorists of the twentieth century.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=deep-research-pass-the-medium-becomes-the-ground",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=deep-research-pass-the-medium-becomes-the-ground",
+   "title": "Deep Research Pass: \"The Medium Becomes the Ground\"",
+   "summary": "Strongest contributions are highlighted in each thread, and a final synthesis identifies what distinguishes the paper from existing work.",
+   "content_text": "Strongest contributions are highlighted in each thread, and a final synthesis identifies what distinguishes the paper from existing work.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=did-banning-airbnb-actually-fix-canadian-housing-evidence-based-audit",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=did-banning-airbnb-actually-fix-canadian-housing-evidence-based-audit",
+   "title": "Did Banning Airbnb Actually Fix Canadian Housing? An Evidence-Based Audit of the STR Restriction Experiment",
+   "summary": "Canadian housing affordability rests on a chain of causal assumptions — that STRs significantly reduce long-term housing supply, that banning them returns those units to the long-term rental (LTR) market, and that this added supply lowers rents.",
+   "content_text": "Canadian housing affordability rests on a chain of causal assumptions — that STRs significantly reduce long-term housing supply, that banning them returns those units to the long-term rental (LTR) market, and that this added supply lowers rents.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Housing",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=documentary-voice-specification-investigative-forensic-production-type",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=documentary-voice-specification-investigative-forensic-production-type",
+   "title": "The Documentary Voice: A Specification for Investigative/Forensic Production Type",
+   "summary": "This report extracts operational guidelines for a \"documentary\" production type to sit alongside (and orthogonal to) the existing \"video essay\" type.",
+   "content_text": "This report extracts operational guidelines for a \"documentary\" production type to sit alongside (and orthogonal to) the existing \"video essay\" type.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Video & design",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=examined-cognition-substrates-metacognition-methods-looking-looking",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=examined-cognition-substrates-metacognition-methods-looking-looking",
+   "title": "The Examined Cognition: Substrates of Metacognition and Methods for Looking at the Looking",
+   "summary": "Petitmengin) and neurophenomenology (Varela) for first- and second-person rigor; contemplative training to render the self-model opaque (Metzinger); and interpretability/introspection probes (Jack Lindsey, Anthropic, October 2025) for machine analogues.",
+   "content_text": "Petitmengin) and neurophenomenology (Varela) for first- and second-person rigor; contemplative training to render the self-model opaque (Metzinger); and interpretability/introspection probes (Jack Lindsey, Anthropic, October 2025) for machine analogues.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "McLuhan & media theory",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fact-check-bill-c-11-algorithmic-discoverability-canadian-digital",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fact-check-bill-c-11-algorithmic-discoverability-canadian-digital",
+   "title": "Fact-Check: Bill C-11, Algorithmic Discoverability, and Canadian Digital Creators",
+   "summary": "Canadian creators' watch times have already \"cratered\" and that their global reach has been \"actively suppressed.",
+   "content_text": "Canadian creators' watch times have already \"cratered\" and that their global reach has been \"actively suppressed.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian media",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fact-check-gap-analysis-tax-regulatory-anatomy-small-commercial",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fact-check-gap-analysis-tax-regulatory-anatomy-small-commercial",
+   "title": "Fact-Check & Gap Analysis: Tax and Regulatory Anatomy of a Small Commercial Storefront on Barton Street East, Hamilton",
+   "summary": "Most of the diagram's headline figures are correct or close, but five need updating: the commercial-to-residential ratio is 2.",
+   "content_text": "Most of the diagram's headline figures are correct or close, but five need updating: the commercial-to-residential ratio is 2.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fentanyl-crisis-research-synthesis-sharpest-evidence-long-form-hamilton",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=fentanyl-crisis-research-synthesis-sharpest-evidence-long-form-hamilton",
+   "title": "The Fentanyl Crisis Research Synthesis: Sharpest Evidence for a Long-Form Hamilton/Ontario Essay",
+   "summary": "This synthesis is organized by the four focus areas in your brief.",
+   "content_text": "This synthesis is organized by the four focus areas in your brief.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Drugs & public health",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=hamiltons-short-term-rental-crackdown-demand-side-disruption-question",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=hamiltons-short-term-rental-crackdown-demand-side-disruption-question",
+   "title": "Hamilton's Short-Term Rental Crackdown and the \"Demand-Side Disruption\" Question",
+   "summary": "Hamilton, Ontario adopted one of Canada's stricter short-term rental (STR) regimes in January 2023, with full enforcement starting January 1, 2024.",
+   "content_text": "Hamilton, Ontario adopted one of Canada's stricter short-term rental (STR) regimes in January 2023, with full enforcement starting January 1, 2024.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Housing",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-do-canadian-public-sector-employees-vote-a-look-at-the-evidence",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-do-canadian-public-sector-employees-vote-a-look-at-the-evidence",
+   "title": "How Do Canadian Public Sector Employees Vote? A Look at the Evidence",
+   "summary": "NDP and Liberals, and away from the Conservatives — but the effect is more modest than American partisan rhetoric about a \"deep state\" or a \"public class\" would suggest.",
+   "content_text": "NDP and Liberals, and away from the Conservatives — but the effect is more modest than American partisan rhetoric about a \"deep state\" or a \"public class\" would suggest.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-we-got-here-field-guide-fentanyl-crisis-canada-hamiltons-streets",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=how-we-got-here-field-guide-fentanyl-crisis-canada-hamiltons-streets",
+   "title": "How We Got Here: A Field Guide to the Fentanyl Crisis in Canada and on Hamilton's Streets",
+   "summary": "Hamilton in 2026 — the open wounds, the forward-leaning catatonia, the people who appear neither awake nor unconscious but suspended in some grotesque middle state — is not the same drug crisis Canada has been talking about for the last decade.",
+   "content_text": "Hamilton in 2026 — the open wounds, the forward-leaning catatonia, the people who appear neither awake nor unconscious but suspended in some grotesque middle state — is not the same drug crisis Canada has been talking about for the last decade.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Drugs & public health",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=mass-immigration-suppression-domestic-innovation-canada-research-brief",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=mass-immigration-suppression-domestic-innovation-canada-research-brief",
+   "title": "Mass Immigration and the Suppression of Domestic Innovation in Canada: A Research Brief",
+   "summary": "The dominant public narrative — that immigration \"drives innovation\" — rests almost entirely on studies of high-skilled, points-selected immigration in the United States (chiefly the work of William Kerr and collaborators on H-1B and ethnic patenting).",
+   "content_text": "The dominant public narrative — that immigration \"drives innovation\" — rests almost entirely on studies of high-skilled, points-selected immigration in the United States (chiefly the work of William Kerr and collaborators on H-1B and ethnic patenting).",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-canadian-economic-dossier-1994-may-2026",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-canadian-economic-dossier-1994-may-2026",
+   "title": "The Canadian Economic Dossier (1994–May 2026)",
+   "summary": "Canada's industrial base has thinned for thirty years and accelerated its restructuring under Trudeau into a state-financed EV/critical-minerals model now visibly failing under Trump-era tariffs and slumping EV demand.",
+   "content_text": "Canada's industrial base has thinned for thirty years and accelerated its restructuring under Trudeau into a state-financed EV/critical-minerals model now visibly failing under Trump-era tariffs and slumping EV demand.",
+   "date_published": "2026-07-22T12:00:00Z",
+   "tags": [
+    "Canadian economy & policy",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-state-of-algorithmic-quality-ai-content-assessment-and-discovery-a",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-state-of-algorithmic-quality-ai-content-assessment-and-discovery-a",
+   "title": "The State of Algorithmic Quality, AI Content Assessment, and Discovery Alternatives (June 2026)",
+   "summary": "AI content-understanding models (including Gemini and multimodal models) are running inside production recommendation systems, not just moderation or search.",
+   "content_text": "AI content-understanding models (including Gemini and multimodal models) are running inside production recommendation systems, not just moderation or search.",
+   "date_published": "2026-06-01T12:00:00Z",
+   "tags": [
+    "Attention & feeds",
+    "Research"
+   ]
+  },
+  {
+   "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=a-unified-cloudflare-native-research-system-for-thesis-depth-work-land",
+   "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=a-unified-cloudflare-native-research-system-for-thesis-depth-work-land",
+   "title": "A Unified Cloudflare-Native Research System for Thesis-Depth Work: Landscape, Architecture, and Feasibility (June 2026)",
+   "summary": "Cloudflare Worker, with the LLM-native paid tools (Elicit, Consensus, OpenAI/Gemini Deep Research, Perplexity Sonar) bolted on as optional \"synthesis\" layers, NOT as the coverage backbone.",
+   "content_text": "Cloudflare Worker, with the LLM-native paid tools (Elicit, Consensus, OpenAI/Gemini Deep Research, Perplexity Sonar) bolted on as optional \"synthesis\" layers, NOT as the coverage backbone.",
+   "date_published": "2026-06-01T12:00:00Z",
+   "tags": [
+    "AI-directed development",
+    "Research"
+   ]
+  }
+ ]
+}

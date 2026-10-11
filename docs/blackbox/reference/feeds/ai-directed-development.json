@@ -1,0 +1,142 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Canopticon — AI-directed development",
+  "home_page_url": "https://canopticon.com/",
+  "feed_url": "https://canopticon.com/feeds/ai-directed-development.json",
+  "description": "Questions researched in depth, and articles written from what the research found.",
+  "language": "en-CA",
+  "authors": [
+    {
+      "name": "Chris Telford",
+      "url": "https://canopticon.com/about"
+    }
+  ],
+  "hubs": [
+    {
+      "type": "WebSub",
+      "url": "https://pubsubhubbub.appspot.com/"
+    }
+  ],
+  "items": [
+    {
+      "id": "https://canopticon.com/articles/language-models-and-idea-diversity",
+      "url": "https://canopticon.com/articles/language-models-and-idea-diversity",
+      "title": "Language models and idea diversity: homogenisation within a session, across users, and between companies",
+      "summary": "Ask a language model for something new and it pulls toward what everyone else would say — across companies, over long sessions, and across everyone using it. Real novelty has a shape the models do not reach for on their own.",
+      "content_text": "Ask a language model for something new and it pulls toward what everyone else would say — across companies, over long sessions, and across everyone using it. Real novelty has a shape the models do not reach for on their own.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "AI-directed development",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/articles/unverified-hunches-in-ai-assisted-software-work",
+      "url": "https://canopticon.com/articles/unverified-hunches-in-ai-assisted-software-work",
+      "title": "Unverified hunches in AI-assisted software work: the certainty handoff and one-sided memory",
+      "summary": "A hunch that feels right gets handed to a collaborator as if it had been checked. When the collaborator is an AI that starts every session blank, nobody checks it at all.",
+      "content_text": "A hunch that feels right gets handed to a collaborator as if it had been checked. When the collaborator is an AI that starts every session blank, nobody checks it at all.",
+      "date_published": "2026-10-09T12:00:00Z",
+      "tags": [
+        "AI-directed development",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-",
+      "title": "Correct but Not Yet Known: The Science of Treating a Fast Intuition as a Verified Conclusion",
+      "summary": "Valerie Thompson's \"Feeling of Rightness\" and Ackerman & Thompson's meta-reasoning framework describe this gate.",
+      "content_text": "Valerie Thompson's \"Feeling of Rightness\" and Ackerman & Thompson's meta-reasoning framework describe this gate.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "AI-directed development",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=stateless-partners-shared-traces-common-ground-stigmergy-and-naturalis",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=stateless-partners-shared-traces-common-ground-stigmergy-and-naturalis",
+      "title": "Stateless Partners, Shared Traces: Common Ground, Stigmergy and Naturalistic Decision Making in AI-Directed Software Development",
+      "summary": "NDM has never been applied to directing coding agents.",
+      "content_text": "NDM has never been applied to directing coding agents.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "AI-directed development",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-how-it-works-moment-to-moment-a-how-it-works-dossier",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-how-it-works-moment-to-moment-a-how-it-works-dossier",
+      "title": "ALDERSHOT: How It Works, Moment to Moment — A \"How It Works\" Dossier",
+      "summary": "The core feel never changes; only the number of doors that open changes.",
+      "content_text": "The core feel never changes; only the number of doors that open changes.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "AI-directed development",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-creative-layer-dossier-for-aldershot-montage-the-device-object-and",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=the-creative-layer-dossier-for-aldershot-montage-the-device-object-and",
+      "title": "The Creative-Layer Dossier for ALDERSHOT: Montage, the \"Device Object,\" and the Sourcing Engine",
+      "summary": "Write-A-Video, SKALD, ESA), match-cut discovery (Netflix's WACV 2023 system), shot-type classification (MovieShots/SGNet), aesthetic scoring (LAION), and multimodal retrieval (Twelve Labs Marengo, CLIP/SigLIP).",
+      "content_text": "Write-A-Video, SKALD, ESA), match-cut discovery (Netflix's WACV 2023 system), shot-type classification (MovieShots/SGNet), aesthetic scoring (LAION), and multimodal retrieval (Twelve Labs Marengo, CLIP/SigLIP).",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "AI-directed development",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-build-blueprint-competitive-landscape-product-ux-design",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=aldershot-build-blueprint-competitive-landscape-product-ux-design",
+      "title": "ALDERSHOT — Build Blueprint, Competitive Landscape & Product/UX Design",
+      "summary": "Build it as a \"script-is-the-timeline\" agentic documentary engine, not another NLE.",
+      "content_text": "Build it as a \"script-is-the-timeline\" agentic documentary engine, not another NLE.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "AI-directed development",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=eight-innovative-animation-visualization-ideas-for-code-first-document",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=eight-innovative-animation-visualization-ideas-for-code-first-document",
+      "title": "Eight Innovative Animation & Visualization Ideas for Code-First Documentary Production",
+      "summary": "Seven of the eight ideas are technically shippable today in a code-first stack (Remotion + Web Audio/Tone.",
+      "content_text": "Seven of the eight ideas are technically shippable today in a code-first stack (Remotion + Web Audio/Tone.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "AI-directed development",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=speculative-emerging-oral-compounds-for-skin-aging-mechanism-first-tie",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=speculative-emerging-oral-compounds-for-skin-aging-mechanism-first-tie",
+      "title": "Speculative & Emerging Oral Compounds for Skin Aging — Mechanism-First Tier Report (Pass 1)",
+      "summary": "Almost everything in this universe is \"mechanism-plus-preclinical,\" not proven by oral skin RCTs.",
+      "content_text": "Almost everything in this universe is \"mechanism-plus-preclinical,\" not proven by oral skin RCTs.",
+      "date_published": "2026-09-01T12:00:00Z",
+      "tags": [
+        "AI-directed development",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=a-unified-cloudflare-native-research-system-for-thesis-depth-work-land",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=a-unified-cloudflare-native-research-system-for-thesis-depth-work-land",
+      "title": "A Unified Cloudflare-Native Research System for Thesis-Depth Work: Landscape, Architecture, and Feasibility (June 2026)",
+      "summary": "Cloudflare Worker, with the LLM-native paid tools (Elicit, Consensus, OpenAI/Gemini Deep Research, Perplexity Sonar) bolted on as optional \"synthesis\" layers, NOT as the coverage backbone.",
+      "content_text": "Cloudflare Worker, with the LLM-native paid tools (Elicit, Consensus, OpenAI/Gemini Deep Research, Perplexity Sonar) bolted on as optional \"synthesis\" layers, NOT as the coverage backbone.",
+      "date_published": "2026-06-01T12:00:00Z",
+      "tags": [
+        "AI-directed development",
+        "Research"
+      ]
+    }
+  ]
+}

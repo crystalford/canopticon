@@ -1,0 +1,82 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Canopticon — Housing",
+  "home_page_url": "https://canopticon.com/",
+  "feed_url": "https://canopticon.com/feeds/housing.json",
+  "description": "Questions researched in depth, and articles written from what the research found.",
+  "language": "en-CA",
+  "authors": [
+    {
+      "name": "Chris Telford",
+      "url": "https://canopticon.com/about"
+    }
+  ],
+  "hubs": [
+    {
+      "type": "WebSub",
+      "url": "https://pubsubhubbub.appspot.com/"
+    }
+  ],
+  "items": [
+    {
+      "id": "https://canopticon.com/articles/canadian-recessions-and-the-mortgage-channel",
+      "url": "https://canopticon.com/articles/canadian-recessions-and-the-mortgage-channel",
+      "title": "Canadian recessions and the mortgage channel: rate decisions, CMHC, and five decades of housing-led downturns",
+      "summary": "Every major Canadian downturn since 1980 carries a monetary-policy fingerprint, and housing is how the decision reaches people. The clearest case is 1990, where the campaign overshot its own target and Toronto prices did not pass their 1989 peak until 2002.",
+      "content_text": "Every major Canadian downturn since 1980 carries a monetary-policy fingerprint, and housing is how the decision reaches people. The clearest case is 1990, where the campaign overshot its own target and Toronto prices did not pass their 1989 peak until 2002.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "Housing",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/articles/canadas-short-term-rental-rules",
+      "url": "https://canopticon.com/articles/canadas-short-term-rental-rules",
+      "title": "Canada's short-term rental rules: supply, prices, and the mid-term rental tier that never formed",
+      "summary": "Short-term rentals add flexible supply, and competition lowers prices. Canadian cities banned them anyway — and cut off a tier between a hotel and a lease just as it was forming.",
+      "content_text": "Short-term rentals add flexible supply, and competition lowers prices. Canadian cities banned them anyway — and cut off a tier between a hotel and a lease just as it was forming.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "Housing",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/articles/canadas-short-term-rental-bans-and-rents",
+      "url": "https://canopticon.com/articles/canadas-short-term-rental-bans-and-rents",
+      "title": "Canada's short-term rental bans and rents: what returned to the long-term market, and what actually moved prices",
+      "summary": "Canadian cities restricted short-term rentals to bring homes back to renters. Few came back, rents fell for other reasons, and the bans squeezed a new kind of housing that sits between a hotel and a lease.",
+      "content_text": "Canadian cities restricted short-term rentals to bring homes back to renters. Few came back, rents fell for other reasons, and the bans squeezed a new kind of housing that sits between a hotel and a lease.",
+      "date_published": "2026-10-10T12:00:00Z",
+      "tags": [
+        "Housing",
+        "Article"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=did-banning-airbnb-actually-fix-canadian-housing-evidence-based-audit",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=did-banning-airbnb-actually-fix-canadian-housing-evidence-based-audit",
+      "title": "Did Banning Airbnb Actually Fix Canadian Housing? An Evidence-Based Audit of the STR Restriction Experiment",
+      "summary": "Canadian housing affordability rests on a chain of causal assumptions — that STRs significantly reduce long-term housing supply, that banning them returns those units to the long-term rental (LTR) market, and that this added supply lowers rents.",
+      "content_text": "Canadian housing affordability rests on a chain of causal assumptions — that STRs significantly reduce long-term housing supply, that banning them returns those units to the long-term rental (LTR) market, and that this added supply lowers rents.",
+      "date_published": "2026-07-22T12:00:00Z",
+      "tags": [
+        "Housing",
+        "Research"
+      ]
+    },
+    {
+      "id": "https://canopticon.com/Canopticon%20Doc.dc.html?d=hamiltons-short-term-rental-crackdown-demand-side-disruption-question",
+      "url": "https://canopticon.com/Canopticon%20Doc.dc.html?d=hamiltons-short-term-rental-crackdown-demand-side-disruption-question",
+      "title": "Hamilton's Short-Term Rental Crackdown and the \"Demand-Side Disruption\" Question",
+      "summary": "Hamilton, Ontario adopted one of Canada's stricter short-term rental (STR) regimes in January 2023, with full enforcement starting January 1, 2024.",
+      "content_text": "Hamilton, Ontario adopted one of Canada's stricter short-term rental (STR) regimes in January 2023, with full enforcement starting January 1, 2024.",
+      "date_published": "2026-07-22T12:00:00Z",
+      "tags": [
+        "Housing",
+        "Research"
+      ]
+    }
+  ]
+}

@@ -11,6 +11,13 @@ compatibility_flags = ["nodejs_compat"]
 # domains below serve everything.
 workers_dev = false
 
+# The content store (src/site/content/store.gen.json) is compiled from
+# content/ before every deploy and dry run. The same script is the verbatim
+# gate: a quote that is not a literal substring of its document fails the
+# build, so it can never reach the site (docs/blackbox/README.md).
+[build]
+command = "node scripts/build-content.mjs"
+
 # Custom domains for canopticon.com / www.canopticon.com are configured
 # via the Cloudflare dashboard (Workers & Pages → canopticon-api →
 # Settings → Domains & Routes). Those persist across deploys and don't
