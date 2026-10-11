@@ -302,7 +302,7 @@ export function renderLibrary(
           ? /pending/.test(d.stat ?? "")
             ? ["Name check pending", "#f3e9d4", "#6b4e14"]
             : /approved/.test(d.stat ?? "")
-              ? ["Approved", "#e3f0e6", "#1f5e36"]
+              ? null
               : ["No prior use found", "#e3f0e6", "#1f5e36"]
           : d.kind === "Open problem"
             ? ["Open", "#fbe9df", "#8a3a1f"]
