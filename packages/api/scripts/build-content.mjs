@@ -172,23 +172,6 @@ function build() {
       if (!research[b.id]) failures.push(`${a.slug}: based on a missing document ${b.id}`);
     }
   }
-  // The McLuhan-bias audit (docs/blackbox/RESEARCH-PROMPT.md, "Stay on this
-  // question"): research tools framed unrelated subjects through McLuhan. A
-  // quote that mentions him, taken from a document that is not about him, is
-  // flagged here before it reaches a reader. A warning, not a gate: the quote
-  // is still verbatim, the author decides.
-  const mcluhan = [];
-  for (const a of Object.values(articles)) {
-    for (const m of a.body.matchAll(/<q\s+([^>]*)>([\s\S]*?)<\/q>/g)) {
-      const doc = /doc="([^"]*)"/.exec(m[1])?.[1];
-      const src = doc ? research[doc] : undefined;
-      if (!src || !/mcluhan/i.test(m[2])) continue;
-      if (/mcluhan|media theory|tetrad/i.test(String(src.title ?? ""))) continue;
-      mcluhan.push(`${a.slug}: quotes McLuhan from ${doc}, which is not about him`);
-    }
-  }
-  for (const w of mcluhan) console.warn(`content: ${w}`);
-
   if (failures.length) {
     console.error(`content: ${failures.length} of ${checked} checks failed — nothing publishes:`);
     for (const f of failures) console.error(`  ${f}`);

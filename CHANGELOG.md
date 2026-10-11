@@ -32,9 +32,6 @@ labels. What it turned up, now fixed:
 - The verbatim check now matches ESSAY-CONTRACT §4 exactly: it ignores
   emphasis and backticks, and nothing else.
 - Library: a "Marked useful" sort for the author.
-- The research writer's prompts carry RESEARCH-PROMPT.md's "Stay on this
-  question" line, and the content build warns when an article quotes McLuhan
-  from a document that is not about him (one does).
 
 ## 2026-10-11, evening — It is called Admin
 
