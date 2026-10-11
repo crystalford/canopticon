@@ -1,0 +1,787 @@
+{
+ "alcohol-blackouts-how-ethanol-blocks-memory-formation": {
+  "toc": [
+   "The save fails",
+   "Where it stops",
+   "The chemical block",
+   "Speed decides it",
+   "Two kinds",
+   "Who is at risk",
+   "Not protection",
+   "What this explains"
+  ],
+  "sources": [
+   "White, Alcohol Research & Health 2003",
+   "NIAAA",
+   "Lovinger, White & Weight, Science 1989",
+   "Tokuda, Izumi & Zorumski, J Neurosci 2011",
+   "Söderlund et al., Psychopharmacology 2005",
+   "Perry et al., J Forensic Sci 2006",
+   "Goodwin et al. 1969",
+   "Izumi & Zorumski 2020"
+  ]
+ },
+ "bill-c-11-and-canadian-creators-in-2026": {
+  "toc": [
+   "What the government said",
+   "The mechanism",
+   "The 90% figure",
+   "The timeline",
+   "What has been imposed",
+   "The trade fight",
+   "Whether uploads are covered",
+   "Predicted, not recorded",
+   "What this explains"
+  ],
+  "sources": [
+   "CRTC Broadcasting Regulatory Policy 2026-95",
+   "Senate Standing Committee on Transport and Communications",
+   "Michael Geist (University of Ottawa)",
+   "Federal Court of Appeal, Amazon.com.ca ULC v. Canada",
+   "CBC News",
+   "BetaKit",
+   "Oxford Economics 2024",
+   "True North"
+  ]
+ },
+ "canadas-short-term-rental-bans-and-rents": {
+  "toc": [
+   "Three weak links",
+   "Few homes came back",
+   "What hosts did instead",
+   "Where rents fell",
+   "Who wanted the bans",
+   "Hamilton’s timing",
+   "The mid-term tier",
+   "What this explains"
+  ],
+  "pair": {
+   "before": "This piece shows why the bans failed. Its companion,",
+   "label": "Canada's short-term rental rules: supply, prices, and the mid-term rental tier that never formed",
+   "route": "/articles/canadas-short-term-rental-rules",
+   "after": ", makes the case for what could work instead."
+  },
+  "sources": [
+   "Barron, Kung & Proserpio (<em>Marketing Science</em>)",
+   "Wachsmuth & Buglioni 2024",
+   "CMHC",
+   "Rentals.ca",
+   "SPRC Hamilton",
+   "Santa Monica synthetic-control study 2024 (<em>IJHMA</em>)",
+   "NYC Local Law 18 enforcement data"
+  ],
+  "readNext": [
+   {
+    "route": "/articles/personalised-pricing-and-the-return-of-haggling",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Software is changing what a price is",
+    "dek": "For 150 years a price meant the number on the tag. Software now sets prices for each buyer, or for whole markets at once — rent included — and Canada's competition law has not caught up."
+   },
+   {
+    "route": "/articles/canadas-short-term-rental-rules",
+    "kind": "Article",
+    "min": "6 min",
+    "title": "Canada's short-term rental rules: supply, prices, and the mid-term rental tier that never formed",
+    "dek": "The companion piece: short-term rentals add flexible supply and competition lowers prices — and a tier between a hotel and a lease was forming when the bans hit."
+   }
+  ]
+ },
+ "canadas-short-term-rental-rules": {
+  "toc": [
+   "Competition lowers prices",
+   "Demand, not only homes",
+   "A tier between hotel and lease",
+   "What nobody has tested",
+   "What this explains"
+  ],
+  "pair": {
+   "before": "This piece makes the case for more ways to rent. Its companion,",
+   "label": "Canada's short-term rental bans and rents: what returned to the long-term market, and what actually moved prices",
+   "route": "/articles/canadas-short-term-rental-bans-and-rents",
+   "after": ", shows why the bans failed."
+  },
+  "sources": [
+   "Barron, Kung & Proserpio (<em>Marketing Science</em>)",
+   "Wachsmuth & Buglioni 2024",
+   "CMHC",
+   "Rentals.ca",
+   "SPRC Hamilton",
+   "Santa Monica synthetic-control study 2024 (<em>IJHMA</em>)",
+   "NYC Local Law 18 enforcement data"
+  ],
+  "readNext": [
+   {
+    "route": "/articles/personalised-pricing-and-the-return-of-haggling",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Software is changing what a price is",
+    "dek": "For 150 years a price meant the number on the tag. Software now sets prices for each buyer, or for whole markets at once — rent included — and Canada's competition law has not caught up."
+   },
+   {
+    "route": "/library?kind=Research",
+    "kind": "Research",
+    "min": "2 documents",
+    "title": "The research behind it: housing in Canada",
+    "dek": "Both housing documents in full — the national audit of short-term rental bans and the Hamilton crackdown study — with every figure and source."
+   }
+  ]
+ },
+ "canadian-recessions-and-the-mortgage-channel": {
+  "toc": [
+   "Five decades",
+   "1981–82",
+   "1990",
+   "CMHC",
+   "Household debt",
+   "2008 and 2015",
+   "2020–23",
+   "Immigration",
+   "Where it is now",
+   "What this explains"
+  ],
+  "sources": [
+   "Fortin, Canadian Economics Association 1996",
+   "Bank of Canada Financial Stability Report 2026",
+   "Bordo, Redish & Rockoff, NBER WP 17312",
+   "Statistics Canada / OECD",
+   "CREA MLS Home Price Index",
+   "TD Economics",
+   "CMHC",
+   "Maclean's"
+  ]
+ },
+ "fixed-times-versus-flexible-routines-in-exercise-habits": {
+  "toc": [
+   "Fixed vs flexible pay",
+   "Specific about the start",
+   "The yoga and the gym",
+   "Locking yourself in",
+   "Starting is the hard part",
+   "What this explains"
+  ],
+  "sources": [
+   "Beshears, Lee, Milkman, Mislavsky & Wisdom 2021",
+   "Gollwitzer & Sheeran 2006",
+   "Fishbach & Shaddy 2016",
+   "Shah, Friedman & Kruglanski 2002",
+   "Milkman et al. 2021 (<em>Nature</em>)",
+   "Westbrook et al. 2020 (<em>Science</em>)"
+  ],
+  "readNext": [
+   {
+    "route": "/articles/self-extinguishing-maintenance",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Self-extinguishing maintenance: treatments that stop because they are working, and the relapse that follows",
+    "dek": "Some problems only stay fixed while you keep treating them — a gap between two teeth, toes pressed too tight. The treatment works, the problem vanishes, it looks cured, you stop, and it comes back. This research named the cycle and the mistake behind it."
+   },
+   {
+    "route": "/articles/why-people-keep-scrolling",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Why people keep scrolling: habit, infinite feeds, and the evidence against the dopamine explanation",
+    "dek": "The best evidence says people keep scrolling because of habit and a feed that never ends — not because of a dopamine jackpot. And engagement-ranked feeds keep showing people what they say they do not want."
+   }
+  ]
+ },
+ "fred-hutch-hsv-gene-therapy-in-2026": {
+  "toc": [
+   "What the therapy does",
+   "In mice it nearly disappears",
+   "Guinea pigs relapse like people",
+   "No trial has been asked for",
+   "Suppression arrives first",
+   "What this explains"
+  ],
+  "sources": [
+   "Aubert et al., Nature Communications 2020",
+   "Aubert et al., Nature Communications 2024",
+   "Fred Hutch (Jerome lab)",
+   "Assembly Biosciences, Aug 2025",
+   "AiCuris, Oct 2025",
+   "Moderna 8-K, Nov 2025",
+   "Fierce Biotech",
+   "WHO herpes simplex virus fact sheet"
+  ]
+ },
+ "how-canadas-public-sector-employees-vote": {
+  "toc": [
+   "Election-study evidence",
+   "Unions",
+   "Professionals and managers",
+   "City crews",
+   "Union endorsements",
+   "Ottawa and Carleton",
+   "US and Britain",
+   "A professional vote"
+  ],
+  "sources": [
+   "Polacko, Kiss & Graefe (2026), Canadian Review of Sociology",
+   "Polacko, Kiss & Graefe (2022), Canadian Journal of Political Science",
+   "Public Service Commission of Canada, 2023 Staffing and Non-Partisanship Survey",
+   "The Conversation (2025), union endorsements and members’ votes",
+   "CBC, The House (Poilievre interview, 2025)",
+   "Polacko, Graefe & Kiss, The Conversation (December 2025)"
+  ]
+ },
+ "how-investigative-youtube-video-essays-are-built": {
+  "toc": [
+   "The cold open",
+   "Order of evidence",
+   "Two skeletons",
+   "The forensic turn",
+   "Chapters",
+   "Endings",
+   "Restraint",
+   "Form without evidence",
+   "What a viewer can check"
+  ],
+  "sources": [
+   "Li, Dean et al., Studies in Documentary Film (2024)",
+   "Lucy V. Hay (2023)",
+   "Murray Smith, Structure of Sympathy",
+   "VICE",
+   "YesPress profile of Wendover",
+   "The Verge (Casey Newton)",
+   "Know Your Meme"
+  ]
+ },
+ "how-youtube-instagram-and-tiktok-rank-video-in-2026": {
+  "toc": [
+   "Watch time",
+   "The model watches",
+   "Where the story outruns evidence",
+   "Originality",
+   "Long and detailed work",
+   "Subscription platforms",
+   "The formula trap",
+   "What this explains"
+  ],
+  "sources": [
+   "RecSys 2025, arXiv 2510.06657",
+   "Meta AI, Learning from videos",
+   "Adam Mosseri, Jan 2025",
+   "Todd Beaupré, YouTube",
+   "Substack, Demystifying the feed",
+   "NeurIPS 2023, arXiv 2305.05065",
+   "ByteDance Monolith, RecSys 2022",
+   "Social Media Today"
+  ]
+ },
+ "immigrants-temporary-residents-and-canadas-job-growth-since-2020": {
+  "toc": [
+   "No monthly table",
+   "What the numbers say",
+   "Why Canada’s share is higher",
+   "The undercount",
+   "The reversal",
+   "Inside the boom",
+   "What this explains"
+  ],
+  "sources": [
+   "Statistics Canada, LFS Table 14-10-0083-01",
+   "Statistics Canada, Daily, 26 Oct 2022",
+   "Statistics Canada, Research to Insights 2022",
+   "C.D. Howe Institute (Skuterud, 2023, 2024)",
+   "Bank of Canada Staff Discussion Paper 2025-8",
+   "IRCC permit data",
+   "RBC Economics",
+   "BMO Economics (Kavcic)"
+  ]
+ },
+ "job-guarantees-in-austria-france-and-india": {
+  "toc": [
+   "It exists in pieces",
+   "Albuquerque",
+   "Austria",
+   "France",
+   "India and others",
+   "The trap",
+   "The app half",
+   "Prison labour",
+   "What this explains"
+  ],
+  "sources": [
+   "Kasy & Lehner (Oxford), Marienthal evaluation",
+   "DARES 2025",
+   "Cour des comptes 2025",
+   "Imbert & Papp",
+   "Levy Economics Institute",
+   "Paul, Darity & Hamilton 2018"
+  ]
+ },
+ "language-models-and-idea-diversity": {
+  "toc": [
+   "Same answer, different models",
+   "Novel, then shrinks",
+   "Long sessions narrow",
+   "Outsiders",
+   "The crowd narrows",
+   "Novelty has a shape",
+   "A bridge in practice",
+   "Pushing back",
+   "What this explains"
+  ],
+  "sources": [
+   "Jiang et al., NeurIPS 2025",
+   "Si, Yang & Hashimoto, ICLR 2025",
+   "Si, Hashimoto & Yang 2025",
+   "Artiles et al. 2026",
+   "Doshi & Hauser, <em>Science Advances</em> 2024",
+   "Laukkonen et al., <em>Cognition</em> 2020",
+   "Davis 1971",
+   "Swanson 1986",
+   "Zhang et al. 2025"
+  ]
+ },
+ "measuring-the-economy-with-new-instruments": {
+  "toc": [
+   "Why prediction slips",
+   "What computation won",
+   "What AI adds",
+   "What is not counted",
+   "Who owns what",
+   "Wealth at the top",
+   "Procurement and lobbying",
+   "Private instruments",
+   "What this explains"
+  ],
+  "sources": [
+   "Cavallo & Rigobon, J Econ Perspectives 2016",
+   "Opportunity Insights Economic Tracker",
+   "MacKenzie, An Engine, Not a Camera (2006)",
+   "Soros, reflexivity",
+   "Goodhart; Campbell",
+   "Bracha & Burke, FRB Boston WP 23-15",
+   "Patatoukas & Katona, Berkeley Haas",
+   "Mordor Intelligence 2025"
+  ]
+ },
+ "missed-workouts-and-broken-streaks": {
+  "toc": [
+   "A streak is real",
+   "Starting vs continuing",
+   "Why it feels total",
+   "The muscle stays",
+   "The drive drains",
+   "One decision",
+   "The reset counter",
+   "What this explains"
+  ],
+  "sources": [
+   "Nevin, Behavioral Momentum Theory",
+   "Lally et al., Eur J Soc Psych 2010",
+   "Weinstein, Koehmstedt & Kop, Preventive Medicine 2017",
+   "Segar et al., BMC Public Health 2025",
+   "Simkin & Gross, Health Psychology 1994",
+   "Shiffman et al., Health Psychology 2000",
+   "Hortobágyi et al. 1993",
+   "Journal of Experimental Biology 2016"
+  ]
+ },
+ "opioid-deaths-and-overdose-calls-in-hamilton": {
+  "toc": [
+   "Deaths vs calls",
+   "What is in the drug",
+   "Naloxone and the sedative",
+   "What people see",
+   "The pyramid",
+   "The cut-back system",
+   "What this explains"
+  ],
+  "sources": [
+   "Toronto Drug Checking Service 2025–26",
+   "Office of the Chief Coroner for Ontario",
+   "Hamilton Board of Health, March 2026",
+   "Dr. Elizabeth Richardson, Aug 2025",
+   "Dr. Kieran Moore, CBC 2017",
+   "<em>PLOS One</em> 2023",
+   "CCENDU 2025"
+  ]
+ },
+ "paying-to-reach-curious-readers-in-2026": {
+  "toc": [
+   "ChatGPT ads",
+   "Perplexity, Google, Microsoft",
+   "Cost by platform",
+   "Newsletter readers",
+   "The whole answer",
+   "Minutes of scrolling",
+   "Labels and the law",
+   "Synthetic crowds",
+   "A premium for intent"
+  ],
+  "sources": [
+   "OpenAI, ads announcement (31 August 2026)",
+   "Financial Times on Perplexity (February 2026)",
+   "Gupta Media CPM tracker (October 2025)",
+   "beehiiv Boosts",
+   "SparkLoop Partner Network",
+   "Allcott, Gentzkow & Song, \"Digital Addiction\", AER 2022",
+   "Ipsos AI ad test (May 2026)",
+   "FTC Consumer Reviews and Testimonials Rule",
+   "Ad Standards (Canada), October 2025 guidelines",
+   "ANA Programmatic Media Supply Chain Transparency Study (2023)",
+   "Digital Applied rollout ledger",
+   "Microsoft Advertising",
+   "Emplifi",
+   "Klaviyo (March 2026)",
+   "Ad Standards / Caddle survey",
+   "EU AI Act, Article 50",
+   "Larooij & Törnberg (2025)",
+   "Shumailov et al., Nature 2024",
+   "Argyle et al."
+  ]
+ },
+ "paying-yourself-to-do-your-own-tasks": {
+  "toc": [
+   "What an order bundles",
+   "Paying works, while it lasts",
+   "A self-paid wage",
+   "Earning it back",
+   "Verification",
+   "What has been tried",
+   "Frequency beats size",
+   "Untested",
+   "What this explains"
+  ],
+  "sources": [
+   "Mantzari et al. 2015 (34 RCTs)",
+   "Patel et al. 2016",
+   "Luman, Oosterlaan & Sergeant 2005",
+   "Luman et al. 2008",
+   "Lee et al., JMIR mHealth 2023",
+   "FTC v. Pact",
+   "stickK / KAIST analysis",
+   "Addictive Behaviors 2026"
+  ],
+  "openProblem": "/open/cash-micro-incentives-for-task-completion-in-adu",
+  "thread": {
+   "intro": "The source sketched the earn-back design in one line. These are the next two research questions, written as prompts ready to run.",
+   "items": [
+    {
+     "title": "Earning a subscription back",
+     "desc": "Deposit contracts, how much of the fee to put at risk, credit timing, cheap proof, and what Beeminder, stickK and HealthyWage show.",
+     "prompt": "earn-back-subscription-credit"
+    },
+    {
+     "title": "Rewards for small wins in adults with ADHD",
+     "desc": "Which kinds of reward help people start and finish their own tasks — points, streaks, a witness, loss-framed credit — and which backfire.",
+     "prompt": "adhd-rewards-for-small-wins"
+    }
+   ]
+  }
+ },
+ "personalised-pricing-and-the-return-of-haggling": {
+  "toc": [
+   "The price tag",
+   "Personalised, not dynamic",
+   "The haggle returns",
+   "Shared rent software",
+   "Learning to coordinate",
+   "Canada’s law",
+   "The basket test"
+  ],
+  "sources": [
+   "Hayek 1945",
+   "Means 1930s",
+   "Dubé & Misra (NBER 23775)",
+   "US DOJ v. RealPage 2025",
+   "Competition Bureau, Nov 2025",
+   "ProPublica 2022",
+   "CBC 2024"
+  ],
+  "readNext": [
+   {
+    "route": "/articles/why-people-keep-scrolling",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Why people keep scrolling: habit, infinite feeds, and the evidence against the dopamine explanation",
+    "dek": "The best evidence says people keep scrolling because of habit and a feed that never ends — not because of a dopamine jackpot. And engagement-ranked feeds keep showing people what they say they do not want."
+   },
+   {
+    "route": "/articles/fixed-times-versus-flexible-routines-in-exercise-habits",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Fixed times versus flexible routines in exercise habits: what the paid-to-exercise trials found",
+    "dek": "Paid to exercise at a set time, people did less than those paid to exercise whenever they liked — and quit faster afterwards. What helps is a fixed start and an open workout."
+   }
+  ]
+ },
+ "portraiture-as-a-research-method": {
+  "toc": [
+   "Painting with words",
+   "The experience of being painted",
+   "How it differs",
+   "The five features",
+   "Goodness",
+   "Authenticity and resonance",
+   "The researcher as instrument",
+   "Where it is used",
+   "The case against",
+   "How to read a portrait"
+  ],
+  "sources": [
+   "Lawrence-Lightfoot, The Good High School (1983)",
+   "Lawrence-Lightfoot & Davis, The Art and Science of Portraiture (1997)",
+   "Lawrence-Lightfoot, Qualitative Inquiry (2005)",
+   "English, Educational Researcher (2000)",
+   "Hackmann, International Journal of Leadership in Education (2002)",
+   "Shavelson & Towne, Scientific Research in Education (2002)",
+   "Cope, Jones & Hendricks, Collegian (2016)"
+  ]
+ },
+ "self-extinguishing-maintenance": {
+  "toc": [
+   "Feeling better",
+   "The pieces that have names",
+   "Self-extinguishing maintenance",
+   "The remission-as-cure error",
+   "Success is invisible",
+   "Ends or does not",
+   "What the names change"
+  ],
+  "sources": [
+   "Meyer, Leventhal & Gutmann 1985",
+   "Halm, Mora & Leventhal 2006",
+   "Kazdin et al. 2024",
+   "Vrijens et al. 2008",
+   "Horne et al. 2013",
+   "Rothman 2000",
+   "Fineberg 2013",
+   "Löe, Theilade & Jensen 1965",
+   "Hayes et al."
+  ],
+  "readNext": [
+   {
+    "route": "/articles/fixed-times-versus-flexible-routines-in-exercise-habits",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Fixed times versus flexible routines in exercise habits: what the paid-to-exercise trials found",
+    "dek": "Paid to exercise at a set time, people did less than those paid to exercise whenever they liked — and quit faster afterwards. What helps is a fixed start and an open workout."
+   },
+   {
+    "route": "/articles/why-people-keep-scrolling",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Why people keep scrolling: habit, infinite feeds, and the evidence against the dopamine explanation",
+    "dek": "The best evidence says people keep scrolling because of habit and a feed that never ends — not because of a dopamine jackpot. And engagement-ranked feeds keep showing people what they say they do not want."
+   }
+  ]
+ },
+ "temporary-foreign-workers-and-canadian-innovation": {
+  "toc": [
+   "Why the US evidence does not transfer",
+   "Composition",
+   "Wages",
+   "Automation",
+   "Employers",
+   "The two-step loop",
+   "Youth",
+   "Brain drain",
+   "The missing study",
+   "Policy reversal",
+   "What this explains"
+  ],
+  "sources": [
+   "Bank of Canada Staff Discussion Paper 2025-8",
+   "Hémous & Olsen, JPE 2025",
+   "Ganglmair et al., J Public Economics 2024",
+   "Brochu, Gross & Worswick, CJE",
+   "ESDC Evaluation of the TFW Program (2020)",
+   "Lange, Skuterud & Worswick, IRPP 2022",
+   "Statistics Canada Labour Force Survey",
+   "C.D. Howe Institute"
+  ]
+ },
+ "the-change-you-stop-seeing": {
+  "toc": [
+   "A routine erases its reminder",
+   "The baseline moves",
+   "A price changes meaning",
+   "A habit forms unwatched",
+   "An era feels normal",
+   "Seeing takes work",
+   "What this explains"
+  ],
+  "sources": [
+   "McLuhan 1964 (<em>Understanding Media</em>)",
+   "Koob & Le Moal 1997, 2001",
+   "Allcott, Gentzkow & Song 2022"
+  ]
+ },
+ "the-counter-irritant-spiral": {
+  "toc": [
+   "Media theory from stress physiology",
+   "The relief spiral",
+   "The baseline, not the drug",
+   "Before the self",
+   "What the bridge explains"
+  ],
+  "sources": [
+   "McLuhan 1964 (<em>Understanding Media</em>)",
+   "Selye 1956",
+   "Koob & Le Moal 1997, 2001, 2008",
+   "Koob 2013",
+   "Dingle, Cruwys & Frings 2015",
+   "Heyman 2009",
+   "Hartogsohn & Vudka 2023"
+  ],
+  "readNext": [
+   {
+    "route": "/articles/krasis",
+    "kind": "Paper",
+    "min": "12 min",
+    "title": "Krasis",
+    "dek": "The synthesis of the series. McLuhan said every medium changes the ratio among our senses; the paper series tests that literally, from ADHD and typing to drugs and addiction, and find one configuration that media, drugs and illness all re-temper."
+   },
+   {
+    "route": "/articles/exocrasis",
+    "kind": "Paper",
+    "min": "16 min",
+    "title": "Exocrasis",
+    "dek": "The computing environment, not the screen, is the medium: keyboard, memory, search and network move part of the configuration of the senses and of memory outside the body."
+   }
+  ]
+ },
+ "topping-up-low-wages-in-canada": {
+  "toc": [
+   "The benefit Canada pays",
+   "Participation income",
+   "Employers’ share",
+   "A wage floor",
+   "Britain’s tax credits",
+   "The people it misses",
+   "The welfare wall",
+   "The universal version",
+   "Work-sharing",
+   "What this explains"
+  ],
+  "sources": [
+   "Rothstein, AEJ: Economic Policy 2010",
+   "Lee & Saez, J Public Economics 2012",
+   "Neumark & Wascher, ILR Review 2011",
+   "Statistics Canada 75f0002m2025004",
+   "Parliamentary Budget Officer, Feb 2025",
+   "Block & Somers",
+   "Calnitsky & Latner 2017",
+   "Atkinson, Political Quarterly 1996"
+  ]
+ },
+ "unverified-hunches-in-ai-assisted-software-work": {
+  "toc": [
+   "The feeling of rightness",
+   "The gate",
+   "The certainty handoff",
+   "One-sided memory",
+   "The gut check",
+   "Time pressure",
+   "What the names explain"
+  ],
+  "sources": [
+   "Thompson, Prowse Turner & Pennycook 2011",
+   "Danek & Wiley 2017",
+   "Salvi et al. 2016",
+   "Koriat 2012",
+   "Keysar & Henly 2002",
+   "Shaikh et al. 2024, 2025",
+   "Çögenli 2026",
+   "Kuutila et al. 2020"
+  ]
+ },
+ "whey-protein-in-hot-black-coffee": {
+  "toc": [
+   "Two failures",
+   "Coffee’s acidity",
+   "Forms of whey",
+   "The smell",
+   "Heat-stable whey",
+   "Engineering routes",
+   "What brands do",
+   "What is coming",
+   "A likely product",
+   "What this explains"
+  ],
+  "sources": [
+   "Rao & Fuller, Scientific Reports 2018",
+   "US20100021616A1",
+   "Food Hydrocolloids",
+   "Foods (Liao et al., 2025)",
+   "Carbery Optipep 8008",
+   "Glanbia ProTherma",
+   "FDA GRN 1200 / GRN 1241",
+   "Laird Superfood FY2025 10-K"
+  ]
+ },
+ "who-will-count-an-ai-assistants-influence": {
+  "toc": [
+   "Three shifts, one shape",
+   "Paid for, and gamed",
+   "What a shift is not",
+   "The persuaded party has changed",
+   "The oracle exists and will not speak",
+   "The unit, named",
+   "When the shift starts"
+  ],
+  "sources": [
+   "Louck, Dvir & Stulman 2026 (arXiv 2609.11757)",
+   "Partnerize Zero-Click Commerce Index 2026",
+   "ACP spec release 2025-12-12",
+   "OpenAttribution Content Telemetry v1.0",
+   "Singular on SKAdNetwork",
+   "Lane's Gifts v. Google 2006"
+  ],
+  "readNext": [
+   {
+    "route": "/articles/why-people-keep-scrolling",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Why people keep scrolling: habit, infinite feeds, and the evidence against the dopamine explanation",
+    "dek": "The best evidence says people keep scrolling because of habit and a feed that never ends — not because of a dopamine jackpot. And engagement-ranked feeds keep showing people what they say they do not want."
+   },
+   {
+    "route": "/articles/fixed-times-versus-flexible-routines-in-exercise-habits",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Fixed times versus flexible routines in exercise habits: what the paid-to-exercise trials found",
+    "dek": "Paid to exercise at a set time, people did less than those paid to exercise whenever they liked — and quit faster afterwards. What helps is a fixed start and an open workout."
+   }
+  ]
+ },
+ "why-people-keep-scrolling": {
+  "toc": [
+   "Habit",
+   "Nowhere to stop",
+   "Doomscrolling",
+   "The ranking",
+   "What reduces it",
+   "Regulators",
+   "What this explains"
+  ],
+  "sources": [
+   "Allcott, Gentzkow & Song 2022 (<em>AER</em>)",
+   "Lindström et al. 2021",
+   "Milli et al. 2025",
+   "Guess et al. 2023 (<em>Science</em>)",
+   "Rixen et al.",
+   "Frontiers in Psychology meta-analysis 2026"
+  ],
+  "readNext": [
+   {
+    "route": "/articles/fixed-times-versus-flexible-routines-in-exercise-habits",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Fixed times versus flexible routines in exercise habits: what the paid-to-exercise trials found",
+    "dek": "Paid to exercise at a set time, people did less than those paid to exercise whenever they liked — and quit faster afterwards. What helps is a fixed start and an open workout."
+   },
+   {
+    "route": "/articles/self-extinguishing-maintenance",
+    "kind": "Article",
+    "min": "7 min",
+    "title": "Self-extinguishing maintenance: treatments that stop because they are working, and the relapse that follows",
+    "dek": "Some problems only stay fixed while you keep treating them — a gap between two teeth, toes pressed too tight. The treatment works, the problem vanishes, it looks cured, you stop, and it comes back. This research named the cycle and the mistake behind it."
+   }
+  ]
+ }
+}

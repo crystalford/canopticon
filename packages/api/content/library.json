@@ -1266,7 +1266,7 @@
   "title": "Ancaster",
   "dek": "Eighteen research passes toward a publisher-owned layer that lets a reader keep a recommendation and come back to it without the recommender losing credit.",
   "stat": "20 documents",
-  "route": "/desk/projects/ancaster"
+  "route": "/admin/projects/ancaster"
  },
  {
   "href": "Canopticon%20Open%20Whey.dc.html",
@@ -1444,7 +1444,7 @@
   "title": "Aldershot",
   "dek": "A delegation-first AI video editor with no timeline: the footage is read, the editor gives direction, and rules are the file.",
   "stat": "9 documents",
-  "route": "/desk/projects/aldershot"
+  "route": "/admin/projects/aldershot"
  },
  {
   "href": "Canopticon%20Doc.dc.html?d=ancaster-pass-3-pressure-testing-trust-mediated-sponsorship-verdict-and-two-bets",

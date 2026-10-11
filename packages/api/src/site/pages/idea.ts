@@ -4,7 +4,7 @@
 // differ only in colour, label and what the status says.
 
 import type { Idea } from "../content/store";
-import { libraryItems } from "../content/store";
+import { article as articleBySlug, libraryItems, problems, terms } from "../content/store";
 import { esc, pill, shell } from "../layout";
 import { kindColours, topicColours } from "../theme";
 
@@ -37,14 +37,19 @@ export function renderIdea(
     : [["Open", "#fbe9df", "#8a3a1f"]];
   const route = concept ? `/concepts/${it.id}` : `/open/${it.id}`;
   const listKind = concept ? "Concept" : "Open problem";
-  const others = libraryItems()
-    .filter((r) => r.kind === listKind && r.route !== route)
+  // The prototype lists the other entries of the same register (terms.json or
+  // problems.json), each with its topic as the register writes it.
+  const others = (concept ? terms() : problems())
+    .filter((o) => o.id !== it.id)
     .map(
-      (r) =>
-        `<a href="${esc(r.route)}" class="lrow"><span class="lrow-t">${esc(r.title)}</span><span class="lrow-k">${esc(r.topic)}</span></a>`,
+      (o) =>
+        `<a href="${esc(o.route)}" class="lrow"><span class="lrow-t">${esc(o.title)}</span><span class="lrow-k">${esc(o.kick ?? "")}</span></a>`,
     )
     .join("");
-  const source = it.artRoute
+  // A withdrawn article is linked from nowhere; name the document instead.
+  const artSlug = /^\/articles\/([^/#?]+)/.exec(it.artRoute ?? "")?.[1];
+  const artLive = Boolean(it.artRoute) && !(artSlug && articleBySlug(artSlug)?.withdrawn);
+  const source = artLive
     ? `<a href="${esc(it.artRoute)}" class="meta-link">${pill(it.artKind ?? "Article", kindColours(it.artKind ?? "Article"))}<span class="t">${esc(it.artTitle ?? "")}</span></a>`
     : it.docRoute
       ? `<a href="${esc(it.docRoute)}" class="meta-link">${pill("Research", kindColours("Research"))}<span class="t">${esc(it.from || "The research")}</span></a>`
@@ -57,7 +62,7 @@ export function renderIdea(
     .map(([l, bg, fg]) => pill(l, [bg, fg], "pill lg"))
     .join(
       "",
-    )}</span></div>${when ? `<div class="meta-r"><span>${concept ? "Named" : "Added"}</span><span>${esc(when)}</span></div>` : ""}${source ? `<div class="meta-r stack-v"><span>${concept ? "Coined in" : "Stated in"}</span>${source}</div>` : ""}</div><div class="citebox"><div class="citebox-h">Cite this ${concept ? "concept" : "problem"}</div><div class="citebox-t">Telford, C. (2026). ${esc(citeTitle)} Canopticon. canopticon.com${esc(route)}</div></div></aside>`;
+    )}</span></div>${when ? `<div class="meta-r"><span>${concept ? "Named" : "Added"}</span><span>${esc(when)}</span></div>` : ""}${source ? `<div class="meta-r stack-v"><span>${concept ? "Coined in" : "Stated in"}</span>${source}</div>` : ""}</div><div class="citebox"><div class="citebox-h">Cite this ${concept ? "concept" : "problem"}</div><div class="citebox-t">Telford, C. (2026). ${esc(citeTitle)} Canopticon.</div></div></aside>`;
 
   const ld = concept
     ? {

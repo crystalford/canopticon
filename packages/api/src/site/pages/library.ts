@@ -65,6 +65,8 @@ const SORTS: Array<{
   id: string;
   label: string;
   writing?: boolean;
+  /** Only for the signed-in author, who is the only one who can mark. */
+  author?: boolean;
   cmp: (a: Row, b: Row) => number;
 }> = [
   { id: "newest", label: "Newest", cmp: (a, b) => b.date.localeCompare(a.date) },
@@ -89,6 +91,15 @@ const SORTS: Array<{
     cmp: (a, b) =>
       ((b as LibraryItem).coined || 0) - ((a as LibraryItem).coined || 0) ||
       b.date.localeCompare(a.date),
+  },
+  // The marks live in this browser (site.js), so the server sends the whole
+  // list newest-first on one page and the script lifts the marked rows to
+  // the top. Without the script it is simply Newest.
+  {
+    id: "useful",
+    label: "Marked useful",
+    author: true,
+    cmp: (a, b) => b.date.localeCompare(a.date),
   },
 ];
 
@@ -152,10 +163,9 @@ export function renderLibrary(
   // Topic arrives as a slug or as the name itself.
   const topicNames = new Map(all.map((d) => [topicSlug(d.topic), d.topic]));
   const topic = query.topic ? (topicNames.get(topicSlug(query.topic)) ?? "all") : "all";
-  const sort =
-    SORTS.find(
-      (s) => s.id === query.sort && (!s.writing || groupId === "Writing" || groupId === "all"),
-    ) ?? SORTS[0];
+  const offered = (s: (typeof SORTS)[number]) =>
+    (!s.writing || groupId === "Writing" || groupId === "all") && (!s.author || signedIn);
+  const sort = SORTS.find((s) => s.id === query.sort && offered(s)) ?? SORTS[0];
   const q = (query.q ?? "").trim().toLowerCase().slice(0, 200);
   const sub = query.sub ?? "all";
 
@@ -271,9 +281,10 @@ export function renderLibrary(
     .slice()
     .sort(sort?.cmp ?? (() => 0));
 
-  const pages = Math.max(1, Math.ceil(list.length / PAGE));
+  const perPage = sort?.id === "useful" ? Math.max(1, list.length) : PAGE;
+  const pages = Math.max(1, Math.ceil(list.length / perPage));
   const page = Math.min(pages, Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1));
-  const slice = list.slice((page - 1) * PAGE, page * PAGE);
+  const slice = list.slice((page - 1) * perPage, page * perPage);
 
   const hubTopic =
     topic !== "all" &&
@@ -299,7 +310,7 @@ export function renderLibrary(
       const subLabel = d.kind === "Research" && d.sub && d.sub !== "Research" ? subName(d) : "";
       const dek = d.kind === "Research" && d.dek === d.sub ? "" : d.dek;
       const metric = d.kind === "Figure" ? (d.v ?? "") : (d.dateLabel ?? "");
-      return `<div class="lib-row"><span class="lib-rank">${String((page - 1) * PAGE + i + 1).padStart(2, "0")}</span><span style="min-width:0"><a href="${esc(d.route)}" class="lib-t">${esc(d.title)}</a>${dek ? `<span class="lib-d">${esc(dek)}</span>` : ""}<span class="lib-m"><span class="pill kind" style="background:${kbg};color:${kfg}">${esc(d.kind)}</span>${subLabel ? `<span class="pill sub">${esc(subLabel)}</span>` : ""}<span class="pill" style="background:${tbg};color:${tfg}">${esc(d.topic)}</span>${status ? `<span class="pill" style="background:${status[1]};color:${status[2]}">${esc(status[0] ?? "")}</span>` : ""}${stat ? `<span class="st">${esc(stat)}</span>` : ""}</span></span><span class="lib-r"><span class="lib-metric">${esc(metric)}</span>${d.kind === "Figure" ? `<span class="lib-ml">${esc(d.dateLabel ?? "")}</span>` : ""}${signedIn ? `<button type="button" class="useful" data-useful="${esc(d.route)}" aria-pressed="false" hidden>☆ Mark useful</button>` : ""}</span></div>`;
+      return `<div class="lib-row"><span class="lib-rank">${String((page - 1) * perPage + i + 1).padStart(2, "0")}</span><span style="min-width:0"><a href="${esc(d.route)}" class="lib-t">${esc(d.title)}</a>${dek ? `<span class="lib-d">${esc(dek)}</span>` : ""}<span class="lib-m"><span class="pill kind" style="background:${kbg};color:${kfg}">${esc(d.kind)}</span>${subLabel ? `<span class="pill sub">${esc(subLabel)}</span>` : ""}<span class="pill" style="background:${tbg};color:${tfg}">${esc(d.topic)}</span>${status ? `<span class="pill" style="background:${status[1]};color:${status[2]}">${esc(status[0] ?? "")}</span>` : ""}${stat ? `<span class="st">${esc(stat)}</span>` : ""}</span></span><span class="lib-r"><span class="lib-metric">${esc(metric)}</span>${d.kind === "Figure" ? `<span class="lib-ml">${esc(d.dateLabel ?? "")}</span>` : ""}${signedIn ? `<button type="button" class="useful" data-useful="${esc(d.route)}" aria-pressed="false" hidden>☆ Mark useful</button>` : ""}</span></div>`;
     })
     .join("");
 
@@ -312,7 +323,7 @@ export function renderLibrary(
           ? `<div class="lib-note"><strong>Every number the research reported. </strong>Figures taken from the summaries and findings of the documents, with the sentence each one came in. The document it links to carries the source.</div>`
           : "";
 
-  const sortOpts = SORTS.filter((s) => !s.writing || groupId === "Writing" || groupId === "all");
+  const sortOpts = SORTS.filter(offered);
   const sortBar = `<div class="sortbar"><span class="l">Sort</span>${sortOpts
     .map(
       (s) =>
@@ -322,7 +333,7 @@ export function renderLibrary(
 
   const pager =
     pages > 1
-      ? `<nav class="pager" aria-label="Pages"><span>Showing ${(page - 1) * PAGE + 1}–${Math.min(page * PAGE, list.length)} of ${list.length}</span><span class="pages">${Array.from(
+      ? `<nav class="pager" aria-label="Pages"><span>Showing ${(page - 1) * perPage + 1}–${Math.min(page * perPage, list.length)} of ${list.length}</span><span class="pages">${Array.from(
           { length: pages },
           (_, i) =>
             i + 1 === page
@@ -341,7 +352,7 @@ export function renderLibrary(
     .map(([k, v]) => `<input type="hidden" name="${k}" value="${esc(v ?? "")}" />`)
     .join("");
 
-  const body = `<div><h1 class="h-page">${esc(shelf?.title ?? "Library")}</h1></div><p class="lede">${shelf?.lede ?? "Everything in one place. Articles argue from the research; papers are longer original work; research documents are kept whole; concepts and open problems are what the research turned up."}</p><section style="margin-top:28px"><form class="lib-search" role="search" method="get" action="${shelf?.base ?? "/library"}"><span aria-hidden="true">⌕</span>${hidden2}<input type="search" name="q" value="${esc(query.q ?? "")}" placeholder="${esc(shelf?.searchLabel ?? "Filter the library by title, summary or topic")}" aria-label="${esc(shelf ? `Filter ${shelf.title.toLowerCase()}` : "Filter the library")}" data-search-input /></form><div role="tablist" aria-label="Kind" class="seg">${tabs}</div><div class="tchips">${topicChips}</div>${members ? `<div class="mchips">${members}</div>` : ""}${subs}${hubTopic ? `<a href="/topics/${esc(topicSlug(topic))}" class="btn hub-link">Open the ${esc(topic)} topic page</a>` : ""}${sortBar}<div class="lib"><div class="lib-head"><span>${list.length} ${list.length === 1 ? "item" : "items"}</span><span>${groupId === "Figure" ? "Figure" : "Added"}</span></div>${note}${list.length ? rows : `<div class="lib-empty">Nothing matches. Try another topic or clear the filter.</div>`}${pager}</div></section>`;
+  const body = `<div><h1 class="h-page">${esc(shelf?.title ?? "Library")}</h1></div><p class="lede">${shelf?.lede ?? "Everything in one place. Articles argue from the research; papers are longer original work; research documents are kept whole; concepts and open problems are what the research turned up."}</p><section style="margin-top:28px"><form class="lib-search" role="search" method="get" action="${shelf?.base ?? "/library"}"><span aria-hidden="true">⌕</span>${hidden2}<input type="search" name="q" value="${esc(query.q ?? "")}" placeholder="${esc(shelf?.searchLabel ?? "Filter the library by title, summary or topic")}" aria-label="${esc(shelf ? `Filter ${shelf.title.toLowerCase()}` : "Filter the library")}" data-search-input /></form><div role="tablist" aria-label="Kind" class="seg">${tabs}</div><div class="tchips">${topicChips}</div>${members ? `<div class="mchips">${members}</div>` : ""}${subs}${hubTopic ? `<a href="/topics/${esc(topicSlug(topic))}" class="btn hub-link">Open the ${esc(topic)} topic page</a>` : ""}${sortBar}<div class="lib"${sort?.id === "useful" ? " data-useful-sort" : ""}><div class="lib-head"><span>${list.length} ${list.length === 1 ? "item" : "items"}</span><span>${groupId === "Figure" ? "Figure" : "Added"}</span></div>${note}${list.length ? rows : `<div class="lib-empty">Nothing matches. Try another topic or clear the filter.</div>`}${pager}</div></section>`;
 
   const ld = {
     "@context": "https://schema.org",

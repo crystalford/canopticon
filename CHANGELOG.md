@@ -6,6 +6,33 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-11, night — Checked against the handoff's own pages
+
+The Desk/Admin mix-up came from following the handoff's README where its
+prototype page said otherwise. `scripts/check-against-handoff.mts` now
+renders every prototype page beside ours and lists what a reader of the
+prototype would see that ours lacks: headings, controls, links and short
+labels. What it turned up, now fixed:
+
+- Links on the front page, footer and concept pages that went somewhere other
+  than the prototype's; the Admin pill's count on every page.
+- Concept and open-problem pages: the "More" lists and the citation wording.
+  Ideas rows, Follow's topics and wording, and its feed address.
+- Essays: short contents labels (matched by position and corrected where two
+  are plainly swapped), named sources, "one of a pair" notes, curated read-next
+  picks. Emphasis the Markdown export dropped is back (about 20 places). Two
+  essays had a pair of "named" cards flattened into one line of text; they are
+  a `names` figure now. The tasks essay has its "This thread is still open"
+  block and its open-problem link.
+- The withdrawn draft (*The change you stop seeing*) says so, is `noindex`,
+  and is credited from nowhere.
+- The seven papers are ported as-is from their prototype pages.
+- The Aldershot and Ancaster project pages are at `/admin/projects/…`,
+  signed in only. `privatePage()` is the only way to get them.
+- The verbatim check now matches ESSAY-CONTRACT §4 exactly: it ignores
+  emphasis and backticks, and nothing else.
+- Library: a "Marked useful" sort for the author.
+
 ## 2026-10-11, evening — It is called Admin
 
 - The operator's page is **Admin**, at `/admin` (it shipped for an hour as

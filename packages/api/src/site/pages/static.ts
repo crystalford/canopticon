@@ -13,6 +13,8 @@ export function renderStatic(p: StaticPage, opts: { signedIn?: boolean } = {}): 
     title: p.title,
     description: p.description,
     path: p.route,
+    progress: p.progress === true,
+    noindex: p.private === true,
     ...(p.route === "/about" ? { nav: "about" as const } : { nav: "library" as const }),
     signedIn: opts.signedIn ?? false,
     head: p.ld

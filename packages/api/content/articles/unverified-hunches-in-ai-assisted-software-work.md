@@ -19,13 +19,16 @@ cite: "Telford, C. (2026). Unverified hunches in AI-assisted software work: the 
 ---
 You ask an AI coding agent to rename something because the name is wrong. You know why it is wrong — you have been living in this project for weeks — so you do not say. The agent renames it, guesses at the reason, and the guess spreads through the code. An hour later you are undoing work that was built on a hunch you never checked and never explained. This article names the two failures behind that hour. Neither is new on its own; what is new is how they compound when the other party is a machine that forgets.
 
-The handoffThe certainty handoffPassing on a hunch that feels right as though it had been checked — and assuming the other side understood it as clearly as you hold it.Builds on research into the feeling of rightness and the illusion of transparency.The memoryOne-sided memoryYou remember the whole project; the agent remembers only this session; both act as if the ground were shared.Researchers have begun calling this “asymmetric persistence”.
+<figure data-kind="names" tone="green">
+- The handoff | The certainty handoff | Passing on a hunch that feels right as though it had been checked — and assuming the other side understood it as clearly as you hold it. | Builds on research into the feeling of rightness and the illusion of transparency.
+- The memory | One-sided memory | You remember the whole project; the agent remembers only this session; both act as if the ground were shared. | Researchers have begun calling this “asymmetric persistence”.
+</figure>
 
 ## The feeling that you are right is a separate signal
 
 The research behind this article starts from one finding: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Introduction">the feeling that an intuition is right is a separate signal from the intuition itself</q>. The idea arrives, and a sense of certainty arrives with it. It is that sense, not the idea, that decides whether you stop to test the idea.
 
-Usually the feeling is a good guide, which is why trusting it feels rational. But it can be wrong in a way you cannot see from inside: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Summary">37% of incorrect solutions got Aha ratings higher than the average for correct ones</q>. And the feeling does not track truth so much as fit: confidence <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Introduction">tracks how consistent an idea is with what you already believe, not whether it is correct</q>.
+Usually the feeling is a good guide, which is why trusting it feels rational. But it can be wrong in a way you cannot see from inside: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Summary">37% of incorrect solutions got Aha ratings higher than the average for correct ones</q>. And the feeling does not track truth so much as fit: confidence <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Introduction">tracks how *consistent* an idea is with what you already believe, not whether it is *correct*</q>.
 
 > **Objection: Intuitions are usually right, so why not trust them?**
 >
@@ -58,7 +61,7 @@ caption: How often speakers are understood
 note: Listeners misunderstood 39% of the time
 </figure>
 
-So the certainty handoff has two halves. You are too sure of the idea, and too sure you conveyed it. With an AI agent, the research puts it plainly: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Section 3">Your intention is transparent to you because you hold it. The agent gets only the words.</q>
+So the certainty handoff has two halves. You are too sure of the idea, and too sure you conveyed it. With an AI agent, the research puts it plainly: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Section 3">Your intention is transparent *to you* because you hold it. The agent gets only the words.</q>
 
 Asking yourself to explain a mechanism step by step exposes the gap: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Key findings">people think they understand mechanisms far better than they do until they try to explain them step by step, at which point their self-ratings drop</q>. The timing matters, though, because words can damage a pattern still forming. The research's conclusion is about where the check goes: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Key findings">let the intuition form, then articulate and test it before it becomes a directive to someone else, not while it's still forming.</q>
 

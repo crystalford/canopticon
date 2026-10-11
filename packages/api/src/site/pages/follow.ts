@@ -14,7 +14,26 @@ import { listedArticles, writingFor } from "../data";
 import { esc, pill, shell } from "../layout";
 import { kindColours, shortDate, topicColours, topicSlug } from "../theme";
 
-/** Topics a reader can follow, biggest first. */
+/** The prototype's order (pages/Canopticon Follow.dc.html); a topic it did
+ *  not know about follows, biggest first. */
+const ORDER = [
+  "McLuhan & media theory",
+  "Attribution & credit",
+  "AI-directed development",
+  "Prices & markets",
+  "Attention & feeds",
+  "Health & self-care",
+  "ADHD & attention",
+  "Canadian economy & policy",
+  "Housing",
+  "Drugs & public health",
+  "Habits & maintenance",
+  "Canadian media",
+  "Economics",
+];
+
+/** Topics a reader can follow: those with at least one article, as on the
+ *  prototype, each with its article and research counts. */
 export function followTopics(): Array<{
   name: string;
   slug: string;
@@ -25,25 +44,36 @@ export function followTopics(): Array<{
   for (const r of libraryItems()) {
     if (r.shelf === "investigation" || !r.topic || r.topic === "Other") continue;
     const e = map.get(r.topic) ?? { articles: 0, research: 0 };
-    if (r.kind === "Article" || r.kind === "Paper") e.articles++;
+    if (r.kind === "Article") e.articles++;
     else if (r.kind === "Research") e.research++;
-    else continue;
     map.set(r.topic, e);
   }
+  const rank = (n: string) => (ORDER.includes(n) ? ORDER.indexOf(n) : ORDER.length);
   return [...map]
+    .filter(([, c]) => c.articles > 0)
     .map(([name, c]) => ({ name, slug: topicSlug(name), ...c }))
-    .sort((a, b) => b.articles + b.research - (a.articles + a.research));
+    .sort(
+      (a, b) => rank(a.name) - rank(b.name) || b.articles + b.research - (a.articles + a.research),
+    );
 }
 
-/** "everything published", "Housing", "Housing and Polling", "A, B and C". */
+/** The prototype's wording: "anything on the site", one topic by name, or
+ *  "N topics". */
 export function pickedPhrase(picks: string[]): string {
-  if (!picks.length) return "everything published";
+  if (!picks.length) return "anything on the site";
   if (picks.length === 1) return picks[0] ?? "";
-  return `${picks.slice(0, -1).join(", ")} and ${picks[picks.length - 1]}`;
+  return `${picks.length} topics`;
 }
 
 export function consentWording(picks: string[]): string {
   return `By subscribing you agree to receive Canopticon's weekly email from Chris Telford, covering ${pickedPhrase(picks)}. You'll confirm by email first, and you can unsubscribe at any time with one click. Contact: canopticon.com`;
+}
+
+/** The combined feed's address for these picks, as the prototype builds it. */
+export function feedAddress(picks: string[]): string {
+  if (!picks.length) return "canopticon.com/feed.xml";
+  if (picks.length === 1) return `canopticon.com/feeds/${topicSlug(picks[0] ?? "")}.xml`;
+  return `canopticon.com/feed.xml?t=${picks.map(topicSlug).join(",")}`;
 }
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -73,28 +103,27 @@ export function renderFollow(
     )
     .join("")}</div>`;
 
-  const box = (checked: boolean) =>
-    // The tick is drawn by CSS from the input's own :checked state, so the box
-    // tells the truth with or without script.
-    `<span aria-hidden="true" class="f-box${checked ? " on" : ""}"></span>`;
-  const everything = `<label class="f-topic"><input type="checkbox" name="everything" value="1"${picks.length ? "" : " checked"} data-everything />${box(!picks.length)}<span class="f-tb"><span class="tpill" style="background:var(--tint);color:var(--ink);padding:3px 11px">Everything</span><span class="f-ts">Every article, paper and research document</span></span><a href="/feed.xml" class="f-rss">RSS</a></label>`;
+  const box = (fill: string) =>
+    // The tick is drawn by CSS from the input's own :checked state (and, for a
+    // topic, from Everything's), so the box tells the truth without script.
+    `<span aria-hidden="true" class="f-box" style="--fill:${fill}"></span>`;
+  const totals = {
+    articles: libraryItems().filter((r) => r.kind === "Article").length,
+    research: libraryItems().filter((r) => r.kind === "Research" && r.shelf !== "investigation")
+      .length,
+  };
+
+  const everything = `<label class="f-topic"><input type="checkbox" name="everything" value="1"${picks.length ? "" : " checked"} data-everything />${box("#2f55c4")}<span class="f-tb"><span class="tpill" style="background:var(--tint);color:var(--ink);padding:3px 11px">Everything</span><span class="f-ts">Every new article and research document — ${count(totals.articles, "article", "articles")} and ${count(totals.research, "research document", "research documents")} so far.</span></span><a href="/feed.xml" class="f-rss">RSS</a></label>`;
   const topicRows = topics
     .map((t) => {
       const on = picks.includes(t.name);
       const [bg, fg] = topicColours(t.name);
-      const sub = [
-        t.articles ? count(t.articles, "article", "articles") : "",
-        t.research ? count(t.research, "research document", "research documents") : "",
-      ]
-        .filter(Boolean)
-        .join(" · ");
-      return `<label class="f-topic"><input type="checkbox" name="topic" value="${esc(t.name)}"${on ? " checked" : ""} data-topic="${esc(t.slug)}" />${box(on)}<span class="f-tb"><span class="tpill" style="background:${bg};color:${fg};padding:3px 11px">${esc(t.name)}</span><span class="f-ts">${esc(sub)}</span></span><a href="/feeds/${esc(t.slug)}.xml" class="f-rss">RSS</a></label>`;
+      const sub = `${count(t.articles, "article", "articles")} · ${t.research} research`;
+      return `<label class="f-topic"><input type="checkbox" name="topic" value="${esc(t.name)}"${on ? " checked" : ""} data-topic="${esc(t.slug)}" />${box(fg)}<span class="f-tb"><span class="tpill" style="background:${bg};color:${fg};padding:3px 11px">${esc(t.name)}</span><span class="f-ts">${esc(sub)}</span></span><a href="/feeds/${esc(t.slug)}.xml" class="f-rss">RSS</a></label>`;
     })
     .join("");
 
-  const feedUrl = picks.length
-    ? `canopticon.com/feed.xml?t=${picks.map(topicSlug).join(",")}`
-    : "canopticon.com/feed.xml";
+  const feedUrl = feedAddress(picks);
 
   const col = `<div class="f-col"><h1 class="h-topic" style="margin:0">New research, once a week</h1><p class="f-lede">One email a week, sent only when something new is published: the latest articles and research documents in the topics you choose. Free.</p><form method="post" action="/follow" class="f-form" data-follow-form>${form}<h2 class="f-h2">What this week's email would include</h2>${preview}<h2 class="f-h2">Choose topics <span>· optional</span></h2><p class="f-sub">Leave it on Everything, or narrow the email to the subjects you care about.</p><div class="f-topics">${everything}<div class="f-or">Or choose topics</div>${topicRows}</div></form></div>`;
 

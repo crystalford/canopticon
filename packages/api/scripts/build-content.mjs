@@ -77,15 +77,31 @@ function scalar(raw) {
   return unentity(raw);
 }
 
-/** What "a literal substring" is measured against: emphasis markers and
- *  backslash escapes removed, whitespace collapsed. Nothing else is forgiven —
- *  not case, not quote style, not punctuation. */
+/** What "a literal substring" is measured against — docs/blackbox/ESSAY-CONTRACT.md
+ *  §4: the comparison strips Markdown formatting characters, emphasis (**, *)
+ *  and code backticks, "and nothing else — never curly/straight quote
+ *  normalisation, never whitespace collapsing". Those alter the characters of
+ *  a quotation and hide real mismatches. */
+/** content/prompts/<name>.md → the text inside its first fenced block (the
+ *  prompt to paste), or the whole file when it has none. Optional folder. */
+function readPrompts() {
+  const dir = join(CONTENT, "prompts");
+  const out = {};
+  let files = [];
+  try {
+    files = readdirSync(dir).filter((f) => f.endsWith(".md"));
+  } catch {
+    return out;
+  }
+  for (const f of files) {
+    const md = readFileSync(join(dir, f), "utf8");
+    out[f.slice(0, -3)] = (/```[^\n]*\n([\s\S]*?)```/.exec(md)?.[1] ?? md).trim();
+  }
+  return out;
+}
+
 export function verbatimNormal(s) {
-  return s
-    .replace(/[*_`]/g, "")
-    .replace(/\\([^\w\s])/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
+  return s.replace(/[*`]/g, "");
 }
 
 const readJson = (f) => JSON.parse(readFileSync(join(CONTENT, f), "utf8"));
@@ -190,6 +206,11 @@ function build() {
     articles,
     papers,
     pages,
+    // Per-article details the hand-built prototype pages carry and the
+    // Markdown export did not: short contents labels, the named sources, the
+    // "one of a pair" note, curated read-next picks.
+    articleExtras: readJson("article-extras.json"),
+    prompts: readPrompts(),
     verified: { quotes: checked },
   };
   mkdirSync(dirname(OUT), { recursive: true });

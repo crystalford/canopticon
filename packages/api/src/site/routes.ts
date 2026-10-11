@@ -9,13 +9,14 @@ import { OWN_UPLOADS_SQL } from "../admin/runtime";
 import type { AuthContext } from "../auth/middleware";
 import { one } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
-import { adminModel } from "./admin-data";
+import { adminModel, waitingCount } from "./admin-data";
 import {
   allPapers,
   anyResearchDoc,
   article,
   libraryItems,
   paper,
+  privatePage,
   problem,
   researchDoc,
   staticPage,
@@ -32,7 +33,7 @@ import {
   rssFeed,
   topicsFromParam,
 } from "./feeds";
-import { html } from "./layout";
+import { html, setWaiting } from "./layout";
 import { passageHref } from "./md";
 import { renderAdmin } from "./pages/admin";
 import { renderArticle, renderPaper } from "./pages/article";
@@ -56,7 +57,14 @@ const app = new Hono<AuthContext>();
 // Published Admin uploads join the public lists (site/uploads.ts). Cached per
 // isolate for a minute; the static assets do not need them.
 app.use("*", async (c, next) => {
-  if (!/^\/(site\.(css|js)|favicon)/.test(c.req.path)) await refreshUploads(c.env);
+  if (!/^\/(site\.(css|js)|favicon)/.test(c.req.path)) {
+    await refreshUploads(c.env);
+    // The Admin pill carries its count on every page, as the prototype does.
+    if (signedIn(c)) {
+      const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+      setWaiting(userId ? await waitingCount(c.env, userId) : 0);
+    }
+  }
   await next();
 });
 type Env = AuthContext["Bindings"];
@@ -154,6 +162,14 @@ app.get("/admin", async (c) => {
 
 /** A private read of a waiting upload or a held document: the same page a
  *  reader would get, marked private and kept out of every index. */
+// The projects (Aldershot, Ancaster): ported as-is, for the author only.
+app.get("/admin/projects/:id", (c, next) => {
+  const path = `/admin/projects/${c.req.param("id")}`;
+  if (!signedIn(c)) return html(signIn(path), { status: 401 });
+  const p = privatePage(path);
+  return p ? html(renderStatic(p, { signedIn: true })) : next();
+});
+
 app.get("/admin/review/:id", async (c) => {
   if (!signedIn(c)) return html(signIn(c.req.path), { status: 401 });
   const id = c.req.param("id");
@@ -709,6 +725,12 @@ app.get("/articles/:slug", async (c, next) => {
   }
   const p = paper(slug);
   if (p) {
+    // The papers are hand-built in the prototype (term links, numbered
+    // citations, the reference list, the series) and are ported as-is
+    // (content/pages/paper-*.html). The Markdown stays the source for the
+    // twin, the feeds and llms-full.txt.
+    const built = staticPage(`/articles/${p.slug}`);
+    if (built && !md) return html(renderStatic(built, { signedIn: signedIn(c) }));
     if (md) {
       return markdownTwin(
         {

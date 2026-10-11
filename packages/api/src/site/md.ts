@@ -13,7 +13,7 @@
 // and wears the dotted brick underline: "No receipt behind this sentence — it
 // is the author's". [label](doc:<id>) is a plain link to a document.
 // `> **Objection: …**` blocks, pipe tables (with an italic caption after),
-// and <figure data-kind="chart|pull"> are the only other structures.
+// and <figure data-kind="chart|pull|names"> are the only other structures.
 
 import { esc } from "./layout";
 
@@ -237,6 +237,21 @@ function figure(kind: string, attrs: string, lines: string[], ctx: ArticleContex
     const chip = title === null ? "" : receipt(doc, section, passage, ctx);
     return `<figure class="pull"><blockquote>${inline(text)}</blockquote><figcaption>${chip}</figcaption></figure>`;
   }
+  if (kind === "names") {
+    // Two named things side by side: "- label | name | definition | foot".
+    // The definition may be a <q>, verified at build like any other.
+    const green = /tone="green"/.test(attrs);
+    const cards = lines
+      .filter((l) => /^-\s/.test(l))
+      .map((l) => {
+        const [label = "", name = "", def = "", foot = ""] = l
+          .replace(/^-\s+/, "")
+          .split("|")
+          .map((x) => x.trim());
+        return `<div class="name-card"><div class="name-l">${esc(label)}</div><div class="name-n">${esc(name)}</div><div class="name-d">${articleInline(def, ctx)}</div>${foot ? `<div class="name-f">${articleInline(foot, ctx, !green)}</div>` : ""}</div>`;
+      });
+    return `<div class="names${green ? " green" : ""}">${cards.join("")}</div>`;
+  }
   let caption = "";
   let note = "";
   const bars: string[] = [];
@@ -277,7 +292,7 @@ export function articleHtml(src: string, ctx: ArticleContext): { html: string; h
       i++;
       continue;
     }
-    const fig = /^<figure\s+data-kind="(chart|pull)"([^>]*)>\s*$/.exec(l);
+    const fig = /^<figure\s+data-kind="(chart|pull|names)"([^>]*)>\s*$/.exec(l);
     if (fig) {
       const body: string[] = [];
       i++;

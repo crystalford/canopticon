@@ -195,6 +195,26 @@ describe("the Admin page", () => {
   });
 });
 
+describe("the private pages, signed in", () => {
+  it("serves the project pages to the author", async () => {
+    const { db } = makeDb();
+    const res = await app.fetch(await signedIn("/admin/projects/ancaster"), envWith(db));
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain(">Ancaster<");
+    expect(html).toContain('<meta name="robots" content="noindex,follow" />');
+  });
+
+  it("offers the author a Marked useful sort, with the whole list on one page", async () => {
+    const { db } = makeDb();
+    const res = await app.fetch(await signedIn("/library?sort=useful"), envWith(db));
+    const html = await res.text();
+    expect(html).toContain("Marked useful");
+    expect(html).toContain("data-useful-sort");
+    expect(html).not.toContain('aria-label="Pages"');
+  });
+});
+
 describe("Admin's buttons", () => {
   const owned = {
     id: "p1",
