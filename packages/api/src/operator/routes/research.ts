@@ -49,7 +49,7 @@ app.post("/search/research", async (c) => {
 // a schedule. This is that button.
 app.post("/research/advance", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
+  if (!userId) return c.redirect("/desk");
   const { advanceResearchRun, reapStaleResearchRuns } = await import(
     "../../graph/lib/deep-research"
   );
@@ -72,7 +72,7 @@ app.post("/research/advance", async (c) => {
   // A second "/" OR a backslash: browsers parse "/\evil.com" as "//evil.com".
   if (/^\/(?![/\\])/.test(back)) return c.redirect(back);
   return c.redirect(
-    `/library?research=${encodeURIComponent(report?.advanced ? "advanced" : "nothing-pending")}`,
+    `/desk?research=${encodeURIComponent(report?.advanced ? "advanced" : "nothing-pending")}`,
   );
 });
 
@@ -131,7 +131,7 @@ app.get("/research-status", async (c) => {
 // unreviewed draft doesn't get to seed graph facts either) or discard it.
 app.get("/library/research/:id/review", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
+  if (!userId) return c.redirect("/desk");
   const row = await one<{
     id: string;
     slug: string;
@@ -143,7 +143,7 @@ app.get("/library/research/:id/review", async (c) => {
     "SELECT id, slug, title, body_md, metadata FROM pieces WHERE id = ? AND user_id = ? AND publication_status = 'working-material'",
     [c.req.param("id"), userId],
   );
-  if (!row) return c.redirect("/library");
+  if (!row) return c.redirect("/desk");
   let meta: { label?: string; angle?: string | null; source_piece_ids?: string[] } = {};
   try {
     meta = JSON.parse(row.metadata || "{}");
@@ -178,7 +178,7 @@ app.get("/library/research/:id/review", async (c) => {
       title: "Review research draft",
       sub: "written automatically, unpublished, unread until now · nothing has entered the record yet",
       body,
-      activeNav: "/library",
+      activeNav: "/desk",
     }),
   );
 });
@@ -189,13 +189,13 @@ app.get("/library/research/:id/review", async (c) => {
 // nothing here happens before the operator reads it.
 app.post("/library/research/:id/publish", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
+  if (!userId) return c.redirect("/desk");
   const row = await one<{ slug: string; title: string; metadata: string }>(
     c.env.DB,
     "SELECT slug, title, metadata FROM pieces WHERE id = ? AND user_id = ? AND publication_status = 'working-material'",
     [c.req.param("id"), userId],
   );
-  if (!row) return c.redirect("/library");
+  if (!row) return c.redirect("/desk");
   const now = new Date().toISOString();
   await run(
     c.env.DB,
@@ -230,13 +230,13 @@ app.post("/library/research/:id/publish", async (c) => {
 // there's nothing downstream to clean up — a plain delete is safe.
 app.post("/library/research/:id/discard", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/library");
+  if (!userId) return c.redirect("/desk");
   await run(
     c.env.DB,
     "DELETE FROM pieces WHERE id = ? AND user_id = ? AND publication_status = 'working-material'",
     [c.req.param("id"), userId],
   );
-  return c.redirect("/library");
+  return c.redirect("/desk");
 });
 
 // THE BRIEF AS A FILE. The other way out of the review panel on the research

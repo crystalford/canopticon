@@ -45,8 +45,8 @@ describe("one site, permission layers — /op/* GET dissolves into public routes
     "/op/synthesis": "/",
     "/op/studio": "/",
     "/op/outputs": "/research",
-    "/op/library": "/library",
-    "/op/library/some-slug": "/library/some-slug",
+    "/op/library": "/desk",
+    "/op/library/some-slug": "/p/some-slug",
   })) {
     it(`${from} redirects to ${to}`, async () => {
       const res = await app.fetch(new Request(`http://test${from}`), env);

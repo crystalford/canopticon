@@ -332,7 +332,7 @@ async function resolveOneHit(
       if (!row) return null;
       return {
         slug: row.slug,
-        url: `/library/${row.slug}`,
+        url: `/p/${row.slug}`,
         kind: "piece",
         title: row.title ?? md.title ?? md.id,
         excerpt: (row.excerpt ?? "").replace(/\s+/g, " ").trim(),

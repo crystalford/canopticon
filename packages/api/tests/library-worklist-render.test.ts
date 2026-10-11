@@ -146,7 +146,7 @@ async function operatorLibrary(query = ""): Promise<string> {
   );
   const cookieValue = buildSessionCookie(cookie).split(";")[0] as string;
   const res = await app.fetch(
-    new Request(`http://test/library${query}`, { headers: { cookie: cookieValue } }),
+    new Request(`http://test/desk${query}`, { headers: { cookie: cookieValue } }),
     env,
   );
   expect(res.status).toBe(200);
@@ -155,7 +155,7 @@ async function operatorLibrary(query = ""): Promise<string> {
 
 /** The row's own cell, so a per-row claim is made about that row alone. */
 function rowFor(html: string, id: string): string {
-  const start = html.indexOf(`href="/library/${id}" class="ac"`);
+  const start = html.indexOf(`href="/p/${id}" class="ac"`);
   expect(start).toBeGreaterThan(-1);
   const end = html.indexOf("</tr>", start);
   return html.slice(start, end);
@@ -178,8 +178,8 @@ describe("/library — what the record wants", () => {
     const li = wants.slice(wants.indexOf('class="lead lead-bridge"'), wants.indexOf("</li>"));
     expect(li).toContain("bridge between sections");
     expect(li).toContain("allostatic load — in Health &amp; bodies and Media &amp; mind");
-    expect(li).toContain('class="lead-piece" href="/library/done-doc"');
-    expect(li).toContain('class="lead-other" href="/library/fresh-doc"');
+    expect(li).toContain('class="lead-piece" href="/p/done-doc"');
+    expect(li).toContain('class="lead-other" href="/p/fresh-doc"');
     // Two dig forms, both kind=bridge, both parented to the newer document.
     expect(li.match(/action="\/op\/leads\/dig"/g)?.length).toBe(2);
     expect(li.match(/name="kind" value="bridge"/g)?.length).toBe(2);
@@ -212,9 +212,7 @@ describe("/library — what the record wants", () => {
   it("shows lineage: Grew from on the child, a branch count on the parent", async () => {
     const html = await operatorLibrary();
     const child = rowFor(html, "child-doc");
-    expect(child).toContain(
-      'Grew from <a class="ac" href="/library/done-doc">A Processed Document</a>',
-    );
+    expect(child).toContain('Grew from <a class="ac" href="/p/done-doc">A Processed Document</a>');
     expect(child).toContain("What connects these two?");
     const parent = rowFor(html, "done-doc");
     expect(parent).toContain("1 branch<");

@@ -748,7 +748,7 @@ export async function libraryModel(env: PublicEnv, opts: LibraryModelOpts): Prom
       ? `/op/library/research/${p.id}/review`
       : p.publication_status === "working-material"
         ? null
-        : `/library/${p.slug}`;
+        : `/p/${p.slug}`;
     const isRawFilename = looksLikeMachineFilename(p.title);
     const proc = procRows.get(p.id);
     const receipt = receipts.get(p.id);

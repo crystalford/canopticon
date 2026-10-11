@@ -134,7 +134,7 @@ describe("searchModel", () => {
       slug: "budget-2026",
       kind: "piece",
       section: "Money & markets",
-      url: "/library/budget-2026",
+      url: "/p/budget-2026",
     });
     expect(m.candidates).toBe(1);
   });

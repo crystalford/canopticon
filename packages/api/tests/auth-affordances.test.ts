@@ -60,7 +60,7 @@ describe("attachAuthState — the one-site permission middleware", () => {
   // had nothing to tell them why. They reported being unable to find where to
   // upload more than once, and this was the reason.
   it("anonymous /library says how to sign in rather than silently redirecting", async () => {
-    const res = await app.fetch(new Request("http://test/library"), env);
+    const res = await app.fetch(new Request("http://test/desk"), env);
     const html = await res.text();
     expect(res.status).toBe(401);
     // /op/login, not /auth/login. This assertion used to pin the broken link:
@@ -85,10 +85,10 @@ describe("attachAuthState — the one-site permission middleware", () => {
     const res = await app.fetch(new Request("http://test/"), env);
     const html = await res.text();
     expect(res.status).toBe(200);
-    // The stream is dark-themed (data-mode="operator"); the anonymous public
-    // home is paper-themed (data-mode="public").
-    expect(html).toContain('data-mode="public"');
-    expect(html).not.toContain('data-mode="operator"');
+    // The Black Box front page: one public register, and no way into the
+    // desk for a reader who is not signed in.
+    expect(html).toContain('class="hd-in"');
+    expect(html).not.toContain('class="admin"');
   });
 
   // The security property, unchanged by the above: a forged cookie is treated
@@ -111,7 +111,7 @@ describe("attachAuthState — the one-site permission middleware", () => {
     // And the operator-only surface stays shut to it — sign-in page, never
     // the working surface.
     const lib = await app.fetch(
-      new Request("http://test/library", { headers: { cookie: cookieValue } }),
+      new Request("http://test/desk", { headers: { cookie: cookieValue } }),
       env,
     );
     expect(lib.status).toBe(401);
@@ -130,13 +130,12 @@ describe("attachAuthState — the one-site permission middleware", () => {
     const home = await app.fetch(await loggedInRequest("/"), envWithOp);
     expect(home.status).toBe(200);
     const homeHtml = await home.text();
-    expect(homeHtml).toContain('data-mode="public"');
-    expect(homeHtml).not.toContain('data-mode="operator"');
+    expect(homeHtml).toContain('class="hd-in"');
 
     // Library: operator sees the same paper page, plus the op-strip with the
     // bulk-extract actions. The operator strip only renders when the
     // operator is resolved (an operator row exists in the DB).
-    const lib = await app.fetch(await loggedInRequest("/library"), envWithOp);
+    const lib = await app.fetch(await loggedInRequest("/desk"), envWithOp);
     expect(lib.status).toBe(200);
     const libHtml = await lib.text();
     expect(libHtml).toContain('class="op-strip"');
@@ -155,11 +154,11 @@ describe("attachAuthState — the one-site permission middleware", () => {
     // It points at /library directly now rather than /op/library, which was
     // a 302 to the same place. One less hop, and the href matches the nav
     // entry beside it so both say the same thing.
-    expect(homeHtml).toContain('href="/library"');
+    expect(homeHtml).toContain('href="/desk"');
   });
 
   it("anonymous pages never show the upload form or the operator nav link", async () => {
-    const res = await app.fetch(new Request("http://test/library"), env);
+    const res = await app.fetch(new Request("http://test/desk"), env);
     const html = await res.text();
     expect(html).not.toContain('action="/op/feed/upload"');
     expect(html).not.toContain('href="/op/library"');
@@ -178,27 +177,18 @@ describe("the operator can find where to upload", () => {
   // These pin the fix at the level the failure actually occurred: not "a link
   // exists somewhere in the HTML", but "the word Library is in the nav, and
   // the operator bar says what it is for".
-  it("puts Library in the primary nav once signed in", async () => {
+  it("puts the desk in the header once signed in, and nowhere for a reader", async () => {
     const dbWithOperator = makeEmptyDb({ withOperator: true });
     const res = await app.fetch(await loggedInRequest("/"), { ...env, DB: dbWithOperator });
     const html = await res.text();
-    const nav = html.slice(html.indexOf('<nav class="nav">'));
-    expect(nav.slice(0, 400)).toContain('href="/library"');
-    expect(nav.slice(0, 400)).toContain("Library");
-  });
-
-  it("gives the operator ONE nav — Library inside it, sign out beside search, no second bar", async () => {
-    const dbWithOperator = makeEmptyDb({ withOperator: true });
-    const res = await app.fetch(await loggedInRequest("/"), { ...env, DB: dbWithOperator });
-    const html = await res.text();
-    // The Library link sits INSIDE .nav-links, not as a stray line between
-    // <nav> and its inner container (which is how it used to render).
-    const links = html.slice(html.indexOf('<div class="nav-links">'));
-    expect(links.slice(0, 120)).toContain('<a href="/library" class="nav-op">Library</a>');
-    expect(html).toContain('href="/auth/logout" class="nav-op-out"');
-    expect(html).not.toContain("op-topbar");
-    expect(html).not.toContain("operator →");
-    expect(html.match(/<nav class="nav">/g)?.length).toBe(1);
+    // The Black Box header (docs/blackbox/README.md §Shared chrome): Library
+    // and About for everyone, and an Admin pill to /desk only when signed in.
+    const header = html.slice(html.indexOf('<header class="hd-in">'));
+    expect(header.slice(0, 600)).toContain('<a href="/library"');
+    expect(header.slice(0, 600)).toContain('<a href="/desk" class="admin">Admin');
+    const anon = await (await app.fetch(new Request("http://test/"), env)).text();
+    expect(anon).not.toContain('class="admin"');
+    expect(html.match(/<nav aria-label="Primary"/g)?.length).toBe(1);
   });
 
   it("leaves a reader's nav completely unchanged", async () => {
@@ -206,8 +196,8 @@ describe("the operator can find where to upload", () => {
     // has no account and nothing to do there.
     const res = await app.fetch(new Request("http://test/"), env);
     const html = await res.text();
-    const nav = html.slice(html.indexOf('<nav class="nav">'));
-    expect(nav.slice(0, 400)).not.toContain('href="/library"');
+    const nav = html.slice(html.indexOf('<header class="hd-in">'));
+    expect(nav.slice(0, 600)).not.toContain('href="/desk"');
     expect(html).not.toContain("op-topbar");
   });
 });

@@ -248,7 +248,7 @@ describe("libraryModel — the shape under /library", () => {
     // Nothing extracted in this fixture: the receipt is null, never zeros.
     expect(row(m, "fresh-doc").receipt).toBeNull();
     expect(row(m, "fresh-doc").chip).toBeNull();
-    expect(row(m, "fresh-doc").href).toBe("/library/fresh-doc");
+    expect(row(m, "fresh-doc").href).toBe("/p/fresh-doc");
     expect(row(m, "fresh-doc").kindLabel).toBe("research report");
   });
 

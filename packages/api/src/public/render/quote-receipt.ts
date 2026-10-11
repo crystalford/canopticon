@@ -89,7 +89,7 @@ export async function renderQuoteReceipt(env: PublicEnv, quoteId: string): Promi
     "@context": "https://schema.org",
     "@type": "Quotation",
     text: quote.verbatim_text,
-    isBasedOn: quote.piece_slug ? `https://canopticon.com/library/${quote.piece_slug}` : undefined,
+    isBasedOn: quote.piece_slug ? `https://canopticon.com/p/${quote.piece_slug}` : undefined,
     citation: quote.piece_title ?? quote.source_node_label,
     dateCreated: quote.created_at.slice(0, 10),
     creator: { "@id": "https://canopticon.com/#org" },
@@ -119,7 +119,7 @@ export async function renderQuoteReceipt(env: PublicEnv, quoteId: string): Promi
 </section>`;
 
   const sourceLink = quote.piece_slug
-    ? `<a class="q-src-link" href="/library/${escapeAttr(quote.piece_slug)}">${escapeHtml(quote.piece_title ?? quote.source_node_label)}</a>`
+    ? `<a class="q-src-link" href="/p/${escapeAttr(quote.piece_slug)}">${escapeHtml(quote.piece_title ?? quote.source_node_label)}</a>`
     : `<span class="q-src-link">${escapeHtml(quote.source_node_label)}</span>`;
 
   const offsetLine =
@@ -309,7 +309,7 @@ export async function renderQuoteReceipt(env: PublicEnv, quoteId: string): Promi
     title: `Verbatim quote · From ${quote.piece_title ?? quote.source_node_label}`,
     description: quote.verbatim_text.slice(0, 200),
     body,
-    activeNav: "/library",
+    activeNav: "/desk",
     zone: "library",
   });
 }

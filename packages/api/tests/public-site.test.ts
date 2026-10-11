@@ -45,12 +45,11 @@ describe("public site — Phase 1 skeleton", () => {
     expect(res.headers.get("content-type")).toMatch(/text\/html/);
     const html = await res.text();
     expect(html).toMatch(/<!doctype html>/i);
-    expect(html).toMatch(/<title>CANOPTICON[^<]*<\/title>/);
+    expect(html).toMatch(/<title>Canopticon<\/title>/);
     expect(html).toContain("canopticon");
-    expect(html).toContain("research documents kept whole");
-    expect(html).toMatch(/\/styles\.css\?v=/);
-    // The design build's data-mode toggle is on the root <html>
-    expect(html).toMatch(/<html[^>]*data-mode="public"/);
+    expect(html).toContain("research, kept whole and written from");
+    // The Black Box stylesheet, cache-busted by its own hash.
+    expect(html).toMatch(/\/site\.css\?v=/);
     // Site-level identity, so every page's publisher resolves to one
     // organisation rather than a fresh one per URL.
     expect(html).toContain('"@id":"https://canopticon.com/#org"');
@@ -78,7 +77,7 @@ describe("public site — Phase 1 skeleton", () => {
   });
 
   it("a missing detail slug returns the styled 404", async () => {
-    for (const path of ["/p/does-not-exist", "/library/does-not-exist", "/q/does-not-exist"]) {
+    for (const path of ["/p/does-not-exist", "/q/does-not-exist"]) {
       const res = await app.fetch(new Request(`http://test${path}`), env);
       expect(res.status, `path ${path}`).toBe(404);
       const html = await res.text();
@@ -97,7 +96,7 @@ describe("public site — Phase 1 skeleton", () => {
       "/activity": "/",
       "/instruments": "/",
       "/studio/anything/here": "/",
-      "/bulk-expand": "/library",
+      "/bulk-expand": "/desk",
       "/s/mark-carney": "/search?q=mark%20carney",
       "/record/mark-carney": "/search?q=mark%20carney",
       "/t/mark-carney": "/search?q=mark%20carney",
@@ -156,7 +155,7 @@ describe("retired rooms redirect to the surface that does their job", () => {
     "/how-it-works": "/method",
     "/investigations": "/research",
     "/patterns": "/research",
-    "/watchlist": "/library",
+    "/watchlist": "/desk",
     "/videos": "/",
   })) {
     it(`${from} → ${to}`, async () => {

@@ -136,7 +136,7 @@ describe("redirect targets are confined to this site", () => {
       const res = await postForm(env, "/op/research/advance", { return_to: bad });
       expect(res.status).toBe(302);
       const loc = res.headers.get("location") ?? "";
-      expect(loc.startsWith("/library?research=")).toBe(true);
+      expect(loc.startsWith("/desk?research=")).toBe(true);
     },
   );
 
@@ -213,7 +213,7 @@ describe("operator queries are keyed on the operator", () => {
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as { reviewUrl?: string };
-    expect(body.reviewUrl).toBe("/library/transcript");
+    expect(body.reviewUrl).toBe("/p/transcript");
     const pieceLookup = calls.find((c) => /SELECT slug FROM pieces WHERE id = \?/.test(c.sql));
     expect(pieceLookup).toBeDefined();
     expect(pieceLookup?.sql).toMatch(/AND user_id = \?/);

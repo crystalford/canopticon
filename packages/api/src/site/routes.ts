@@ -14,6 +14,8 @@ import { docViewFromStore } from "./data";
 import { html } from "./layout";
 import { renderArticle, renderPaper } from "./pages/article";
 import { type DocView, renderDocument } from "./pages/document";
+import { renderFront } from "./pages/front";
+import { renderLibrary } from "./pages/library";
 import { SITE_JS } from "./script";
 import { SITE_CSS } from "./styles";
 
@@ -43,6 +45,28 @@ app.get(
       },
     }),
 );
+
+app.get("/", (c) => html(renderFront({ signedIn: signedIn(c) })));
+
+app.get("/library", (c) =>
+  html(
+    renderLibrary(
+      {
+        kind: c.req.query("kind") ?? c.req.query("k"),
+        topic: c.req.query("topic") ?? c.req.query("t"),
+        sub: c.req.query("sub"),
+        sort: c.req.query("sort"),
+        q: c.req.query("q"),
+        page: c.req.query("page"),
+        topics: c.req.query("topics"),
+      },
+      { signedIn: signedIn(c) },
+    ),
+  ),
+);
+
+// The old per-document URL. Documents live at /p/<id>.
+app.get("/library/:slug", (c) => c.redirect(`/p/${encodeURIComponent(c.req.param("slug"))}`, 301));
 
 // ---- documents --------------------------------------------------------------
 

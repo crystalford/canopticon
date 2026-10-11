@@ -139,7 +139,7 @@ describe("mailing list", () => {
 describe("the sign-in page does not inherit the mailing list's identity", () => {
   it("points at /op/login, the mount Access actually protects", async () => {
     const { db } = makeDb();
-    const res = await app.fetch(new Request("http://test/library"), envWith(db));
+    const res = await app.fetch(new Request("http://test/desk"), envWith(db));
     const html = await res.text();
     // Minting a session needs Access to have injected an identity header, and
     // Access is scoped to a path: it covers /op/* and cannot cover /*, since
@@ -151,7 +151,7 @@ describe("the sign-in page does not inherit the mailing list's identity", () => 
 
   it("is not labelled Mailing list", async () => {
     const { db } = makeDb();
-    const res = await app.fetch(new Request("http://test/library"), envWith(db));
+    const res = await app.fetch(new Request("http://test/desk"), envWith(db));
     expect(await res.text()).not.toContain("Mailing list");
   });
 
@@ -160,7 +160,7 @@ describe("the sign-in page does not inherit the mailing list's identity", () => 
     // sign-in page was a duplicate of the newsletter confirmation. A sign-in
     // page is not a destination to lead anyone to, so it claims nothing.
     const { db } = makeDb();
-    const res = await app.fetch(new Request("http://test/library"), envWith(db));
+    const res = await app.fetch(new Request("http://test/desk"), envWith(db));
     const html = await res.text();
     expect(html).not.toContain("/subscribed");
     expect(html).not.toMatch(/rel="canonical"/);

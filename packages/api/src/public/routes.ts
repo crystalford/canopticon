@@ -173,12 +173,12 @@ app.use("*", async (c, next) => {
   // working indicator and sign out. Same bar, same height, same rules.
   const status = await renderWorkStatusBadge(c.env.DB).catch(() => null);
   const statusHtml = status
-    ? `<a href="/library" class="nav-op-status${status.live ? " live" : ""}" title="${status.title}"><span class="nav-op-dot"></span>${status.text}</a>`
+    ? `<a href="/desk" class="nav-op-status${status.live ? " live" : ""}" title="${status.title}"><span class="nav-op-dot"></span>${status.text}</a>`
     : "";
   const withNav = html
     .replace(
       '<div class="nav-links">\n      ',
-      '<div class="nav-links">\n      <a href="/library" class="nav-op">Library</a>\n      ',
+      '<div class="nav-links">\n      <a href="/desk" class="nav-op">Library</a>\n      ',
     )
     .replace(
       '<a href="/search" class="nav-search"><span class="q">/</span> Search</a>',
@@ -418,7 +418,7 @@ function sectionsWithDocuments(
 // describes the wrong product is worse than no page, and a citation already in
 // the world must still land somewhere useful, so each goes to the live surface
 // that does its job now: subject-shaped URLs go to search for that subject.
-app.get("/watchlist", (c) => c.redirect("/library", 301));
+app.get("/watchlist", (c) => c.redirect("/desk", 301));
 app.get("/videos", (c) => c.redirect("/", 301));
 app.get("/activity", (c) => c.redirect("/", 301));
 app.get("/instruments", (c) => c.redirect("/", 301));
@@ -750,7 +750,7 @@ for (const prefix of [
 ]) {
   app.get(`/${prefix}/:slug`, (c) => c.redirect(searchFor(c.req.param("slug")), 301));
 }
-app.get("/doc/:slug", (c) => c.redirect(`/library/${c.req.param("slug")}`, 301));
+app.get("/doc/:slug", (c) => c.redirect(`/p/${c.req.param("slug")}`, 301));
 
 app.get("/record", (c) => c.redirect("/", 301));
 
@@ -780,7 +780,7 @@ app.get("/patterns", (c) => c.redirect("/research", 301));
 // than once, not being able to find where to upload. This was why.
 //
 // Now it says what it is and where the door is.
-app.get("/library", async (c) => {
+app.get("/desk", async (c) => {
   if (!c.get("is_operator")) return htmlResponse(renderSignedOut(), { status: 401 });
   const ingested = c.req.query("ingested");
   const error = c.req.query("error");
@@ -897,7 +897,7 @@ app.get("/search.json", async (c) => {
   });
 });
 
-app.get("/bulk-expand", (c) => c.redirect("/library", 301));
+app.get("/bulk-expand", (c) => c.redirect("/desk", 301));
 app.get("/studio/*", (c) => c.redirect("/", 301));
 
 // Citations — operator-only view of AI-crawler hits on public pages

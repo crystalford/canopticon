@@ -52,7 +52,7 @@ function renderLeadAnswer(a: LibraryLeadAnswer | null): string {
                     q.title ?? q.url,
                   )}</a>`
                 : q.slug
-                  ? `<a class="lead-ans-src" href="/library/${escapeAttr(q.slug)}">${escapeHtml(
+                  ? `<a class="lead-ans-src" href="/p/${escapeAttr(q.slug)}">${escapeHtml(
                       q.title ?? q.slug,
                     )}</a>`
                   : `<span class="lead-ans-src">${escapeHtml(q.title ?? "a stored document")}</span>`
@@ -136,11 +136,11 @@ export function renderLeads(leads: LibraryLead[], opts: { showPiece?: boolean } 
       // out of; under a document's own receipt that is already the row.
       const piece =
         opts.showPiece && l.pieceSlug
-          ? ` <a class="lead-piece" href="/library/${escapeAttr(l.pieceSlug)}">${escapeHtml(l.pieceTitle ?? l.pieceSlug)}</a>`
+          ? ` <a class="lead-piece" href="/p/${escapeAttr(l.pieceSlug)}">${escapeHtml(l.pieceTitle ?? l.pieceSlug)}</a>`
           : "";
       const other =
         (l.kind === "contradiction" || l.kind === "bridge") && l.otherSlug
-          ? ` <a class="lead-other" href="/library/${escapeAttr(l.otherSlug)}">${escapeHtml(l.otherTitle ?? "the other document")}</a>`
+          ? ` <a class="lead-other" href="/p/${escapeAttr(l.otherSlug)}">${escapeHtml(l.otherTitle ?? "the other document")}</a>`
           : "";
       const receipt = l.quoteId
         ? ` <a class="lead-receipt" href="/q/${escapeAttr(l.quoteId)}">quote ↗</a>`
