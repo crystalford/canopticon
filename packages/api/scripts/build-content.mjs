@@ -162,6 +162,21 @@ function build() {
     process.exit(1);
   }
 
+  // Hand-built pages ported as-is (docs/blackbox/README.md: "Three concepts
+  // and one open problem have hand-built long pages; port them as-is"), plus
+  // About. Each file opens with a <!--meta {json} --> line naming its route.
+  const pages = {};
+  for (const f of readdirSync(join(CONTENT, "pages")).filter((x) => x.endsWith(".html")).sort()) {
+    const text = readFileSync(join(CONTENT, "pages", f), "utf8");
+    const m = /^<!--meta (.*?) -->\n/.exec(text);
+    if (!m) {
+      console.error(`content: pages/${f} has no meta line`);
+      process.exit(1);
+    }
+    const meta = JSON.parse(m[1]);
+    pages[meta.route] = { ...meta, body: text.slice(m[0].length) };
+  }
+
   const store = {
     library: readJson("library.json"),
     questions: readJson("questions.json"),
@@ -172,6 +187,7 @@ function build() {
     research,
     articles,
     papers,
+    pages,
     verified: { quotes: checked },
   };
   mkdirSync(dirname(OUT), { recursive: true });

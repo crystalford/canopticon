@@ -63,6 +63,7 @@ a, button { transition: color .15s, border-color .15s, background-color .15s, op
 a:hover { color: var(--cobalt); border-color: var(--cobalt); }
 a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 3px; border-radius: 2px; }
 ::selection { background: var(--cobalt-soft); color: var(--ink); }
+mark { background: var(--mark); color: inherit; padding: 1px 0; border-radius: 3px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 input[type="search"] { -webkit-appearance: none; appearance: none; }
 .vh { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .tnum { font-variant-numeric: tabular-nums; }
@@ -336,6 +337,29 @@ a.row.rrow { grid-template-columns: 56px minmax(0, 1fr); gap: 4px 16px; }
 .facts .v { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
 .facts > a:hover span:first-child { color: var(--cobalt); }
 
+/* ---- concepts and open problems ------------------------------------------------ */
+
+.idea-wrap { display: flex; flex-wrap: wrap; gap: 40px 56px; align-items: flex-start; }
+.idea-col { flex: 999 1 520px; min-width: 0; max-width: 760px; }
+.idea-def { border-radius: 14px; padding: 24px 28px 22px; }
+.idea-def.concept { background: var(--green-wash); }
+.idea-def.problem { background: var(--clay-wash); }
+.idea-def-h { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+.idea-def.concept .idea-def-h { color: var(--green-ink); }
+.idea-def.problem .idea-def-h { color: var(--clay-ink); }
+.idea-def p { font-size: clamp(20px, 2vw, 24px); line-height: 1.45; margin: 0; letter-spacing: -.01em; color: var(--ink); }
+.idea-more { margin-top: 48px; font-size: 20px; font-weight: 600; letter-spacing: -.015em; color: var(--ink); border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
+
+/* ---- ideas ------------------------------------------------------------------ */
+
+.ilist { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--hair); border-radius: 14px; padding: 0 24px; margin-top: 16px; }
+a.irow { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 18px 14px; margin: 0 -14px; border-radius: 10px; border-bottom: 1px solid var(--hair); }
+a.irow.last { border-bottom: 0; }
+a.irow:hover { background: var(--tint); color: var(--ink); }
+.irow-t { font-size: 20px; line-height: 1.25; font-weight: 500; letter-spacing: -.015em; color: var(--ink); }
+.irow-d { font-size: 15px; line-height: 1.5; color: var(--body); max-width: 68ch; }
+.irow-m { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; color: var(--hint); }
+
 /* ---- the document page --------------------------------------------------- */
 
 .dwrap { display: flex; flex-wrap: wrap; gap: 40px 36px; align-items: flex-start; }
@@ -451,6 +475,8 @@ a.row.rrow { grid-template-columns: 56px minmax(0, 1fr); gap: 4px 16px; }
 .pager .pages a, .pager .pages span { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; padding: 0 8px; border-radius: 8px; font-variant-numeric: tabular-nums; }
 .pager .pages a:hover { background: var(--tint-3); }
 .pager .pages span[aria-current="page"] { background: var(--ink); color: var(--paper); font-weight: 600; }
+
+.static-toc li.on > a, .static-toc li.on { color: var(--ink); font-weight: 600; }
 
 /* ---- hovercards ----------------------------------------------------------- */
 

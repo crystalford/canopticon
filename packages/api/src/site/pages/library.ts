@@ -119,9 +119,31 @@ export interface LibraryQuery {
   topics?: string | undefined;
 }
 
-export function renderLibrary(query: LibraryQuery, opts: { signedIn?: boolean } = {}): string {
+/** The investigations shelf is the same list, fixed to one shelf, at its
+ *  own address (README §Investigations: "the same list shape"). */
+export interface Shelf {
+  base: string;
+  title: string;
+  lede: string;
+  searchLabel: string;
+}
+
+export const INVESTIGATIONS: Shelf = {
+  base: "/investigations",
+  title: "Investigations",
+  lede: 'Dossiers, fact-checks and stress tests on Canadian politics, finance and media. These are working files: open lines of inquiry, sourced but not conclusions, and kept apart from the main record. <a href="/library" class="ulink">← Back to the Library</a>',
+  searchLabel: "Filter investigations by title, summary or topic",
+};
+
+export function renderLibrary(
+  query: LibraryQuery,
+  opts: { signedIn?: boolean; shelf?: Shelf } = {},
+): string {
   const signedIn = opts.signedIn ?? false;
-  const [group0, member0] = KIND_PARAM[query.kind ?? ""] ?? ["all", "all"];
+  const shelf = opts.shelf;
+  const [group0, member0] = shelf
+    ? ["Investigation", "all"]
+    : (KIND_PARAM[query.kind ?? ""] ?? ["all", "all"]);
   const groupId = !signedIn && group0 === "Project" ? "all" : group0;
   const member = groupId === group0 ? member0 : "all";
   const group = GROUPS.find((g) => g.id === groupId) ?? GROUPS[0];
@@ -156,16 +178,17 @@ export function renderLibrary(query: LibraryQuery, opts: { signedIn?: boolean } 
     if (s.topics) sp.set("topics", s.topics);
     if (o.page && o.page > 1) sp.set("page", String(o.page));
     const str = sp.toString();
-    return `/library${str ? `?${str}` : ""}`;
+    return `${shelf?.base ?? "/library"}${str ? `?${str}` : ""}`;
   };
 
   // The kind tabs, counted within the chosen topic.
   const byTopic = all.filter((d) => topic === "all" || d.topic === topic);
-  const tabs = GROUPS.filter((g) => !g.signedIn || signedIn)
+  const tabs = GROUPS.filter((g) => (shelf ? g.id === groupId : !g.signedIn || signedIn))
     .map((g) => {
       const on = g.id === groupId;
       const n = byTopic.filter((d) => inGroup(d, g.id)).length;
-      return `<a href="${esc(href({ kind: g.id === "all" ? undefined : g.id, sub: "all", topics: undefined }))}" role="tab" aria-current="${on}"${on ? ' aria-selected="true"' : ""}>${esc(g.label)}<span class="n">${n}</span></a>`;
+      const label = shelf ? `All ${shelf.title.toLowerCase()}` : g.label;
+      return `<a href="${esc(href({ kind: shelf || g.id === "all" ? undefined : g.id, sub: "all", topics: undefined }))}" role="tab" aria-current="${on}"${on ? ' aria-selected="true"' : ""}>${esc(label)}<span class="n">${n}</span></a>`;
     })
     .join("");
 
@@ -212,7 +235,7 @@ export function renderLibrary(query: LibraryQuery, opts: { signedIn?: boolean } 
 
   // Research: "Kind of document".
   const subCount = new Map<string, number>();
-  if (groupId === "Research") {
+  if (groupId === "Research" || groupId === "Investigation") {
     for (const d of byKind) {
       if (d.kind !== "Research" || (topic !== "all" && d.topic !== topic)) continue;
       subCount.set(subName(d), (subCount.get(subName(d)) ?? 0) + 1);
@@ -240,7 +263,9 @@ export function renderLibrary(query: LibraryQuery, opts: { signedIn?: boolean } 
       (d) =>
         (member === "all" || d.kind === member) &&
         (topic === "all" || d.topic === topic) &&
-        (groupId !== "Research" || sub === "all" || subName(d) === sub) &&
+        ((groupId !== "Research" && groupId !== "Investigation") ||
+          sub === "all" ||
+          subName(d) === sub) &&
         (!q || `${d.title} ${d.dek ?? ""} ${d.topic}`.toLowerCase().includes(q)),
     )
     .slice()
@@ -279,7 +304,7 @@ export function renderLibrary(query: LibraryQuery, opts: { signedIn?: boolean } 
     .join("");
 
   const note =
-    groupId === "Investigation"
+    groupId === "Investigation" && !shelf
       ? `<div class="lib-note"><strong>Working files. </strong>Dossiers, fact-checks and stress tests on Canadian politics, finance and media — open lines of inquiry, sourced but not conclusions. They are kept out of "All" and the main topics.</div>`
       : member === "Question"
         ? `<div class="lib-note"><strong>Questions the research set out to answer. </strong>Each one is a question a document asks in its own words. Open the document to see the answer it reached and what it could not settle.</div>`
@@ -316,7 +341,7 @@ export function renderLibrary(query: LibraryQuery, opts: { signedIn?: boolean } 
     .map(([k, v]) => `<input type="hidden" name="${k}" value="${esc(v ?? "")}" />`)
     .join("");
 
-  const body = `<div><h1 class="h-page">Library</h1></div><p class="lede">Everything in one place. Articles argue from the research; papers are longer original work; research documents are kept whole; concepts and open problems are what the research turned up.</p><section style="margin-top:28px"><form class="lib-search" role="search" method="get" action="/library"><span aria-hidden="true">⌕</span>${hidden2}<input type="search" name="q" value="${esc(query.q ?? "")}" placeholder="Filter the library by title, summary or topic" aria-label="Filter the library" data-search-input /></form><div role="tablist" aria-label="Kind" class="seg">${tabs}</div><div class="tchips">${topicChips}</div>${members ? `<div class="mchips">${members}</div>` : ""}${subs}${hubTopic ? `<a href="/topics/${esc(topicSlug(topic))}" class="btn hub-link">Open the ${esc(topic)} topic page</a>` : ""}${sortBar}<div class="lib"><div class="lib-head"><span>${list.length} ${list.length === 1 ? "item" : "items"}</span><span>${groupId === "Figure" ? "Figure" : "Added"}</span></div>${note}${list.length ? rows : `<div class="lib-empty">Nothing matches. Try another topic or clear the filter.</div>`}${pager}</div></section>`;
+  const body = `<div><h1 class="h-page">${esc(shelf?.title ?? "Library")}</h1></div><p class="lede">${shelf?.lede ?? "Everything in one place. Articles argue from the research; papers are longer original work; research documents are kept whole; concepts and open problems are what the research turned up."}</p><section style="margin-top:28px"><form class="lib-search" role="search" method="get" action="${shelf?.base ?? "/library"}"><span aria-hidden="true">⌕</span>${hidden2}<input type="search" name="q" value="${esc(query.q ?? "")}" placeholder="${esc(shelf?.searchLabel ?? "Filter the library by title, summary or topic")}" aria-label="${esc(shelf ? `Filter ${shelf.title.toLowerCase()}` : "Filter the library")}" data-search-input /></form><div role="tablist" aria-label="Kind" class="seg">${tabs}</div><div class="tchips">${topicChips}</div>${members ? `<div class="mchips">${members}</div>` : ""}${subs}${hubTopic ? `<a href="/topics/${esc(topicSlug(topic))}" class="btn hub-link">Open the ${esc(topic)} topic page</a>` : ""}${sortBar}<div class="lib"><div class="lib-head"><span>${list.length} ${list.length === 1 ? "item" : "items"}</span><span>${groupId === "Figure" ? "Figure" : "Added"}</span></div>${note}${list.length ? rows : `<div class="lib-empty">Nothing matches. Try another topic or clear the filter.</div>`}${pager}</div></section>`;
 
   const ld = {
     "@context": "https://schema.org",
@@ -327,10 +352,10 @@ export function renderLibrary(query: LibraryQuery, opts: { signedIn?: boolean } 
     author: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
   };
   return shell({
-    title: "Library",
+    title: shelf?.title ?? "Library",
     description:
       "Articles, papers, research documents, concepts and open problems by Chris Telford.",
-    path: "/library",
+    path: shelf?.base ?? "/library",
     nav: "library",
     signedIn,
     noindex: !!query.q,

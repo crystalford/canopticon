@@ -13,7 +13,7 @@ import { kindColours, topicSlug } from "../theme";
 /** A note appears only where the author wrote one. */
 const NOTES: Record<string, string> = {
   "McLuhan & media theory":
-    'The record\'s largest line of work: a seven-paper series that takes McLuhan\'s "sense ratios" literally, the research documents that test it, and the concepts it named. They share one question: whether the balance of the senses is a physiological fact that media, drugs and illness each re-temper.',
+    "The record's largest line of work: a seven-paper series that takes McLuhan's \"sense ratios\" literally, the research documents that test it, and the concepts it named. They share one question: whether the balance of the senses is a physiological fact that media, drugs and illness each re-temper.",
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -103,7 +103,9 @@ export function renderTopic(topic: string, opts: { signedIn?: boolean } = {}): s
     ["figures", "Key figures", "Figure", fs, 8, `${lib}&kind=Figure`],
   ];
   const sections = parts
-    .map(([id, title, kind, rows, cap, more]) => section(id, title, kindColours(kind), rows, cap, more))
+    .map(([id, title, kind, rows, cap, more]) =>
+      section(id, title, kindColours(kind), rows, cap, more),
+    )
     .join("");
 
   // Works the research cites — only from documents a reader can open, and
@@ -150,7 +152,9 @@ export function renderTopic(topic: string, opts: { signedIn?: boolean } = {}): s
     ...parts
       .filter(([, , , rows]) => rows.length)
       .map(([id, title, , rows]) => ({ label: title, value: String(rows.length), href: `#${id}` })),
-    ...(works.length >= 4 ? [{ label: "Works cited", value: String(works.length), href: "#works" }] : []),
+    ...(works.length >= 4
+      ? [{ label: "Works cited", value: String(works.length), href: "#works" }]
+      : []),
   ];
   const latest = items[0]?.date ?? "";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(latest);
@@ -168,7 +172,9 @@ export function renderTopic(topic: string, opts: { signedIn?: boolean } = {}): s
       (f) =>
         `<a href="${esc(f.href)}"><span>${esc(f.label)}</span><span class="v">${esc(f.value)}</span></a>`,
     )
-    .join("")}<div><span>Latest</span><span class="v">${esc(latestLabel)}</span></div></div></aside>`;
+    .join(
+      "",
+    )}<div><span>Latest</span><span class="v">${esc(latestLabel)}</span></div></div></aside>`;
 
   const ld = {
     "@context": "https://schema.org",

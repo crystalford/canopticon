@@ -9,13 +9,16 @@ import { OWN_UPLOADS_SQL } from "../admin/runtime";
 import type { AuthContext } from "../auth/middleware";
 import { one } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
-import { article, paper, researchDoc } from "./content/store";
+import { article, paper, problem, researchDoc, staticPage, term } from "./content/store";
 import { docViewFromStore, topicBySlug } from "./data";
 import { html } from "./layout";
 import { renderArticle, renderPaper } from "./pages/article";
 import { type DocView, renderDocument } from "./pages/document";
 import { renderFront } from "./pages/front";
-import { renderLibrary } from "./pages/library";
+import { renderIdea } from "./pages/idea";
+import { renderIdeas } from "./pages/ideas";
+import { INVESTIGATIONS, type LibraryQuery, renderLibrary } from "./pages/library";
+import { renderStatic } from "./pages/static";
 import { renderTopic } from "./pages/topic";
 import { SITE_JS } from "./script";
 import { SITE_CSS } from "./styles";
@@ -49,22 +52,40 @@ app.get(
 
 app.get("/", (c) => html(renderFront({ signedIn: signedIn(c) })));
 
+function libraryQuery(q: (k: string) => string | undefined): LibraryQuery {
+  return {
+    kind: q("kind") ?? q("k"),
+    topic: q("topic") ?? q("t"),
+    sub: q("sub"),
+    sort: q("sort"),
+    q: q("q"),
+    page: q("page"),
+    topics: q("topics"),
+  };
+}
+
 app.get("/library", (c) =>
   html(
     renderLibrary(
-      {
-        kind: c.req.query("kind") ?? c.req.query("k"),
-        topic: c.req.query("topic") ?? c.req.query("t"),
-        sub: c.req.query("sub"),
-        sort: c.req.query("sort"),
-        q: c.req.query("q"),
-        page: c.req.query("page"),
-        topics: c.req.query("topics"),
-      },
+      libraryQuery((k) => c.req.query(k)),
       { signedIn: signedIn(c) },
     ),
   ),
 );
+
+app.get("/investigations", (c) =>
+  html(
+    renderLibrary(
+      libraryQuery((k) => c.req.query(k)),
+      {
+        signedIn: signedIn(c),
+        shelf: INVESTIGATIONS,
+      },
+    ),
+  ),
+);
+
+app.get("/ideas", (c) => html(renderIdeas({ signedIn: signedIn(c) })));
 
 // The old per-document URL. Documents live at /p/<id>.
 app.get("/library/:slug", (c) => c.redirect(`/p/${encodeURIComponent(c.req.param("slug"))}`, 301));
@@ -74,6 +95,30 @@ app.get("/library/:slug", (c) => c.redirect(`/p/${encodeURIComponent(c.req.param
 app.get("/topics/:slug", (c, next) => {
   const topic = topicBySlug(c.req.param("slug"));
   return topic ? html(renderTopic(topic, { signedIn: signedIn(c) })) : next();
+});
+
+// The hand-built pages: About, three concepts, one open problem.
+for (const route of [
+  "/about",
+  "/concepts/self-extinguishing-maintenance",
+  "/concepts/cpai",
+  "/concepts/the-overhearer",
+  "/open/hot-coffee-whey",
+]) {
+  app.get(route, (c, next) => {
+    const p = staticPage(route);
+    return p ? html(renderStatic(p, { signedIn: signedIn(c) })) : next();
+  });
+}
+
+app.get("/concepts/:id", (c, next) => {
+  const t = term(c.req.param("id"));
+  return t ? html(renderIdea(t, "Concept", { signedIn: signedIn(c) })) : next();
+});
+
+app.get("/open/:id", (c, next) => {
+  const p = problem(c.req.param("id"));
+  return p ? html(renderIdea(p, "Open problem", { signedIn: signedIn(c) })) : next();
 });
 
 // ---- documents --------------------------------------------------------------

@@ -110,6 +110,14 @@ export interface Paper {
   body: string;
 }
 
+export interface StaticPage {
+  route: string;
+  title: string;
+  description: string;
+  ld: unknown[];
+  body: string;
+}
+
 interface Store {
   library: LibraryItem[];
   questions: DerivedRow[];
@@ -120,6 +128,7 @@ interface Store {
   research: Record<string, ResearchDoc>;
   articles: Record<string, Article>;
   papers: Record<string, Paper>;
+  pages: Record<string, StaticPage>;
   verified: { quotes: number };
 }
 
@@ -173,3 +182,6 @@ export const term = (id: string): Idea | null => STORE.terms.find((t) => t.id ==
 export const problem = (id: string): Idea | null => STORE.problems.find((t) => t.id === id) ?? null;
 export const timeline = (topic: string): TimelineWork[] => STORE.timeline[topic] ?? [];
 export const verifiedQuoteCount = (): number => STORE.verified.quotes;
+
+/** A hand-built page by its route ("/about", "/concepts/cpai"…). */
+export const staticPage = (route: string): StaticPage | null => STORE.pages[route] ?? null;

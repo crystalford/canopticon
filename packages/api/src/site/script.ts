@@ -78,6 +78,16 @@ export const SITE_JS = `(function () {
     });
   });
 
+  // ---- copy link (the hand-built concept pages) -------------------------------
+  d.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-copy-link]");
+    if (!b || !navigator.clipboard) return;
+    navigator.clipboard.writeText(location.href.split("#")[0]).then(function () {
+      var was = b.textContent; b.textContent = "Copied";
+      setTimeout(function () { b.textContent = was; }, 1800);
+    });
+  });
+
   // ---- passage links ----------------------------------------------------------
   function landOnPassage() {
     var h = "";
