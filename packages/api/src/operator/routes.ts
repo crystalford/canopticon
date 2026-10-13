@@ -22,6 +22,7 @@ import readingsRoutes from "./routes/readings";
 import researchRoutes from "./routes/research";
 import sessionRoutes from "./routes/session";
 import uploadRoutes from "./routes/upload";
+import writeRoutes from "./routes/write";
 
 const app = operatorApp();
 
@@ -62,6 +63,7 @@ app.route("/", processingRoutes);
 app.route("/", leadsRoutes);
 app.route("/", exportRoutes);
 app.route("/", adminRoutes);
+app.route("/", writeRoutes);
 app.route("/", readingsRoutes);
 
 // ---- 301 redirects from old screen paths -------------------------------

@@ -288,5 +288,104 @@ export const SITE_JS = `(function () {
       if (n) n.textContent = String(i + 1).padStart(2, "0");
     });
   }
+  // ---- the workspace (/admin/write/<id>): chat beside the page ----------------
+  var ws = d.querySelector("[data-ws]");
+  if (ws) {
+    var wsForm = ws.querySelector("[data-ws-form]");
+    var wsLog = ws.querySelector("[data-ws-log]");
+    var wsText = wsForm.querySelector("textarea");
+    var wsSend = wsForm.querySelector("button[type=submit]");
+    var wsFrame = ws.querySelector("[data-ws-preview]");
+    var wsFlag = ws.querySelector("[data-ws-flag]");
+    var wsFlagText = ws.querySelector("[data-ws-flag-text]");
+    var wsCost = ws.querySelector("[data-ws-cost]");
+    var wsCheck = ws.querySelector("[data-ws-check]");
+    var flagged = "";
+    var line = function (cls, text) {
+      var el = d.createElement("div"); el.className = cls; el.textContent = text;
+      wsLog.appendChild(el); wsLog.scrollTop = wsLog.scrollHeight; return el;
+    };
+    var refresh = function () {
+      var y = 0;
+      try { y = wsFrame.contentWindow.scrollY; } catch (err) {}
+      wsFrame.onload = function () { try { wsFrame.contentWindow.scrollTo(0, y); } catch (err) {} };
+      wsFrame.src = wsFrame.src.split("#")[0];
+    };
+    var setFlag = function (t) {
+      flagged = t || "";
+      wsFlag.hidden = !flagged;
+      wsFlagText.textContent = flagged.length > 160 ? flagged.slice(0, 159) + "…" : flagged;
+      if (flagged) wsText.focus();
+    };
+    addEventListener("message", function (e) {
+      if (e.origin !== location.origin || !e.data || e.data.type !== "canopticon-flag") return;
+      setFlag(e.data.text);
+    });
+    ws.querySelector("[data-ws-flag-clear]").addEventListener("click", function () { setFlag(""); });
+    wsLog.scrollTop = wsLog.scrollHeight;
+    wsText.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); wsForm.requestSubmit(); }
+    });
+    wsForm.addEventListener("submit", function (e) {
+      if (!window.fetch || !window.TextDecoder) return;
+      e.preventDefault();
+      var note = wsText.value.trim();
+      if (!note && !flagged) return;
+      var text = (flagged ? flagged.split("\\n").map(function (l) { return "> " + l; }).join("\\n") + "\\n\\n" : "") + note;
+      var hello = wsLog.querySelector(".ws-hello");
+      if (hello) hello.remove();
+      line("ws-msg you", text);
+      wsText.value = ""; setFlag(""); wsSend.disabled = true; wsText.disabled = true;
+      var reply = null;
+      var status = line("ws-act live", "Working…");
+      var handle = function (ev) {
+        if (ev.type === "text") {
+          if (!reply) { reply = line("ws-msg claude", ""); wsLog.insertBefore(status, null); }
+          reply.textContent += ev.text;
+          wsLog.scrollTop = wsLog.scrollHeight;
+        } else if (ev.type === "activity") {
+          var a = line("ws-act", ev.text); reply = null; wsLog.insertBefore(status, null); void a;
+        } else if (ev.type === "draft") {
+          var c = ev.check, n = c.failed.length;
+          wsCheck.innerHTML = !c.total ? '<span class="ws-check">No quotations yet</span>'
+            : n ? '<span class="ws-check bad">' + c.total + " quotations · " + n + " not word for word</span>"
+            : '<span class="ws-check ok">' + c.total + " quotations · all word for word</span>";
+          refresh();
+        } else if (ev.type === "error") {
+          line("ws-act bad", ev.message);
+        } else if (ev.type === "done") {
+          if (ev.usage && wsCost) wsCost.textContent = "$" + (ev.usage.cents / 100).toFixed(2) + " so far";
+        }
+      };
+      fetch(wsForm.action, {
+        method: "POST",
+        headers: { accept: "text/event-stream", "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ text: text }),
+      }).then(function (res) {
+        if (!res.ok || (res.headers.get("content-type") || "").indexOf("text/event-stream") !== 0) {
+          line("ws-act bad", "The server refused the message (" + res.status + "). Nothing was sent to Claude.");
+          return;
+        }
+        var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
+        var pump = function () {
+          return reader.read().then(function (r) {
+            if (r.done) return;
+            buf += dec.decode(r.value, { stream: true });
+            var parts = buf.split("\\n\\n"); buf = parts.pop();
+            parts.forEach(function (p) {
+              if (p.indexOf("data: ") !== 0) return;
+              try { handle(JSON.parse(p.slice(6))); } catch (err) {}
+            });
+            return pump();
+          });
+        };
+        return pump();
+      }).catch(function () {
+        line("ws-act bad", "The connection dropped. What was done is saved; reload to see it.");
+      }).then(function () {
+        status.remove(); wsSend.disabled = false; wsText.disabled = false; wsText.focus();
+      });
+    });
+  }
 })();
 `;

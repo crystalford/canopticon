@@ -152,6 +152,8 @@ interface Store {
   articleExtras: Record<string, ArticleExtras>;
   /** content/prompts/<name>.md: the research prompts an article offers. */
   prompts: Record<string, string>;
+  /** docs/blackbox/ESSAY-CONTRACT.md, whole: the workspace's instructions. */
+  contract: string;
   verified: { quotes: number };
 }
 
@@ -241,4 +243,6 @@ export const privatePage = (route: string): StaticPage | null => {
 export const articleExtras = (slug: string): ArticleExtras => STORE.articleExtras[slug] ?? {};
 
 /** A research prompt's text — the fenced block of content/prompts/<name>.md. */
+export const essayContract = (): string => STORE.contract ?? "";
+
 export const researchPrompt = (name: string): string | null => STORE.prompts?.[name] ?? null;

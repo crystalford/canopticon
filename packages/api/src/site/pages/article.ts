@@ -168,9 +168,20 @@ export function matchLabels(heads: Head[], labels: string[]): Head[] {
   });
 }
 
-export function renderArticle(a0: Article, opts: { signedIn?: boolean } = {}): string {
+export interface ArticleRenderOptions {
+  signedIn?: boolean;
+  /** A draft's sources include Admin uploads the content store does not hold. */
+  docTitle?: (id: string) => string | null;
+  /** The workspace preview marks a quote that is not word for word in red. */
+  quoteOk?: (doc: string, text: string) => boolean;
+  /** A draft is never indexed. */
+  noindex?: boolean;
+}
+
+export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): string {
   const a = { ...a0, topic: topicOf(a0) };
-  const ctx = { docTitle };
+  const titleOf = opts.docTitle ?? docTitle;
+  const ctx = { docTitle: titleOf, ...(opts.quoteOk ? { quoteOk: opts.quoteOk } : {}) };
   const body = articleHtml(a.body, ctx);
   const quotes = a.quotes ?? articleQuotes(a.body).length;
   const minutes = articleMinutes(a);
@@ -178,7 +189,7 @@ export function renderArticle(a0: Article, opts: { signedIn?: boolean } = {}): s
   const cite =
     a.cite ??
     `Telford, C. (${a.date.slice(0, 4)}). ${a.title}. Canopticon. canopticon.com/articles/${a.slug}`;
-  const based = (a.based_on ?? []).filter((b) => docTitle(b.id) !== null);
+  const based = (a.based_on ?? []).filter((b) => titleOf(b.id) !== null);
   const extras = articleExtras(a.slug);
   // Short contents labels from the prototype, matched to headings by
   // position and corrected where two are plainly swapped (matchLabels).
@@ -215,7 +226,7 @@ export function renderArticle(a0: Article, opts: { signedIn?: boolean } = {}): s
       ? `<div><h3>Based on</h3><div class="src-list">${based
           .map(
             (b) =>
-              `<a class="src-pill" href="/p/${esc(b.id)}">${esc(b.label || docTitle(b.id) || "")}</a>`,
+              `<a class="src-pill" href="/p/${esc(b.id)}">${esc(b.label || titleOf(b.id) || "")}</a>`,
           )
           .join("")}</div></div>`
       : ""
@@ -264,7 +275,7 @@ export function renderArticle(a0: Article, opts: { signedIn?: boolean } = {}): s
     progress: true,
     ogType: "article",
     mainClass: "long",
-    noindex: Boolean(a.withdrawn),
+    noindex: Boolean(a.withdrawn) || opts.noindex === true,
     signedIn: opts.signedIn ?? false,
     head: `${citationMeta(a.title, a.date, url)}\n<link rel="alternate" type="text/markdown" href="/articles/${esc(a.slug)}.md" />\n${jsonLd(ld)}`,
     body: `<div class="rr">${col}${rail}</div>`,
