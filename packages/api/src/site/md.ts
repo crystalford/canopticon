@@ -166,7 +166,13 @@ export function documentHtml(src: string): { html: string; heads: Head[] } {
 export interface ArticleContext {
   /** Title of a document by id, for receipt tooltips. Held ids return null. */
   docTitle: (id: string) => string | null;
+  /** Set only by the workspace preview: false marks the quote as failing. */
+  quoteOk?: (doc: string, text: string) => boolean;
 }
+
+const BAD_TITLE = "Not found word for word in the source";
+const qClass = (ctx: ArticleContext, doc: string, text: string): string =>
+  ctx.quoteOk && !ctx.quoteOk(doc, text) ? `q bad" title="${BAD_TITLE}` : "q";
 
 const OWN_TITLE = "No receipt behind this sentence — it is the author's";
 
@@ -190,7 +196,9 @@ export function articleInline(s: string, ctx: ArticleContext, own = true): strin
       const doc = /doc="([^"]*)"/.exec(m[1])?.[1] ?? "";
       const section = /section="([^"]*)"/.exec(m[1])?.[1] ?? "Source";
       const text = m[2] ?? "";
-      parts.push(`<mark class="q">${inline(text)}</mark>${receipt(doc, section, text, ctx)}`);
+      parts.push(
+        `<mark class="${qClass(ctx, doc, text)}">${inline(text)}</mark>${receipt(doc, section, text, ctx)}`,
+      );
     } else {
       const id = m[4] ?? "";
       const title = ctx.docTitle(id);

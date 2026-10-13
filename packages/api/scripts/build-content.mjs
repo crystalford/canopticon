@@ -165,6 +165,22 @@ function build() {
         failures.push(`${a.slug}: not verbatim in ${doc}: "${m[2].slice(0, 90)}"`);
       }
     }
+    // A pull quote is a quotation too: its text, less the curly quotes the
+    // figure wraps it in, must be in the document it names.
+    for (const m of a.body.matchAll(
+      /<figure\s+data-kind="pull"([^>]*)>\n([\s\S]*?)\n<\/figure>/g,
+    )) {
+      checked++;
+      const doc = /doc="([^"]*)"/.exec(m[1])?.[1];
+      const src = doc ? research[doc] : undefined;
+      const text = m[2].trim().replace(/^[“"]|[”"]$/g, "");
+      if (!src) failures.push(`${a.slug}: pull quote names no stored document (${doc ?? "none"})`);
+      else {
+        if (!normal.has(doc)) normal.set(doc, verbatimNormal(src.body));
+        if (!normal.get(doc).includes(verbatimNormal(text)))
+          failures.push(`${a.slug}: pull quote not verbatim in ${doc}: "${text.slice(0, 90)}"`);
+      }
+    }
     for (const m of a.body.matchAll(/\]\(doc:([^)\s]+)\)/g)) {
       if (!research[m[1]]) failures.push(`${a.slug}: links to a missing document ${m[1]}`);
     }
@@ -211,6 +227,9 @@ function build() {
     // "one of a pair" note, curated read-next picks.
     articleExtras: readJson("article-extras.json"),
     prompts: readPrompts(),
+    // The essay contract, whole: the workspace's instructions to Claude are
+    // this file, so the page and the drafter cannot drift apart.
+    contract: readFileSync(join(ROOT, "..", "..", "docs", "blackbox", "ESSAY-CONTRACT.md"), "utf8"),
     verified: { quotes: checked },
   };
   mkdirSync(dirname(OUT), { recursive: true });

@@ -57,6 +57,21 @@
   you, Decided this week. The old operator console — processing, leads,
   research, the export — is `/admin/workbench`. Published Admin uploads join
   every public list through `site/uploads.ts` → `setUploadedRows()`.
+- **The workspace** is `/admin/write` (`src/write/`, `site/pages/write.ts`,
+  actions in `operator/routes/write.ts`): a chat with Claude beside the real
+  article page, the way Claude Design works. Claude (Opus 5.5, direct
+  Anthropic API — the AI Gateway route cannot run tools or cache) reads the
+  record through tools (list, search, read), writes with `write_draft` and
+  revises one passage with `edit_draft`; every write is checked word for
+  word in code (`write/check.ts`, the build's rule) and failures go back to
+  Claude and show red in the preview. Clicking a paragraph flags it into the
+  chat. Its instructions are `docs/blackbox/ESSAY-CONTRACT.md`, whole,
+  compiled into the store — change the contract, change the drafter. Drafts
+  and their conversations are D1 rows (migration 0065), append-only. It may
+  quote public research and the operator's own published or waiting uploads,
+  never a held or private document. Needs `ANTHROPIC_API_KEY` (a GitHub
+  secret the deploy pushes to the Worker). Publishing from it is the next
+  step; until then a draft downloads as `content/articles/<slug>.md`.
 
 ---
 

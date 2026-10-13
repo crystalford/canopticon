@@ -838,6 +838,63 @@ const ALL = [
   ),
 ];
 
+// THE WORKSPACE (/admin/write): one draft mid-conversation, with one quote
+// that is word for word and one that is not, so both states are on screen.
+const WHEY = "instant-dissolving-whey-for-hot-coffee-where-the-science-and-manufactu";
+const DRAFT_ROW = {
+  id: "draft-1",
+  meta: JSON.stringify({
+    title: "Why whey curdles in hot coffee",
+    dek: "Coffee's acidity sits almost exactly where whey is least stable, and it is served above the temperature that unfolds the protein.",
+    topic: "Health & self-care",
+    thesis:
+      "Whey fails in hot coffee for two unrelated reasons, and the fix sold for one is marketed as if it fixed both.",
+    based_on: [WHEY],
+  }),
+  body_md: `Collagen vanishes into hot black coffee. Whey turns it into pale lumps.
+
+## Coffee is close to the worst liquid for it
+
+Coffee is mildly acidic, and whey proteins are least stable at almost exactly that acidity, where <q doc="${WHEY}" section="Key findings">maximum turbidity and aggregate sizes occurred at the isoelectric point (pI 5.2) of whey proteins</q>. The dominant protein <q doc="${WHEY}" section="Details">unfolds for good above roughly 65 degrees</q>, below the temperature coffee is served at.`,
+  usage: JSON.stringify({
+    input: 41000,
+    output: 5200,
+    cacheRead: 180000,
+    cacheWrite: 52000,
+    cents: 49.2,
+  }),
+  status: "draft",
+  created_at: "2026-10-12T20:00:00Z",
+  updated_at: "2026-10-12T20:14:00Z",
+};
+const DRAFT_MESSAGES = [
+  {
+    role: "user",
+    content: [
+      {
+        type: "text",
+        text: "Write something short from the whey-in-coffee report: why it curdles.",
+      },
+    ],
+  },
+  {
+    role: "assistant",
+    content: [{ type: "tool_use", id: "t1", name: "read_document", input: { id: WHEY } }],
+  },
+  { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "…" }] },
+  {
+    role: "assistant",
+    content: [
+      {
+        type: "text",
+        text: 'I read the report in full and wrote a first draft. One quotation is not word for word yet — I\'ll fix it. I also need your reason for asking, in your words, for "Why I asked".',
+      },
+      { type: "tool_use", id: "t2", name: "write_draft", input: {} },
+    ],
+  },
+  { role: "user", content: [{ type: "tool_result", tool_use_id: "t2", content: "Saved." }] },
+].map((m) => ({ message: JSON.stringify(m) }));
+
 function makeDb(): D1Database {
   const mk = (sql: string) => {
     let bound: unknown[] = [];
@@ -869,6 +926,8 @@ function makeDb(): D1Database {
         }
         if (/FROM nodes/i.test(sql) && /neutral_fact/i.test(sql)) return { n: 273 };
         if (/FROM users/i.test(sql)) return { id: "u1" };
+        if (/FROM drafts WHERE id = \?/i.test(sql))
+          return bound[0] === DRAFT_ROW.id ? DRAFT_ROW : null;
         // storedAnswerForQuestion binds [userId, lead_key, kind].
         if (/FROM lead_answers/i.test(sql)) {
           return bound[1] === SEARCH_ANSWER_KEY && bound[2] === "question" ? SEARCH_ANSWER : null;
@@ -916,6 +975,8 @@ function makeDb(): D1Database {
         return null;
       },
       async all() {
+        if (/FROM drafts WHERE user_id/i.test(sql)) return { results: [DRAFT_ROW] };
+        if (/FROM draft_messages/i.test(sql)) return { results: DRAFT_MESSAGES };
         // processingRows: every pipeline row for the operator.
         if (/FROM piece_processing/i.test(sql)) return { results: PROCESSING };
         // Readings: as leads for the worklist (readingsAsLeads selects the

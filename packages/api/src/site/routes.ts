@@ -9,6 +9,11 @@ import { OWN_UPLOADS_SQL } from "../admin/runtime";
 import type { AuthContext } from "../auth/middleware";
 import { one } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
+import { transcript } from "../write/agent";
+import { draftArticle, draftMarkdown } from "../write/article";
+import { checkQuotes, draftQuotes } from "../write/check";
+import { d1Drafts } from "../write/drafts";
+import { sourceTexts, sourceTitles } from "../write/sources";
 import { adminModel, waitingCount } from "./admin-data";
 import {
   allPapers,
@@ -47,6 +52,7 @@ import { renderNotFound, renderNotice } from "./pages/notice";
 import { renderSearch } from "./pages/search";
 import { renderStatic } from "./pages/static";
 import { renderTopic } from "./pages/topic";
+import { PREVIEW_FLAG, renderEmptyPreview, renderWorkspace, renderWriteList } from "./pages/write";
 import { SITE_JS } from "./script";
 import { SITE_CSS } from "./styles";
 import { kindColours, shortDate } from "./theme";
@@ -162,6 +168,66 @@ app.get("/admin", async (c) => {
 
 /** A private read of a waiting upload or a held document: the same page a
  *  reader would get, marked private and kept out of every index. */
+// ---- the workspace: write with Claude, beside the page -------------------------
+
+async function workspaceStore(c: { env: Env }) {
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  return userId ? d1Drafts(c.env, userId) : null;
+}
+
+app.get("/admin/write", async (c) => {
+  if (!signedIn(c)) return html(signIn("/admin/write"), { status: 401 });
+  const store = await workspaceStore(c);
+  const drafts = store ? await store.list().catch(() => []) : [];
+  return html(renderWriteList(drafts, { hasKey: !!c.env.ANTHROPIC_API_KEY }));
+});
+
+app.get("/admin/write/:id", async (c, next) => {
+  if (!signedIn(c)) return html(signIn(c.req.path), { status: 401 });
+  const store = await workspaceStore(c);
+  const d = store ? await store.get(c.req.param("id")).catch(() => null) : null;
+  if (!store || !d) return next();
+  const items = transcript(await store.messages(d.id));
+  const quoted = draftQuotes(d.body).map((q) => q.doc);
+  const check = checkQuotes(d.body, await sourceTexts(c.env, quoted));
+  return html(renderWorkspace(d, items, check, { hasKey: !!c.env.ANTHROPIC_API_KEY }));
+});
+
+/** The article as it will be published: the public renderer, with failing
+ *  quotations in red and a click-to-flag script. Never indexed. */
+app.get("/admin/write/:id/preview", async (c, next) => {
+  if (!signedIn(c)) return html(signIn(c.req.path), { status: 401 });
+  const store = await workspaceStore(c);
+  const d = store ? await store.get(c.req.param("id")).catch(() => null) : null;
+  if (!d) return next();
+  if (!d.body.trim()) return html(renderEmptyPreview());
+  const ids = [...new Set([...draftQuotes(d.body).map((q) => q.doc), ...(d.meta.based_on ?? [])])];
+  const [texts, titles] = await Promise.all([sourceTexts(c.env, ids), sourceTitles(c.env, ids)]);
+  const failed = new Set(checkQuotes(d.body, texts).failed.map((f) => `${f.doc}\u0000${f.text}`));
+  const page = renderArticle(draftArticle(d, titles), {
+    signedIn: true,
+    noindex: true,
+    docTitle: (id) => titles.get(id) ?? null,
+    quoteOk: (doc, text) => !failed.has(`${doc}\u0000${text}`),
+  });
+  return html(page.replace("</body>", `${PREVIEW_FLAG}</body>`));
+});
+
+app.get("/admin/write/:id/article.md", async (c, next) => {
+  if (!signedIn(c)) return html(signIn(c.req.path), { status: 401 });
+  const store = await workspaceStore(c);
+  const d = store ? await store.get(c.req.param("id")).catch(() => null) : null;
+  if (!d) return next();
+  const titles = await sourceTitles(c.env, d.meta.based_on ?? []);
+  const slug = draftArticle(d, titles).slug;
+  return new Response(draftMarkdown(d, titles), {
+    headers: {
+      "content-type": "text/markdown; charset=utf-8",
+      "content-disposition": `attachment; filename="${slug}.md"`,
+    },
+  });
+});
+
 // The projects (Aldershot, Ancaster): ported as-is, for the author only.
 app.get("/admin/projects/:id", (c, next) => {
   const path = `/admin/projects/${c.req.param("id")}`;

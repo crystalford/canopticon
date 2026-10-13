@@ -6,6 +6,27 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-13 — The workspace: write with Claude beside the page
+
+- **`/admin/write`**, step 1 of making Canopticon work the way Claude Design
+  did: a chat with Claude on the left, the article on the right, drawn by the
+  public renderer so it is exactly what will publish. Claude reads the record
+  (public research and your own uploads, never held or private documents),
+  writes the whole article or revises one passage, and every quotation is
+  checked word for word on every write. A failing quote is red on the page
+  and handed back to Claude to fix. Click a paragraph to flag it into the
+  chat. "Why I asked" is never written by the model; Claude asks for it.
+- Runs on Claude Opus 5.5 through the Anthropic API with a key
+  (`ANTHROPIC_API_KEY`), with automatic fallback if a request is declined and
+  prompt caching for the documents it has read. The page shows an estimated
+  cost per draft.
+- The essay contract is compiled into the store and is Claude's
+  instructions, whole.
+- Pull quotes are now checked word for word at build, like every `<q>`
+  (all six already were).
+- Not yet: publishing from the workspace (a draft downloads as a content
+  file meanwhile), uploads straight into the chat, and research.
+
 ## 2026-10-11, night — Checked against the handoff's own pages
 
 The Desk/Admin mix-up came from following the handoff's README where its
