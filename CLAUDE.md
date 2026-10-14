@@ -135,7 +135,12 @@
   document's own Key Findings / Caveats bullets (already in the body).
   **"Write this"** on a possible article starts an article draft seeded with
   the thesis and its passages (`pitchBrief`, `drafts.meta.seed`, sent once on
-  arrival). Admin cards show each read: date, kept, dropped, on its page.
+  arrival). Admin cards show each read: date, kept, dropped, on its page. A
+  kept **coined name or open problem** joins Ideas from the board with the
+  paragraph the author writes there (`/op/read/card/:id/idea` → `addEntry`,
+  the workspace proposal's gates). A shown read's kept **figures and open
+  questions** also join the Library, search and topic lists
+  (`keyFigures()` / `questions()`), each linking to its passage.
 
 ---
 

@@ -1162,6 +1162,12 @@ const DERIVS = [
       },
     },
   ),
+  deriv(
+    "c9",
+    "open_problem",
+    'A true "whey that disappears like collagen in hot coffee" is at best a 2027–2029 prospect.',
+    { section: "TL;DR", status: "kept" },
+  ),
   deriv("c7", "pitch", 'Javvy\'s own guidance is to mix "cold, and then heat it up after mixing"', {
     data: {
       thesis: "The protein coffee aisle is built on cold drinks sold as hot ones",

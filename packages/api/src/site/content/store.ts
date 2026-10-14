@@ -8,6 +8,7 @@
 // be read by Admin, but nothing here hands it to a public caller.
 
 import type { ShownRead } from "../../write/read";
+import { passageHref } from "../md";
 import raw from "./store.gen.json";
 
 export interface LibraryItem {
@@ -244,9 +245,12 @@ export function setPublishedArticles(list: Array<{ article: Article; row: Librar
 let VERSION = 0;
 export const storeVersion = (): number => VERSION;
 
-export const questions = (): DerivedRow[] => STORE.questions;
+export const questions = (): DerivedRow[] =>
+  READ_ROWS.questions.length ? [...READ_ROWS.questions, ...STORE.questions] : STORE.questions;
 export const keyFigures = (): DerivedRow[] =>
-  ENTRIES.figures.length ? [...ENTRIES.figures, ...STORE.figures] : STORE.figures;
+  ENTRIES.figures.length || READ_ROWS.figures.length
+    ? [...ENTRIES.figures, ...READ_ROWS.figures, ...STORE.figures]
+    : STORE.figures;
 export const terms = (): Idea[] =>
   ENTRIES.terms.length ? [...STORE.terms, ...ENTRIES.terms] : STORE.terms;
 export const problems = (): Idea[] =>
@@ -283,8 +287,62 @@ export function setRecordEntries(next: EntryOverlay): void {
  * Never for a held document: this accessor is where that is enforced.
  */
 let SHOWN = new Map<string, ShownRead>();
+let READ_ROWS: { figures: DerivedRow[]; questions: DerivedRow[] } = { figures: [], questions: [] };
 export function setShownReads(list: ShownRead[]): void {
   SHOWN = new Map(list.map((s) => [s.read.docId, s]));
+  const next = readRows();
+  if (JSON.stringify(next) !== JSON.stringify(READ_ROWS)) VERSION++;
+  READ_ROWS = next;
+}
+
+/** A shown read's kept figures and unanswered questions, as the Library,
+ *  search and topic rows the store's own derived lists use — each linking to
+ *  its passage. Only for a document that is itself public. */
+function readRows(): { figures: DerivedRow[]; questions: DerivedRow[] } {
+  const figures: DerivedRow[] = [];
+  const questions: DerivedRow[] = [];
+  const plain = (t: string) =>
+    t
+      .replace(/\*\*|__/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const seen = new Set(
+    [...STORE.figures, ...STORE.questions].map((r) => plain(r.title).toLowerCase()),
+  );
+  for (const { read, cards } of SHOWN.values()) {
+    const doc = researchDoc(read.docId);
+    const up = doc ? null : UPLOADED.find((r) => r.doc === read.docId);
+    if (!doc && !up) continue;
+    const base = {
+      topic: doc?.topic ?? up?.topic ?? "",
+      date: doc?.date ?? up?.date ?? "",
+      dek: (doc?.title ?? up?.title ?? "").replace(/^#\s*/, ""),
+      stat: "",
+    };
+    for (const c of cards) {
+      if (c.status !== "kept" || c.origin === "shape") continue;
+      const title = plain(
+        c.kind === "question_open" && typeof c.data.question === "string"
+          ? c.data.question
+          : c.span,
+      );
+      if (seen.has(title.toLowerCase())) continue;
+      const route = passageHref(read.docId, title);
+      if (c.kind === "figure" && !c.data.rejected && typeof c.data.figure === "string") {
+        seen.add(title.toLowerCase());
+        figures.push({ ...base, route, kind: "Figure", title, v: c.data.figure });
+      } else if (c.kind === "question_open") {
+        seen.add(title.toLowerCase());
+        questions.push({
+          ...base,
+          route: passageHref(read.docId, plain(c.span)),
+          kind: "Question",
+          title,
+        });
+      }
+    }
+  }
+  return { figures, questions };
 }
 export const shownRead = (docId: string): ShownRead | null =>
   anyResearchDoc(docId) && !researchDoc(docId) ? null : (SHOWN.get(docId) ?? null);

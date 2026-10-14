@@ -2,9 +2,10 @@
 
 > Status: **steps 1–4 built** (2026-10-14): shape, Read it, the cards, Keep /
 > Dismiss / ignore-forever, the receipt, "Show on the page", "Write this",
-> Admin badges. Not built: links as queries (step 5, worth it once many
-> documents are read), coined names and open problems becoming Ideas
-> entries from a read, and retiring the old pipeline (step 6). Written after a research pass over
+> Admin badges, coined names and open problems into Ideas, shown figures
+> and questions in the Library. Not built: links as queries (step 5, worth
+> it once many documents are read) and retiring the old pipeline (step 6:
+> check first what its steps still feed — search embeddings, share images). Written after a research pass over
 > the Black Box handoff (ESSAY-CONTRACT, `canopticon-record.schema.json`, the
 > Admin / Document Evidence / project prototypes, the content JSON), the
 > product docs (`the-record.md`, HANDOFF, CHANGELOG) and the old pipeline's

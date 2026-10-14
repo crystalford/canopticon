@@ -44,8 +44,21 @@ function quote(docId: string, span: string, section?: string): string {
   return `<blockquote class="rd-q">${esc(shown(span))}<a class="rd-src" href="${esc(passageHref(docId, shown(span)))}" target="_blank" rel="noopener">${esc(section || "in the document")}</a></blockquote>`;
 }
 
+/** A kept coined name or open problem can join Ideas — with the paragraph
+ *  the author writes (ESSAY-CONTRACT §1b–1c: a person writes it). */
+function ideaForm(d: Derivation, topics: string[]): string {
+  if ((d.kind !== "coinage" && d.kind !== "open_problem") || d.status !== "kept") return "";
+  if (typeof d.data.ideaRoute === "string")
+    return `<a class="rd-write" href="${esc(d.data.ideaRoute)}" target="_blank" rel="noopener">In Ideas →</a>`;
+  const concept = d.kind === "coinage";
+  const opts = ["", ...topics]
+    .map((t) => `<option value="${esc(t)}">${t ? esc(t) : "Choose a topic…"}</option>`)
+    .join("");
+  return `<details class="rd-idea"><summary>${concept ? "Add to Ideas as a concept" : "Add to Ideas as an open problem"}</summary><form method="post" action="/op/read/card/${esc(d.id)}/idea" class="rd-idea-f"><label>${concept ? "The name" : "The problem, in one line"}<input name="title" required maxlength="140"></label><label>${concept ? "What it names — in your words" : "Why it is unsolved — in your words"}<textarea name="body" rows="4" required></textarea></label><label>Topic<select name="topic" required>${opts}</select></label><div class="rd-act"><button class="btn sm primary">Add to Ideas</button><span class="rd-note">It links to this passage. The document must be published.</span></div></form></details>`;
+}
+
 /** One card, with Keep / Dismiss while it is only proposed. */
-export function readCard(d: Derivation): string {
+export function readCard(d: Derivation, topics: string[] = []): string {
   const meta: string[] = [];
   // The role, unless the kind already says it ("Finding · Finding").
   if (d.role && d.role !== d.kind)
@@ -99,7 +112,7 @@ export function readCard(d: Derivation): string {
       : typeof d.data.draftId === "string"
         ? `<a class="rd-write" href="/admin/write/${esc(d.data.draftId)}" target="_top">Open the draft →</a>`
         : `<form method="post" action="/op/read/card/${esc(d.id)}/write" target="_top" class="rd-act"><button class="btn sm">Write this</button><span class="rd-note">Starts an article with these passages.</span></form>`;
-  return `<div class="rd-card ${d.status}" id="c-${esc(d.id)}"><div class="rd-h"><span class="pill">${esc(KIND_LABEL[d.kind])}</span>${meta.join("")}</div>${body}${actions}${write}</div>`;
+  return `<div class="rd-card ${d.status}" id="c-${esc(d.id)}"><div class="rd-h"><span class="pill">${esc(KIND_LABEL[d.kind])}</span>${meta.join("")}</div>${body}${actions}${write}${ideaForm(d, topics)}</div>`;
 }
 
 export function receiptLine(r: ReadRow): string {
@@ -113,17 +126,28 @@ export function receiptLine(r: ReadRow): string {
 }
 
 /** The whole board, as a page for the workspace's preview frame. */
-export function renderReadBoard(r: ReadRow, cards: Derivation[], docTitle: string): string {
+export function renderReadBoard(
+  r: ReadRow,
+  cards: Derivation[],
+  docTitle: string,
+  opts: { topics?: string[]; error?: string | undefined; done?: string | undefined } = {},
+): string {
   const live = cards.filter((c) => c.status !== "dismissed");
   const proposed = cards.filter((c) => c.status === "proposed").length;
   const groups = ORDER.map((k) => {
     const cs = live.filter((c) => c.kind === k);
     if (!cs.length) return "";
-    return `<section class="rd-group"><h2>${esc(KIND_LABEL[k])} <span class="rd-n">${cs.length}</span></h2>${cs.map(readCard).join("")}</section>`;
+    return `<section class="rd-group"><h2>${esc(KIND_LABEL[k])} <span class="rd-n">${cs.length}</span></h2>${cs.map((c) => readCard(c, opts.topics)).join("")}</section>`;
   }).join("");
   const dismissed = cards.length - live.length;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/site.css"></head><body class="rd-body"><main class="rd-main">
 <div class="rd-head"><div class="rd-kicker">Read it</div><h1>${esc(docTitle)}</h1><div class="rd-receipt">${receiptLine(r)}</div>${
+    opts.error
+      ? `<p class="rd-flash bad">${esc(opts.error)}</p>`
+      : opts.done
+        ? `<p class="rd-flash">${esc(opts.done)}</p>`
+        : ""
+  }${
     r.status === "shown"
       ? '<p class="rd-shown">On the document\'s page: the figures, findings, questions and open threads you keep here. Possible articles and advice never are.</p>'
       : '<p class="rd-shown off">Nothing here is public. When you have kept what is right, “Show on the page” puts the figures, findings, questions and open threads on the document\'s page. Possible articles and advice never go there.</p>'

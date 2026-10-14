@@ -8,6 +8,7 @@
 import { resolveOperatorId } from "../../public/data";
 import { invalidateUploads } from "../../site/uploads";
 import { d1Drafts } from "../../write/drafts";
+import { addEntry, d1Entries } from "../../write/entries";
 import { cardKey, d1Reads, ignoreKey, locateSpan, pitchBrief, shapeOf } from "../../write/read";
 import { sourceText, sourceTitles } from "../../write/sources";
 import { operatorApp } from "./app";
@@ -144,6 +145,49 @@ app.post("/read/card/:id/write", async (c) => {
   if (card.status === "proposed") await reads.decide(card.id, "kept");
   await reads.setData(card.id, { ...card.data, draftId: draft.id });
   return c.redirect(`/admin/write/${draft.id}?start=1`, 303);
+});
+
+// A kept coined name or open problem joins Ideas with the paragraph the
+// author writes, grounded in the card's passage — through the same gates as
+// a workspace proposal (word for word, a public document, a real topic, not
+// already in the record).
+app.post("/read/card/:id/idea", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  if (!userId) return c.redirect("/admin/write", 303);
+  const reads = d1Reads(c.env, userId);
+  const card = await reads.derivation(c.req.param("id"));
+  if (!card || (card.kind !== "coinage" && card.kind !== "open_problem"))
+    return c.redirect("/admin/write", 303);
+  const read = await reads.get(card.readId);
+  const back = (q: string) =>
+    c.redirect(`/admin/write/${read?.draftId ?? ""}/preview?${q}#c-${card.id}`, 303);
+  if (typeof card.data.ideaRoute === "string") return back("");
+  const form = (await c.req.parseBody().catch(() => ({}))) as Record<string, unknown>;
+  const field = (k: string) => (typeof form[k] === "string" ? (form[k] as string).trim() : "");
+  const entries = d1Entries(c.env, userId);
+  const kind = card.kind === "coinage" ? "concept" : "open_problem";
+  const entry = await entries.create({
+    kind,
+    data: {
+      title: field("title"),
+      body: field("body"),
+      doc: card.docId,
+      section: card.section ?? "",
+      quote: card.span,
+      topic: field("topic"),
+      // The author wrote the paragraph; nothing here is Claude's prose.
+      edited: true,
+    },
+    ...(read?.draftId ? { draftId: read.draftId } : {}),
+  });
+  const r = await addEntry(c.env, userId, entries, entry.id, {});
+  if (!r.ok) {
+    await entries.decide(entry.id, { status: "dismissed" });
+    return back(`error=${encodeURIComponent(`Not added. ${r.problems.join(" ")}`)}`);
+  }
+  await reads.setData(card.id, { ...card.data, ideaRoute: r.route });
+  invalidateUploads();
+  return back(`done=${encodeURIComponent(`Added to Ideas: ${r.route}`)}`);
 });
 
 export default app;
