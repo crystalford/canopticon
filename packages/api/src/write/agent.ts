@@ -15,10 +15,19 @@ import { z } from "zod";
 import type { Env } from "../env";
 import { essayContract, problems, researchDoc, terms } from "../site/content/store";
 import { type CheckResult, checkQuotes, describeCheck, draftQuotes } from "./check";
-import type { Draft, DraftMeta, DraftStore, Message, Usage } from "./drafts";
+import type { Draft, DraftKind, DraftMeta, DraftStore, Message, Usage } from "./drafts";
 import { NO_USAGE } from "./drafts";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
 import { articleTopics } from "./publish";
+import {
+  RESEARCH_HOW,
+  type SourceStore,
+  WEB_TOOLS,
+  WRITE_REPORT,
+  checkReport,
+  describeReportCheck,
+  fetchedPages,
+} from "./research";
 import { listSources, searchSources, sourceText, sourceTexts } from "./sources";
 
 export const WRITE_MODEL = "claude-opus-5-5";
@@ -149,7 +158,29 @@ interface Frame {
   system: string;
   tools: Anthropic.Beta.BetaToolUnion[];
 }
-const newFrame = (): Frame => ({ system: systemPrompt(), tools: TOOLS });
+const newFrame = (kind: DraftKind = "article"): Frame =>
+  kind === "research"
+    ? { system: researchSystemPrompt(), tools: researchTools() }
+    : { system: systemPrompt(), tools: TOOLS };
+
+const byName = (n: string) =>
+  TOOLS.find((t) => "name" in t && t.name === n) as Anthropic.Beta.BetaToolUnion;
+
+/** A research draft reads the record and the web, and writes a report. */
+export const researchTools = (): Anthropic.Beta.BetaToolUnion[] => [
+  byName("list_documents"),
+  byName("search_documents"),
+  byName("read_document"),
+  ...WEB_TOOLS,
+  WRITE_REPORT,
+  byName("edit_draft"),
+];
+
+export function researchSystemPrompt(): string {
+  return `${RESEARCH_HOW}
+
+TOPICS: the report's topic is exactly one of: ${topics().join("; ")}.`;
+}
 
 export function systemPrompt(): string {
   return (
@@ -184,6 +215,11 @@ const WriteInput = z.object({
   body: z.string().min(1),
 });
 const EditInput = z.object({ find: z.string().min(1), replace: z.string() });
+const ReportInput = z.object({
+  title: z.string().min(1),
+  topic: z.string(),
+  body: z.string().min(1),
+});
 const ProposeInput = z.object({
   kind: z.enum(["concept", "open_problem", "figure"]),
   title: z.string().min(1),
@@ -295,6 +331,12 @@ export function activityLabel(name: string, input: unknown): string {
       return "Wrote the draft";
     case "edit_draft":
       return "Revised a passage";
+    case "web_search":
+      return `Searched the web: ${String(i.query ?? "")}`;
+    case "web_fetch":
+      return `Read: ${String(i.url ?? "")}`;
+    case "write_report":
+      return "Wrote the report";
     case "propose_entry":
       return `Proposed ${i.kind === "open_problem" ? "an open problem" : i.kind === "figure" ? "a key figure" : "a concept"}: ${String(i.kind === "figure" ? i.body : i.title)}`;
     default:
@@ -306,9 +348,23 @@ interface ToolContext {
   env: Env;
   store: DraftStore;
   entries?: EntryStore | undefined;
+  sources?: SourceStore | undefined;
+  kind: DraftKind;
   draftId: string;
   emit: Emit;
   toolUseId?: string;
+}
+
+/** A research report is checked against the pages read; an article against
+ *  the record's documents. */
+async function checkFor(t: ToolContext, body: string): Promise<{ r: CheckResult; line: string }> {
+  if (t.kind === "research") {
+    const pages = t.sources ? await t.sources.texts(t.draftId) : [];
+    const r = checkReport(body, pages);
+    return { r, line: describeReportCheck(r, pages.length) };
+  }
+  const r = await check(t.env, body);
+  return { r, line: describeCheck(r) };
 }
 
 async function check(env: Env, body: string): Promise<CheckResult> {
@@ -407,9 +463,21 @@ async function runTool(
         );
       const body = d.body.replace(p.data.find, () => p.data.replace);
       await t.store.save(t.draftId, { body });
-      const r = await check(t.env, body);
+      const { r, line } = await checkFor(t, body);
       t.emit({ type: "draft", check: r });
-      return { text: `Saved. ${describeCheck(r)}` };
+      return { text: `Saved. ${line}` };
+    }
+    case "write_report": {
+      const p = ReportInput.safeParse(input);
+      if (!p.success) return bad("Give title, topic and body.");
+      const d = await t.store.get(t.draftId);
+      await t.store.save(t.draftId, {
+        meta: { ...(d?.meta ?? {}), title: p.data.title, topic: p.data.topic },
+        body: p.data.body,
+      });
+      const { r, line } = await checkFor(t, p.data.body);
+      t.emit({ type: "draft", check: r });
+      return { text: `Saved. ${line}` };
     }
     case "propose_entry": {
       const p = ProposeInput.safeParse(input);
@@ -506,6 +574,7 @@ export async function runTurn(o: {
   env: Env;
   store: DraftStore;
   entries?: EntryStore | undefined;
+  sources?: SourceStore | undefined;
   draftId: string;
   text: string;
   emit: Emit;
@@ -553,15 +622,23 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
   // fails (a bad key, a rejected parameter) does not freeze a broken frame.
   let frame: Frame;
   try {
-    frame = draft.frame ? (JSON.parse(draft.frame) as Frame) : newFrame();
+    frame = draft.frame ? (JSON.parse(draft.frame) as Frame) : newFrame(draft.kind);
   } catch {
-    frame = newFrame();
+    frame = newFrame(draft.kind);
   }
   let frameSaved = !!draft.frame;
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: "text", text: frame.system, cache_control: { type: "ephemeral" } },
   ];
-  const ctx: ToolContext = { env, store, entries: o.entries, draftId, emit };
+  const ctx: ToolContext = {
+    env,
+    store,
+    entries: o.entries,
+    sources: o.sources,
+    kind: draft.kind,
+    draftId,
+    emit,
+  };
   const steps = o.maxSteps ?? MAX_STEPS;
 
   for (let step = 0; step < steps; step++) {
@@ -570,7 +647,24 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       const s = o.stream({
         model: WRITE_MODEL,
         max_tokens: 64000,
-        betas: ["server-side-fallback-2026-07-01", "thinking-binding-controls-2026-08-01"],
+        betas: [
+          "server-side-fallback-2026-07-01",
+          "thinking-binding-controls-2026-08-01",
+          "context-management-2025-06-27",
+        ],
+        // Long sessions read a lot: past 300k tokens, older tool results
+        // (documents, fetched pages) are cleared from what Claude sees. The
+        // pages themselves are kept (research_sources) and can be re-read.
+        context_management: {
+          edits: [
+            {
+              type: "clear_tool_uses_20250919",
+              trigger: { type: "input_tokens", value: 300_000 },
+              keep: { type: "tool_uses", value: 8 },
+              exclude_tools: ["write_draft", "write_report", "edit_draft"],
+            },
+          ],
+        },
         fallbacks: "default",
         // A safety net under the frozen frame: if the prefix ever differs,
         // drop the stale reasoning instead of failing the turn.
@@ -583,6 +677,12 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       });
       s.on("text", (delta) => emit({ type: "text", text: delta }));
       s.on("streamEvent", (ev) => {
+        if (ev.type === "content_block_start" && ev.content_block.type === "server_tool_use") {
+          emit({
+            type: "activity",
+            text: ev.content_block.name === "web_fetch" ? "Reading a page…" : "Searching the web…",
+          });
+        }
         if (ev.type === "content_block_start" && ev.content_block.type === "tool_use") {
           const n = ev.content_block.name;
           if (n === "write_draft" || n === "edit_draft")
@@ -637,6 +737,20 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     };
     await store.append(draftId, [assistant]);
     history.push(assistant);
+
+    // Every page read is kept, so the report's quotations can be checked
+    // against what was actually read.
+    if (draft.kind === "research" && o.sources) {
+      const pages = await fetchedPages(env, message.content as unknown[]);
+      if (pages.length) await o.sources.add(draftId, pages);
+    }
+    for (const b of message.content as Array<{ type: string; name?: string; input?: unknown }>) {
+      if (b.type === "server_tool_use" && b.name)
+        emit({ type: "activity", text: activityLabel(b.name, b.input) });
+    }
+    // A long run of server-side searches can pause the turn; it resumes by
+    // sending the conversation back as it stands.
+    if (message.stop_reason === "pause_turn") continue;
     const uses = toolUses(assistant.content);
     if (!uses.length) break;
 
@@ -704,7 +818,7 @@ export function transcript(history: Message[]): ChatItem[] {
         out.push({ who: m.role === "user" ? "you" : "claude", text: b.text });
       else if (b.type === "tool_use" && b.name === "propose_entry")
         out.push({ who: "proposal", text: activityLabel(b.name, b.input), toolUseId: b.id });
-      else if (b.type === "tool_use")
+      else if (b.type === "tool_use" || b.type === "server_tool_use")
         out.push({ who: "activity", text: activityLabel(b.name, b.input) });
     }
   }

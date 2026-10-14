@@ -8,9 +8,11 @@ import { resolveOperatorId } from "../../public/data";
 import { proposalCard } from "../../site/pages/write";
 import { invalidateUploads } from "../../site/uploads";
 import { type WriteEvent, anthropicStream, runTurn } from "../../write/agent";
+import { slugify } from "../../write/article";
 import { d1Drafts } from "../../write/drafts";
 import { addEntry, d1Entries } from "../../write/entries";
-import { announce, publishDraft, takeDown } from "../../write/publish";
+import { announce, articleTopics, publishDraft, takeDown } from "../../write/publish";
+import { checkReport, d1Sources, reportFile, reportProblems } from "../../write/research";
 import { operatorApp } from "./app";
 import { createAndExtract } from "./upload";
 
@@ -19,7 +21,8 @@ const app = operatorApp();
 app.post("/write/new", async (c) => {
   const userId = await resolveOperatorId(c.env.DB).catch(() => null);
   if (!userId) return c.redirect("/admin/write");
-  const d = await d1Drafts(c.env, userId).create();
+  const form = (await c.req.parseBody().catch(() => ({}))) as Record<string, unknown>;
+  const d = await d1Drafts(c.env, userId).create(form.kind === "research" ? "research" : "article");
   return c.redirect(`/admin/write/${d.id}`, 303);
 });
 
@@ -55,8 +58,18 @@ app.post("/write/:id/turn", async (c) => {
   }
 
   const entries = userId ? d1Entries(c.env, userId) : undefined;
+  const sources = userId ? d1Sources(c.env, userId) : undefined;
   if (!sse) {
-    await runTurn({ stream, env: c.env, store, entries, draftId: id, text, emit: () => {} });
+    await runTurn({
+      stream,
+      env: c.env,
+      store,
+      entries,
+      sources,
+      draftId: id,
+      text,
+      emit: () => {},
+    });
     return c.redirect(back, 303);
   }
 
@@ -75,7 +88,7 @@ app.post("/write/:id/turn", async (c) => {
   const beat = setInterval(() => {
     writer.write(enc.encode(": still working\n\n")).catch(() => {});
   }, 15_000);
-  const job = runTurn({ stream, env: c.env, store, entries, draftId: id, text, emit })
+  const job = runTurn({ stream, env: c.env, store, entries, sources, draftId: id, text, emit })
     .catch((err: Error) => emit({ type: "error", message: err.message }))
     .finally(() => {
       clearInterval(beat);
@@ -168,6 +181,42 @@ app.post("/write/:id/entries/:entry/:act{add|dismiss}", async (c) => {
   invalidateUploads();
   return c.redirect(
     `${back}?done=${encodeURIComponent(`Added to the record: ${r.route}`)}#entry-${entryId}`,
+    303,
+  );
+});
+
+// A finished research report goes to Admin as a waiting upload — the same
+// path every upload takes — and publishes there, on Publish. It leaves only
+// when every quotation is found in the pages Claude read.
+app.post("/write/:id/save", async (c) => {
+  const id = c.req.param("id");
+  const back = `/admin/write/${id}`;
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  if (!userId) return c.redirect(back, 303);
+  const store = d1Drafts(c.env, userId);
+  const d = await store.get(id);
+  if (!d || d.kind !== "research") return c.redirect(back, 303);
+  const pages = await d1Sources(c.env, userId).texts(id);
+  const problems = reportProblems(d, checkReport(d.body, pages), articleTopics());
+  if (problems.length)
+    return c.redirect(`${back}?error=${encodeURIComponent(problems.join(" "))}`, 303);
+  const bytes = new TextEncoder().encode(reportFile(d));
+  const p = await createAndExtract(
+    c.env,
+    userId,
+    bytes,
+    `${slugify(d.meta.title ?? "research")}.md`,
+    "text/markdown",
+    bytes.length,
+    {
+      hold: true,
+      extraMetadata: { origin: "workspace-research", draft_id: id, pages_read: pages.length },
+    },
+  );
+  await store.save(id, { meta: { ...d.meta, savedAs: p.slug } });
+  invalidateUploads();
+  return c.redirect(
+    `${back}?done=${encodeURIComponent(p.duplicate ? "Already in Admin, unchanged." : "Saved to Admin. It waits there for Publish.")}`,
     303,
   );
 });
