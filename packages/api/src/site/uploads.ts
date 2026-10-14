@@ -12,8 +12,14 @@ import { OWN_UPLOADS_SQL } from "../admin/runtime";
 import type { Env } from "../env";
 import { all } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
+import { d1Entries, entryOverlay } from "../write/entries";
 import { liveArticles } from "../write/publish";
-import { type LibraryItem, setPublishedArticles, setUploadedRows } from "./content/store";
+import {
+  type LibraryItem,
+  setPublishedArticles,
+  setRecordEntries,
+  setUploadedRows,
+} from "./content/store";
 import { plain } from "./md";
 import { shortDate } from "./theme";
 
@@ -89,6 +95,8 @@ export async function refreshUploads(env: Env): Promise<void> {
       );
       // Articles published from the workspace join the same way.
       setPublishedArticles(await liveArticles(env, userId));
+      // So do the concepts, open problems and figures added from it.
+      setRecordEntries(await entryOverlay(env, await d1Entries(env, userId).added()));
       fetchedAt = Date.now();
     } catch {
       // A failed read leaves the last good list in place; the page still serves.

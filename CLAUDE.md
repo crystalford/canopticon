@@ -80,6 +80,19 @@
   the article page, Library, topics, feeds, llms.txt, sitemap and cited-by
   all read them; `storeVersion()` rebuilds the derived lookups when the
   overlay changes. A draft also downloads as `content/articles/<slug>.md`.
+  **Reports go straight into the chat** ("Add files" or drop): each is stored
+  and held in Admin exactly like an Admin upload, and named to Claude in the
+  next message. **Claude proposes** concepts, open problems and key figures
+  (`propose_entry`, `write/entries.ts`), each grounded in a passage checked
+  word for word; you add one as written or rewritten (a person writes the
+  paragraph, contract §1b–1c) or dismiss it. Added entries live in
+  `record_entries` (migration 0067) and join the store's concepts, problems,
+  figures and Library (`setRecordEntries`). **Each draft's system prompt and
+  tools are frozen at its first turn** (`drafts.frame`) and resent byte for
+  byte: Claude's reasoning is bound to the exact conversation, and a changed
+  prompt or tool list mid-conversation fails the request on newer accounts.
+  `thinking.block_binding: drop_block` is the safety net. Never edit a
+  draft's stored messages.
 
 ---
 

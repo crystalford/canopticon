@@ -326,12 +326,48 @@ export const SITE_JS = `(function () {
     wsText.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); wsForm.requestSubmit(); }
     });
+    // ---- reports added in the chat: stored and held in Admin, named to Claude
+    var wsFiles = ws.querySelector("[data-ws-files]");
+    var wsFile = ws.querySelector("[data-ws-file]");
+    var attached = [];
+    var chip = function (text, bad) {
+      var el = d.createElement("span"); el.className = "ws-file" + (bad ? " bad" : ""); el.textContent = text;
+      wsFiles.appendChild(el); wsFiles.hidden = false; return el;
+    };
+    var addFiles = function (list) {
+      if (!list || !list.length) return;
+      var fd = new FormData();
+      Array.prototype.forEach.call(list, function (f) { fd.append("file", f); });
+      var wait = chip("Adding " + list.length + (list.length === 1 ? " file…" : " files…"));
+      fetch(wsForm.action.slice(0, -"/turn".length) + "/attach", { method: "POST", body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          wait.remove();
+          (j.added || []).forEach(function (a) {
+            if (a.error || !a.id) { chip(a.title + ": " + (a.error || "could not be read"), true); return; }
+            attached.push(a); chip(a.title + (a.duplicate ? " (already in the record)" : ""));
+          });
+          if (j.error) chip(j.error, true);
+        })
+        .catch(function () { wait.textContent = "The files could not be added."; wait.className = "ws-file bad"; });
+    };
+    wsFile.addEventListener("change", function () { addFiles(wsFile.files); wsFile.value = ""; });
+    var chat = ws.querySelector(".ws-chat");
+    chat.addEventListener("dragover", function (e) { e.preventDefault(); chat.classList.add("drop"); });
+    chat.addEventListener("dragleave", function () { chat.classList.remove("drop"); });
+    chat.addEventListener("drop", function (e) { e.preventDefault(); chat.classList.remove("drop"); addFiles(e.dataTransfer.files); });
+
     wsForm.addEventListener("submit", function (e) {
       if (!window.fetch || !window.TextDecoder) return;
       e.preventDefault();
       var note = wsText.value.trim();
-      if (!note && !flagged) return;
-      var text = (flagged ? flagged.split("\\n").map(function (l) { return "> " + l; }).join("\\n") + "\\n\\n" : "") + note;
+      if (!note && !flagged && !attached.length) return;
+      var files = attached.length
+        ? "I've added these to the record (waiting in Admin):\\n" + attached.map(function (a) { return "- " + a.title + " (id: " + a.id + ")"; }).join("\\n") + "\\n\\n"
+        : "";
+      if (attached.length && !note) note = "Read them.";
+      attached = []; wsFiles.innerHTML = ""; wsFiles.hidden = true;
+      var text = files + (flagged ? flagged.split("\\n").map(function (l) { return "> " + l; }).join("\\n") + "\\n\\n" : "") + note;
       var hello = wsLog.querySelector(".ws-hello");
       if (hello) hello.remove();
       line("ws-msg you", text);
@@ -351,6 +387,10 @@ export const SITE_JS = `(function () {
             : n ? '<span class="ws-check bad">' + c.total + " quotations · " + n + " not word for word</span>"
             : '<span class="ws-check ok">' + c.total + " quotations · all word for word</span>";
           refresh();
+        } else if (ev.type === "proposal" && ev.html) {
+          var box = d.createElement("div"); box.innerHTML = ev.html;
+          if (box.firstElementChild) wsLog.appendChild(box.firstElementChild);
+          reply = null; wsLog.insertBefore(status, null); wsLog.scrollTop = wsLog.scrollHeight;
         } else if (ev.type === "error") {
           line("ws-act bad", ev.message);
         } else if (ev.type === "done") {

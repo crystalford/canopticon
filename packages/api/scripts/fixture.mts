@@ -893,7 +893,38 @@ const DRAFT_MESSAGES = [
     ],
   },
   { role: "user", content: [{ type: "tool_result", tool_use_id: "t2", content: "Saved." }] },
+  {
+    role: "assistant",
+    content: [
+      {
+        type: "tool_use",
+        id: "t3",
+        name: "propose_entry",
+        input: { kind: "open_problem", title: "Whey that dissolves in hot black coffee" },
+      },
+    ],
+  },
+  { role: "user", content: [{ type: "tool_result", tool_use_id: "t3", content: "Proposed." }] },
 ].map((m) => ({ message: JSON.stringify(m) }));
+const ENTRY_ROW = {
+  id: "entry-1",
+  kind: "open_problem",
+  slug: null,
+  data: JSON.stringify({
+    title: "Whey that dissolves in hot black coffee",
+    body: "You cannot buy a whey protein that goes into hot black coffee the way collagen does. The heat-stable versions exist, but they are bitter, because they work by cutting the protein up.",
+    doc: WHEY,
+    section: "Key findings",
+    quote:
+      "maximum turbidity and aggregate sizes occurred at the isoelectric point (pI 5.2) of whey proteins",
+    topic: "Health & self-care",
+  }),
+  status: "proposed",
+  draft_id: "draft-1",
+  tool_use_id: "t3",
+  created_at: "2026-10-12T20:15:00Z",
+  decided_at: null,
+};
 
 function makeDb(): D1Database {
   const mk = (sql: string) => {
@@ -977,6 +1008,7 @@ function makeDb(): D1Database {
       async all() {
         if (/FROM drafts WHERE user_id/i.test(sql)) return { results: [DRAFT_ROW] };
         if (/FROM draft_messages/i.test(sql)) return { results: DRAFT_MESSAGES };
+        if (/FROM record_entries WHERE draft_id/i.test(sql)) return { results: [ENTRY_ROW] };
         // processingRows: every pipeline row for the operator.
         if (/FROM piece_processing/i.test(sql)) return { results: PROCESSING };
         // Readings: as leads for the worklist (readingsAsLeads selects the

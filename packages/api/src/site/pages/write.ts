@@ -6,6 +6,7 @@
 import type { ChatItem } from "../../write/agent";
 import type { CheckResult } from "../../write/check";
 import type { Draft } from "../../write/drafts";
+import { type Entry, entryRoute } from "../../write/entries";
 import type { LiveVersion } from "../../write/publish";
 import { esc, shell } from "../layout";
 
@@ -44,7 +45,35 @@ export function checkLine(c: CheckResult): string {
     : `<span class="ws-check ok">${c.total} quotations · all word for word</span>`;
 }
 
-function item(i: ChatItem): string {
+const KIND_LABEL: Record<Entry["kind"], string> = {
+  concept: "Concept",
+  open_problem: "Open problem",
+  figure: "Key figure",
+};
+
+/** A proposal in the chat: Claude's paragraph, editable, with the passage it
+ *  stands on; Add puts it in the record, Dismiss sets it aside. */
+export function proposalCard(e: Entry, draftId: string, docTitle?: string): string {
+  const head = `<div class="ws-prop-h"><span class="pill">${esc(KIND_LABEL[e.kind])}</span><span>from ${esc(docTitle ?? e.data.doc)}</span></div>`;
+  const quote = `<blockquote class="ws-prop-q">${esc(e.data.quote)}</blockquote>`;
+  if (e.status === "added") {
+    const route = entryRoute(e);
+    return `<div class="ws-prop added" id="entry-${esc(e.id)}">${head}<div class="ws-prop-done">Added: <a href="${esc(route)}" target="_blank" rel="noopener">${esc(e.kind === "figure" ? e.data.body : e.data.title)}</a>${e.data.edited ? " (rewritten by you)" : ""}</div></div>`;
+  }
+  if (e.status === "dismissed") {
+    return `<div class="ws-prop dismissed" id="entry-${esc(e.id)}">${head}<div class="ws-prop-done">Dismissed: ${esc(e.kind === "figure" ? e.data.body : e.data.title)}</div></div>`;
+  }
+  const base = `/op/write/${esc(draftId)}/entries/${esc(e.id)}`;
+  const fields =
+    e.kind === "figure"
+      ? `<div class="ws-prop-fig"><strong>${esc(e.data.body)}</strong></div>`
+      : `<label class="vh" for="t-${esc(e.id)}">Title</label><input id="t-${esc(e.id)}" class="ws-prop-t" name="title" value="${esc(e.data.title)}"><label class="vh" for="b-${esc(e.id)}">${e.kind === "concept" ? "Definition" : "The problem"}</label><textarea id="b-${esc(e.id)}" class="ws-prop-b" name="body" rows="4">${esc(e.data.body)}</textarea>`;
+  return `<form class="ws-prop" id="entry-${esc(e.id)}" method="post" action="${base}/add">${head}${fields}${quote}<div class="ws-prop-a"><button type="submit" class="btn sm primary">Add to the record</button><button type="submit" class="btn sm" formaction="${base}/dismiss">Dismiss</button></div></form>`;
+}
+
+function item(i: ChatItem, cards?: Map<string, string>): string {
+  if (i.who === "proposal")
+    return (i.toolUseId && cards?.get(i.toolUseId)) || `<div class="ws-act">${esc(i.text)}</div>`;
   if (i.who === "activity") return `<div class="ws-act">${esc(i.text)}</div>`;
   return `<div class="ws-msg ${i.who === "you" ? "you" : "claude"}">${esc(i.text)}</div>`;
 }
@@ -56,6 +85,8 @@ export function renderWorkspace(
   opts: {
     hasKey: boolean;
     publish?: { problems: string[]; live: LiveVersion | null; changed: boolean };
+    /** Proposal cards by the tool call that made them. */
+    cards?: Map<string, string>;
     flash?: {
       published?: string | undefined;
       error?: string | undefined;
@@ -88,8 +119,8 @@ export function renderWorkspace(
         ? `<div class="ws-flash ok">${esc(f.done)}</div>`
         : "";
   const log = items.length
-    ? items.map(item).join("")
-    : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
+    ? items.map((i) => item(i, opts.cards)).join("")
+    : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
   const body = `<div class="ws" data-ws="${esc(d.id)}">
 <section class="ws-chat" aria-label="Conversation">
 <div class="ws-head"><a href="/admin/write" class="ulink">Drafts</a><span class="ws-title">${esc(d.meta.title || "Untitled draft")}</span></div>
@@ -97,9 +128,10 @@ ${opts.hasKey ? "" : NO_KEY}
 <div class="ws-log" data-ws-log>${log}</div>
 <form class="ws-form" method="post" action="/op/write/${esc(d.id)}/turn" data-ws-form>
 <div class="ws-flag" data-ws-flag hidden><span class="ws-flag-l">Flagged</span><span class="ws-flag-t" data-ws-flag-text></span><button type="button" class="ws-flag-x" data-ws-flag-clear aria-label="Remove the flag">×</button></div>
+<div class="ws-files" data-ws-files hidden></div>
 <label for="ws-text" class="vh">Message</label>
 <textarea id="ws-text" name="text" rows="3" placeholder="What should Claude write or change?"${opts.hasKey ? "" : " disabled"}></textarea>
-<div class="ws-actions"><span class="ws-cost" data-ws-cost title="Estimated, at list price">${esc(dollars(d.usage.cents))} so far</span><button type="submit" class="btn"${opts.hasKey ? "" : " disabled"}>Send</button></div>
+<div class="ws-actions"><span class="ws-left"><label class="ws-attach">Add files<input type="file" multiple accept=".md,.txt,.pdf,.docx" data-ws-file hidden></label><span class="ws-cost" data-ws-cost title="Estimated, at list price">${esc(dollars(d.usage.cents))} so far</span></span><button type="submit" class="btn"${opts.hasKey ? "" : " disabled"}>Send</button></div>
 </form>
 </section>
 <section class="ws-page" aria-label="The page">
