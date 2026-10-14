@@ -14,8 +14,12 @@ product became the publication.
   record) are the vocabulary; two documents share one when both texts carry
   the phrase word for word. (The first version read the graph's own
   node-to-document links and found 2 — checked live, the graph keeps each
-  subject on the first document that named it. Fixed the same day.) Never a
-  person or an organisation,
+  subject on the first document that named it. Fixed the same day; then
+  tuned against the live vocabulary, which showed the noise — single words,
+  places, dates, "The paper", news outlets — so those are left out, and a
+  phrase on more than a tenth of the record links nothing. Result: 189
+  specific phrases — acts, works, concepts, speeches, funds — linking 87 of
+  123 documents.) Never a person or an organisation,
   never a phrase on more than a third of the record, one link per phrase and
   per destination, twelve at most — and placed only where the words are in
   the prose. The old site had this; the new page now does too.

@@ -190,21 +190,53 @@ export function pickSpread(rows: CrossLink[], limit: number): CrossLink[] {
 }
 
 /**
+ * Whether a graph subject is worth linking two documents on — rules set
+ * against the live vocabulary (2,716 subjects, 2026-10-14), where these were
+ * the noise: single words ("interview", "Internet", "Canadians"), places
+ * mentioned in passing ("California", "Vancouver"), "The" plus one word
+ * ("The paper"), dates ("March 14, 2025"), and news outlets and journals
+ * cited as sources ("CBC News", "Nature Communications" — the rail's "Shares
+ * sources with" covers those). What survives is specific: acts and bills,
+ * named works and concepts, speeches, funds, programmes.
+ */
+export function isLinkableSubject(label: string, kind: string, type: string | null): boolean {
+  const l = label.trim();
+  if (l.length < MIN_LABEL_CHARS || l.split(/\s+/).length < 2) return false;
+  if (kind === "entity" && (type === "person" || type === "organization" || type === "institution"))
+    return false;
+  if (type === "location") return false;
+  if (/^the\s+\S+$/i.test(l)) return false;
+  if (
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b\s*\d/i.test(
+      l,
+    )
+  )
+    return false;
+  if (
+    type === "work" &&
+    /\b(news|journal|times|star|magazine|review|bloomberg|post|globe|press|herald|tribune|gazette|reports?|communications|letters|proceedings|quarterly|bulletin|frontiers|nature|wikipedia|conversation|science|psychology|investor|policy)\b/i.test(
+      l,
+    )
+  )
+    return false;
+  return true;
+}
+
+/**
  * The graph's subjects as a vocabulary for the site's links (site/content/
- * store.ts linkIndex): every subject label of at least 8 characters that is
- * not a person, an organisation or an institution. Which documents share
+ * store.ts linkIndex), filtered by isLinkableSubject. Which documents share
  * one is decided from their text, not from the node's document — entity
  * resolution keeps one node per subject, on the first document that named it.
  */
 export async function subjectVocabulary(db: D1Database, userId: string): Promise<string[]> {
   const kinds = LINKABLE_KINDS.map(() => "?").join(",");
-  const rows = await all<{ label: string }>(
+  const rows = await all<{ label: string; kind: string; type: string | null }>(
     db,
-    `SELECT DISTINCT label FROM nodes
+    `SELECT DISTINCT label, kind, json_extract(metadata, '$.entity_type') AS type FROM nodes
       WHERE user_id = ? AND kind IN (${kinds}) AND LENGTH(label) >= ?
         AND COALESCE(json_extract(metadata, '$.entity_type'), '') NOT IN ('person', 'organization', 'institution')
       LIMIT 20000`,
     [userId, ...LINKABLE_KINDS, MIN_LABEL_CHARS],
-  ).catch(() => [] as Array<{ label: string }>);
-  return rows.map((r) => r.label);
+  ).catch(() => [] as Array<{ label: string; kind: string; type: string | null }>);
+  return rows.filter((r) => isLinkableSubject(r.label, r.kind, r.type)).map((r) => r.label);
 }

@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import type { Env } from "../src/env";
-import { subjectVocabulary } from "../src/graph/lib/crosslinks";
+import { isLinkableSubject, subjectVocabulary } from "../src/graph/lib/crosslinks";
 import app from "../src/index";
 import {
   answeredElsewhere,
@@ -135,6 +135,31 @@ function sqliteD1() {
   } as unknown as D1Database;
   return { db, d1 };
 }
+
+describe("which subjects may link two documents", () => {
+  it("keeps specific names, and drops what the live vocabulary showed to be noise", () => {
+    const yes: Array<[string, string, string | null]> = [
+      ["Online News Act", "entity", "concept"],
+      ["Understanding Media", "entity", "work"],
+      ["GFANZ collapse", "event", null],
+      ["Ukraine Development Fund", "entity", "concept"],
+      ["The Gutenberg Galaxy", "entity", "work"],
+    ];
+    const no: Array<[string, string, string | null]> = [
+      ["interview", "event", null], // one word
+      ["Canadians", "entity", "concept"],
+      ["California", "entity", "location"],
+      ["New York City", "entity", "location"], // a place, however many words
+      ["The paper", "entity", "work"],
+      ["March 14, 2025", "event", null],
+      ["CBC News", "entity", "work"], // an outlet cited as a source
+      ["Nature Communications", "entity", "work"],
+      ["Bank of Canada", "entity", "institution"],
+    ];
+    for (const [l, k, t] of yes) expect(isLinkableSubject(l, k, t), l).toBe(true);
+    for (const [l, k, t] of no) expect(isLinkableSubject(l, k, t), l).toBe(false);
+  });
+});
 
 describe("the subjects vocabulary, on the real schema", () => {
   it("takes subjects of 8 characters or more — never a person, an organisation or an institution", async () => {
