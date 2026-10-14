@@ -74,13 +74,13 @@ export function spliceLinks(
       if (at < 0) continue;
       found.push(text.slice(at, at + needle.length));
       // The placeholder keeps later labels from matching inside this link.
-      const slot = `\u0000${placed.length}\u0000`;
+      const slot = `\uE000${placed.length}\uE000`;
       text = `${text.slice(0, at)}${slot}${text.slice(at + needle.length)}`;
       placed.push(l);
       usedLabels.add(key);
       usedTargets.add(l.href);
     }
-    parts[i] = text.replace(/\u0000(\d+)\u0000/g, (_, n: string) => {
+    parts[i] = text.replace(/\uE000(\d+)\uE000/g, (_, n: string) => {
       const l = placed[Number(n)] as InlineLink;
       return `<a class="xl ${l.kind}" href="${esc(l.href)}" title="${esc(l.title)}">${found[Number(n)] ?? esc(l.label)}</a>`;
     });
