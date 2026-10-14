@@ -221,7 +221,18 @@ export interface ReadStore {
   isIgnored(docId: string, key: string): Promise<boolean>;
   ignore(docId: string, kind: string, key: string): Promise<void>;
   /** What the public page shows: kept cards of the document's shown read. */
-  shown(docId: string): Promise<{ read: ReadRow; cards: Derivation[] } | null>;
+  shown(docId: string): Promise<ShownRead | null>;
+  /** Every document's shown read with its kept cards, for the site overlay. */
+  shownAll(): Promise<ShownRead[]>;
+  /** The latest read of every document, with how many cards are kept, for Admin. */
+  latestAll(): Promise<Map<string, ReadRow & { kept: number }>>;
+  /** Replace a card's structured fields (a pitch records the draft it started). */
+  setData(id: string, data: Record<string, unknown>): Promise<void>;
+}
+
+export interface ShownRead {
+  read: ReadRow;
+  cards: Derivation[];
 }
 
 const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 16);
@@ -432,6 +443,46 @@ export function d1Reads(env: Env, userId: string): ReadStore {
       const cards = (await store.derivations(r.id)).filter((d) => d.status === "kept");
       return { read: readFrom(r), cards };
     },
+    async shownAll() {
+      const rows = await all<ReadDbRow>(
+        db,
+        "SELECT * FROM reads WHERE user_id = ? AND status = 'shown' ORDER BY shown_at DESC",
+        [userId],
+      ).catch(() => [] as ReadDbRow[]);
+      // One shown read per document: the latest shown.
+      const latest = new Map<string, ReadDbRow>();
+      for (const r of rows) if (!latest.has(r.doc_id)) latest.set(r.doc_id, r);
+      if (!latest.size) return [];
+      const ids = [...latest.values()].map((r) => r.id);
+      const cards = await all<DerivDbRow>(
+        db,
+        `SELECT * FROM derivations WHERE user_id = ? AND status = 'kept' AND read_id IN (${ids.map(() => "?").join(", ")}) ORDER BY created_at`,
+        [userId, ...ids],
+      ).catch(() => [] as DerivDbRow[]);
+      return [...latest.values()].map((r) => ({
+        read: readFrom(r),
+        cards: cards.filter((c) => c.read_id === r.id).map(derivFrom),
+      }));
+    },
+    async latestAll() {
+      const rows = await all<ReadDbRow & { kept: number }>(
+        db,
+        `SELECT r.*, (SELECT COUNT(*) FROM derivations d WHERE d.read_id = r.id AND d.status = 'kept') AS kept
+           FROM reads r WHERE r.user_id = ? ORDER BY r.started_at DESC`,
+        [userId],
+      ).catch(() => [] as Array<ReadDbRow & { kept: number }>);
+      const out = new Map<string, ReadRow & { kept: number }>();
+      for (const r of rows)
+        if (!out.has(r.doc_id)) out.set(r.doc_id, { ...readFrom(r), kept: r.kept ?? 0 });
+      return out;
+    },
+    async setData(id, data) {
+      await run(db, "UPDATE derivations SET data = ? WHERE id = ? AND user_id = ?", [
+        JSON.stringify(data),
+        id,
+        userId,
+      ]);
+    },
   };
   return store;
 }
@@ -511,6 +562,32 @@ export function memoryReads(): ReadStore & {
         read: r,
         cards: [...cards.values()].filter((d) => d.readId === r.id && d.status === "kept"),
       };
+    },
+    async shownAll() {
+      const docs = new Set(
+        [...rows.values()].filter((r) => r.status === "shown").map((r) => r.docId),
+      );
+      const out: ShownRead[] = [];
+      for (const d of docs) {
+        const s = await store.shown(d);
+        if (s) out.push(s);
+      }
+      return out;
+    },
+    async latestAll() {
+      const out = new Map<string, ReadRow & { kept: number }>();
+      for (const r of [...rows.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt)))
+        if (!out.has(r.docId))
+          out.set(r.docId, {
+            ...r,
+            kept: [...cards.values()].filter((c) => c.readId === r.id && c.status === "kept")
+              .length,
+          });
+      return out;
+    },
+    async setData(id: string, data: Record<string, unknown>) {
+      const d = cards.get(id);
+      if (d) cards.set(id, { ...d, data });
     },
   };
   return store;
@@ -783,3 +860,27 @@ export async function runReadTool(
 /** The first turn's text when the author presses Read it. */
 export const START_READ = (title: string, id: string) =>
   `Read "${title}" (id: ${id}) in full and lay out what is in it.`;
+
+/** "Write this": the first message of an article draft started from a
+ *  possible article — the thesis and the passages that carry it, each the
+ *  document's own words, so Claude starts from the read rather than from
+ *  nothing. Advice and the author's own decisions are named as such. */
+export function pitchBrief(card: Derivation, title: string): string {
+  const supports =
+    (card.data.supports as Array<{ span: string; role: string; section?: string }> | undefined) ??
+    [];
+  const counter = typeof card.data.counter === "string" ? card.data.counter : "";
+  const lines = supports.map(
+    (s) =>
+      `- (${s.role === "finding" || s.role === "reasoning" ? s.role : `${s.role}, not evidence`}${s.section ? `, ${s.section}` : ""}) "${s.span}"`,
+  );
+  return [
+    `Write an article arguing: ${String(card.data.thesis ?? "")}`,
+    "",
+    `It comes from a read of "${title}" (id: ${card.docId}). Read the whole document first. The passages that carry it:`,
+    ...lines,
+    ...(counter ? ["", `The strongest counter in the document: "${counter}"`] : []),
+    "",
+    "Quote only findings and reasoning as evidence. Find what else in the record bears on it before you write.",
+  ].join("\n");
+}

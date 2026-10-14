@@ -28,6 +28,7 @@ import {
   privatePage,
   problem,
   researchDoc,
+  shownRead,
   staticPage,
   term,
 } from "./content/store";
@@ -47,6 +48,7 @@ import { passageHref } from "./md";
 import { renderAdmin } from "./pages/admin";
 import { renderArticle, renderPaper } from "./pages/article";
 import { type DocView, renderDocument } from "./pages/document";
+import { evidence } from "./pages/evidence";
 import { consentWording, followTopics, renderFollow } from "./pages/follow";
 import { renderFront } from "./pages/front";
 import { renderIdea } from "./pages/idea";
@@ -167,15 +169,21 @@ app.get("/admin", async (c) => {
   const model = userId
     ? await adminModel(c.env, userId)
     : { waiting: [], failed: [], kept: [], published: [] };
+  // What each document's read found, on its card.
+  const reads = userId ? await d1Reads(c.env, userId).latestAll() : new Map();
   return html(
-    renderAdmin(model, {
-      uploaded: c.req.query("uploaded"),
-      ingested: c.req.query("ingested"),
-      dupes: c.req.query("dupes"),
-      dedup: c.req.query("dedup"),
-      error: c.req.query("error"),
-      done: c.req.query("done"),
-    }),
+    renderAdmin(
+      model,
+      {
+        uploaded: c.req.query("uploaded"),
+        ingested: c.req.query("ingested"),
+        dupes: c.req.query("dupes"),
+        dedup: c.req.query("dedup"),
+        error: c.req.query("error"),
+        done: c.req.query("done"),
+      },
+      reads,
+    ),
   );
 });
 
@@ -217,10 +225,12 @@ app.get("/admin/write/:id", async (c, next) => {
           read: {
             receipt: read ? receiptLine(read) : "No read recorded",
             docId,
-            // Read it was just pressed: the page sends the first message once.
-            autostart:
-              c.req.query("start") === "1" && !items.length ? START_READ(title, docId) : undefined,
+            readId: read?.id ?? "",
+            shown: read?.status === "shown",
           },
+          // Read it was just pressed: the page sends the first message once.
+          autostart:
+            c.req.query("start") === "1" && !items.length ? START_READ(title, docId) : undefined,
           flash: { error: c.req.query("error"), done: c.req.query("done") },
         },
       ),
@@ -268,6 +278,8 @@ app.get("/admin/write/:id", async (c, next) => {
       route: claudeRoute(c.env),
       cards,
       publish: { problems, live, changed: live ? changedSince(d, live) : true },
+      // "Write this" opened it: the page sends the brief once.
+      autostart: c.req.query("start") === "1" && !items.length ? d.meta.seed : undefined,
       flash: {
         published: c.req.query("published"),
         error: c.req.query("error"),
@@ -889,13 +901,15 @@ app.get("/p/:id", async (c, next) => {
   }
   const view = docViewFromStore(raw) ?? (await uploadedDoc(c.env, raw));
   if (view) {
-    if (!signedIn(c)) return html(renderDocument(view));
+    const ev = evidence(shownRead(view.id));
+    if (!signedIn(c)) return html(renderDocument(view, { evidence: ev }));
     // The author sees Read it, or the read already made.
     const uid = await resolveOperatorId(c.env.DB).catch(() => null);
     const read = uid ? await d1Reads(c.env, uid).latest(view.id) : null;
     return html(
       renderDocument(view, {
         signedIn: true,
+        evidence: ev,
         readIt: read?.draftId
           ? { draftId: read.draftId, when: shortDate(read.startedAt.slice(0, 10)) }
           : true,

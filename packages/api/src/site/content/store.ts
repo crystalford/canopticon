@@ -7,6 +7,7 @@
 // accessors are where "held" is enforced: a held document is stored and can
 // be read by Admin, but nothing here hands it to a public caller.
 
+import type { ShownRead } from "../../write/read";
 import raw from "./store.gen.json";
 
 export interface LibraryItem {
@@ -276,6 +277,18 @@ export function setRecordEntries(next: EntryOverlay): void {
   if (JSON.stringify(keep) !== JSON.stringify(ENTRIES)) VERSION++;
   ENTRIES = keep;
 }
+/**
+ * What a read found and the author put on the page (docs/read-it.md): per
+ * document, the kept cards of its shown read, from D1 (reads, derivations).
+ * Never for a held document: this accessor is where that is enforced.
+ */
+let SHOWN = new Map<string, ShownRead>();
+export function setShownReads(list: ShownRead[]): void {
+  SHOWN = new Map(list.map((s) => [s.read.docId, s]));
+}
+export const shownRead = (docId: string): ShownRead | null =>
+  anyResearchDoc(docId) && !researchDoc(docId) ? null : (SHOWN.get(docId) ?? null);
+
 export const timeline = (topic: string): TimelineWork[] => STORE.timeline[topic] ?? [];
 export const verifiedQuoteCount = (): number => STORE.verified.quotes;
 

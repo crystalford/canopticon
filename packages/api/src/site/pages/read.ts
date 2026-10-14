@@ -92,7 +92,14 @@ export function readCard(d: Derivation): string {
       : d.status === "kept"
         ? `<form method="post" action="/op/read/card/${esc(d.id)}/dismiss" class="rd-act"><span class="rd-status kept">Kept</span><button class="btn sm quiet">Dismiss</button></form>`
         : '<span class="rd-status dismissed">Dismissed — it will not come back</span>';
-  return `<div class="rd-card ${d.status}" id="c-${esc(d.id)}"><div class="rd-h"><span class="pill">${esc(KIND_LABEL[d.kind])}</span>${meta.join("")}</div>${body}${actions}</div>`;
+  // A possible article starts an article draft; once started, it opens it.
+  const write =
+    d.kind !== "pitch" || d.status === "dismissed"
+      ? ""
+      : typeof d.data.draftId === "string"
+        ? `<a class="rd-write" href="/admin/write/${esc(d.data.draftId)}" target="_top">Open the draft →</a>`
+        : `<form method="post" action="/op/read/card/${esc(d.id)}/write" target="_top" class="rd-act"><button class="btn sm">Write this</button><span class="rd-note">Starts an article with these passages.</span></form>`;
+  return `<div class="rd-card ${d.status}" id="c-${esc(d.id)}"><div class="rd-h"><span class="pill">${esc(KIND_LABEL[d.kind])}</span>${meta.join("")}</div>${body}${actions}${write}</div>`;
 }
 
 export function receiptLine(r: ReadRow): string {
@@ -117,6 +124,10 @@ export function renderReadBoard(r: ReadRow, cards: Derivation[], docTitle: strin
   const dismissed = cards.length - live.length;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/site.css"></head><body class="rd-body"><main class="rd-main">
 <div class="rd-head"><div class="rd-kicker">Read it</div><h1>${esc(docTitle)}</h1><div class="rd-receipt">${receiptLine(r)}</div>${
+    r.status === "shown"
+      ? '<p class="rd-shown">On the document\'s page: the figures, findings, questions and open threads you keep here. Possible articles and advice never are.</p>'
+      : '<p class="rd-shown off">Nothing here is public. When you have kept what is right, “Show on the page” puts the figures, findings, questions and open threads on the document\'s page. Possible articles and advice never go there.</p>'
+  }${
     proposed
       ? `<form method="post" action="/op/read/${esc(r.id)}/keep-all" class="rd-act"><button class="btn sm">Keep all ${proposed} proposed</button></form>`
       : ""

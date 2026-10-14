@@ -20,6 +20,8 @@ export interface DraftMeta {
   savedAs?: string;
   /** Read it: the read this conversation is (reads.id). */
   readId?: string;
+  /** The first message, sent once when the draft opens (Read it, Write this). */
+  seed?: string;
   based_on?: string[];
 }
 
