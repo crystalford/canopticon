@@ -10,8 +10,12 @@ product became the publication.
 
 - **Links inside the text**, the way a Wikipedia page works: a phrase in a
   document links to the other documents that share that subject, and a
-  concept's name links to its page. Found by code from the subjects the
-  graph already holds (13,000 nodes) — never a person or an organisation,
+  concept's name links to its page. The graph's subjects (6,175 on the live
+  record) are the vocabulary; two documents share one when both texts carry
+  the phrase word for word. (The first version read the graph's own
+  node-to-document links and found 2 — checked live, the graph keeps each
+  subject on the first document that named it. Fixed the same day.) Never a
+  person or an organisation,
   never a phrase on more than a third of the record, one link per phrase and
   per destination, twelve at most — and placed only where the words are in
   the prose. The old site had this; the new page now does too.

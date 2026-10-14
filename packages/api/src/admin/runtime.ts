@@ -474,95 +474,47 @@ app.get("/research-runs", async (c) => {
 // since migration 0059 a fetched page is a `sources` row and never a piece,
 // so this count only ever goes down), and the research pipeline's own briefs.
 // `banked_sources` is where fetched pages live now.
-// The record linking itself, as the live site computes it (site/links.ts,
-// graph/lib/crosslinks.ts allCrossLinks): how many documents link out, how
-// many links point at something that is not public (always 0 — they are
-// dropped), and one document's links in full (?slug=). Read-only.
+// The record linking itself, as the live site computes it (site/content/
+// store.ts linkIndex, site/links.ts): the graph's subjects as vocabulary,
+// how many of them two or more public documents carry word for word, how
+// many documents link out, and one document's links (?slug=, else three
+// samples). Destinations are only ever public documents. Read-only.
 app.get("/links", async (c) => {
-  const userId = c.get("user_id");
-  const { allCrossLinks } = await import("../graph/lib/crosslinks.ts");
-  const { researchDoc, anyResearchDoc } = await import("../site/content/store.ts");
-  const map = await allCrossLinks(c.env.DB, userId, OWN_UPLOADS_SQL);
-  const published = new Set(
-    (
-      await all<{ slug: string }>(
-        c.env.DB,
-        `SELECT slug FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical') AND ${OWN_UPLOADS_SQL}`,
-        [userId],
-      ).catch(() => [] as Array<{ slug: string }>)
-    ).map((r) => r.slug),
-  );
-  let links = 0;
+  const store = await import("../site/content/store.ts");
+  const { refreshUploads } = await import("../site/uploads.ts");
+  await refreshUploads(c.env, true);
+  const stats = store.linkIndexStats();
+  const held = new Set(store.heldResearch().map((d) => d.id));
+  const docs = store.publicResearch().map((d) => d.id);
   let toHeld = 0;
-  let toUnknown = 0;
-  for (const list of map.values())
-    for (const l of list) {
+  let links = 0;
+  for (const id of docs)
+    for (const l of store.subjectLinks(id)) {
       links++;
-      if (anyResearchDoc(l.slug) && !researchDoc(l.slug)) toHeld++;
-      else if (!researchDoc(l.slug) && !published.has(l.slug)) toUnknown++;
+      if (held.has(l.route.slice(3))) toHeld++;
     }
   const slug = c.req.query("slug");
-  // Where the graph's subjects go missing on the way to a link, step by step.
-  const n = async (sql: string, args: unknown[] = []) =>
-    (await one<{ n: number }>(c.env.DB, sql, args).catch(() => null))?.n ?? -1;
-  const OWN = `SELECT id FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical') AND ${OWN_UPLOADS_SQL}`;
-  const funnel = {
-    nodes: await n("SELECT COUNT(*) AS n FROM nodes WHERE user_id = ?", [userId]),
-    nodes_with_a_document: await n(
-      "SELECT COUNT(*) AS n FROM nodes WHERE user_id = ? AND piece_id IS NOT NULL",
-      [userId],
-    ),
-    documents_the_nodes_name: await n(
-      "SELECT COUNT(DISTINCT piece_id) AS n FROM nodes WHERE user_id = ? AND piece_id IS NOT NULL",
-      [userId],
-    ),
-    of_those_still_in_pieces: await n(
-      "SELECT COUNT(DISTINCT n.piece_id) AS n FROM nodes n JOIN pieces p ON p.id = n.piece_id WHERE n.user_id = ?",
-      [userId],
-    ),
-    of_those_published_own: await n(
-      `SELECT COUNT(DISTINCT piece_id) AS n FROM nodes WHERE user_id = ? AND piece_id IN (${OWN})`,
-      [userId, userId],
-    ),
-    published_own_documents: await n(`SELECT COUNT(*) AS n FROM (${OWN})`, [userId]),
-    subject_nodes_on_published_own: await n(
-      `SELECT COUNT(*) AS n FROM nodes WHERE user_id = ? AND kind IN ('entity','event','theme') AND piece_id IN (${OWN})`,
-      [userId, userId],
-    ),
-    labels_on_2_plus_documents_any_type: await n(
-      `SELECT COUNT(*) AS n FROM (SELECT label FROM nodes WHERE user_id = ? AND kind IN ('entity','event','theme') AND piece_id IN (${OWN}) GROUP BY label HAVING COUNT(DISTINCT piece_id) >= 2)`,
-      [userId, userId],
-    ),
-    labels_on_2_plus_case_insensitive: await n(
-      `SELECT COUNT(*) AS n FROM (SELECT LOWER(label) FROM nodes WHERE user_id = ? AND kind IN ('entity','event','theme') AND piece_id IN (${OWN}) GROUP BY LOWER(label) HAVING COUNT(DISTINCT piece_id) >= 2)`,
-      [userId, userId],
-    ),
-    labels_on_2_plus_not_person_org: await n(
-      `SELECT COUNT(*) AS n FROM (SELECT label FROM nodes WHERE user_id = ? AND kind IN ('entity','event','theme') AND piece_id IN (${OWN}) AND COALESCE(json_extract(metadata, '$.entity_type'), '') NOT IN ('person','organization','institution') GROUP BY label HAVING COUNT(DISTINCT piece_id) >= 2)`,
-      [userId, userId],
-    ),
-    by_type_on_published_own: await all<{ kind: string; type: string | null; n: number }>(
-      c.env.DB,
-      `SELECT kind, json_extract(metadata, '$.entity_type') AS type, COUNT(*) AS n FROM nodes WHERE user_id = ? AND piece_id IN (${OWN}) GROUP BY kind, type ORDER BY n DESC LIMIT 20`,
-      [userId, userId],
-    ).catch(() => []),
-  };
+  const show = (id: string) => ({
+    slug: id,
+    links: store
+      .subjectLinks(id)
+      .slice(0, 8)
+      .map((l) => ({ phrase: l.label, to: l.route })),
+  });
   return c.json({
-    funnel,
-    documents_with_links: map.size,
-    candidate_links: links,
-    to_held_documents_dropped_at_render: toHeld,
-    to_unpublished_dropped_at_render: toUnknown,
+    vocabulary: stats.vocabulary,
+    phrases_shared_by_2_or_more_documents: stats.labelsShared,
+    documents_with_links: stats.docsWithLinks,
+    index_built_in_ms: stats.buildMs,
+    public_documents: docs.length,
+    candidate_links_on_public_documents: links,
+    links_to_held_documents: toHeld,
     sample: slug
-      ? (map.get(slug) ?? []).map((l) => ({
-          label: l.label,
-          to: l.slug,
-          docs_with_label: l.pieces,
-        }))
-      : [...map.entries()].slice(0, 3).map(([s, list]) => ({
-          slug: s,
-          links: list.slice(0, 5).map((l) => ({ label: l.label, to: l.slug })),
-        })),
+      ? [show(slug)]
+      : docs
+          .filter((id) => store.subjectLinks(id).length)
+          .slice(0, 3)
+          .map(show),
   });
 });
 

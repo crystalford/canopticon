@@ -274,15 +274,189 @@ function sourceIndex() {
 }
 
 /**
- * Subjects shared with other documents, from the typed graph (graph/lib/
- * crosslinks.ts allCrossLinks — no model, never a person or organisation),
- * loaded with the uploads. The destinations are checked here, at the moment
- * of use: only a document that renders publicly, never a held one.
+ * Subjects shared with other documents. The typed graph supplies the
+ * vocabulary — the subjects extraction found (events, themes, works,
+ * concepts, places; never a person, organisation or institution) — and two
+ * documents share a subject when both texts carry the phrase, word for word
+ * (case aside). The graph alone cannot say this: entity resolution keeps one
+ * node per subject, attached to the first document that named it, so a label
+ * is "on" one document however many discuss it (measured live 2026-10-14:
+ * 6,175 subjects, 2 on more than one document). The text can.
+ *
+ * Limits, as graph/lib/crosslinks.ts sets them: a phrase of at least 8
+ * characters, carried by at least 2 documents and at most a third of them
+ * (a phrase in everything connects nothing), one link per phrase and per
+ * destination. Built once per isolate when the documents or the vocabulary
+ * change, through a word index so it stays cheap. No model anywhere.
  */
-let GRAPH_LINKS = new Map<string, Array<{ label: string; slug: string }>>();
-export function setGraphLinks(next: Map<string, Array<{ label: string; slug: string }>>): void {
-  GRAPH_LINKS = next;
+let GRAPH_LABELS: string[] = [];
+export function setGraphLabels(labels: string[]): void {
+  const next = [...new Set(labels.map((l) => l.trim()).filter((l) => l.length >= 8))].sort();
+  if (next.length === GRAPH_LABELS.length && next.every((l, i) => l === GRAPH_LABELS[i])) return;
+  GRAPH_LABELS = next;
+  LINK_INDEX = null;
 }
+let UPLOAD_TEXT = new Map<string, string>();
+export function setUploadedTexts(next: Map<string, string>): void {
+  UPLOAD_TEXT = next;
+  LINK_INDEX = null;
+}
+
+/** Prose as the index reads it: emphasis and link syntax gone, spaces single. */
+const indexText = (md: string) =>
+  md
+    .replace(/\]\([^)]*\)/g, " ")
+    .replace(/[*_`#>[\]|]/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+// Lowercase text in, words out: ASCII letters and digits, accented and
+// non-Latin letters; punctuation (U+2000–206F: dashes, curly quotes) breaks.
+// A character class, not \p{L}: three times faster over the whole record.
+const words = (s: string) => s.split(/[^a-z0-9\u00c0-\u1fff\u2070-\uffff]+/).filter(Boolean);
+/** A letter or digit at i — a character test, not a regex, since the index
+ *  asks it many thousands of times. */
+const isWordAt = (text: string, i: number) => {
+  if (i < 0 || i >= text.length) return false;
+  const c = text.charCodeAt(i);
+  if ((c >= 48 && c <= 57) || (c >= 97 && c <= 122) || (c >= 65 && c <= 90)) return true;
+  return c > 127 && /[\p{L}\p{N}]/u.test(text[i] ?? "");
+};
+function hasPhrase(text: string, phrase: string): boolean {
+  let at = text.indexOf(phrase);
+  while (at >= 0) {
+    const end = at + phrase.length;
+    // The phrase whole, or its plain plural — as the page will link it.
+    if (
+      !isWordAt(text, at - 1) &&
+      (!isWordAt(text, end) || (text[end] === "s" && !isWordAt(text, end + 1)))
+    )
+      return true;
+    at = text.indexOf(phrase, at + 1);
+  }
+  return false;
+}
+
+interface LinkIndex {
+  version: number;
+  byDoc: Map<string, Array<{ label: string; slug: string; pieces: number }>>;
+  docsWithLinks: number;
+  labelsShared: number;
+  /** How long the build took, for the live check. */
+  ms: number;
+}
+let LINK_INDEX: LinkIndex | null = null;
+function linkIndex(): LinkIndex {
+  if (LINK_INDEX && LINK_INDEX.version === VERSION) return LINK_INDEX;
+  const t0 = Date.now();
+  // Every public document: the store's research and the published uploads.
+  const texts = new Map<string, string>();
+  for (const d of publicResearch()) texts.set(d.id, indexText(d.body));
+  for (const r of UPLOADED)
+    if (r.doc && UPLOAD_TEXT.has(r.doc)) texts.set(r.doc, indexText(UPLOAD_TEXT.get(r.doc) ?? ""));
+  // The words of each label, and the adjacent pairs they make. Documents are
+  // indexed by single words and by just those pairs — a document holds a
+  // phrase only if it holds each of its pairs side by side, which leaves very
+  // few documents to check word for word.
+  const labelWords = GRAPH_LABELS.map((label) => {
+    const phrase = label.toLowerCase().replace(/\s+/g, " ");
+    return { label, phrase, ws: words(phrase) };
+  });
+  const neededPairs = new Set<string>();
+  const firstOfPair = new Set<string>();
+  const neededWords = new Set<string>();
+  for (const { ws } of labelWords) {
+    if (ws.length === 1) neededWords.add(ws[0] ?? "");
+    for (let i = 0; i + 1 < ws.length; i++) {
+      neededPairs.add(`${ws[i]} ${ws[i + 1]}`);
+      firstOfPair.add(ws[i] ?? "");
+    }
+  }
+  const docsOfWord = new Map<string, Set<string>>();
+  const docsOfPair = new Map<string, Set<string>>();
+  const add = (m: Map<string, Set<string>>, k: string, id: string) => {
+    const set = m.get(k) ?? new Set<string>();
+    set.add(id);
+    m.set(k, set);
+  };
+  for (const [id, t] of texts) {
+    const ws = words(t);
+    for (let i = 0; i < ws.length; i++) {
+      const w = ws[i] ?? "";
+      if (neededWords.has(w)) add(docsOfWord, w, id);
+      if (i + 1 < ws.length && firstOfPair.has(w)) {
+        const pair = `${w} ${ws[i + 1]}`;
+        if (neededPairs.has(pair)) add(docsOfPair, pair, id);
+      }
+    }
+  }
+  const ceiling = Math.max(4, Math.floor(texts.size / 3));
+  const shared: Array<{ label: string; docs: string[] }> = [];
+  for (const { label, phrase, ws } of labelWords) {
+    if (!ws.length) continue;
+    // The smallest set among the label's pairs (or its one word).
+    let candidates: Set<string> | undefined;
+    if (ws.length === 1) candidates = docsOfWord.get(ws[0] ?? "");
+    else
+      for (let i = 0; i + 1 < ws.length; i++) {
+        const set = docsOfPair.get(`${ws[i]} ${ws[i + 1]}`);
+        if (!set) {
+          candidates = undefined;
+          break;
+        }
+        if (!candidates || set.size < candidates.size) candidates = set;
+      }
+    if (!candidates || candidates.size < 2) continue;
+    const docs: string[] = [];
+    for (const id of candidates) {
+      if (!hasPhrase(texts.get(id) ?? "", phrase)) continue;
+      docs.push(id);
+      // On more than a third of the record it links nothing: stop counting.
+      if (docs.length > ceiling) break;
+    }
+    if (docs.length >= 2 && docs.length <= ceiling) shared.push({ label, docs });
+  }
+  // Most specific first: a phrase on two documents says more than one on ten.
+  shared.sort(
+    (a, b) =>
+      a.docs.length - b.docs.length ||
+      b.label.length - a.label.length ||
+      a.label.localeCompare(b.label),
+  );
+  const byDoc = new Map<string, Array<{ label: string; slug: string; pieces: number }>>();
+  for (const { label, docs } of shared)
+    for (const from of docs)
+      for (const to of docs)
+        if (to !== from) {
+          const list = byDoc.get(from) ?? [];
+          list.push({ label, slug: to, pieces: docs.length });
+          byDoc.set(from, list);
+        }
+  LINK_INDEX = {
+    version: VERSION,
+    byDoc,
+    docsWithLinks: byDoc.size,
+    labelsShared: shared.length,
+    ms: Date.now() - t0,
+  };
+  return LINK_INDEX;
+}
+
+/** For the live check (/v1/admin/links): what the index holds. */
+export function linkIndexStats(): {
+  vocabulary: number;
+  labelsShared: number;
+  docsWithLinks: number;
+  buildMs: number;
+} {
+  const ix = linkIndex();
+  return {
+    vocabulary: GRAPH_LABELS.length,
+    labelsShared: ix.labelsShared,
+    docsWithLinks: ix.docsWithLinks,
+    buildMs: ix.ms,
+  };
+}
+
 export interface SubjectLink {
   label: string;
   route: string;
@@ -290,10 +464,17 @@ export interface SubjectLink {
 }
 export function subjectLinks(docId: string): SubjectLink[] {
   const out: SubjectLink[] = [];
-  for (const l of GRAPH_LINKS.get(docId) ?? []) {
+  const usedLabels = new Set<string>();
+  const usedTargets = new Set<string>();
+  for (const l of linkIndex().byDoc.get(docId) ?? []) {
+    // One link per phrase and per destination; more candidates than show,
+    // since the page places only what its prose carries (site/links.ts).
+    if (out.length >= 36 || usedLabels.has(l.label) || usedTargets.has(l.slug)) continue;
     const d = researchDoc(l.slug);
     const up = d ? null : UPLOADED.find((r) => r.doc === l.slug);
     if (!d && !up) continue;
+    usedLabels.add(l.label);
+    usedTargets.add(l.slug);
     out.push({
       label: l.label,
       route: `/p/${l.slug}`,

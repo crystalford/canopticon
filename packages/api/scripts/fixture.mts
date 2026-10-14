@@ -1314,25 +1314,14 @@ function makeDb(): D1Database {
         if (/FROM derivations d JOIN reads r/i.test(sql))
           return { results: DERIVS.filter((d) => d.status === "kept") };
         // Admin: each document's latest read, with what was kept.
-        // The subjects documents share (graph/lib/crosslinks.ts allCrossLinks):
-        // the whey report and the skin report both discuss hydrolysis.
-        if (/WITH own AS/i.test(sql))
+        // The graph's subjects, as the vocabulary for links in the text
+        // (graph/lib/crosslinks.ts subjectVocabulary).
+        if (/SELECT DISTINCT label FROM nodes/i.test(sql))
           return {
             results: [
-              { label: "hydrolyzed whey", slug: WHEY, title: "Whey", pieces: 2 },
-              {
-                label: "hydrolyzed whey",
-                slug: "oral-only-interventions-across-every-layer-of-skin-structure-a-complet",
-                title: "Skin",
-                pieces: 2,
-              },
-              { label: "micellar casein", slug: WHEY, title: "Whey", pieces: 2 },
-              {
-                label: "micellar casein",
-                slug: "omega-3-krill-gut-brain-skin-axis-and-psilocybin-for-skin-aging-a-thre",
-                title: "Krill",
-                pieces: 2,
-              },
+              { label: "hydrolyzed collagen" },
+              { label: "Texas v. BlackRock" },
+              { label: "short-term rental" },
             ],
           };
         if (/FROM reads r WHERE r.user_id/i.test(sql))
