@@ -474,6 +474,52 @@ app.get("/research-runs", async (c) => {
 // since migration 0059 a fetched page is a `sources` row and never a piece,
 // so this count only ever goes down), and the research pipeline's own briefs.
 // `banked_sources` is where fetched pages live now.
+// The record linking itself, as the live site computes it (site/links.ts,
+// graph/lib/crosslinks.ts allCrossLinks): how many documents link out, how
+// many links point at something that is not public (always 0 — they are
+// dropped), and one document's links in full (?slug=). Read-only.
+app.get("/links", async (c) => {
+  const userId = c.get("user_id");
+  const { allCrossLinks } = await import("../graph/lib/crosslinks.ts");
+  const { researchDoc, anyResearchDoc } = await import("../site/content/store.ts");
+  const map = await allCrossLinks(c.env.DB, userId, OWN_UPLOADS_SQL);
+  const published = new Set(
+    (
+      await all<{ slug: string }>(
+        c.env.DB,
+        `SELECT slug FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical') AND ${OWN_UPLOADS_SQL}`,
+        [userId],
+      ).catch(() => [] as Array<{ slug: string }>)
+    ).map((r) => r.slug),
+  );
+  let links = 0;
+  let toHeld = 0;
+  let toUnknown = 0;
+  for (const list of map.values())
+    for (const l of list) {
+      links++;
+      if (anyResearchDoc(l.slug) && !researchDoc(l.slug)) toHeld++;
+      else if (!researchDoc(l.slug) && !published.has(l.slug)) toUnknown++;
+    }
+  const slug = c.req.query("slug");
+  return c.json({
+    documents_with_links: map.size,
+    candidate_links: links,
+    to_held_documents_dropped_at_render: toHeld,
+    to_unpublished_dropped_at_render: toUnknown,
+    sample: slug
+      ? (map.get(slug) ?? []).map((l) => ({
+          label: l.label,
+          to: l.slug,
+          docs_with_label: l.pieces,
+        }))
+      : [...map.entries()].slice(0, 3).map(([s, list]) => ({
+          slug: s,
+          links: list.slice(0, 5).map((l) => ({ label: l.label, to: l.slug })),
+        })),
+  });
+});
+
 app.get("/corpus-split", async (c) => {
   const userId = c.get("user_id");
   const groups = await all<{

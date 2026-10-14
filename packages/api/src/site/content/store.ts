@@ -8,6 +8,7 @@
 // be read by Admin, but nothing here hands it to a public caller.
 
 import type { ShownRead } from "../../write/read";
+import { sharedTerms } from "../links";
 import { passageHref } from "../md";
 import raw from "./store.gen.json";
 
@@ -270,6 +271,194 @@ function sourceIndex() {
     }
   SOURCE_INDEX = { version: VERSION, byUrl, byDoc };
   return SOURCE_INDEX;
+}
+
+/**
+ * Subjects shared with other documents, from the typed graph (graph/lib/
+ * crosslinks.ts allCrossLinks — no model, never a person or organisation),
+ * loaded with the uploads. The destinations are checked here, at the moment
+ * of use: only a document that renders publicly, never a held one.
+ */
+let GRAPH_LINKS = new Map<string, Array<{ label: string; slug: string }>>();
+export function setGraphLinks(next: Map<string, Array<{ label: string; slug: string }>>): void {
+  GRAPH_LINKS = next;
+}
+export interface SubjectLink {
+  label: string;
+  route: string;
+  title: string;
+}
+export function subjectLinks(docId: string): SubjectLink[] {
+  const out: SubjectLink[] = [];
+  for (const l of GRAPH_LINKS.get(docId) ?? []) {
+    const d = researchDoc(l.slug);
+    const up = d ? null : UPLOADED.find((r) => r.doc === l.slug);
+    if (!d && !up) continue;
+    out.push({
+      label: l.label,
+      route: `/p/${l.slug}`,
+      title: (d?.title ?? up?.title ?? l.slug).replace(/^#\s*/, ""),
+    });
+  }
+  return out;
+}
+
+/**
+ * The record's concepts named in a text: each concept whose name appears as
+ * a whole phrase. Used both ways — a document links the concepts it names,
+ * and a concept's page lists the documents that name it.
+ */
+const nameRe = (name: string) =>
+  new RegExp(
+    `(^|[^\\p{L}\\p{N}])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=$|[^\\p{L}\\p{N}])`,
+    "iu",
+  );
+export function conceptsNamedIn(text: string): Idea[] {
+  return terms().filter((t) => t.title.length >= 5 && nameRe(t.title).test(text));
+}
+let UPLOAD_CONCEPTS = new Map<string, string[]>();
+export function setUploadedConcepts(next: Map<string, string[]>): void {
+  UPLOAD_CONCEPTS = next;
+}
+/** Every public document that names a concept, newest first. */
+export function conceptUses(termId: string): Array<{ route: string; title: string; date: string }> {
+  const t = terms().find((x) => x.id === termId);
+  if (!t) return [];
+  const re = nameRe(t.title);
+  const out: Array<{ route: string; title: string; date: string }> = [];
+  for (const d of publicResearch())
+    if (re.test(d.body))
+      out.push({ route: `/p/${d.id}`, title: d.title.replace(/^#\s*/, ""), date: d.date });
+  for (const r of UPLOADED)
+    if (r.doc && (UPLOAD_CONCEPTS.get(r.doc) ?? []).includes(termId))
+      out.push({ route: r.route, title: r.title, date: r.date });
+  return out.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/**
+ * A question one document leaves open that another answers, and a figure
+ * one document gives that another gives for the same measure — matched by
+ * the terms they share (site/links.ts sharedTerms: at least two, at least
+ * 60% of the shorter), never by a model's opinion that they agree. The open
+ * questions are the store's own (the questions each document raises) and
+ * those kept from shown reads; the answers are documents' question headings
+ * with the paragraph under them, and answers kept from shown reads; figures
+ * come from shown reads only, since only a read says what a figure measures.
+ */
+export interface AnsweredElsewhere {
+  question: string;
+  answer: string;
+  route: string;
+  title: string;
+  terms: string[];
+}
+export interface MeasuredElsewhere {
+  figure: string;
+  measures: string;
+  other: string;
+  otherMeasures: string;
+  route: string;
+  title: string;
+  terms: string[];
+}
+
+let RELATED_CACHE: {
+  version: number;
+  shown: number;
+  answers: Array<{ doc: string; q: string; a: string }>;
+} | null = null;
+function answerPool() {
+  if (RELATED_CACHE && RELATED_CACHE.version === VERSION && RELATED_CACHE.shown === SHOWN.size)
+    return RELATED_CACHE.answers;
+  const answers: Array<{ doc: string; q: string; a: string }> = [];
+  for (const d of publicResearch()) {
+    const lines = d.body.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const h = /^#{2,4}\s+(.+\?)\s*$/.exec(lines[i] ?? "");
+      if (!h) continue;
+      let j = i + 1;
+      while (j < lines.length && !(lines[j] ?? "").trim()) j++;
+      const a = (lines[j] ?? "").trim();
+      if (a && !/^(#|\||[-*+]\s|\d+[.)]\s)/.test(a))
+        answers.push({ doc: d.id, q: (h[1] ?? "").replace(/[*_`]/g, ""), a });
+    }
+  }
+  for (const { read, cards } of SHOWN.values())
+    for (const c of cards)
+      if (
+        c.kind === "question_answered" &&
+        c.status === "kept" &&
+        typeof c.data.question === "string"
+      )
+        answers.push({
+          doc: read.docId,
+          q: c.data.question,
+          a: typeof c.data.answer === "string" ? c.data.answer : c.span,
+        });
+  RELATED_CACHE = { version: VERSION, shown: SHOWN.size, answers };
+  return answers;
+}
+
+const publicTitle = (id: string): string | null => {
+  const d = researchDoc(id);
+  if (d) return d.title.replace(/^#\s*/, "");
+  const up = UPLOADED.find((r) => r.doc === id);
+  return up ? up.title : null;
+};
+
+export function answeredElsewhere(docId: string): AnsweredElsewhere[] {
+  const open = [
+    ...STORE.questions.filter((q) => q.route === `/p/${docId}`).map((q) => q.title),
+    ...[...(SHOWN.get(docId)?.cards ?? [])]
+      .filter((c) => c.kind === "question_open" && c.status === "kept")
+      .map((c) => (typeof c.data.question === "string" ? c.data.question : c.span)),
+  ];
+  const out: AnsweredElsewhere[] = [];
+  const seen = new Set<string>();
+  for (const q of open)
+    for (const a of answerPool()) {
+      if (a.doc === docId) continue;
+      const terms = sharedTerms(q, a.q);
+      const title = terms ? publicTitle(a.doc) : null;
+      if (!terms || !title || seen.has(`${q}\u0000${a.doc}`)) continue;
+      seen.add(`${q}\u0000${a.doc}`);
+      out.push({
+        question: q,
+        answer: a.a,
+        route: passageHref(a.doc, a.a.replace(/[*_`]/g, "")),
+        title,
+        terms,
+      });
+    }
+  return out;
+}
+
+export function measuredElsewhere(docId: string): MeasuredElsewhere[] {
+  const mine = (SHOWN.get(docId)?.cards ?? []).filter(
+    (c) => c.kind === "figure" && c.status === "kept" && !c.data.rejected,
+  );
+  const out: MeasuredElsewhere[] = [];
+  for (const f of mine)
+    for (const { read, cards } of SHOWN.values()) {
+      if (read.docId === docId) continue;
+      const title = publicTitle(read.docId);
+      if (!title) continue;
+      for (const g of cards) {
+        if (g.kind !== "figure" || g.status !== "kept" || g.data.rejected) continue;
+        const terms = sharedTerms(String(f.data.measures ?? ""), String(g.data.measures ?? ""));
+        if (!terms) continue;
+        out.push({
+          figure: String(f.data.figure ?? ""),
+          measures: String(f.data.measures ?? ""),
+          other: String(g.data.figure ?? ""),
+          otherMeasures: String(g.data.measures ?? ""),
+          route: passageHref(read.docId, g.span.replace(/\*\*|__/g, "")),
+          title,
+          terms,
+        });
+      }
+    }
+  return out;
 }
 
 export interface SharedSources {

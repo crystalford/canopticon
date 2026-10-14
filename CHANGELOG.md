@@ -6,6 +6,24 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-15, evening — The record links itself
+
+- **Links inside the text**, the way a Wikipedia page works: a phrase in a
+  document links to the other documents that share that subject, and a
+  concept's name links to its page. Found by code from the subjects the
+  graph already holds (13,000 nodes) — never a person or an organisation,
+  never a phrase on more than a third of the record, one link per phrase and
+  per destination, twelve at most — and placed only where the words are in
+  the prose. The old site had this; the new page now does too.
+- **Concept pages list where the concept appears.**
+- **Elsewhere in the record**, after a document's body: a question it leaves
+  open that another document answers, and a figure another document gives
+  for the same measure — matched by the words they share, which the page
+  shows, never by a judgement that they agree. These grow as documents are
+  read; today's record has no matches yet.
+- `/v1/admin/links` reports, from the live data, how many documents link
+  out and confirms no link points at a held document.
+
 ## 2026-10-15, later — Connecting Claude, and the workspace on a phone
 
 - **/admin/claude** (linked from Admin's head and from every "not
