@@ -1067,6 +1067,11 @@ const READ_DB = {
   finished_at: "2026-10-14T02:04:00Z",
   shown_at: "2026-10-14T02:05:00Z",
 };
+// A second shown read, of the skin report: it answers a question the whey
+// read leaves open and gives a figure for the same measure, so the whey
+// page's "Elsewhere in the record" has something to show.
+const SKIN = "oral-only-interventions-across-every-layer-of-skin-structure-a-complet";
+const READ_SKIN = { ...READ_DB, id: "read-skin", doc_id: SKIN, draft_id: "draft-skin" };
 const deriv = (id: string, kind: string, span: string, extra: Record<string, unknown> = {}) => ({
   id,
   read_id: "read-1",
@@ -1162,6 +1167,11 @@ const DERIVS = [
       },
     },
   ),
+  deriv("c10", "question_open", "nobody has published data showing it works in hot black coffee", {
+    section: "Summary",
+    status: "kept",
+    data: { question: "Is there published data showing whey works in hot black coffee?" },
+  }),
   deriv(
     "c9",
     "open_problem",
@@ -1187,6 +1197,38 @@ const DERIVS = [
       counter: "They work reasonably well at 10 g.",
     },
   }),
+];
+
+const SKIN_DERIVS = [
+  {
+    ...deriv(
+      "s1",
+      "question_answered",
+      "No study has tested hydrolysed whey in hot black coffee.",
+      {
+        status: "kept",
+        data: {
+          question: "Has any published data tested whey protein in hot black coffee?",
+          answer: "No study has tested hydrolysed whey in hot black coffee.",
+        },
+      },
+    ),
+    read_id: "read-skin",
+    doc_id: SKIN,
+  },
+  {
+    ...deriv("s2", "figure", "Whey protein isolate prices rose roughly 140% in two years.", {
+      status: "kept",
+      data: {
+        figure: "140%",
+        measures: "rise in whey protein isolate prices over two years",
+        attributed_to: "industry reports",
+        rejected: false,
+      },
+    }),
+    read_id: "read-skin",
+    doc_id: SKIN,
+  },
 ];
 
 const ENTRY_ROW = {
@@ -1310,18 +1352,18 @@ function makeDb(): D1Database {
           };
         // The site overlay: shown reads, and their kept cards.
         if (/FROM reads WHERE user_id = \? AND status = 'shown'/i.test(sql))
-          return { results: [READ_DB] };
+          return { results: [READ_DB, READ_SKIN] };
         if (/FROM derivations d JOIN reads r/i.test(sql))
-          return { results: DERIVS.filter((d) => d.status === "kept") };
+          return { results: [...DERIVS, ...SKIN_DERIVS].filter((d) => d.status === "kept") };
         // Admin: each document's latest read, with what was kept.
         // The graph's subjects, as the vocabulary for links in the text
         // (graph/lib/crosslinks.ts subjectVocabulary).
-        if (/SELECT DISTINCT label FROM nodes/i.test(sql))
+        if (/SELECT DISTINCT label, kind/i.test(sql))
           return {
             results: [
-              { label: "hydrolyzed collagen" },
-              { label: "Texas v. BlackRock" },
-              { label: "short-term rental" },
+              { label: "hydrolyzed collagen", kind: "entity", type: "concept" },
+              { label: "Texas v. BlackRock", kind: "event", type: null },
+              { label: "short-term rental", kind: "entity", type: "concept" },
             ],
           };
         if (/FROM reads r WHERE r.user_id/i.test(sql))
