@@ -126,7 +126,16 @@
   dismissed in the workspace's right pane; a dismissal is remembered in
   `read_ignores` forever. `reads` is the receipt (migration 0070). One read
   per document; pressing again opens it. Nothing a read finds is public until
-  "Show on the page" (part 2, not built yet).
+  **"Show on the page"** (`reads.status = 'shown'`; "Take it off" undoes it):
+  then the kept figures replace the page's picked key figures, and "What it
+  finds", "Questions it answers" and "What it leaves open" follow the body
+  (`site/pages/evidence.ts`, overlay `setShownReads` → `shownRead()`, loaded
+  with the uploads; never for a held document). Never public: possible
+  articles, advice and premises, the about-the-author flag, and the
+  document's own Key Findings / Caveats bullets (already in the body).
+  **"Write this"** on a possible article starts an article draft seeded with
+  the thesis and its passages (`pitchBrief`, `drafts.meta.seed`, sent once on
+  arrival). Admin cards show each read: date, kept, dropped, on its page.
 
 ---
 

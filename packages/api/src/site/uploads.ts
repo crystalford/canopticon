@@ -14,10 +14,12 @@ import { all } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
 import { d1Entries, entryOverlay } from "../write/entries";
 import { liveArticles } from "../write/publish";
+import { d1Reads } from "../write/read";
 import {
   type LibraryItem,
   setPublishedArticles,
   setRecordEntries,
+  setShownReads,
   setUploadedRows,
 } from "./content/store";
 import { plain } from "./md";
@@ -103,6 +105,8 @@ export async function refreshUploads(env: Env, force = false): Promise<void> {
       setPublishedArticles(await liveArticles(env, userId));
       // So do the concepts, open problems and figures added from it.
       setRecordEntries(await entryOverlay(env, await d1Entries(env, userId).added()));
+      // And what reads found, where the author put it on the page.
+      setShownReads(await d1Reads(env, userId).shownAll());
       if (started === generation) fetchedAt = Date.now();
     } catch {
       // A failed read leaves the last good list in place; the page still serves.

@@ -380,3 +380,256 @@ describe("a read", () => {
     ).toBe(true);
   });
 });
+
+// ---- part 2: what the reads feed --------------------------------------------------
+
+import app from "../src/index";
+import { heldResearch, setShownReads, shownRead } from "../src/site/content/store";
+import { evidence, publicCards } from "../src/site/pages/evidence";
+import { type Derivation, cardKey, pitchBrief } from "../src/write/read";
+
+const card = (over: Partial<Derivation>): Derivation => ({
+  id: Math.random().toString(36).slice(2),
+  readId: "r1",
+  docId: "doc",
+  kind: "finding",
+  origin: "read",
+  span: "a passage of the document",
+  data: {},
+  status: "kept",
+  createdAt: "2026-10-14T00:00:00Z",
+  ...over,
+});
+const readRow = (docId: string) => ({
+  id: "r1",
+  docId,
+  draftId: "d1",
+  status: "shown" as const,
+  charsHeld: 10,
+  charsRead: 10,
+  verified: 3,
+  dropped: 0,
+  cents: 50,
+  startedAt: "2026-10-14T00:00:00Z",
+  shownAt: "2026-10-14T01:00:00Z",
+});
+
+describe("what a read puts on the page", () => {
+  it("is only what was kept: never a possible article, advice, the author flag, or what the body already says", () => {
+    const shown = publicCards([
+      card({ kind: "pitch" }),
+      card({ kind: "held" }),
+      card({ role: "recommendation" }),
+      card({ role: "premise" }),
+      card({ origin: "shape", kind: "caveat" }),
+      card({ origin: "shape", kind: "finding" }),
+      card({ status: "proposed" }),
+      card({ status: "dismissed" }),
+      card({ role: "finding", span: "the one that stays" }),
+      card({ origin: "shape", kind: "question_answered", data: { question: "Q?", answer: "A." } }),
+    ]);
+    expect(shown.map((c) => c.span)).toEqual(["the one that stays"]);
+  });
+
+  it("shows figures with their source, questions with their answers, and counts what is on the page", () => {
+    const ev = evidence({
+      read: readRow("doc"),
+      cards: [
+        card({
+          kind: "figure",
+          data: {
+            figure: "4.1%",
+            measures: "fall in rents",
+            attributed_to: "City registry",
+            period: "2025",
+          },
+        }),
+        card({
+          kind: "figure",
+          data: { figure: "9%", measures: "a figure the document rejects", rejected: true },
+        }),
+        card({
+          kind: "question_answered",
+          data: { question: "Did rents fall?", answer: "By 4.1 percent." },
+        }),
+        card({ kind: "question_open", span: "I found no study of tenants who moved away." }),
+        card({ kind: "finding", data: { standing: "emerging" } }),
+      ],
+    });
+    if (!ev) throw new Error("no evidence");
+    expect(ev.figures).toContain("4.1%");
+    expect(ev.figures).toContain("City registry · 2025");
+    expect(ev.figures).not.toContain("9%");
+    expect(ev.after).toContain("Did rents fall?");
+    expect(ev.after).toContain("By 4.1 percent.");
+    expect(ev.after).toContain("emerging");
+    expect(ev.after).toContain("#q=");
+    expect(ev.strip).toContain("4 passages");
+    expect(ev.strip).toContain("Chosen by Chris Telford from a read by Claude");
+    expect(evidence({ read: readRow("doc"), cards: [card({ kind: "pitch" })] })).toBeNull();
+  });
+
+  it("never comes back for a held document", () => {
+    const held = heldResearch()[0];
+    if (!held) return;
+    setShownReads([{ read: readRow(held.id), cards: [card({ docId: held.id })] }]);
+    expect(shownRead(held.id)).toBeNull();
+    setShownReads([]);
+  });
+
+  it("is on the public document page, server-rendered", async () => {
+    const doc = publicResearch()[0];
+    if (!doc) throw new Error("no public research");
+    setShownReads([
+      {
+        read: readRow(doc.id),
+        cards: [
+          card({
+            docId: doc.id,
+            kind: "figure",
+            data: { figure: "12,345", measures: "things counted", attributed_to: "A source" },
+          }),
+          card({
+            docId: doc.id,
+            kind: "question_answered",
+            data: { question: "What does it answer?", answer: "This." },
+          }),
+        ],
+      },
+    ]);
+    const html = await (await app.fetch(new Request(`http://test/p/${doc.id}`), env)).text();
+    setShownReads([]);
+    expect(html).toContain("12,345");
+    expect(html).toContain("What does it answer?");
+    expect(html).toContain("Questions it answers");
+    expect(html).not.toContain("Read it</button>"); // signed out: no button
+  });
+});
+
+describe("Write this", () => {
+  it("briefs the article with the thesis and the passages, advice named as advice", () => {
+    const brief = pitchBrief(
+      card({
+        kind: "pitch",
+        docId: "rent-bans",
+        data: {
+          thesis: "A rent ban trades a visible price for an invisible shortage",
+          supports: [
+            { span: "Rents fell by 4.1 percent", role: "finding", section: "Key Findings" },
+            { span: "Build a tracker first", role: "recommendation" },
+          ],
+          counter: "The registry undercounts informal sublets",
+        },
+      }),
+      "Rent bans",
+    );
+    expect(brief).toContain("Write an article arguing: A rent ban trades");
+    expect(brief).toContain("(id: rent-bans)");
+    expect(brief).toContain('(finding, Key Findings) "Rents fell by 4.1 percent"');
+    expect(brief).toContain('(recommendation, not evidence) "Build a tracker first"');
+    expect(brief).toContain("The strongest counter in the document");
+  });
+});
+
+describe("Admin knows what each read found", () => {
+  it("has the latest read of each document, with what was kept", async () => {
+    const reads = memoryReads();
+    const a = await reads.start("doc-a", "d1", 100);
+    await reads.add({
+      readId: a.id,
+      docId: "doc-a",
+      kind: "finding",
+      origin: "read",
+      span: "x x x x x x x x",
+      data: {},
+      status: "kept",
+    });
+    await reads.add({
+      readId: a.id,
+      docId: "doc-a",
+      kind: "finding",
+      origin: "read",
+      span: "y y y y y y y y",
+      data: {},
+      status: "proposed",
+    });
+    const latest = await reads.latestAll();
+    expect(latest.get("doc-a")?.kept).toBe(1);
+    expect(await reads.shownAll()).toEqual([]);
+    await reads.update(a.id, { status: "shown", shownAt: "2026-10-14T01:00:00Z" });
+    expect((await reads.shownAll())[0]?.cards).toHaveLength(1);
+  });
+});
+
+describe("what the review found, kept fixed", () => {
+  it("never anchors a span that is short once its emphasis is gone", () => {
+    expect(locateSpan("Rents fell 3.2% and then 3.2% again.", "**3.2%**")).toBeNull();
+    expect(locateSpan("anything at all", "********")).toBeNull();
+  });
+
+  it("counts a passage once toward a possible article, and never brings back a dismissed one", async () => {
+    const t = await ctx();
+    const span = "Rents fell by 4.1 percent in the first year after the ban";
+    const thesis = "A rent ban trades a visible price for an invisible shortage";
+    const r = await runReadTool(
+      "pitch",
+      { thesis, supports: Array.from({ length: 9 }, () => ({ span, role: "finding" })) },
+      t,
+    );
+    expect(r.card?.data).toMatchObject({ proof: 1, thin: true });
+    expect(
+      (await runReadTool("pitch", { thesis, supports: [{ span, role: "finding" }] }, t)).text,
+    ).toBe("Already proposed.");
+    if (!r.card) throw new Error("no card");
+    await t.reads.ignore(t.docId, "pitch", cardKey(r.card));
+    const t2 = { ...t, readId: (await t.reads.start(t.docId, "d2", 10)).id };
+    const again = await runReadTool("pitch", { thesis, supports: [{ span, role: "finding" }] }, t2);
+    expect(again.card).toBeUndefined();
+  });
+
+  it("puts nothing on the page when nothing kept would show", () => {
+    expect(
+      evidence({
+        read: readRow("doc"),
+        cards: [
+          card({ kind: "coinage" }),
+          card({ kind: "figure", data: { figure: "9%", measures: "x", rejected: true } }),
+          card({
+            origin: "shape",
+            kind: "question_answered",
+            data: { question: "Q?", answer: "A." },
+          }),
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("leaves a read that stopped short as still reading, with its cost counted", async () => {
+    const doc = publicResearch().find((d) => d.body.length > 2000);
+    if (!doc) throw new Error("no doc");
+    const store = memoryDrafts();
+    const reads = memoryReads();
+    const d = await store.create("read");
+    const read = await reads.start(doc.id, d.id, doc.body.length);
+    await store.save(d.id, { meta: { based_on: [doc.id], readId: read.id } });
+    const { stream } = fakeStream([
+      msg(
+        [{ type: "tool_use", id: "r1", name: "read_document", input: { id: doc.id } }],
+        "tool_use",
+      ),
+    ]);
+    await runTurn({
+      stream,
+      env,
+      store,
+      reads,
+      draftId: d.id,
+      text: "Read it.",
+      emit: () => {},
+      maxSteps: 1,
+    });
+    const after = await reads.get(read.id);
+    expect(after?.status).toBe("reading");
+    expect(after?.cents).toBeGreaterThan(0);
+  });
+});

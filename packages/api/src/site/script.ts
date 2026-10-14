@@ -378,7 +378,7 @@ export const SITE_JS = `(function () {
       if (hello) hello.remove();
       line("ws-msg you", text);
       wsText.value = ""; setFlag(""); wsSend.disabled = true; wsText.disabled = true;
-      var reply = null;
+      var reply = null, finished = false;
       var status = line("ws-act live", "Working… keep this tab open until Claude finishes.");
       var handle = function (ev) {
         if (ev.type === "text") {
@@ -404,7 +404,7 @@ export const SITE_JS = `(function () {
           line("ws-act bad", ev.message);
         } else if (ev.type === "done") {
           if (ev.usage && wsCost) wsCost.textContent = "$" + (ev.usage.cents / 100).toFixed(2) + " so far";
-          if (ws.getAttribute("data-ws-kind") === "read") refresh();
+          if (ws.getAttribute("data-ws-kind") === "read") finished = true;
         }
       };
       fetch(wsForm.action, {
@@ -434,6 +434,8 @@ export const SITE_JS = `(function () {
         line("ws-act bad", "The connection dropped. What was done is saved; reload to see it.");
       }).then(function () {
         status.remove(); wsSend.disabled = false; wsText.disabled = false; wsText.focus();
+        // A read's receipt and its Show button live outside the frame: reload all.
+        if (finished) location.reload();
       });
     });
     // Read it lands here with the first message waiting: send it once.

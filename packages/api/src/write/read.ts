@@ -102,12 +102,16 @@ export function locateSpan(doc: string, span: string): string | null {
   if (at >= 0) return want;
   const collapsed = locateCollapsed(doc, want);
   if (collapsed) return collapsed;
-  const plain = stripEmphasis(doc);
-  return locateCollapsed(plain, stripEmphasis(want));
+  // Emphasis aside — and still at least 8 characters once it is gone, so
+  // "**3.2%**" cannot land on any 3.2% in the document.
+  const bare = stripEmphasis(want).trim();
+  if (bare.length < 8) return null;
+  return locateCollapsed(stripEmphasis(doc), bare);
 }
 
 function locateCollapsed(doc: string, want: string): string | null {
   const norm = want.replace(/\s+/g, " ");
+  if (!norm.trim()) return null;
   const map: number[] = [];
   let flat = "";
   let space = false;
@@ -131,9 +135,14 @@ function locateCollapsed(doc: string, want: string): string | null {
   return doc.slice(start, end);
 }
 
-/** The key a dismissal is remembered by. */
+/** The key a dismissal is remembered by: the words, not how they were
+ *  matched (emphasis and spacing aside). */
 export const ignoreKey = (kind: string, span: string) =>
-  `${kind}:${span.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 240)}`;
+  `${kind}:${stripEmphasis(span).replace(/\s+/g, " ").trim().toLowerCase().slice(0, 240)}`;
+
+/** A card's key: a possible article is its thesis, anything else its span. */
+export const cardKey = (d: Pick<Derivation, "kind" | "span" | "data">) =>
+  d.kind === "pitch" ? ignoreKey("pitch", String(d.data.thesis ?? "")) : ignoreKey(d.kind, d.span);
 
 // ---- what the file's own structure says (no model) --------------------------------
 
@@ -214,6 +223,10 @@ export interface ReadStore {
   get(id: string): Promise<ReadRow | null>;
   latest(docId: string): Promise<ReadRow | null>;
   update(id: string, patch: Partial<Omit<ReadRow, "id" | "docId">>): Promise<void>;
+  /** Add to the receipt's counters in one statement (no read-then-write). */
+  bump(id: string, by: { verified?: number; dropped?: number; cents?: number }): Promise<void>;
+  /** Reading → read, only if it is still reading ("Show on the page" wins). */
+  finish(id: string, model: string): Promise<void>;
   add(d: Omit<Derivation, "id" | "createdAt">): Promise<Derivation>;
   derivations(readId: string): Promise<Derivation[]>;
   derivation(id: string): Promise<Derivation | null>;
@@ -221,7 +234,18 @@ export interface ReadStore {
   isIgnored(docId: string, key: string): Promise<boolean>;
   ignore(docId: string, kind: string, key: string): Promise<void>;
   /** What the public page shows: kept cards of the document's shown read. */
-  shown(docId: string): Promise<{ read: ReadRow; cards: Derivation[] } | null>;
+  shown(docId: string): Promise<ShownRead | null>;
+  /** Every document's shown read with its kept cards, for the site overlay. */
+  shownAll(): Promise<ShownRead[]>;
+  /** The latest read of every document, with how many cards are kept, for Admin. */
+  latestAll(): Promise<Map<string, ReadRow & { kept: number }>>;
+  /** Replace a card's structured fields (a pitch records the draft it started). */
+  setData(id: string, data: Record<string, unknown>): Promise<void>;
+}
+
+export interface ShownRead {
+  read: ReadRow;
+  cards: Derivation[];
 }
 
 const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 16);
@@ -344,6 +368,20 @@ export function d1Reads(env: Env, userId: string): ReadStore {
       ).catch(() => null);
       return r ? readFrom(r) : null;
     },
+    async bump(id, by) {
+      await run(
+        db,
+        "UPDATE reads SET verified = verified + ?, dropped = dropped + ?, cents = cents + ? WHERE id = ? AND user_id = ?",
+        [by.verified ?? 0, by.dropped ?? 0, by.cents ?? 0, id, userId],
+      );
+    },
+    async finish(id, model) {
+      await run(
+        db,
+        "UPDATE reads SET status = 'read', model = ?, finished_at = ? WHERE id = ? AND user_id = ? AND status = 'reading'",
+        [model, now(), id, userId],
+      );
+    },
     async update(id, patch) {
       const sets: string[] = [];
       const args: unknown[] = [];
@@ -432,6 +470,48 @@ export function d1Reads(env: Env, userId: string): ReadStore {
       const cards = (await store.derivations(r.id)).filter((d) => d.status === "kept");
       return { read: readFrom(r), cards };
     },
+    async shownAll() {
+      const rows = await all<ReadDbRow>(
+        db,
+        "SELECT * FROM reads WHERE user_id = ? AND status = 'shown' ORDER BY shown_at DESC",
+        [userId],
+      ).catch(() => [] as ReadDbRow[]);
+      // One shown read per document: the latest shown.
+      const latest = new Map<string, ReadDbRow>();
+      for (const r of rows) if (!latest.has(r.doc_id)) latest.set(r.doc_id, r);
+      if (!latest.size) return [];
+      // A join, not an IN list: D1 binds at most 100 parameters.
+      const cards = await all<DerivDbRow>(
+        db,
+        `SELECT d.* FROM derivations d JOIN reads r ON r.id = d.read_id
+          WHERE d.user_id = ? AND d.status = 'kept' AND r.status = 'shown'
+          ORDER BY d.created_at`,
+        [userId],
+      ).catch(() => [] as DerivDbRow[]);
+      return [...latest.values()].map((r) => ({
+        read: readFrom(r),
+        cards: cards.filter((c) => c.read_id === r.id).map(derivFrom),
+      }));
+    },
+    async latestAll() {
+      const rows = await all<ReadDbRow & { kept: number }>(
+        db,
+        `SELECT r.*, (SELECT COUNT(*) FROM derivations d WHERE d.read_id = r.id AND d.status = 'kept') AS kept
+           FROM reads r WHERE r.user_id = ? ORDER BY r.started_at DESC`,
+        [userId],
+      ).catch(() => [] as Array<ReadDbRow & { kept: number }>);
+      const out = new Map<string, ReadRow & { kept: number }>();
+      for (const r of rows)
+        if (!out.has(r.doc_id)) out.set(r.doc_id, { ...readFrom(r), kept: r.kept ?? 0 });
+      return out;
+    },
+    async setData(id, data) {
+      await run(db, "UPDATE derivations SET data = ? WHERE id = ? AND user_id = ?", [
+        JSON.stringify(data),
+        id,
+        userId,
+      ]);
+    },
   };
   return store;
 }
@@ -473,6 +553,20 @@ export function memoryReads(): ReadStore & {
           .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0] ?? null
       );
     },
+    async bump(id: string, by: { verified?: number; dropped?: number; cents?: number }) {
+      const r = rows.get(id);
+      if (r)
+        rows.set(id, {
+          ...r,
+          verified: r.verified + (by.verified ?? 0),
+          dropped: r.dropped + (by.dropped ?? 0),
+          cents: r.cents + (by.cents ?? 0),
+        });
+    },
+    async finish(id: string, model: string) {
+      const r = rows.get(id);
+      if (r?.status === "reading") rows.set(id, { ...r, status: "read", model, finishedAt: now() });
+    },
     async update(id: string, patch: Partial<ReadRow>) {
       const r = rows.get(id);
       if (r)
@@ -512,6 +606,32 @@ export function memoryReads(): ReadStore & {
         cards: [...cards.values()].filter((d) => d.readId === r.id && d.status === "kept"),
       };
     },
+    async shownAll() {
+      const docs = new Set(
+        [...rows.values()].filter((r) => r.status === "shown").map((r) => r.docId),
+      );
+      const out: ShownRead[] = [];
+      for (const d of docs) {
+        const s = await store.shown(d);
+        if (s) out.push(s);
+      }
+      return out;
+    },
+    async latestAll() {
+      const out = new Map<string, ReadRow & { kept: number }>();
+      for (const r of [...rows.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt)))
+        if (!out.has(r.docId))
+          out.set(r.docId, {
+            ...r,
+            kept: [...cards.values()].filter((c) => c.readId === r.id && c.status === "kept")
+              .length,
+          });
+      return out;
+    },
+    async setData(id: string, data: Record<string, unknown>) {
+      const d = cards.get(id);
+      if (d) cards.set(id, { ...d, data });
+    },
   };
   return store;
 }
@@ -523,7 +643,7 @@ export const READ_HOW = `You read one research document for Canopticon, a public
 HOW
 1. Read the whole document with read_document (one call; it returns all of it). Read it all before noting anything.
 2. The document's own structure has already been taken without you: its Key Findings and Caveats bullets and its question-shaped headings are cards already. Do not repeat them. Your job is what the structure does not give: the Details, where the evidence and mechanism are.
-3. Note each thing with note, one card per call. Every card rests on a span COPIED EXACTLY from the document — same words, same punctuation; it is located in code, and a span that is not found is dropped and counted against the read.
+3. Note each thing with note, one card per call; send many note calls in one message, not one message per card. Every card rests on a span COPIED EXACTLY from the document — same words, same punctuation; it is located in code, and a span that is not found is dropped and counted against the read.
 4. When you have covered the document, stop and say in the chat, briefly, what you found and anything the author should look at.
 
 WHAT TO NOTE (be complete about what carries the document, selective about the rest)
@@ -647,14 +767,8 @@ export interface ReadToolContext {
 
 export type ReadToolResult = { text: string; error?: boolean; card?: Derivation };
 
-async function drop(t: ReadToolContext, n = 1) {
-  const r = await t.reads.get(t.readId);
-  if (r) await t.reads.update(t.readId, { dropped: r.dropped + n });
-}
-async function verified(t: ReadToolContext, n = 1) {
-  const r = await t.reads.get(t.readId);
-  if (r) await t.reads.update(t.readId, { verified: r.verified + n });
-}
+const drop = (t: ReadToolContext, n = 1) => t.reads.bump(t.readId, { dropped: n });
+const verified = (t: ReadToolContext, n = 1) => t.reads.bump(t.readId, { verified: n });
 
 export async function runReadTool(
   name: string,
@@ -677,7 +791,7 @@ export async function runReadTool(
     if (await t.reads.isIgnored(t.docId, key))
       return { text: "The author dismissed this before; it stays dismissed. Move on." };
     const existing = await t.reads.derivations(t.readId);
-    if (existing.some((d) => ignoreKey(d.kind, d.span) === key)) return { text: "Already noted." };
+    if (existing.some((d) => cardKey(d) === key)) return { text: "Already noted." };
     const data: Record<string, unknown> = {};
     if (n.kind === "figure") {
       if (!n.figure || !span.includes(n.figure.trim()))
@@ -745,12 +859,25 @@ export async function runReadTool(
         text: "Refused: the document already states this thesis. An article that restates one document is a summary (contract §3 rule 11). Find the idea the document does not state.",
         error: true,
       };
+    const key = ignoreKey("pitch", p.data.thesis);
+    if (await t.reads.isIgnored(t.docId, key))
+      return { text: "The author dismissed this before; it stays dismissed. Move on." };
+    if ((await t.reads.derivations(t.readId)).some((d) => cardKey(d) === key))
+      return { text: "Already proposed." };
+    // Each passage counts once, however often it is offered.
     const supports: Array<{ span: string; role: Role; section?: string | undefined }> = [];
+    const seen = new Set<string>();
     let failed = 0;
     for (const s of p.data.supports) {
       const found = locateSpan(t.doc, s.span);
-      if (found) supports.push({ span: found, role: s.role, section: s.section });
-      else failed++;
+      if (!found) {
+        failed++;
+        continue;
+      }
+      const k = ignoreKey("support", found);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      supports.push({ span: found, role: s.role, section: s.section });
     }
     if (failed) await drop(t, failed);
     const proof = supports.filter((s) => s.role === "finding" || s.role === "reasoning").length;
@@ -783,3 +910,27 @@ export async function runReadTool(
 /** The first turn's text when the author presses Read it. */
 export const START_READ = (title: string, id: string) =>
   `Read "${title}" (id: ${id}) in full and lay out what is in it.`;
+
+/** "Write this": the first message of an article draft started from a
+ *  possible article — the thesis and the passages that carry it, each the
+ *  document's own words, so Claude starts from the read rather than from
+ *  nothing. Advice and the author's own decisions are named as such. */
+export function pitchBrief(card: Derivation, title: string): string {
+  const supports =
+    (card.data.supports as Array<{ span: string; role: string; section?: string }> | undefined) ??
+    [];
+  const counter = typeof card.data.counter === "string" ? card.data.counter : "";
+  const lines = supports.map(
+    (s) =>
+      `- (${s.role === "finding" || s.role === "reasoning" ? s.role : `${s.role}, not evidence`}${s.section ? `, ${s.section}` : ""}) "${s.span}"`,
+  );
+  return [
+    `Write an article arguing: ${String(card.data.thesis ?? "")}`,
+    "",
+    `It comes from a read of "${title}" (id: ${card.docId}). Read the whole document first. The passages that carry it:`,
+    ...lines,
+    ...(counter ? ["", `The strongest counter in the document: "${counter}"`] : []),
+    "",
+    "Quote only findings and reasoning as evidence. Find what else in the record bears on it before you write.",
+  ].join("\n");
+}

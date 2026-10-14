@@ -7,6 +7,7 @@
 import { esc, linkPill, pill, shell } from "../layout";
 import { documentHtml, plain } from "../md";
 import { kindColours, topicColours, topicSlug } from "../theme";
+import type { Evidence } from "./evidence";
 
 export interface DocView {
   id: string;
@@ -108,7 +109,12 @@ export function keyFigures(summary: string, label: string, rest: string): KeyFig
 export function renderDocument(
   d: DocView,
   /** readIt: offer Read it; with the draft of a read already made, open it. */
-  opts: { signedIn?: boolean; readIt?: boolean | { draftId: string; when: string } } = {},
+  opts: {
+    signedIn?: boolean;
+    readIt?: boolean | { draftId: string; when: string };
+    /** What a read found, where the author put it on the page. */
+    evidence?: Evidence | null;
+  } = {},
 ): string {
   const inv = d.shelf === "investigation";
   const { summary, label, rest } = splitSummary(d.body.replace(/^---[\s\S]*?---\s*/, ""));
@@ -132,18 +138,20 @@ export function renderDocument(
     summaryHtml
       ? `<section aria-label="${esc(label)}" class="summary"><div class="summary-h">${esc(label)}</div><div class="summary-b" id="doc-summary">${summaryHtml}</div></section>`
       : "",
-    figs.length >= 2
-      ? `<section aria-label="Key figures" class="figs"><div class="figs-h">Key figures</div>${figs
-          .map(
-            (f) =>
-              `<div class="fig"><span class="fig-t">${f.html}</span><a href="${f.href}">${esc(f.where)} →</a></div>`,
-          )
-          .join("")}</section>`
-      : "",
+    opts.evidence?.figures ||
+      (figs.length >= 2
+        ? `<section aria-label="Key figures" class="figs"><div class="figs-h">Key figures</div>${figs
+            .map(
+              (f) =>
+                `<div class="fig"><span class="fig-t">${f.html}</span><a href="${f.href}">${esc(f.where)} →</a></div>`,
+            )
+            .join("")}</section>`
+        : ""),
+    opts.evidence?.strip ?? "",
   ].join("");
 
   const cite = `Telford, C. (${d.date.slice(0, 4) || "n.d."}). ${d.title}. Canopticon research document. canopticon.com/p/${d.id}`;
-  const article = `<article class="dcol">${head}<div class="dbody" id="doc-body">${B.html}</div><div class="dcite"><div class="dcite-h">Cite this</div>${esc(cite)}</div></article>`;
+  const article = `<article class="dcol">${head}<div class="dbody" id="doc-body">${B.html}</div>${opts.evidence?.after ?? ""}<div class="dcite"><div class="dcite-h">Cite this</div>${esc(cite)}</div></article>`;
 
   const toc =
     B.heads.length > 1
@@ -151,6 +159,8 @@ export function renderDocument(
           .map(
             (h) => `<li><span class="n">${h.n}</span><a href="${h.href}">${esc(h.text)}</a></li>`,
           )
+          .join("")}${(opts.evidence?.heads ?? [])
+          .map((h) => `<li><span class="n">✓</span><a href="#${h.id}">${esc(h.text)}</a></li>`)
           .join("")}</ol></nav>`
       : "";
   const meta = `<div class="dmeta"><div><span>Kind</span><span>${esc(d.kind)}</span></div><div><span>Topic</span><span>${esc(d.topic)}</span></div><div><span>Published</span><span>${esc(d.dateLabel || "date unknown")}</span></div><div><span>Length</span><span>${Math.round(chars / 1000)}k characters</span></div></div>`;

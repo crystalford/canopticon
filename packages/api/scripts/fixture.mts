@@ -1056,7 +1056,7 @@ const READ_DB = {
   id: "read-1",
   doc_id: WHEY,
   draft_id: "draft-3",
-  status: "read",
+  status: "shown",
   model: "claude-opus-5-5",
   chars_held: 28010,
   chars_read: 28010,
@@ -1065,7 +1065,7 @@ const READ_DB = {
   cents: 71.4,
   started_at: "2026-10-14T02:00:00Z",
   finished_at: "2026-10-14T02:04:00Z",
-  shown_at: null,
+  shown_at: "2026-10-14T02:05:00Z",
 };
 const deriv = (id: string, kind: string, span: string, extra: Record<string, unknown> = {}) => ({
   id,
@@ -1124,7 +1124,11 @@ const DERIVS = [
     "c4",
     "finding",
     "This is strong evidence that a major operator judged whey unsuitable for straight black coffee.",
-    { role: "reasoning", section: '4. Commercial "protein coffee" products: an honest assessment' },
+    {
+      role: "reasoning",
+      status: "kept",
+      section: '4. Commercial "protein coffee" products: an honest assessment',
+    },
   ),
   deriv(
     "c5",
@@ -1138,9 +1142,23 @@ const DERIVS = [
     'A true "whey that disappears like collagen in hot coffee" is at best a 2027–2029 prospect.',
     {
       section: "TL;DR",
+      status: "kept",
       data: {
         standing: "speculative",
         resolves_when: "a consumer whey powder is sold for hot black coffee",
+      },
+    },
+  ),
+  deriv(
+    "c8",
+    "question_answered",
+    "Hydrolysis.** This is the only proven route to hot-coffee stability for whey today.",
+    {
+      section: "2. Current technologies: what works and what it costs",
+      status: "kept",
+      data: {
+        question: "Is there any whey that holds up in hot coffee today?",
+        answer: "This is the only proven route to hot-coffee stability for whey today.",
       },
     },
   ),
@@ -1283,6 +1301,26 @@ function makeDb(): D1Database {
                 : bound[0] === READ_ROW.id
                   ? READ_MESSAGES
                   : DRAFT_MESSAGES,
+          };
+        // The site overlay: shown reads, and their kept cards.
+        if (/FROM reads WHERE user_id = \? AND status = 'shown'/i.test(sql))
+          return { results: [READ_DB] };
+        if (/FROM derivations d JOIN reads r/i.test(sql))
+          return { results: DERIVS.filter((d) => d.status === "kept") };
+        // Admin: each document's latest read, with what was kept.
+        if (/FROM reads r WHERE r.user_id/i.test(sql))
+          return {
+            results: [
+              { ...READ_DB, kept: DERIVS.filter((d) => d.status === "kept").length },
+              {
+                ...READ_DB,
+                id: "read-2",
+                doc_id: "rents-after-the-ban",
+                status: "read",
+                dropped: 2,
+                kept: 9,
+              },
+            ],
           };
         if (/FROM derivations WHERE read_id/i.test(sql))
           return { results: bound[0] === READ_DB.id ? DERIVS : [] };

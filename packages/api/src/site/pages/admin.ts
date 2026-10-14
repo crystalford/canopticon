@@ -9,6 +9,7 @@
 // the page works without script; /site.js only adds drag-and-drop.
 
 import { SORT_LABELS, type SortedAs } from "../../lib/sort-upload";
+import type { ReadRow } from "../../write/read";
 import type { AdminModel, AdminPiece } from "../admin-data";
 import { heldResearch, terms } from "../content/store";
 import { hubTopics } from "../data";
@@ -49,7 +50,26 @@ function card(args: {
   return `<div class="d-card${args.muted ? " muted" : ""}"><div class="d-top">${chip(args.kindLabel, KIND_PAIR[args.kind] ?? KIND_PAIR.research ?? ["#efebe1", "#15171c"])}${chip(args.status, args.statusPair)}<span class="d-when">${esc(args.when)}</span></div><div class="d-title">${esc(args.title)}</div><div class="d-note">${args.note}</div>${args.body ?? ""}</div>`;
 }
 
-function waitingCard(p: AdminPiece, topics: string[]): string {
+type ReadBadge = ReadRow & { kept: number };
+
+/** Read it on a card: the button, or what the read found and a way back to it. */
+function readButton(p: AdminPiece, r: ReadBadge | undefined): string {
+  return r?.draftId
+    ? `<a href="/admin/write/${esc(r.draftId)}" class="d-btn link">Its read</a>`
+    : `<button type="submit" class="d-btn" formaction="/op/read/${esc(p.slug)}">Read it</button>`;
+}
+function readNote(r: ReadBadge | undefined): string {
+  if (!r) return "";
+  const bits = [
+    r.status === "reading" ? "Read it started" : `Read ${shortDate(r.startedAt.slice(0, 10))}`,
+    `${r.kept} kept`,
+    ...(r.dropped ? [`<span style="color:var(--brick)">${r.dropped} dropped</span>`] : []),
+    ...(r.status === "shown" ? ["on its page"] : []),
+  ];
+  return ` <span class="d-read">${bits.join(" · ")}</span>`;
+}
+
+function waitingCard(p: AdminPiece, topics: string[], r?: ReadBadge): string {
   const personal = p.sortedAs === "personal";
   const kinds = (Object.keys(SORT_LABELS) as SortedAs[])
     .map(
@@ -63,10 +83,10 @@ function waitingCard(p: AdminPiece, topics: string[]): string {
         `<option value="${esc(t)}"${t === p.topic ? " selected" : ""}>${t ? esc(t) : "Choose a topic…"}</option>`,
     )
     .join("");
-  const form = `<form method="post" action="/op/admin/${esc(p.id)}/publish" class="d-form"><div class="d-row"><span class="d-lab">Read as</span>${kinds}</div><div class="d-row"><label class="d-lab" for="t-${esc(p.id)}">Topic</label><select id="t-${esc(p.id)}" name="topic" class="d-select">${topicOpts}</select></div><div class="d-actions"><a href="/admin/review/${esc(p.id)}" class="d-btn link">Review</a>${personal ? "" : `<button type="submit" class="d-btn" formaction="/op/read/${esc(p.slug)}">Read it</button>`}<button type="submit" class="d-btn">${personal ? "Publish anyway" : "Publish"}</button><button type="submit" class="d-btn" formaction="/op/admin/${esc(p.id)}/private">Keep private</button><button type="submit" class="d-btn quiet" formaction="/op/admin/${esc(p.id)}/remove">Remove</button></div></form>`;
+  const form = `<form method="post" action="/op/admin/${esc(p.id)}/publish" class="d-form"><div class="d-row"><span class="d-lab">Read as</span>${kinds}</div><div class="d-row"><label class="d-lab" for="t-${esc(p.id)}">Topic</label><select id="t-${esc(p.id)}" name="topic" class="d-select">${topicOpts}</select></div><div class="d-actions"><a href="/admin/review/${esc(p.id)}" class="d-btn link">Review</a>${personal ? "" : readButton(p, r)}<button type="submit" class="d-btn">${personal ? "Publish anyway" : "Publish"}</button><button type="submit" class="d-btn" formaction="/op/admin/${esc(p.id)}/private">Keep private</button><button type="submit" class="d-btn quiet" formaction="/op/admin/${esc(p.id)}/remove">Remove</button></div></form>`;
   const note = personal
     ? `Read as <strong>personal</strong> because it ${esc(p.sortedWhy)}. It stays private unless you change how it is read, or publish it anyway.`
-    : `Read as ${esc(SORT_LABELS[p.sortedAs].toLowerCase())} because it ${esc(p.sortedWhy)}. ${Math.max(1, Math.round(p.chars / 1000))}k characters.`;
+    : `Read as ${esc(SORT_LABELS[p.sortedAs].toLowerCase())} because it ${esc(p.sortedWhy)}. ${Math.max(1, Math.round(p.chars / 1000))}k characters.${readNote(r)}`;
   return card({
     kind: p.sortedAs,
     kindLabel: SORT_LABELS[p.sortedAs],
@@ -92,7 +112,7 @@ function failedCard(p: AdminPiece): string {
   });
 }
 
-function doneCard(p: AdminPiece, label: string, undo: string): string {
+function doneCard(p: AdminPiece, label: string, undo: string, r?: ReadBadge): string {
   return card({
     kind: p.sortedAs,
     kindLabel: SORT_LABELS[p.sortedAs],
@@ -102,13 +122,11 @@ function doneCard(p: AdminPiece, label: string, undo: string): string {
     title: p.title,
     note:
       p.status === "published"
-        ? `Live at <a href="/p/${esc(p.slug)}" class="ulink">/p/${esc(p.slug)}</a>.`
+        ? `Live at <a href="/p/${esc(p.slug)}" class="ulink">/p/${esc(p.slug)}</a>.${readNote(r)}`
         : "Stored, read, and not public.",
     muted: true,
     body: `<form method="post" action="${esc(undo)}" class="d-actions">${
-      p.status === "published"
-        ? `<button type="submit" class="d-btn" formaction="/op/read/${esc(p.slug)}">Read it</button>`
-        : ""
+      p.status === "published" ? readButton(p, r) : ""
     }<button type="submit" class="d-btn quiet">Undo</button></form>`,
   });
 }
@@ -169,17 +187,23 @@ function flash(f: AdminFlash): string {
   return "";
 }
 
-export function renderAdmin(model: AdminModel, f: AdminFlash = {}): string {
+export function renderAdmin(
+  model: AdminModel,
+  f: AdminFlash = {},
+  reads: Map<string, ReadBadge> = new Map(),
+): string {
   const topics = hubTopics().map((t) => t.name);
   const cards = [
-    ...model.waiting.map((p) => waitingCard(p, topics)),
+    ...model.waiting.map((p) => waitingCard(p, topics, reads.get(p.slug))),
     ...model.failed.map(failedCard),
     namesCard(),
     heldCard(),
   ].filter(Boolean);
   const open = model.waiting.length + model.failed.length;
   const decided = [
-    ...model.published.map((p) => doneCard(p, "Published", `/op/admin/${p.id}/unpublish`)),
+    ...model.published.map((p) =>
+      doneCard(p, "Published", `/op/admin/${p.id}/unpublish`, reads.get(p.slug)),
+    ),
     ...model.kept.map((p) => doneCard(p, "Kept private", `/op/admin/${p.id}/undo`)),
   ];
   const count = open

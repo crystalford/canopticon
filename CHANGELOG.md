@@ -6,6 +6,22 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-14, last — What a read feeds
+
+- **"Show on the page"**: one approval per read puts what you kept on the
+  document's public page — the key figures with who gives them and when (in
+  place of the figures the page used to pick by pattern), a line saying how
+  many passages are the document's own words and who chose them, and after
+  the body: what it finds, the questions it answers, what it leaves open.
+  Every item links to its passage. "Take it off" undoes it; nothing is lost.
+- Never on the page: possible articles, advice to the author, the author's
+  own decisions, anything about the author, and the document's own Key
+  Findings and Caveats (they are in the body already).
+- **"Write this"** on a possible article starts an article in the workspace
+  with the thesis and the passages that carry it as the first message.
+- **Admin** cards say what each read found: when, how many kept, how many
+  dropped, and whether it is on the page; "Its read" opens it.
+
 ## 2026-10-14, later — Read it
 
 - **"Read it"** on every readable upload in Admin and on a document's page

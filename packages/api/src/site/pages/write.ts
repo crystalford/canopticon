@@ -96,9 +96,11 @@ export function renderWorkspace(
     publish?: { problems: string[]; live: LiveVersion | null; changed: boolean };
     /** A research draft: what keeps it from Admin, pages read, where it went. */
     research?: { problems: string[]; pages: number; savedAs?: string | undefined };
-    /** A read: its receipt line (HTML), the document, and the first message
-     *  to send on arrival when Read it was just pressed. */
-    read?: { receipt: string; docId: string; autostart?: string | undefined };
+    /** A read: its receipt line (HTML), the document, and whether what was
+     *  kept is on the document's page. */
+    read?: { receipt: string; docId: string; readId: string; shown: boolean };
+    /** The first message, sent once on arrival (Read it, Write this). */
+    autostart?: string | undefined;
     /** Proposal cards by the tool call that made them. */
     cards?: Map<string, string>;
     flash?: {
@@ -130,8 +132,14 @@ export function renderWorkspace(
       ? '<a class="ws-live" href="/admin" target="_blank" rel="noopener">In Admin</a>'
       : ""
   }${action(rs?.savedAs ? "Save again" : "Save to Admin", "save", "btn sm primary", !ready)}`;
+  const readAction = (label: string, act: string, cls = "btn sm") =>
+    `<form method="post" action="/op/read/${esc(read?.readId ?? "")}/${act}" class="ws-pubform"><button type="submit" class="${cls}">${label}</button></form>`;
   const pubbar = read
-    ? `<a class="ws-live" href="/p/${esc(read.docId)}" target="_blank" rel="noopener">The document</a>`
+    ? `<a class="ws-live" href="/p/${esc(read.docId)}${read.shown ? "?fresh=1" : ""}" target="_blank" rel="noopener">${read.shown ? "On the page" : "The document"}</a>${
+        read.shown
+          ? readAction("Take it off", "hide")
+          : readAction("Show on the page", "show", "btn sm primary")
+      }`
     : research
       ? savebar
       : isLive && pub.live
@@ -156,7 +164,7 @@ export function renderWorkspace(
       : research
         ? `<div class="ws-hello">Ask a question about the world, and say why you are asking and what you have already decided. Claude checks the record, searches the web, reads the sources in full, and writes the report on the right. Every quotation is checked against the pages it read. When it is right, Save to Admin, and publish it there.</div>`
         : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
-  const body = `<div class="ws" data-ws="${esc(d.id)}" data-ws-kind="${esc(d.kind)}"${read?.autostart ? ` data-ws-autostart="${esc(read.autostart)}"` : ""}>
+  const body = `<div class="ws" data-ws="${esc(d.id)}" data-ws-kind="${esc(d.kind)}"${opts.autostart ? ` data-ws-autostart="${esc(opts.autostart)}"` : ""}>
 <section class="ws-chat" aria-label="Conversation">
 <div class="ws-head"><a href="/admin/write" class="ulink">Drafts</a><span class="ws-title">${esc(d.meta.title || (research ? "Untitled research" : "Untitled draft"))}</span></div>
 ${opts.hasKey ? "" : NO_KEY}
