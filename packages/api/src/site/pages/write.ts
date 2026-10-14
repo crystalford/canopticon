@@ -17,7 +17,7 @@ const when = (iso: string) => {
 };
 const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
-const NO_KEY = `<div class="ws-nokey"><strong>Claude is not connected yet.</strong> Either route works: Cloudflare's AI Gateway with Unified Billing (the repository secrets AI_GATEWAY_ID and CF_AIG_TOKEN), or an Anthropic key (the secret ANTHROPIC_API_KEY). The next deploy hands them to the site.</div>`;
+const NO_KEY = `<div class="ws-nokey"><strong>Claude is not connected yet.</strong> Either route works: Cloudflare's AI Gateway with Unified Billing (the repository secrets AI_GATEWAY_ID and CF_AIG_TOKEN), or an Anthropic key (the secret ANTHROPIC_API_KEY). The next deploy hands them to the site. <a href="/admin/claude" class="ulink">See what is set, step by step</a>.</div>`;
 
 const ROUTE_LABEL = {
   gateway: "Claude Opus 5.5 · via Cloudflare AI Gateway",
@@ -165,6 +165,7 @@ export function renderWorkspace(
         ? `<div class="ws-hello">Ask a question about the world, and say why you are asking and what you have already decided. Claude checks the record, searches the web, reads the sources in full, and writes the report on the right. Every quotation is checked against the pages it read. When it is right, Save to Admin, and publish it there.</div>`
         : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
   const body = `<div class="ws" data-ws="${esc(d.id)}" data-ws-kind="${esc(d.kind)}"${opts.autostart ? ` data-ws-autostart="${esc(opts.autostart)}"` : ""}>
+<div class="ws-tabs" role="tablist" aria-label="Show" data-ws-tabs hidden><button type="button" role="tab" data-ws-tab="chat" aria-selected="true">Chat</button><button type="button" role="tab" data-ws-tab="page" aria-selected="false">${read ? "What it found" : "The page"}</button></div>
 <section class="ws-chat" aria-label="Conversation">
 <div class="ws-head"><a href="/admin/write" class="ulink">Drafts</a><span class="ws-title">${esc(d.meta.title || (research ? "Untitled research" : "Untitled draft"))}</span></div>
 ${opts.hasKey ? "" : NO_KEY}
@@ -198,6 +199,7 @@ ${opts.hasKey ? "" : NO_KEY}
 export const PREVIEW_FLAG = `<style>
 article p, article li, article h2, article h3, article blockquote, article figure, article td { cursor: pointer; }
 .ws-flagged { outline: 2px solid var(--cobalt); outline-offset: 4px; border-radius: 4px; }
+.hd, .ft { display: none; }
 </style>
 <script>
 (function () {

@@ -305,7 +305,32 @@ export const SITE_JS = `(function () {
       var el = d.createElement("div"); el.className = cls; el.textContent = text;
       wsLog.appendChild(el); wsLog.scrollTop = wsLog.scrollHeight; return el;
     };
+    // On a phone the chat and the page are two tabs; the page tab says when
+    // the page changed while the chat was showing.
+    var tabs = ws.querySelector("[data-ws-tabs]");
+    var view = function (v) {
+      ws.setAttribute("data-view", v);
+      if (!tabs) return;
+      [].forEach.call(tabs.querySelectorAll("[data-ws-tab]"), function (b) {
+        var on = b.getAttribute("data-ws-tab") === v;
+        b.setAttribute("aria-selected", on ? "true" : "false");
+        if (on) b.classList.remove("fresh");
+      });
+    };
+    if (tabs) {
+      tabs.hidden = false;
+      ws.classList.add("tabbed");
+      view("chat");
+      tabs.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-ws-tab]");
+        if (b) view(b.getAttribute("data-ws-tab"));
+      });
+    }
     var refresh = function () {
+      if (tabs && ws.getAttribute("data-view") === "chat") {
+        var pt = tabs.querySelector('[data-ws-tab="page"]');
+        if (pt) pt.classList.add("fresh");
+      }
       var y = 0;
       try { y = wsFrame.contentWindow.scrollY; } catch (err) {}
       wsFrame.onload = function () { try { wsFrame.contentWindow.scrollTo(0, y); } catch (err) {} };
@@ -315,7 +340,7 @@ export const SITE_JS = `(function () {
       flagged = t || "";
       wsFlag.hidden = !flagged;
       wsFlagText.textContent = flagged.length > 160 ? flagged.slice(0, 159) + "…" : flagged;
-      if (flagged) wsText.focus();
+      if (flagged) { if (tabs) view("chat"); wsText.focus(); }
     };
     addEventListener("message", function (e) {
       if (e.origin !== location.origin || !e.data || e.data.type !== "canopticon-flag") return;

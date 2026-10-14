@@ -6,6 +6,21 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-15, later — Connecting Claude, and the workspace on a phone
+
+- **/admin/claude** (linked from Admin's head and from every "not
+  connected" notice): whether Claude is connected and by which route, which
+  settings the site can see (present or not — never their values), the steps
+  for each route, and **Test the connection** — one small call made exactly
+  the way the workspace makes them (same model, same features, web search
+  and fetch declared but not used), so a missing feature shows up there and
+  not in the first real read. A fraction of a cent.
+- **The workspace on a phone**: the chat and the page are two tabs, each the
+  full height of the screen; the page tab marks when the page changed, and
+  flagging a passage switches back to the chat. Without the script the two
+  stack as before.
+- The preview no longer shows the site's own header and footer inside it.
+
 ## 2026-10-15 — A read's ideas and figures join the record
 
 - A kept **coined name or open problem** on a read's board can be added to
