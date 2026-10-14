@@ -5,6 +5,10 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Env } from "../env";
 import { all, one, run } from "../lib/d1";
 
+/** An article argues from the record; research asks the web a question and
+ *  becomes a report for the record. */
+export type DraftKind = "article" | "research";
+
 export interface DraftMeta {
   title?: string;
   dek?: string;
@@ -12,6 +16,8 @@ export interface DraftMeta {
   /** "Why I asked": the author's own words, never the model's. */
   why?: string;
   thesis?: string;
+  /** Research: the Admin upload the report was last saved as. */
+  savedAs?: string;
   based_on?: string[];
 }
 
@@ -26,7 +32,7 @@ export interface Usage {
 
 export interface Draft {
   id: string;
-  kind: "article";
+  kind: DraftKind;
   meta: DraftMeta;
   body: string;
   usage: Usage;
@@ -44,7 +50,7 @@ export type Message = Anthropic.Beta.BetaMessageParam;
 export interface DraftStore {
   list(): Promise<Draft[]>;
   get(id: string): Promise<Draft | null>;
-  create(): Promise<Draft>;
+  create(kind?: DraftKind): Promise<Draft>;
   save(id: string, patch: DraftPatch): Promise<void>;
   messages(id: string): Promise<Message[]>;
   append(id: string, messages: Message[]): Promise<void>;
@@ -83,6 +89,7 @@ function parse<T>(s: string | null | undefined, fallback: T): T {
 
 interface DraftRow {
   id: string;
+  kind?: string;
   meta: string;
   body_md: string;
   usage: string;
@@ -95,7 +102,7 @@ interface DraftRow {
 
 const fromRow = (r: DraftRow): Draft => ({
   id: r.id,
-  kind: "article",
+  kind: r.kind === "research" ? "research" : "article",
   meta: parse<DraftMeta>(r.meta, {}),
   body: r.body_md ?? "",
   usage: { ...NO_USAGE, ...parse<Partial<Usage>>(r.usage, {}) },
@@ -124,17 +131,17 @@ export function d1Drafts(env: Env, userId: string): DraftStore {
       ]);
       return r ? fromRow(r) : null;
     },
-    async create() {
+    async create(kind = "article") {
       const id = newId();
       const t = now();
       await run(
         db,
-        "INSERT INTO drafts (id, user_id, kind, meta, body_md, usage, status, created_at, updated_at) VALUES (?, ?, 'article', '{}', '', '{}', 'draft', ?, ?)",
-        [id, userId, t, t],
+        "INSERT INTO drafts (id, user_id, kind, meta, body_md, usage, status, created_at, updated_at) VALUES (?, ?, ?, '{}', '', '{}', 'draft', ?, ?)",
+        [id, userId, kind, t, t],
       );
       return {
         id,
-        kind: "article",
+        kind,
         meta: {},
         body: "",
         usage: NO_USAGE,
@@ -250,11 +257,11 @@ export function memoryDrafts(): DraftStore & {
     async get(id) {
       return rows.get(id) ?? null;
     },
-    async create() {
+    async create(kind = "article") {
       const t = now();
       const d: Draft = {
         id: newId(),
-        kind: "article",
+        kind,
         meta: {},
         body: "",
         usage: NO_USAGE,

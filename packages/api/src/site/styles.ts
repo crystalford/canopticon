@@ -482,6 +482,8 @@ a.facet:hover { filter: brightness(.96); }
 .ws-check.ok { color: var(--green-ink); }
 .ws-check.bad { color: var(--brick); font-weight: 600; }
 .ws-route { font-size: 13px; color: var(--muted); }
+.ws-new { display: flex; gap: 10px; margin: 20px 0 28px; }
+.ws-new form { margin: 0; }
 .ws-left { display: flex; align-items: center; gap: 14px; }
 .ws-attach { font-size: 13px; color: var(--cobalt); cursor: pointer; }
 .ws-attach:hover { text-decoration: underline; }

@@ -6,6 +6,22 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-14, late — Research in the workspace
+
+- **"New research"** in `/admin/write`: ask a question, say why and what is
+  already decided; Claude checks the record, searches the web, reads the
+  sources in full (Anthropic's own search and fetch tools, the ones Claude's
+  Research uses), and writes the report on the right, as the document page
+  it will become.
+- **Every page it reads is kept, and every quotation in the report is checked
+  against those pages**, in code, on every write. A report reaches Admin
+  only with a title, a real topic, a Sources list with links and no failed
+  quotation. In Admin it publishes like any upload.
+- Billed to the Anthropic key or Cloudflare credits, not Claude's apps:
+  searches are $10 per 1,000, reading pages costs only tokens.
+- The old research engine stays until the new one has made real reports,
+  then it is retired.
+
 ## 2026-10-14, night — The workspace, made safe for first real use
 
 A review of everything built today, before Claude is connected, found what

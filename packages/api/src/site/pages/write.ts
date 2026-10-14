@@ -32,17 +32,17 @@ export function renderWriteList(
     ? drafts
         .map(
           (d) =>
-            `<a class="ws-row" href="/admin/write/${esc(d.id)}"><span class="ws-row-t">${esc(d.meta.title || "Untitled draft")}</span>${d.meta.dek ? `<span class="ws-row-d">${esc(d.meta.dek)}</span>` : ""}<span class="ws-row-m">${esc(when(d.updatedAt))} · ${esc(dollars(d.usage.cents))}</span></a>`,
+            `<a class="ws-row" href="/admin/write/${esc(d.id)}"><span class="ws-row-t">${d.kind === "research" ? '<span class="pill">Research</span> ' : ""}${esc(d.meta.title || (d.kind === "research" ? "Untitled research" : "Untitled draft"))}</span>${d.meta.dek ? `<span class="ws-row-d">${esc(d.meta.dek)}</span>` : ""}<span class="ws-row-m">${esc(when(d.updatedAt))} · ${esc(dollars(d.usage.cents))}</span></a>`,
         )
         .join("")
     : '<div class="d-clear">No drafts yet.</div>';
   return shell({
-    title: "Write",
+    title: "Write and research",
     description: "Write an article with Claude, from the record.",
     path: "/admin/write",
     signedIn: true,
     noindex: true,
-    body: `<div class="d-head"><h1 class="d-h1">Write</h1>${opts.route ? `<span class="ws-route">${ROUTE_LABEL[opts.route]}</span>` : ""}<span class="d-links"><a href="/admin" class="ulink">Back to Admin</a></span></div>${opts.hasKey ? "" : NO_KEY}<form method="post" action="/op/write/new" style="margin:20px 0 28px"><button type="submit" class="btn tall">New article</button></form><div class="ws-list">${rows}</div>`,
+    body: `<div class="d-head"><h1 class="d-h1">Write and research</h1>${opts.route ? `<span class="ws-route">${ROUTE_LABEL[opts.route]}</span>` : ""}<span class="d-links"><a href="/admin" class="ulink">Back to Admin</a></span></div>${opts.hasKey ? "" : NO_KEY}<div class="ws-new"><form method="post" action="/op/write/new"><button type="submit" class="btn tall">New article</button></form><form method="post" action="/op/write/new"><input type="hidden" name="kind" value="research"><button type="submit" class="btn tall">New research</button></form></div><div class="ws-list">${rows}</div>`,
   });
 }
 
@@ -94,6 +94,8 @@ export function renderWorkspace(
     hasKey: boolean;
     route?: "gateway" | "anthropic" | null;
     publish?: { problems: string[]; live: LiveVersion | null; changed: boolean };
+    /** A research draft: what keeps it from Admin, pages read, where it went. */
+    research?: { problems: string[]; pages: number; savedAs?: string | undefined };
     /** Proposal cards by the tool call that made them. */
     cards?: Map<string, string>;
     flash?: {
@@ -103,16 +105,30 @@ export function renderWorkspace(
     };
   },
 ): string {
-  const pub = opts.publish ?? { problems: ["Nothing is written yet."], live: null, changed: true };
+  const research = d.kind === "research";
+  const pub = research
+    ? {
+        problems: opts.research?.problems ?? ["Nothing is written yet."],
+        live: null,
+        changed: true,
+      }
+    : (opts.publish ?? { problems: ["Nothing is written yet."], live: null, changed: true });
   const isLive = d.status === "published" && !!pub.live;
   const ready = !pub.problems.length;
   const why = pub.problems.length
-    ? `<details class="ws-why"><summary>Not ready to publish</summary><ul>${pub.problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></details>`
+    ? `<details class="ws-why"><summary>${research ? "Not ready for Admin" : "Not ready to publish"}</summary><ul>${pub.problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></details>`
     : "";
   const action = (label: string, path: string, cls = "btn sm", disabled = false) =>
     `<form method="post" action="/op/write/${esc(d.id)}/${path}" class="ws-pubform"><button type="submit" class="${cls}"${disabled ? " disabled" : ""}>${label}</button></form>`;
-  const pubbar =
-    isLive && pub.live
+  const rs = opts.research;
+  const savebar = `<span class="ws-uptodate">${rs?.pages ?? 0} ${rs?.pages === 1 ? "page" : "pages"} read</span>${
+    rs?.savedAs
+      ? '<a class="ws-live" href="/admin" target="_blank" rel="noopener">In Admin</a>'
+      : ""
+  }${action(rs?.savedAs ? "Save again" : "Save to Admin", "save", "btn sm primary", !ready)}`;
+  const pubbar = research
+    ? savebar
+    : isLive && pub.live
       ? `<a class="ws-live" href="/articles/${esc(pub.live.slug)}" target="_blank" rel="noopener">Live · version ${pub.live.version}</a>${
           pub.changed
             ? action("Update the live article", "publish", "btn sm primary", !ready)
@@ -123,23 +139,25 @@ export function renderWorkspace(
   const flash = f.published
     ? `<div class="ws-flash ok">Published at <a href="/articles/${esc(f.published)}?fresh=1" target="_blank" rel="noopener">/articles/${esc(f.published)}</a>. Search engines have been told.</div>`
     : f.error
-      ? `<div class="ws-flash bad"><strong>Not published.</strong> ${esc(f.error)}</div>`
+      ? `<div class="ws-flash bad"><strong>${research ? "Not saved." : "Not published."}</strong> ${esc(f.error)}</div>`
       : f.done
         ? `<div class="ws-flash ok">${esc(f.done)}</div>`
         : "";
   const log = items.length
     ? items.map((i) => item(i, opts.cards)).join("")
-    : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
+    : research
+      ? `<div class="ws-hello">Ask a question about the world, and say why you are asking and what you have already decided. Claude checks the record, searches the web, reads the sources in full, and writes the report on the right. Every quotation is checked against the pages it read. When it is right, Save to Admin, and publish it there.</div>`
+      : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
   const body = `<div class="ws" data-ws="${esc(d.id)}">
 <section class="ws-chat" aria-label="Conversation">
-<div class="ws-head"><a href="/admin/write" class="ulink">Drafts</a><span class="ws-title">${esc(d.meta.title || "Untitled draft")}</span></div>
+<div class="ws-head"><a href="/admin/write" class="ulink">Drafts</a><span class="ws-title">${esc(d.meta.title || (research ? "Untitled research" : "Untitled draft"))}</span></div>
 ${opts.hasKey ? "" : NO_KEY}
 <div class="ws-log" data-ws-log>${log}</div>
 <form class="ws-form" method="post" action="/op/write/${esc(d.id)}/turn" data-ws-form>
 <div class="ws-flag" data-ws-flag hidden><span class="ws-flag-l">Flagged</span><span class="ws-flag-t" data-ws-flag-text></span><button type="button" class="ws-flag-x" data-ws-flag-clear aria-label="Remove the flag">×</button></div>
 <div class="ws-files" data-ws-files hidden></div>
 <label for="ws-text" class="vh">Message</label>
-<textarea id="ws-text" name="text" rows="3" placeholder="What should Claude write or change?"${opts.hasKey ? "" : " disabled"}></textarea>
+<textarea id="ws-text" name="text" rows="3" placeholder="${research ? "What should Claude find out, or change?" : "What should Claude write or change?"}"${opts.hasKey ? "" : " disabled"}></textarea>
 <div class="ws-actions"><span class="ws-left"><label class="ws-attach">Add files<input type="file" multiple accept=".md,.txt,.pdf,.docx" data-ws-file hidden></label><span class="ws-cost" data-ws-cost title="${opts.route ? esc(ROUTE_LABEL[opts.route]) : ""} · estimated, at Anthropic's list price">${esc(dollars(d.usage.cents))} so far</span></span><button type="submit" class="btn"${opts.hasKey ? "" : " disabled"}>Send</button></div>
 </form>
 </section>
@@ -183,6 +201,6 @@ article p, article li, article h2, article h3, article blockquote, article figur
 })();
 </script>`;
 
-export function renderEmptyPreview(): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><link rel="stylesheet" href="/site.css"></head><body><main style="max-width:720px;margin:80px auto;padding:0 24px;color:var(--muted);font-size:17px">The article appears here as Claude writes it.</main></body></html>`;
+export function renderEmptyPreview(kind: "article" | "research" = "article"): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><link rel="stylesheet" href="/site.css"></head><body><main style="max-width:720px;margin:80px auto;padding:0 24px;color:var(--muted);font-size:17px">The ${kind === "research" ? "report" : "article"} appears here as Claude writes it.</main></body></html>`;
 }

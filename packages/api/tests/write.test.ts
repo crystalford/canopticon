@@ -817,3 +817,162 @@ describe("a draft survives real use", () => {
     expect(JSON.stringify(back[0])).toContain(big);
   });
 });
+
+// ---- research ---------------------------------------------------------------------
+
+import {
+  checkReport,
+  fetchedPages,
+  memorySources,
+  reportFile,
+  reportProblems,
+} from "../src/write/research";
+
+const PAGE_TEXT =
+  "The survey of 1,200 households found that rents fell by 4.1 percent in the first year after the ban.\nOther factors also mattered.";
+const fetchBlock = (url: string, data: string, pdf = false) => ({
+  type: "web_fetch_tool_result",
+  tool_use_id: `f-${url}`,
+  content: {
+    type: "web_fetch_result",
+    url,
+    retrieved_at: "2026-10-14T00:00:00Z",
+    content: {
+      type: "document",
+      title: "A page",
+      source: pdf
+        ? { type: "base64", media_type: "application/pdf", data }
+        : { type: "text", media_type: "text/plain", data },
+    },
+  },
+});
+
+describe("research: what was read is kept and checked", () => {
+  it("keeps fetched pages as text, and PDFs through the converter", async () => {
+    const ai = { toMarkdown: async () => [{ format: "markdown", data: "PDF words." }] };
+    const pages = await fetchedPages({ ...env, AI: ai } as unknown as Env, [
+      { type: "text", text: "hi" },
+      fetchBlock("https://a.example/page", PAGE_TEXT),
+      fetchBlock("https://b.example/doc.pdf", btoa("%PDF-1.4"), true),
+      {
+        type: "web_fetch_tool_result",
+        tool_use_id: "x",
+        content: { type: "web_fetch_tool_result_error", error_code: "url_not_accessible" },
+      },
+    ]);
+    expect(pages.map((p) => [p.url, p.kind, p.text.slice(0, 10)])).toEqual([
+      ["https://a.example/page", "text", PAGE_TEXT.slice(0, 10)],
+      ["https://b.example/doc.pdf", "pdf", "PDF words."],
+    ]);
+  });
+
+  it("finds a quotation in a page read, whitespace aside, and fails one that is not there", () => {
+    const pages = [
+      { url: "u", title: null, retrievedAt: null, kind: "text" as const, text: PAGE_TEXT },
+    ];
+    const body =
+      'The study found that "rents fell by 4.1 percent in the first year\n after the ban" [1], and that "rents rose sharply in every neighbourhood we measured" [2].';
+    const r = checkReport(body, pages);
+    expect(r.total).toBe(2);
+    expect(r.failed.map((f) => f.text)).toEqual([
+      "rents rose sharply in every neighbourhood we measured",
+    ]);
+  });
+
+  it("reaches Admin only with a title, a real topic, sources with links, and every quote found", () => {
+    const topic = articleTopics()[0] ?? "Housing";
+    const ok = {
+      meta: { title: "Rent bans", topic },
+      body: `## TL;DR\n${"x ".repeat(250)}\n\n## Sources\n1. [A page](https://a.example/page)`,
+    };
+    const clean = { total: 0, failed: [] };
+    expect(reportProblems(ok, clean, articleTopics())).toEqual([]);
+    expect(
+      reportProblems(
+        { ...ok, body: ok.body.replace(/## Sources[\s\S]*/, "") },
+        clean,
+        articleTopics(),
+      ).join(" "),
+    ).toMatch(/Sources/);
+    expect(reportFile(ok).startsWith("# Rent bans\n\n## TL;DR")).toBe(true);
+  });
+});
+
+describe("research: a turn", () => {
+  it("searches, reads, keeps the pages, writes the report and checks it against them", async () => {
+    const store = memoryDrafts();
+    const sources = memorySources();
+    const d = await store.create("research");
+    const topic = articleTopics()[0] ?? "Housing";
+    const body = `## TL;DR\nThe study says "rents fell by 4.1 percent in the first year after the ban" [1] and "nothing here was ever actually written anywhere at all" [1].\n\n## Sources\n1. [A page](https://a.example/page)`;
+    const { stream, calls } = fakeStream([
+      msg(
+        [
+          {
+            type: "server_tool_use",
+            id: "s1",
+            name: "web_search",
+            input: { query: "rent ban study" },
+          },
+          { type: "web_search_tool_result", tool_use_id: "s1", content: [] },
+        ],
+        "pause_turn",
+      ),
+      msg(
+        [
+          {
+            type: "server_tool_use",
+            id: "f1",
+            name: "web_fetch",
+            input: { url: "https://a.example/page" },
+          },
+          fetchBlock("https://a.example/page", PAGE_TEXT),
+          {
+            type: "tool_use",
+            id: "w1",
+            name: "write_report",
+            input: { title: "Rent bans", topic, body },
+          },
+        ],
+        "tool_use",
+      ),
+      msg([{ type: "text", text: "One quote failed; fixing." }], "end_turn"),
+    ]);
+    const events: WriteEvent[] = [];
+    await runTurn({
+      stream,
+      env,
+      store,
+      sources,
+      draftId: d.id,
+      text: "Did the bans lower rents?",
+      emit: (e) => events.push(e),
+    });
+
+    expect((await sources.texts(d.id)).map((p) => p.url)).toEqual(["https://a.example/page"]);
+    expect((await store.get(d.id))?.meta).toMatchObject({ title: "Rent bans", topic });
+    const writeResult = JSON.stringify((await store.messages(d.id)).at(-2));
+    expect(writeResult).toContain("1 NOT FOUND");
+    expect(
+      events.filter((e) => e.type === "activity").map((e) => (e as { text: string }).text),
+    ).toEqual(
+      expect.arrayContaining(["Searched the web: rent ban study", "Read: https://a.example/page"]),
+    );
+    expect(calls).toHaveLength(3); // the paused turn resumed
+    const first = calls[0] as {
+      tools: Array<Record<string, unknown>>;
+      context_management?: unknown;
+      system: Array<{ text: string }>;
+    };
+    expect(first.tools.find((t) => t.name === "web_fetch")).toMatchObject({
+      type: "web_fetch_20260209",
+      allowed_callers: ["direct"],
+    });
+    expect(first.tools.find((t) => t.name === "web_search")).toMatchObject({
+      type: "web_search_20260209",
+    });
+    expect(first.tools.some((t) => t.name === "write_draft")).toBe(false);
+    expect(first.context_management).toBeTruthy();
+    expect(first.system[0]?.text).toContain("HOW YOU RESEARCH");
+  });
+});

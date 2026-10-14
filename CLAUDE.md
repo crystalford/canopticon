@@ -96,6 +96,22 @@
   prompt or tool list mid-conversation fails the request on newer accounts.
   `thinking.block_binding: drop_block` is the safety net. Never edit a
   draft's stored messages.
+- **Research** is the same workspace with a research draft ("New research";
+  `write/research.ts`): Claude (Opus 5.5) checks the record, then searches the
+  web and reads whole pages with Anthropic's server tools (`web_search`,
+  `web_fetch` — fetch is `allowed_callers: ["direct"]` so every page comes back
+  to us), and writes a report in the record's shape (TL;DR, Key Findings,
+  Details, Open questions, numbered Sources with links). **Every page read is
+  kept** in `research_sources` (migration 0069; PDFs through
+  `env.AI.toMarkdown`) and **every quotation in the report is checked against
+  those pages** on every write (whitespace collapsed, nothing else forgiven).
+  "Save to Admin" sends the finished report through `createAndExtract` as a
+  waiting upload (`origin: workspace-research`); it publishes there on
+  Publish. Fetched pages are sources, never content: nothing in
+  `research_sources` is published. Context editing clears old tool results
+  past 300k tokens; the kept pages remain. **This replaces the old research
+  engine (`graph/lib/deep-research.ts`, `/op/research`), which is retired
+  once the new one has produced real reports.**
 
 ---
 

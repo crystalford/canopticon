@@ -906,6 +906,100 @@ const DRAFT_MESSAGES = [
   },
   { role: "user", content: [{ type: "tool_result", tool_use_id: "t3", content: "Proposed." }] },
 ].map((m) => ({ message: JSON.stringify(m) }));
+// A research draft: a question asked, the web searched, two pages read, and
+// a report with one quotation found in them and one not.
+const RESEARCH_ROW = {
+  id: "draft-2",
+  kind: "research",
+  meta: JSON.stringify({
+    title: "Did short-term rental bans lower rents in Canadian cities?",
+    topic: "Housing",
+  }),
+  body_md: `## TL;DR
+The bans removed listings, but rents kept rising: the cities' own data show long-term supply grew by a fraction of the units delisted, and the effect on rent is too small to see beside interest rates and immigration [1][2].
+
+## Key Findings
+- Toronto's registry shows that "the number of short-term rental listings fell by roughly half within a year of enforcement" [1].
+- One study found that "every one percent increase in listings raised rents by about 0.018 percent across the city" [2].
+
+## Details
+### 1. What the bans removed
+The registry counts listings, not homes returned to the long-term market [1].
+
+## Open questions
+Nobody has measured where the delisted units went.
+
+## Sources
+1. [Short-term rental registry, annual report](https://example.ca/registry-2025) — City of Toronto, 2025
+2. [The effect of home-sharing on house prices and rents](https://example.org/paper) — journal article, 2021
+`,
+  usage: JSON.stringify({
+    input: 220000,
+    output: 14000,
+    cacheRead: 900000,
+    cacheWrite: 180000,
+    cents: 199.3,
+  }),
+  status: "draft",
+  slug: null,
+  created_at: "2026-10-14T01:00:00Z",
+  updated_at: "2026-10-14T01:20:00Z",
+};
+const RESEARCH_MESSAGES = [
+  {
+    role: "user",
+    content: [
+      {
+        type: "text",
+        text: "Did the short-term rental bans actually lower rents? I'm asking because I want to write about housing supply; we already agree the bans were popular.",
+      },
+    ],
+  },
+  {
+    role: "assistant",
+    content: [
+      {
+        type: "server_tool_use",
+        id: "s1",
+        name: "web_search",
+        input: { query: "Toronto short-term rental registry annual report listings" },
+      },
+      {
+        type: "server_tool_use",
+        id: "f1",
+        name: "web_fetch",
+        input: { url: "https://example.ca/registry-2025" },
+      },
+      {
+        type: "server_tool_use",
+        id: "f2",
+        name: "web_fetch",
+        input: { url: "https://example.org/paper" },
+      },
+      {
+        type: "text",
+        text: "I read the registry report and the main study in full and wrote the report. One quotation is not in the pages I read; I'll fix it.",
+      },
+    ],
+  },
+].map((m) => ({ message: JSON.stringify(m) }));
+const RESEARCH_PAGES = [
+  {
+    url: "https://example.ca/registry-2025",
+    title: "Registry",
+    retrieved_at: "2026-10-14",
+    kind: "text",
+    text: "Annual report. In 2025 the number of short-term rental listings fell by roughly half within a year of enforcement. Other text.",
+  },
+  {
+    url: "https://example.org/paper",
+    title: "Paper",
+    retrieved_at: "2026-10-14",
+    kind: "text",
+    text: "A 1% increase in Airbnb listings leads to a 0.018% increase in rents.",
+  },
+];
+
 const ENTRY_ROW = {
   id: "entry-1",
   kind: "open_problem",
@@ -958,7 +1052,11 @@ function makeDb(): D1Database {
         if (/FROM nodes/i.test(sql) && /neutral_fact/i.test(sql)) return { n: 273 };
         if (/FROM users/i.test(sql)) return { id: "u1" };
         if (/FROM drafts WHERE id = \?/i.test(sql))
-          return bound[0] === DRAFT_ROW.id ? DRAFT_ROW : null;
+          return bound[0] === DRAFT_ROW.id
+            ? DRAFT_ROW
+            : bound[0] === RESEARCH_ROW.id
+              ? RESEARCH_ROW
+              : null;
         // storedAnswerForQuestion binds [userId, lead_key, kind].
         if (/FROM lead_answers/i.test(sql)) {
           return bound[1] === SEARCH_ANSWER_KEY && bound[2] === "question" ? SEARCH_ANSWER : null;
@@ -1006,8 +1104,11 @@ function makeDb(): D1Database {
         return null;
       },
       async all() {
-        if (/FROM drafts WHERE user_id/i.test(sql)) return { results: [DRAFT_ROW] };
-        if (/FROM draft_messages/i.test(sql)) return { results: DRAFT_MESSAGES };
+        if (/FROM drafts WHERE user_id/i.test(sql)) return { results: [RESEARCH_ROW, DRAFT_ROW] };
+        if (/FROM draft_messages/i.test(sql))
+          return { results: bound[0] === RESEARCH_ROW.id ? RESEARCH_MESSAGES : DRAFT_MESSAGES };
+        if (/FROM research_sources/i.test(sql))
+          return { results: bound[0] === RESEARCH_ROW.id ? RESEARCH_PAGES : [] };
         if (/FROM record_entries WHERE draft_id/i.test(sql)) return { results: [ENTRY_ROW] };
         // processingRows: every pipeline row for the operator.
         if (/FROM piece_processing/i.test(sql)) return { results: PROCESSING };

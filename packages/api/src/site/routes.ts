@@ -14,7 +14,8 @@ import { draftArticle, draftMarkdown } from "../write/article";
 import { checkQuotes, draftQuotes } from "../write/check";
 import { d1Drafts } from "../write/drafts";
 import { d1Entries } from "../write/entries";
-import { changedSince, latestVersion, publishProblems } from "../write/publish";
+import { articleTopics, changedSince, latestVersion, publishProblems } from "../write/publish";
+import { checkReport, d1Sources, reportFile, reportProblems } from "../write/research";
 import { sourceTexts, sourceTitles } from "../write/sources";
 import { adminModel, waitingCount } from "./admin-data";
 import {
@@ -198,6 +199,25 @@ app.get("/admin/write/:id", async (c, next) => {
   const d = store ? await store.get(c.req.param("id")).catch(() => null) : null;
   if (!store || !d) return next();
   const items = transcript(await store.messages(d.id));
+  if (d.kind === "research") {
+    const uid = (await resolveOperatorId(c.env.DB).catch(() => null)) ?? "";
+    const pages = await d1Sources(c.env, uid).texts(d.id);
+    const rcheck = checkReport(d.body, pages);
+    return html(
+      renderWorkspace(d, items, rcheck, {
+        hasKey: !!claudeRoute(c.env),
+        route: claudeRoute(c.env),
+        research: {
+          problems: d.body.trim()
+            ? reportProblems(d, rcheck, articleTopics())
+            : ["Nothing is written yet."],
+          pages: pages.length,
+          savedAs: d.meta.savedAs,
+        },
+        flash: { error: c.req.query("error"), done: c.req.query("done") },
+      }),
+    );
+  }
   const quoted = draftQuotes(d.body).map((q) => q.doc);
   const check = checkQuotes(d.body, await sourceTexts(c.env, quoted));
   const userId = (await resolveOperatorId(c.env.DB).catch(() => null)) ?? "";
@@ -237,7 +257,25 @@ app.get("/admin/write/:id/preview", async (c, next) => {
   const store = await workspaceStore(c);
   const d = store ? await store.get(c.req.param("id")).catch(() => null) : null;
   if (!d) return next();
-  if (!d.body.trim()) return html(renderEmptyPreview());
+  if (!d.body.trim()) return html(renderEmptyPreview(d.kind));
+  // A research report previews as the document page it will become.
+  if (d.kind === "research") {
+    const page = renderDocument(
+      {
+        id: d.id,
+        title: d.meta.title || "Untitled research",
+        kind: "Research",
+        topic: d.meta.topic || "Research",
+        date: new Date().toISOString().slice(0, 10),
+        dateLabel: "Not yet published",
+        shelf: "",
+        body: d.body,
+        citedBy: [],
+      },
+      { signedIn: true },
+    );
+    return html(page.replace("</body>", `${PREVIEW_FLAG}</body>`));
+  }
   const ids = [...new Set([...draftQuotes(d.body).map((q) => q.doc), ...(d.meta.based_on ?? [])])];
   const [texts, titles] = await Promise.all([sourceTexts(c.env, ids), sourceTitles(c.env, ids)]);
   const failed = new Set(checkQuotes(d.body, texts).failed.map((f) => `${f.doc}\u0000${f.text}`));
@@ -257,7 +295,7 @@ app.get("/admin/write/:id/article.md", async (c, next) => {
   if (!d) return next();
   const titles = await sourceTitles(c.env, d.meta.based_on ?? []);
   const slug = draftArticle(d, titles).slug;
-  return new Response(draftMarkdown(d, titles), {
+  return new Response(d.kind === "research" ? reportFile(d) : draftMarkdown(d, titles), {
     headers: {
       "content-type": "text/markdown; charset=utf-8",
       "content-disposition": `attachment; filename="${slug}.md"`,

@@ -46,6 +46,9 @@ describe("the migrations", () => {
       expect.arrayContaining(["slug", "version", "draft_id", "meta", "body_md"]),
     );
     expect(cols("draft_messages")).toEqual(expect.arrayContaining(["seq", "message", "part"]));
+    expect(cols("research_sources")).toEqual(
+      expect.arrayContaining(["draft_id", "url", "text", "kind"]),
+    );
     expect(cols("record_entries")).toEqual(
       expect.arrayContaining(["kind", "data", "status", "tool_use_id"]),
     );
