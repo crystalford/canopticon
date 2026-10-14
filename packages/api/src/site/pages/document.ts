@@ -119,7 +119,7 @@ export function renderDocument(d: DocView, opts: { signedIn?: boolean } = {}): s
     : { href: "/library?kind=Research", label: "Research" };
 
   const head = [
-    `<div class="crumbs"><a href="${back.href}">${back.label}</a><span aria-hidden="true" class="sep">/</span><span>${esc(d.kind)}</span></div>`,
+    `<div class="crumbs"><a href="${back.href}">${back.label}</a>${back.label === d.kind ? "" : `<span aria-hidden="true" class="sep">/</span><span>${esc(d.kind)}</span>`}</div>`,
     `<div class="pills" style="margin-top:14px">${pill(d.kind, kindColours("Research"), "pill lg")}${linkPill(topicHref, d.topic, topicColours(d.topic), "pill lg")}${d.dateLabel ? pill(d.dateLabel, kindColours("Research"), "pill lg") : ""}${pill(`${minutes} min read`, kindColours("Research"), "pill lg")}</div>`,
     `<h1 class="h-doc">${esc(d.title)}</h1>`,
     inv

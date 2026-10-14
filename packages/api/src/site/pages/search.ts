@@ -88,21 +88,34 @@ export interface SearchQuery {
   more?: string | undefined;
 }
 
+// A term matches at the start of a word: "rent" finds "rents" and "rental",
+// not "differently" or "current".
+const ESCAPE = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const WORD_START = new Map<string, RegExp>();
+function atWordStart(l: string, t: string): boolean {
+  let rx = WORD_START.get(t);
+  if (!rx) {
+    rx = new RegExp(`(?<![\\p{L}\\p{N}])${ESCAPE(t)}`, "u");
+    WORD_START.set(t, rx);
+  }
+  return rx.test(l);
+}
+
 export function renderSearch(query: SearchQuery, opts: { signedIn?: boolean } = {}): string {
   const q = (query.q ?? "").slice(0, 200);
   const qt = q.trim();
   const terms = searchTerms(qt);
   const has = (s: string) => {
     const l = norm(s);
-    return terms.every((t) => l.includes(t));
+    return terms.every((t) => atWordStart(l, t));
   };
   const rx = terms.length
     ? new RegExp(
-        `(${terms
-          .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        `((?<![\\p{L}\\p{N}])(?:${terms
+          .map(ESCAPE)
           .sort((a, b) => b.length - a.length)
-          .join("|")})`,
-        "gi",
+          .join("|")}))`,
+        "giu",
       )
     : null;
   const marked = (s: string) =>
@@ -203,7 +216,7 @@ export function renderSearch(query: SearchQuery, opts: { signedIn?: boolean } = 
   const per = new Map<string, number>();
   const pas: Hit[] = [];
   for (const p of passages()) {
-    if (!terms.every((t) => p.lc.includes(t))) continue;
+    if (!terms.every((t) => atWordStart(p.lc, t))) continue;
     const n = (per.get(p.doc.id) ?? 0) + 1;
     per.set(p.doc.id, n);
     if (n > 3) continue;

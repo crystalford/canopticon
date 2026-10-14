@@ -79,7 +79,10 @@ export function citedBy(docId: string): Citation[] {
 
 /** A month-only date ("2026-09-01" labelled "Sep") stays month-only. */
 function dateLabelFor(doc: ResearchDoc): string {
-  return libraryRowForDoc(doc.id)?.dateLabel ?? shortDate(doc.date);
+  const label = libraryRowForDoc(doc.id)?.dateLabel ?? shortDate(doc.date);
+  // A month-only label ("Sep") means the day is not known; the year is.
+  const year = doc.date.slice(0, 4);
+  return /^[A-Za-z–\s]+$/.test(label) && /^\d{4}$/.test(year) ? `${label} ${year}` : label;
 }
 
 export function docViewFromStore(id: string): DocView | null {
