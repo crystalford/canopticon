@@ -508,6 +508,23 @@ a.facet:hover { filter: brightness(.96); }
 .btn.primary:hover { background: var(--ink-2); border-color: var(--ink-2); color: var(--card); }
 .btn[disabled] { opacity: .45; cursor: not-allowed; }
 .btn.quiet { color: var(--ink-2); font-weight: 400; }
+.cl { max-width: 760px; }
+.cl-status { margin: 0 0 16px; padding: 12px 16px; border-radius: 12px; font-size: 15px; background: var(--clay-wash); color: var(--clay-ink); }
+.cl-status.on { background: var(--green-wash); color: var(--green-ink); }
+.cl-result { margin: 0 0 16px; padding: 12px 16px; border-radius: 12px; font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.cl-result.ok { background: var(--green-bg); color: var(--green-ink); }
+.cl-result.bad { background: var(--clay-bg); color: var(--clay-ink); }
+.cl-test { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 28px; }
+.cl-note { font-size: 13px; color: var(--muted); }
+.cl-h { margin: 28px 0 10px; font-size: 17px; font-weight: 600; }
+.cl-list { list-style: none; margin: 0; padding: 0; }
+.cl-row { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--hair); font-size: 14.5px; line-height: 1.45; }
+.cl-mark { flex: 0 0 22px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--tint); color: var(--muted); font-weight: 700; }
+.cl-mark.on { background: var(--green-bg); color: var(--green-ink); }
+.cl-state { font-size: 12.5px; color: var(--muted); margin-left: 6px; }
+.cl-what { display: block; font-size: 13.5px; color: var(--ink-2); }
+.cl-steps { margin: 0; padding-left: 20px; font-size: 14.5px; line-height: 1.6; color: var(--body); }
+.cl-steps li { margin-bottom: 6px; }
 .dread { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--hair); font-size: 13px; color: var(--muted); line-height: 1.45; }
 .rd-body { background: var(--paper); }
 .rd-main { max-width: var(--read); margin: 0 auto; padding: 32px 24px 80px; }
@@ -583,10 +600,19 @@ a.facet:hover { filter: brightness(.96); }
 .ws-row-t { font-size: 18px; font-weight: 500; }
 .ws-row-d { font-size: 14.5px; color: var(--body); line-height: 1.5; }
 .ws-row-m { font-size: 12.5px; color: var(--muted); }
+.ws-tabs { display: none; }
 @media (max-width: 860px) {
   .ws { flex-direction: column; height: auto; }
   .ws-chat { flex: none; height: 70vh; }
   .ws-page { height: 80vh; flex: none; }
+  /* With the page's script: two tabs, each the full height of the screen. */
+  .ws.tabbed { gap: 10px; }
+  .ws.tabbed .ws-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--tint); }
+  .ws-tabs button { flex: 1; appearance: none; border: 0; border-radius: 9px; padding: 9px 10px; background: transparent; font: inherit; font-size: 14px; font-weight: 500; color: var(--ink-2); cursor: pointer; position: relative; }
+  .ws-tabs button[aria-selected="true"] { background: var(--card); color: var(--ink); }
+  .ws-tabs button.fresh::after { content: ""; position: absolute; top: 8px; right: 12px; width: 7px; height: 7px; border-radius: 999px; background: var(--cobalt); }
+  .ws.tabbed .ws-chat, .ws.tabbed .ws-page { height: calc(100dvh - 150px); min-height: 420px; }
+  .ws.tabbed[data-view="chat"] .ws-page, .ws.tabbed[data-view="page"] .ws-chat { display: none; }
 }
 
 .d-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

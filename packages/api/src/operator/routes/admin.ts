@@ -11,7 +11,10 @@ import { pingIndexNow } from "../../lib/indexnow";
 import { isSortedAs } from "../../lib/sort-upload";
 import { resolveOperatorId } from "../../public/data";
 import { hubTopics } from "../../site/data";
+import { html } from "../../site/layout";
+import { renderClaude } from "../../site/pages/claude";
 import { invalidateUploads } from "../../site/uploads";
+import { testClaude } from "../../write/connection";
 import { operatorApp } from "./app";
 import { createAndExtract, mimeForName } from "./upload";
 
@@ -197,5 +200,9 @@ app.post("/admin/link", async (c) => {
     p.duplicate ? "/admin?dedup=1" : `/admin?uploaded=${encodeURIComponent(p.pieceId)}`,
   );
 });
+
+// "Test the connection" on /admin/claude: one small call, the way the
+// workspace makes them, and the page again with what came back.
+app.post("/admin/claude-test", async (c) => html(renderClaude(c.env, await testClaude(c.env))));
 
 export default app;

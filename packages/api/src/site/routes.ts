@@ -48,6 +48,7 @@ import { html, setWaiting } from "./layout";
 import { passageHref } from "./md";
 import { renderAdmin } from "./pages/admin";
 import { renderArticle, renderPaper } from "./pages/article";
+import { renderClaude } from "./pages/claude";
 import { type DocView, renderDocument } from "./pages/document";
 import { evidence } from "./pages/evidence";
 import { consentWording, followTopics, renderFollow } from "./pages/follow";
@@ -182,6 +183,7 @@ app.get("/admin", async (c) => {
         dedup: c.req.query("dedup"),
         error: c.req.query("error"),
         done: c.req.query("done"),
+        claude: !!claudeRoute(c.env),
       },
       reads,
     ),
@@ -196,6 +198,11 @@ async function workspaceStore(c: { env: Env }) {
   const userId = await resolveOperatorId(c.env.DB).catch(() => null);
   return userId ? d1Drafts(c.env, userId) : null;
 }
+
+// Is Claude connected, and what is missing (never the values).
+app.get("/admin/claude", (c) =>
+  signedIn(c) ? html(renderClaude(c.env)) : html(signIn("/admin/claude"), { status: 401 }),
+);
 
 app.get("/admin/write", async (c) => {
   if (!signedIn(c)) return html(signIn("/admin/write"), { status: 401 });
