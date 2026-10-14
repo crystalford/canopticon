@@ -13,10 +13,11 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { Env } from "../env";
-import { essayContract, libraryItems, researchDoc } from "../site/content/store";
+import { essayContract, libraryItems, problems, researchDoc, terms } from "../site/content/store";
 import { type CheckResult, checkQuotes, describeCheck, draftQuotes } from "./check";
 import type { DraftMeta, DraftStore, Message, Usage } from "./drafts";
 import { NO_USAGE } from "./drafts";
+import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
 import { listSources, searchSources, sourceText, sourceTexts } from "./sources";
 
 export const WRITE_MODEL = "claude-opus-5-5";
@@ -32,6 +33,7 @@ export type WriteEvent =
   | { type: "text"; text: string }
   | { type: "activity"; text: string }
   | { type: "draft"; check: CheckResult }
+  | { type: "proposal"; entry: Entry; html?: string }
   | { type: "error"; message: string }
   | { type: "done"; usage: Usage };
 
@@ -47,11 +49,32 @@ export interface StreamLike {
 }
 export type StreamFn = (params: StreamParams) => StreamLike;
 
-/** The real thing: the Anthropic SDK, with the operator's key. */
+/** How the workspace reaches Claude: through Cloudflare's AI Gateway when it
+ *  is configured (Unified Billing, no Anthropic key), else directly with
+ *  ANTHROPIC_API_KEY, else not at all. */
+export function claudeRoute(env: Env): "gateway" | "anthropic" | null {
+  if (env.AI_GATEWAY_ID && env.CLOUDFLARE_ACCOUNT_ID && env.CF_AIG_TOKEN) return "gateway";
+  if (env.ANTHROPIC_API_KEY) return "anthropic";
+  return null;
+}
+
+/** The real thing: the Anthropic SDK, pointed at the route above. The
+ *  gateway's Anthropic pass-through takes the Messages API unchanged —
+ *  tools, streaming, caching — and authenticates with the gateway token;
+ *  with Unified Billing the Anthropic key is ignored, so a placeholder
+ *  stands in when there is none. */
 export async function anthropicStream(env: Env): Promise<StreamFn | null> {
-  if (!env.ANTHROPIC_API_KEY) return null;
+  const route = claudeRoute(env);
+  if (!route) return null;
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  const client =
+    route === "gateway"
+      ? new Anthropic({
+          apiKey: env.ANTHROPIC_API_KEY || "unified-billing",
+          baseURL: `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${env.AI_GATEWAY_ID}/anthropic`,
+          defaultHeaders: { "cf-aig-authorization": `Bearer ${env.CF_AIG_TOKEN}` },
+        })
+      : new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   return (params) => client.beta.messages.stream(params) as unknown as StreamLike;
 }
 
@@ -110,13 +133,41 @@ FRONT MATTER (write_draft's fields)
 - based_on: the ids of the documents the article draws on.
 - why ("Why I asked"): Chris's own reason, in his words. Never write it yourself. Ask him for it, and leave it out until he gives it; then use his words exactly.
 
+PROPOSING TO THE RECORD
+Besides articles, the record keeps concepts, open problems and key figures, each on its own page or list. When your reading turns one up, you may propose it with propose_entry; Chris adds it as written, rewrites it, or dismisses it. Propose sparingly: only what a reader would want to find on its own.
+- concept: a name for a pattern, mechanism or failure that happens and has no established name (contract §1b). Never a name for something to build — that is a document's proposal, not a concept. title is the name; body is a one-paragraph definition in plain words; quote is the passage where the document describes the pattern or says no name exists.
+- open_problem: something wanted that does not exist yet — a product, a dataset, a study — and why (contract §1c). title is the problem in one line (a question is fine); body states it; quote is the document's own words on why it is unsolved.
+- figure: a number with a named source. quote is the sentence that carries it, word for word; body is the figure exactly as written in that sentence; title repeats the sentence.
+Already in the record, so not to be proposed again — concepts: {{CONCEPTS}}. Open problems: {{PROBLEMS}}.
+
 THE ESSAY CONTRACT
 Below is the standard every article meets. Where it describes the old desk, the draft room, quarantine, grounding packs or JSON shapes, that is history: you work in this workspace and in Markdown. Its rules about the idea, evidence, honesty, numbers, titles, plain writing and the slop list all hold.
 
 `;
 
+/** What a conversation is held to from its first turn. */
+interface Frame {
+  system: string;
+  tools: Anthropic.Beta.BetaToolUnion[];
+}
+const newFrame = (): Frame => ({ system: systemPrompt(), tools: TOOLS });
+
 export function systemPrompt(): string {
-  return HOW.replace("{{TOPICS}}", topics().join("; ")) + essayContract();
+  return (
+    HOW.replace("{{TOPICS}}", topics().join("; "))
+      .replace(
+        "{{CONCEPTS}}",
+        terms()
+          .map((t) => t.title)
+          .join("; ") || "none",
+      )
+      .replace(
+        "{{PROBLEMS}}",
+        problems()
+          .map((t) => t.title)
+          .join("; ") || "none",
+      ) + essayContract()
+  );
 }
 
 // ---- tools ------------------------------------------------------------------
@@ -134,6 +185,15 @@ const WriteInput = z.object({
   body: z.string().min(1),
 });
 const EditInput = z.object({ find: z.string().min(1), replace: z.string() });
+const ProposeInput = z.object({
+  kind: z.enum(["concept", "open_problem", "figure"]),
+  title: z.string().min(1),
+  body: z.string().min(1),
+  doc: z.string().min(1),
+  section: z.string(),
+  quote: z.string().min(1),
+  topic: z.string(),
+});
 
 export const TOOLS: Anthropic.Beta.BetaToolUnion[] = [
   {
@@ -200,6 +260,24 @@ export const TOOLS: Anthropic.Beta.BetaToolUnion[] = [
       required: ["find", "replace"],
     },
   },
+  {
+    name: "propose_entry",
+    description:
+      "Propose a concept, an open problem or a key figure for the record, grounded in a passage copied word for word from a document you have read. Chris adds it, rewrites it or dismisses it; nothing is public until he adds it.",
+    input_schema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["concept", "open_problem", "figure"] },
+        title: { type: "string" },
+        body: { type: "string" },
+        doc: { type: "string", description: "The document id" },
+        section: { type: "string", description: "Its section heading" },
+        quote: { type: "string", description: "Word for word from the document" },
+        topic: { type: "string" },
+      },
+      required: ["kind", "title", "body", "doc", "section", "quote", "topic"],
+    },
+  },
 ];
 
 /** What the page says Claude is doing, from a tool call. */
@@ -218,6 +296,8 @@ export function activityLabel(name: string, input: unknown): string {
       return "Wrote the draft";
     case "edit_draft":
       return "Revised a passage";
+    case "propose_entry":
+      return `Proposed ${i.kind === "open_problem" ? "an open problem" : i.kind === "figure" ? "a key figure" : "a concept"}: ${String(i.kind === "figure" ? i.body : i.title)}`;
     default:
       return name;
   }
@@ -226,8 +306,10 @@ export function activityLabel(name: string, input: unknown): string {
 interface ToolContext {
   env: Env;
   store: DraftStore;
+  entries?: EntryStore | undefined;
   draftId: string;
   emit: Emit;
+  toolUseId?: string;
 }
 
 async function check(env: Env, body: string): Promise<CheckResult> {
@@ -330,6 +412,30 @@ async function runTool(
       t.emit({ type: "draft", check: r });
       return { text: `Saved. ${describeCheck(r)}` };
     }
+    case "propose_entry": {
+      const p = ProposeInput.safeParse(input);
+      if (!p.success) return bad("Give kind, title, body, doc, section, quote and topic.");
+      if (!t.entries) return bad("Proposals are not available here.");
+      const kind = p.data.kind as EntryKind;
+      const data = { ...p.data, title: kind === "figure" ? p.data.quote : p.data.title };
+      const issues = await proposalProblems(t.env, kind, data);
+      if (issues.length) return bad(`Not proposed: ${issues.join(" ")}`);
+      const entry = await t.entries.create({
+        kind,
+        data: {
+          title: data.title,
+          body: data.body,
+          doc: data.doc,
+          section: data.section,
+          quote: data.quote,
+          topic: data.topic,
+        },
+        draftId: t.draftId,
+        ...(t.toolUseId ? { toolUseId: t.toolUseId } : {}),
+      });
+      t.emit({ type: "proposal", entry });
+      return { text: "Proposed. Chris will add it as written, rewrite it, or dismiss it." };
+    }
     default:
       return bad(`No tool called ${name}.`);
   }
@@ -385,6 +491,7 @@ export async function runTurn(o: {
   stream: StreamFn;
   env: Env;
   store: DraftStore;
+  entries?: EntryStore | undefined;
   draftId: string;
   text: string;
   emit: Emit;
@@ -406,10 +513,20 @@ export async function runTurn(o: {
   await store.append(draftId, opening);
   history.push(...opening);
 
+  // The instructions and tools are frozen at the conversation's first turn
+  // and sent byte for byte ever after: the model's reasoning is bound to the
+  // exact conversation, and a topic or tool added later must not change it.
+  let frame: Frame;
+  try {
+    frame = draft.frame ? (JSON.parse(draft.frame) as Frame) : newFrame();
+  } catch {
+    frame = newFrame();
+  }
+  if (!draft.frame) await store.save(draftId, { frame: JSON.stringify(frame) });
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
-    { type: "text", text: systemPrompt(), cache_control: { type: "ephemeral" } },
+    { type: "text", text: frame.system, cache_control: { type: "ephemeral" } },
   ];
-  const ctx: ToolContext = { env, store, draftId, emit };
+  const ctx: ToolContext = { env, store, entries: o.entries, draftId, emit };
   const steps = o.maxSteps ?? MAX_STEPS;
 
   for (let step = 0; step < steps; step++) {
@@ -418,12 +535,15 @@ export async function runTurn(o: {
       const s = o.stream({
         model: WRITE_MODEL,
         max_tokens: 64000,
-        betas: ["server-side-fallback-2026-07-01"],
+        betas: ["server-side-fallback-2026-07-01", "thinking-binding-controls-2026-08-01"],
         fallbacks: "default",
+        // A safety net under the frozen frame: if the prefix ever differs,
+        // drop the stale reasoning instead of failing the turn.
+        thinking: { type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } },
         output_config: { effort: "high" },
         cache_control: { type: "ephemeral" },
         system,
-        tools: TOOLS,
+        tools: frame.tools,
         messages: history,
       });
       s.on("text", (delta) => emit({ type: "text", text: delta }));
@@ -449,7 +569,9 @@ export async function runTurn(o: {
         type: "error",
         message:
           e.status === 401
-            ? "The Anthropic API key was refused. Check the ANTHROPIC_API_KEY secret."
+            ? claudeRoute(env) === "gateway"
+              ? "Cloudflare's AI Gateway refused the request. Check the CF_AIG_TOKEN secret and that Unified Billing has credits."
+              : "The Anthropic API key was refused. Check the ANTHROPIC_API_KEY secret."
             : `Claude could not be reached${e.status ? ` (${e.status})` : ""}: ${detail}`,
       });
       break;
@@ -482,11 +604,14 @@ export async function runTurn(o: {
         });
         continue;
       }
-      const r = await runTool(u.name, u.input, ctx).catch((e: Error) => ({
+      const r = await runTool(u.name, u.input, { ...ctx, toolUseId: u.id }).catch((e: Error) => ({
         text: `Failed: ${e.message}`,
         error: true,
       }));
-      if (u.name !== "write_draft" && u.name !== "edit_draft")
+      // A proposal shows as its card; a refused one says why.
+      if (u.name === "propose_entry") {
+        if (r.error) emit({ type: "activity", text: r.text });
+      } else if (u.name !== "write_draft" && u.name !== "edit_draft")
         emit({ type: "activity", text: activityLabel(u.name, u.input) });
       results.push({
         type: "tool_result",
@@ -512,8 +637,10 @@ export async function runTurn(o: {
 // ---- the conversation as the page shows it ------------------------------------
 
 export interface ChatItem {
-  who: "you" | "claude" | "activity";
+  who: "you" | "claude" | "activity" | "proposal";
   text: string;
+  /** A proposal's tool call, to find its card. */
+  toolUseId?: string;
 }
 
 export function transcript(history: Message[]): ChatItem[] {
@@ -526,6 +653,8 @@ export function transcript(history: Message[]): ChatItem[] {
     for (const b of m.content) {
       if (b.type === "text" && b.text.trim())
         out.push({ who: m.role === "user" ? "you" : "claude", text: b.text });
+      else if (b.type === "tool_use" && b.name === "propose_entry")
+        out.push({ who: "proposal", text: activityLabel(b.name, b.input), toolUseId: b.id });
       else if (b.type === "tool_use")
         out.push({ who: "activity", text: activityLabel(b.name, b.input) });
     }

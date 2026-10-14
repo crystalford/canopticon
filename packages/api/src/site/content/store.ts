@@ -203,7 +203,9 @@ export function allPapers(): Paper[] {
  *  appear in a public list. Everything else in library.json is public. */
 export function libraryItems(opts: { signedIn?: boolean } = {}): LibraryItem[] {
   const own = STORE.library.filter((r) => opts.signedIn || r.kind !== "Project");
-  return UPLOADED.length || PUBLISHED_ROWS.length ? [...PUBLISHED_ROWS, ...UPLOADED, ...own] : own;
+  return UPLOADED.length || PUBLISHED_ROWS.length || ENTRIES.rows.length
+    ? [...PUBLISHED_ROWS, ...ENTRIES.rows, ...UPLOADED, ...own]
+    : own;
 }
 
 /**
@@ -242,11 +244,38 @@ let VERSION = 0;
 export const storeVersion = (): number => VERSION;
 
 export const questions = (): DerivedRow[] => STORE.questions;
-export const keyFigures = (): DerivedRow[] => STORE.figures;
-export const terms = (): Idea[] => STORE.terms;
-export const problems = (): Idea[] => STORE.problems;
-export const term = (id: string): Idea | null => STORE.terms.find((t) => t.id === id) ?? null;
-export const problem = (id: string): Idea | null => STORE.problems.find((t) => t.id === id) ?? null;
+export const keyFigures = (): DerivedRow[] =>
+  ENTRIES.figures.length ? [...ENTRIES.figures, ...STORE.figures] : STORE.figures;
+export const terms = (): Idea[] =>
+  ENTRIES.terms.length ? [...STORE.terms, ...ENTRIES.terms] : STORE.terms;
+export const problems = (): Idea[] =>
+  ENTRIES.problems.length ? [...STORE.problems, ...ENTRIES.problems] : STORE.problems;
+export const term = (id: string): Idea | null => terms().find((t) => t.id === id) ?? null;
+export const problem = (id: string): Idea | null => problems().find((t) => t.id === id) ?? null;
+
+/**
+ * Concepts, open problems and key figures added from the workspace live in
+ * D1 (record_entries) and join the store's lists here, with their Library
+ * rows, the same way published articles do.
+ */
+export interface EntryOverlay {
+  terms: Idea[];
+  problems: Idea[];
+  figures: DerivedRow[];
+  rows: LibraryItem[];
+}
+let ENTRIES: EntryOverlay = { terms: [], problems: [], figures: [], rows: [] };
+export function setRecordEntries(next: EntryOverlay): void {
+  const known = new Set([...STORE.terms, ...STORE.problems].map((i) => i.route));
+  const keep: EntryOverlay = {
+    terms: next.terms.filter((i) => !known.has(i.route)),
+    problems: next.problems.filter((i) => !known.has(i.route)),
+    figures: next.figures,
+    rows: next.rows.filter((r) => !known.has(r.route)),
+  };
+  if (JSON.stringify(keep) !== JSON.stringify(ENTRIES)) VERSION++;
+  ENTRIES = keep;
+}
 export const timeline = (topic: string): TimelineWork[] => STORE.timeline[topic] ?? [];
 export const verifiedQuoteCount = (): number => STORE.verified.quotes;
 

@@ -6,6 +6,34 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-14, later — Reports into the chat; Claude proposes for the record
+
+- **Add files** in the workspace (or drop them on the chat): research
+  reports are stored and held in Admin exactly as an Admin upload is, and
+  Claude is told their ids so it can read them at once. An article that
+  quotes one can publish once the report itself is published.
+- **Claude proposes concepts, open problems and key figures** while it reads,
+  each grounded in a passage checked word for word. They arrive as cards in
+  the chat: rewrite the paragraph if you like, then Add to the record or
+  Dismiss. Added ones appear on their own pages, in Ideas, the Library and
+  the key figures list. Concepts are patterns that happen, never names for
+  things to build (contract §1b).
+- **Claude through Cloudflare:** the workspace can run on Cloudflare's AI
+  Gateway with Unified Billing (Cloudflare credits, no Anthropic account),
+  through the gateway's Anthropic pass-through, which carries tools and
+  caching. It is used whenever the GitHub secrets `AI_GATEWAY_ID` and
+  `CF_AIG_TOKEN` are set; the Anthropic key is the fallback. The page says
+  which one is in use.
+- **The publish deploy failed, and is fixed here:** its table was called
+  `article_versions`, a name a legacy table from 0005 already had, so the
+  migration did nothing and then broke. It is `published_versions` now, and
+  a new test applies every migration in order to real SQLite, so a collision
+  like that fails CI instead of the deploy.
+- **Fixed before it could bite:** each conversation's instructions and tool
+  list are now frozen at its first turn. Claude Opus 5.5 rejects a turn when
+  they change mid-conversation (a new topic, a new tool), which would have
+  broken every existing draft the first time either changed.
+
 ## 2026-10-14 — Publish from the workspace
 
 - **Publish** in `/admin/write` puts the article live at `/articles/<slug>`,

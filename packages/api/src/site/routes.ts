@@ -9,10 +9,11 @@ import { OWN_UPLOADS_SQL } from "../admin/runtime";
 import type { AuthContext } from "../auth/middleware";
 import { one } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
-import { transcript } from "../write/agent";
+import { claudeRoute, transcript } from "../write/agent";
 import { draftArticle, draftMarkdown } from "../write/article";
 import { checkQuotes, draftQuotes } from "../write/check";
 import { d1Drafts } from "../write/drafts";
+import { d1Entries } from "../write/entries";
 import { changedSince, latestVersion, publishProblems } from "../write/publish";
 import { sourceTexts, sourceTitles } from "../write/sources";
 import { adminModel, waitingCount } from "./admin-data";
@@ -53,7 +54,13 @@ import { renderNotFound, renderNotice } from "./pages/notice";
 import { renderSearch } from "./pages/search";
 import { renderStatic } from "./pages/static";
 import { renderTopic } from "./pages/topic";
-import { PREVIEW_FLAG, renderEmptyPreview, renderWorkspace, renderWriteList } from "./pages/write";
+import {
+  PREVIEW_FLAG,
+  proposalCard,
+  renderEmptyPreview,
+  renderWorkspace,
+  renderWriteList,
+} from "./pages/write";
 import { SITE_JS } from "./script";
 import { SITE_CSS } from "./styles";
 import { kindColours, shortDate } from "./theme";
@@ -180,7 +187,7 @@ app.get("/admin/write", async (c) => {
   if (!signedIn(c)) return html(signIn("/admin/write"), { status: 401 });
   const store = await workspaceStore(c);
   const drafts = store ? await store.list().catch(() => []) : [];
-  return html(renderWriteList(drafts, { hasKey: !!c.env.ANTHROPIC_API_KEY }));
+  return html(renderWriteList(drafts, { hasKey: !!claudeRoute(c.env), route: claudeRoute(c.env) }));
 });
 
 app.get("/admin/write/:id", async (c, next) => {
@@ -196,9 +203,21 @@ app.get("/admin/write/:id", async (c, next) => {
   const problems = d.body.trim()
     ? await publishProblems(c.env, userId, d)
     : ["Nothing is written yet."];
+  const proposals = await d1Entries(c.env, userId).forDraft(d.id);
+  const propTitles = await sourceTitles(
+    c.env,
+    proposals.map((e) => e.data.doc),
+  );
+  const cards = new Map(
+    proposals
+      .filter((e) => e.toolUseId)
+      .map((e) => [e.toolUseId as string, proposalCard(e, d.id, propTitles.get(e.data.doc))]),
+  );
   return html(
     renderWorkspace(d, items, check, {
-      hasKey: !!c.env.ANTHROPIC_API_KEY,
+      hasKey: !!claudeRoute(c.env),
+      route: claudeRoute(c.env),
+      cards,
       publish: { problems, live, changed: live ? changedSince(d, live) : true },
       flash: {
         published: c.req.query("published"),

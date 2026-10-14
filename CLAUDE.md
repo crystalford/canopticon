@@ -59,8 +59,11 @@
   every public list through `site/uploads.ts` → `setUploadedRows()`.
 - **The workspace** is `/admin/write` (`src/write/`, `site/pages/write.ts`,
   actions in `operator/routes/write.ts`): a chat with Claude beside the real
-  article page, the way Claude Design works. Claude (Opus 5.5, direct
-  Anthropic API — the AI Gateway route cannot run tools or cache) reads the
+  article page, the way Claude Design works. Claude (Opus 5.5, through
+  Cloudflare's AI Gateway Anthropic pass-through when `AI_GATEWAY_ID` +
+  `CF_AIG_TOKEN` are set — Unified Billing, no Anthropic key — else the
+  Anthropic API with `ANTHROPIC_API_KEY`; `env.AI.run()` cannot carry tools
+  or caching, so the workspace never uses it; `claudeRoute()`) reads the
   record through tools (list, search, read), writes with `write_draft` and
   revises one passage with `edit_draft`; every write is checked word for
   word in code (`write/check.ts`, the build's rule) and failures go back to
@@ -72,7 +75,7 @@
   never a held or private document. Needs `ANTHROPIC_API_KEY` (a GitHub
   secret the deploy pushes to the Worker). **Publish** runs the build's gates
   (every quote word for word, every quoted or named document already public,
-  a real topic) and copies the draft into a new `article_versions` row
+  a real topic) and copies the draft into a new `published_versions` row
   (migration 0066) — nothing overwritten; the site shows the latest version.
   Edits stay private until "Update the live article"; "Take down" keeps the
   address and every version. Live articles join the store as an overlay
@@ -80,6 +83,19 @@
   the article page, Library, topics, feeds, llms.txt, sitemap and cited-by
   all read them; `storeVersion()` rebuilds the derived lookups when the
   overlay changes. A draft also downloads as `content/articles/<slug>.md`.
+  **Reports go straight into the chat** ("Add files" or drop): each is stored
+  and held in Admin exactly like an Admin upload, and named to Claude in the
+  next message. **Claude proposes** concepts, open problems and key figures
+  (`propose_entry`, `write/entries.ts`), each grounded in a passage checked
+  word for word; you add one as written or rewritten (a person writes the
+  paragraph, contract §1b–1c) or dismiss it. Added entries live in
+  `record_entries` (migration 0067) and join the store's concepts, problems,
+  figures and Library (`setRecordEntries`). **Each draft's system prompt and
+  tools are frozen at its first turn** (`drafts.frame`) and resent byte for
+  byte: Claude's reasoning is bound to the exact conversation, and a changed
+  prompt or tool list mid-conversation fails the request on newer accounts.
+  `thinking.block_binding: drop_block` is the safety net. Never edit a
+  draft's stored messages.
 
 ---
 

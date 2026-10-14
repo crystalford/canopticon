@@ -33,6 +33,8 @@ export interface Draft {
   status: "draft" | "published";
   /** The address, fixed at first publish and kept after a take-down. */
   slug?: string;
+  /** The system prompt and tools the conversation started with (JSON). */
+  frame?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +56,7 @@ export interface DraftPatch {
   usage?: Usage;
   status?: Draft["status"];
   slug?: string;
+  frame?: string;
 }
 
 export const NO_USAGE: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cents: 0 };
@@ -76,6 +79,7 @@ interface DraftRow {
   usage: string;
   status: string;
   slug?: string | null;
+  frame?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -88,6 +92,7 @@ const fromRow = (r: DraftRow): Draft => ({
   usage: { ...NO_USAGE, ...parse<Partial<Usage>>(r.usage, {}) },
   status: r.status === "published" ? "published" : "draft",
   ...(r.slug ? { slug: r.slug } : {}),
+  ...(r.frame ? { frame: r.frame } : {}),
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -151,6 +156,10 @@ export function d1Drafts(env: Env, userId: string): DraftStore {
       if (patch.slug) {
         sets.push("slug = ?");
         args.push(patch.slug);
+      }
+      if (patch.frame) {
+        sets.push("frame = ?");
+        args.push(patch.frame);
       }
       sets.push("updated_at = ?");
       args.push(now(), id, userId);
@@ -232,6 +241,7 @@ export function memoryDrafts(): DraftStore & {
         ...(patch.usage ? { usage: patch.usage } : {}),
         ...(patch.status ? { status: patch.status } : {}),
         ...(patch.slug ? { slug: patch.slug } : {}),
+        ...(patch.frame ? { frame: patch.frame } : {}),
         updatedAt: now(),
       });
     },

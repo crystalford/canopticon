@@ -210,6 +210,7 @@ describe("a turn", () => {
       "read_document",
       "write_draft",
       "edit_draft",
+      "propose_entry",
     ]);
 
     expect(transcript(history).map((i) => i.who)).toEqual([
@@ -381,7 +382,7 @@ function versionDb() {
           return { results: [] };
         },
         async run() {
-          if (/INSERT INTO article_versions/.test(sql))
+          if (/INSERT INTO published_versions/.test(sql))
             versions.push({ slug: String(args[0]), version: Number(args[1]) });
           return { results: [], meta: { changes: 1 } };
         },
@@ -509,5 +510,208 @@ describe("a published article is on every surface", () => {
     } finally {
       setPublishedArticles([]);
     }
+  });
+});
+
+// ---- step 3: frozen instructions, attachments, proposals --------------------------
+
+import { setRecordEntries } from "../src/site/content/store";
+import { keyFigures, term } from "../src/site/content/store";
+import { addEntry, entryOverlay, memoryEntries } from "../src/write/entries";
+
+describe("a conversation's instructions are frozen", () => {
+  it("sends the same system prompt and tools on every turn, even after the record changes", async () => {
+    const store = memoryDrafts();
+    const d = await store.create();
+    const one = fakeStream([msg([{ type: "text", text: "ok" }], "end_turn")]);
+    await runTurn({
+      stream: one.stream,
+      env,
+      store,
+      draftId: d.id,
+      text: "First.",
+      emit: () => {},
+    });
+    setPublishedArticles([
+      {
+        article: {
+          ...draftArticle(goodDraft(), new Map()),
+          slug: "x-new-topic",
+          topic: "A brand new topic",
+        },
+        row: {
+          route: "/articles/x-new-topic",
+          kind: "Article",
+          topic: "A brand new topic",
+          date: "2026-10-14",
+          title: "X",
+          dek: "",
+          stat: "",
+        },
+      },
+    ]);
+    try {
+      const two = fakeStream([msg([{ type: "text", text: "ok" }], "end_turn")]);
+      await runTurn({
+        stream: two.stream,
+        env,
+        store,
+        draftId: d.id,
+        text: "Second.",
+        emit: () => {},
+      });
+      const a = one.calls[0] as Record<string, unknown>;
+      const b = two.calls[0] as Record<string, unknown>;
+      expect(JSON.stringify(b.system)).toBe(JSON.stringify(a.system));
+      expect(JSON.stringify(b.tools)).toBe(JSON.stringify(a.tools));
+      expect(JSON.stringify(a.system)).not.toContain("A brand new topic");
+      expect(a.thinking).toEqual({
+        type: "adaptive",
+        block_binding: { prefix_mismatch_behavior: "drop_block" },
+      });
+      expect(a.betas).toContain("thinking-binding-controls-2026-08-01");
+    } finally {
+      setPublishedArticles([]);
+    }
+  });
+});
+
+describe("proposals for the record", () => {
+  const topic = () => articleTopics()[0] ?? "Housing";
+
+  it("proposes only what a document says word for word, and never publishes it", async () => {
+    const store = memoryDrafts();
+    const entries = memoryEntries();
+    const d = await store.create();
+    const good = {
+      kind: "concept",
+      title: "A brand-new pattern",
+      body: "What it is.",
+      doc: DOC.id,
+      section: "S",
+      quote: PASSAGE,
+      topic: topic(),
+    };
+    const { stream } = fakeStream([
+      msg([{ type: "tool_use", id: "p1", name: "propose_entry", input: good }], "tool_use"),
+      msg(
+        [
+          {
+            type: "tool_use",
+            id: "p2",
+            name: "propose_entry",
+            input: { ...good, title: "Another", quote: "words the document never wrote" },
+          },
+        ],
+        "tool_use",
+      ),
+      msg([{ type: "text", text: "ok" }], "end_turn"),
+    ]);
+    const events: WriteEvent[] = [];
+    await runTurn({
+      stream,
+      env,
+      store,
+      entries,
+      draftId: d.id,
+      text: "Read it.",
+      emit: (e) => events.push(e),
+    });
+    const made = [...entries.rows.values()];
+    expect(made).toHaveLength(1);
+    expect(made[0]).toMatchObject({ status: "proposed", toolUseId: "p1", draftId: d.id });
+    expect(events.filter((e) => e.type === "proposal")).toHaveLength(1);
+    expect(JSON.stringify((await store.messages(d.id))[4])).toContain("not word for word");
+    expect(
+      transcript(await store.messages(d.id)).find((i) => i.who === "proposal")?.toolUseId,
+    ).toBe("p1");
+  });
+
+  it("adds a proposal as the author rewrote it, and it is on the site", async () => {
+    const entries = memoryEntries();
+    const e = await entries.create({
+      kind: "concept",
+      data: {
+        title: "A brand-new pattern",
+        body: "Claude's words.",
+        doc: DOC.id,
+        section: "S",
+        quote: PASSAGE,
+        topic: topic(),
+      },
+      draftId: "d",
+    });
+    const r = await addEntry(env, entries, e.id, { body: "My own words." });
+    expect(r).toMatchObject({ ok: true, route: "/concepts/a-brand-new-pattern" });
+    const added = await entries.get(e.id);
+    expect(added?.data).toMatchObject({ body: "My own words.", edited: true });
+
+    const fig = await entries.create({
+      kind: "figure",
+      data: {
+        title: PASSAGE,
+        body: PASSAGE.slice(5, 20),
+        doc: DOC.id,
+        section: "S",
+        quote: PASSAGE,
+        topic: topic(),
+      },
+    });
+    expect((await addEntry(env, entries, fig.id, {})).ok).toBe(true);
+
+    setRecordEntries(await entryOverlay(env, await entries.added()));
+    try {
+      expect(term("a-brand-new-pattern")?.body).toBe("My own words.");
+      const page = await (
+        await app.fetch(new Request("http://test/concepts/a-brand-new-pattern"), env)
+      ).text();
+      expect(page).toContain("My own words.");
+      const ideas = await (await app.fetch(new Request("http://test/ideas"), env)).text();
+      expect(ideas).toContain("A brand-new pattern");
+      expect(keyFigures().some((f) => f.v === PASSAGE.slice(5, 20))).toBe(true);
+    } finally {
+      setRecordEntries({ terms: [], problems: [], figures: [], rows: [] });
+    }
+  });
+
+  it("will not add a concept the record already has", async () => {
+    const entries = memoryEntries();
+    const existing = term("the-price-as-instruction");
+    if (!existing) return;
+    const e = await entries.create({
+      kind: "concept",
+      data: {
+        title: existing.title,
+        body: "x",
+        doc: DOC.id,
+        section: "S",
+        quote: PASSAGE,
+        topic: topic(),
+      },
+    });
+    const r = await addEntry(env, entries, e.id, {});
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("reports added in the chat", () => {
+  it("asks for a file, and refuses a zip", async () => {
+    const post = (body: FormData) =>
+      app.fetch(new Request("http://test/op/write/x/attach", { method: "POST", body }), env);
+    const empty = await post(new FormData());
+    expect(empty.status).toBe(400);
+  });
+});
+
+describe("how the workspace reaches Claude", () => {
+  it("prefers Cloudflare's AI Gateway when it is set up, else the Anthropic key, else nothing", async () => {
+    const { claudeRoute } = await import("../src/write/agent");
+    const gw = { AI_GATEWAY_ID: "g", CLOUDFLARE_ACCOUNT_ID: "a", CF_AIG_TOKEN: "t" };
+    expect(claudeRoute({ ...env, ...gw } as Env)).toBe("gateway");
+    expect(claudeRoute({ ...env, ...gw, ANTHROPIC_API_KEY: "k" } as Env)).toBe("gateway");
+    expect(claudeRoute({ ...env, ANTHROPIC_API_KEY: "k" } as Env)).toBe("anthropic");
+    expect(
+      claudeRoute({ ...env, AI_GATEWAY_ID: "g", CLOUDFLARE_ACCOUNT_ID: "a" } as Env),
+    ).toBeNull();
   });
 });

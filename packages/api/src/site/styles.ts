@@ -481,6 +481,25 @@ a.facet:hover { filter: brightness(.96); }
 .ws-check { color: var(--muted); }
 .ws-check.ok { color: var(--green-ink); }
 .ws-check.bad { color: var(--brick); font-weight: 600; }
+.ws-route { font-size: 13px; color: var(--muted); }
+.ws-left { display: flex; align-items: center; gap: 14px; }
+.ws-attach { font-size: 13px; color: var(--cobalt); cursor: pointer; }
+.ws-attach:hover { text-decoration: underline; }
+.ws-files { display: flex; flex-wrap: wrap; gap: 6px; }
+.ws-files[hidden] { display: none; }
+.ws-file { padding: 3px 10px; border-radius: 999px; background: var(--green-bg); color: var(--green-ink); font-size: 12.5px; }
+.ws-file.bad { background: var(--clay-bg); color: var(--clay-ink); }
+.ws-chat.drop { outline: 2px dashed var(--cobalt); outline-offset: -6px; }
+.ws-prop { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid var(--green-bg); background: var(--green-wash); margin: 0; }
+.ws-prop-h { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.ws-prop-t { font: inherit; font-size: 15px; font-weight: 600; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); color: var(--ink); }
+.ws-prop-b { font: inherit; font-size: 14px; line-height: 1.5; padding: 8px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); color: var(--body); resize: vertical; }
+.ws-prop-q { margin: 0; padding: 6px 10px; border-left: 3px solid var(--green); font-size: 13px; line-height: 1.5; color: var(--body); background: var(--card); border-radius: 0 6px 6px 0; }
+.ws-prop-fig { font-size: 15px; }
+.ws-prop-a { display: flex; gap: 8px; }
+.ws-prop-done { font-size: 13.5px; color: var(--green-ink); }
+.ws-prop.dismissed { background: var(--tint-3); border-color: var(--hair); }
+.ws-prop.dismissed .ws-prop-done { color: var(--muted); }
 .ws-pub { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 .ws-pubform { margin: 0; }
 .btn.primary { background: var(--ink); color: var(--card); border-color: var(--ink); }
