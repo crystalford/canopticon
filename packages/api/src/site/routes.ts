@@ -13,6 +13,7 @@ import { transcript } from "../write/agent";
 import { draftArticle, draftMarkdown } from "../write/article";
 import { checkQuotes, draftQuotes } from "../write/check";
 import { d1Drafts } from "../write/drafts";
+import { changedSince, latestVersion, publishProblems } from "../write/publish";
 import { sourceTexts, sourceTitles } from "../write/sources";
 import { adminModel, waitingCount } from "./admin-data";
 import {
@@ -190,7 +191,22 @@ app.get("/admin/write/:id", async (c, next) => {
   const items = transcript(await store.messages(d.id));
   const quoted = draftQuotes(d.body).map((q) => q.doc);
   const check = checkQuotes(d.body, await sourceTexts(c.env, quoted));
-  return html(renderWorkspace(d, items, check, { hasKey: !!c.env.ANTHROPIC_API_KEY }));
+  const userId = (await resolveOperatorId(c.env.DB).catch(() => null)) ?? "";
+  const live = await latestVersion(c.env, userId, d.id);
+  const problems = d.body.trim()
+    ? await publishProblems(c.env, userId, d)
+    : ["Nothing is written yet."];
+  return html(
+    renderWorkspace(d, items, check, {
+      hasKey: !!c.env.ANTHROPIC_API_KEY,
+      publish: { problems, live, changed: live ? changedSince(d, live) : true },
+      flash: {
+        published: c.req.query("published"),
+        error: c.req.query("error"),
+        done: c.req.query("done"),
+      },
+    }),
+  );
 });
 
 /** The article as it will be published: the public renderer, with failing

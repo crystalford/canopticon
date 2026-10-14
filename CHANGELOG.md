@@ -6,6 +6,20 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-14 — Publish from the workspace
+
+- **Publish** in `/admin/write` puts the article live at `/articles/<slug>`,
+  in the Library, its topic, the feeds, llms.txt and the sitemap, and in the
+  "cited by" of every document it quotes. It refuses, with the reasons, a
+  draft with a quote that is not word for word, a document that is not yet
+  public, or no topic.
+- Every publish is a new version; nothing is overwritten. Editing a live
+  article changes nothing until "Update the live article". "Take down" keeps
+  the address and the versions.
+- Fixed on the way: lookups built from the Library (cited-by, a document's
+  row) were built once per server and could miss anything published after
+  it started.
+
 ## 2026-10-13 — The workspace: write with Claude beside the page
 
 - **`/admin/write`**, step 1 of making Canopticon work the way Claude Design

@@ -41,6 +41,9 @@ const env = { LOG_LEVEL: "error", DB: stubDb() } as unknown as Env;
 const DOC = publicResearch().find((d) => d.body.length > 2000);
 if (!DOC) throw new Error("the store has no public research");
 const PASSAGE = DOC.body.slice(600, 680);
+const ARTICLES = (await import("node:fs"))
+  .readdirSync("content/articles")
+  .map((f) => f.replace(/\.md$/, ""));
 
 type Block = Anthropic.Beta.BetaContentBlock;
 const msg = (content: unknown[], stop: string): Anthropic.Beta.BetaMessage =>
@@ -347,5 +350,164 @@ describe("the workspace is for the author only", () => {
     );
     const text = await res.text();
     expect(text).toContain('"type":"error"');
+  });
+});
+
+// ---- publishing ------------------------------------------------------------------
+
+import { setPublishedArticles } from "../src/site/content/store";
+import { citedBy } from "../src/site/data";
+import { articleTopics, liveArticles, publishDraft, publishProblems } from "../src/write/publish";
+
+/** Enough of D1 for publishing: versions kept in memory, no other drafts. */
+function versionDb() {
+  const versions: Array<{ slug: string; version: number }> = [];
+  const db = {
+    prepare(sql: string) {
+      let args: unknown[] = [];
+      const stmt = {
+        bind(...a: unknown[]) {
+          args = a;
+          return stmt;
+        },
+        async first() {
+          if (/MAX\(version\)/.test(sql)) {
+            const n = versions.filter((v) => v.slug === args[0]).map((v) => v.version);
+            return { n: n.length ? Math.max(...n) : null };
+          }
+          return null;
+        },
+        async all() {
+          return { results: [] };
+        },
+        async run() {
+          if (/INSERT INTO article_versions/.test(sql))
+            versions.push({ slug: String(args[0]), version: Number(args[1]) });
+          return { results: [], meta: { changes: 1 } };
+        },
+      };
+      return stmt;
+    },
+  } as unknown as D1Database;
+  return { db, versions };
+}
+
+const goodDraft = () => ({
+  id: "d1",
+  kind: "article" as const,
+  meta: {
+    title: "A good article",
+    dek: "D.",
+    topic: articleTopics()[0] ?? "Housing",
+    thesis: "T.",
+    based_on: [DOC.id],
+  },
+  body: `## H\n\nIt says <q doc="${DOC.id}" section="S">${PASSAGE}</q>.`,
+  usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cents: 0 },
+  status: "draft" as const,
+  createdAt: "",
+  updatedAt: "",
+});
+
+describe("publishing from the workspace", () => {
+  it("publishes a draft whose every quote is word for word, from public documents", async () => {
+    expect(await publishProblems(env, "u1", goodDraft())).toEqual([]);
+  });
+
+  it("refuses a failing quote, an unknown topic, a draft that quotes nothing, and a document not yet public", async () => {
+    const d = goodDraft();
+    const bad = await publishProblems(env, "u1", {
+      ...d,
+      meta: { ...d.meta, topic: "Not a topic", based_on: ["an-upload-still-waiting"] },
+      body: `<q doc="${DOC.id}" section="S">not in the document at all</q>`,
+    });
+    expect(bad.join(" ")).toMatch(/topic/);
+    expect(bad.join(" ")).toMatch(/1 quotation is not word for word/);
+    expect(bad.join(" ")).toMatch(/not yet public/);
+    expect(
+      (await publishProblems(env, "u1", { ...d, body: "## H\n\nNo quotes." })).join(" "),
+    ).toMatch(/quotes nothing/);
+  });
+
+  it("publishes a new version each time, at one address that is kept", async () => {
+    const { db, versions } = versionDb();
+    const e = { ...env, DB: db } as Env;
+    const store = memoryDrafts();
+    const d = await store.create();
+    const g = goodDraft();
+    await store.save(d.id, { meta: g.meta, body: g.body });
+    const first = await publishDraft(e, "u1", store, d.id);
+    expect(first).toMatchObject({ ok: true, slug: "a-good-article", version: 1 });
+    expect((await store.get(d.id))?.status).toBe("published");
+    await store.save(d.id, { meta: { ...g.meta, title: "A retitled article" } });
+    const second = await publishDraft(e, "u1", store, d.id);
+    expect(second).toMatchObject({ ok: true, slug: "a-good-article", version: 2 });
+    expect(versions).toHaveLength(2);
+  });
+
+  it("reads nothing live when the versions table is not there yet", async () => {
+    expect(await liveArticles(env, "u1")).toEqual([]);
+  });
+});
+
+describe("a published article is on every surface", () => {
+  it("has its page, its Library row, its feed entry, its sitemap line and its receipts' cited-by", async () => {
+    const a = {
+      ...draftArticle(goodDraft(), new Map()),
+      slug: "a-workspace-article",
+      title: "A workspace article",
+      date: "2026-10-14",
+    };
+    setPublishedArticles([
+      {
+        article: a,
+        row: {
+          route: "/articles/a-workspace-article",
+          kind: "Article",
+          topic: a.topic,
+          date: a.date,
+          title: a.title,
+          dek: a.dek,
+          stat: "1 quotes · 1 source · 1 min",
+        },
+      },
+    ]);
+    try {
+      const get = async (p: string) =>
+        (await app.fetch(new Request(`http://test${p}`), env)).text();
+      expect(await get("/articles/a-workspace-article")).toContain("A workspace article");
+      expect(await get("/library?kind=Article")).toContain("/articles/a-workspace-article");
+      expect(await get("/feed.xml")).toContain("a-workspace-article");
+      expect(await get("/sitemap.xml")).toContain("/articles/a-workspace-article");
+      expect(citedBy(DOC.id).some((c) => c.route === "/articles/a-workspace-article")).toBe(true);
+    } finally {
+      setPublishedArticles([]);
+    }
+  });
+
+  it("never shadows an article the store holds", async () => {
+    const stored = ARTICLES[0] as string;
+    setPublishedArticles([
+      {
+        article: { ...draftArticle(goodDraft(), new Map()), slug: stored, title: "An impostor" },
+        row: {
+          route: `/articles/${stored}`,
+          kind: "Article",
+          topic: "Housing",
+          date: "2026-10-14",
+          title: "An impostor",
+          dek: "",
+          stat: "",
+        },
+      },
+    ]);
+    try {
+      const html = await (
+        await app.fetch(new Request(`http://test/articles/${stored}`), env)
+      ).text();
+      expect(html).not.toContain("An impostor");
+    } finally {
+      setPublishedArticles([]);
+    }
   });
 });
