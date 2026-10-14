@@ -21,9 +21,12 @@ import { sourceTexts, sourceTitles } from "../write/sources";
 import { adminModel, waitingCount } from "./admin-data";
 import {
   allPapers,
+  answeredElsewhere,
   anyResearchDoc,
   article,
+  conceptsNamedIn,
   libraryItems,
+  measuredElsewhere,
   paper,
   privatePage,
   problem,
@@ -31,6 +34,7 @@ import {
   sharedSources,
   shownRead,
   staticPage,
+  subjectLinks,
   term,
 } from "./content/store";
 import { docViewFromStore, hubTopics, listedArticles, topicBySlug } from "./data";
@@ -45,6 +49,7 @@ import {
   topicsFromParam,
 } from "./feeds";
 import { html, setWaiting } from "./layout";
+import type { InlineLink } from "./links";
 import { passageHref } from "./md";
 import { renderAdmin } from "./pages/admin";
 import { renderArticle, renderPaper } from "./pages/article";
@@ -917,7 +922,24 @@ app.get("/p/:id", async (c, next) => {
   if (view) {
     view.shares = sharedSources(view.id);
     const ev = evidence(shownRead(view.id));
-    if (!signedIn(c)) return html(renderDocument(view, { evidence: ev }));
+    // The record linking itself (site/links.ts): subjects shared with other
+    // documents, the concepts it names, and what others answer or measure.
+    const links: InlineLink[] = [
+      ...subjectLinks(view.id).map((l) => ({
+        label: l.label,
+        href: l.route,
+        title: `Also in: ${l.title}`,
+        kind: "subject" as const,
+      })),
+      ...conceptsNamedIn(view.body).map((t) => ({
+        label: t.title,
+        href: t.route,
+        title: `Concept: ${t.title}`,
+        kind: "concept" as const,
+      })),
+    ];
+    const related = { answered: answeredElsewhere(view.id), measured: measuredElsewhere(view.id) };
+    if (!signedIn(c)) return html(renderDocument(view, { evidence: ev, links, related }));
     // The author sees Read it, or the read already made.
     const uid = await resolveOperatorId(c.env.DB).catch(() => null);
     const read = uid ? await d1Reads(c.env, uid).latest(view.id) : null;
@@ -925,6 +947,8 @@ app.get("/p/:id", async (c, next) => {
       renderDocument(view, {
         signedIn: true,
         evidence: ev,
+        links,
+        related,
         readIt: read?.draftId
           ? { draftId: read.draftId, when: shortDate(read.startedAt.slice(0, 10)) }
           : true,

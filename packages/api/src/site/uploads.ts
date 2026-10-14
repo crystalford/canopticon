@@ -10,6 +10,7 @@
 
 import { OWN_UPLOADS_SQL } from "../admin/runtime";
 import type { Env } from "../env";
+import { allCrossLinks } from "../graph/lib/crosslinks";
 import { all } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
 import { d1Entries, entryOverlay } from "../write/entries";
@@ -18,9 +19,12 @@ import { d1Reads } from "../write/read";
 import {
   type LibraryItem,
   citedUrls,
+  conceptsNamedIn,
+  setGraphLinks,
   setPublishedArticles,
   setRecordEntries,
   setShownReads,
+  setUploadedConcepts,
   setUploadedRows,
   setUploadedSources,
 } from "./content/store";
@@ -112,6 +116,12 @@ export async function refreshUploads(env: Env, force = false): Promise<void> {
       setRecordEntries(await entryOverlay(env, await d1Entries(env, userId).added()));
       // And what reads found, where the author put it on the page.
       setShownReads(await d1Reads(env, userId).shownAll());
+      // The subjects documents share, from the typed graph (no model), and
+      // the concepts each upload names — the links inside a document's text.
+      setGraphLinks(await allCrossLinks(env.DB, userId, OWN_UPLOADS_SQL));
+      setUploadedConcepts(
+        new Map(rows.map((r) => [r.slug, conceptsNamedIn(r.full_md ?? "").map((t) => t.id)])),
+      );
       if (started === generation) fetchedAt = Date.now();
     } catch {
       // A failed read leaves the last good list in place; the page still serves.

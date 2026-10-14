@@ -568,6 +568,13 @@ a.facet:hover { filter: brightness(.96); }
 .rd-flash.bad { background: var(--clay-wash); color: var(--clay-ink); }
 .shares-n { display: block; font-size: 12px; color: var(--muted); }
 .shares-more { font-size: 12.5px; color: var(--muted); }
+a.xl { color: inherit; border-bottom: 1px dotted var(--cobalt); text-decoration: none; }
+a.xl:hover { color: var(--cobalt); border-bottom-style: solid; }
+a.xl.concept { border-bottom-color: var(--brick); }
+.ew-note { margin: -6px 0 16px; font-size: 13px; color: var(--muted); }
+.ew-why { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.ew-m { font-weight: 400; color: var(--ink-2); }
+.idea-uses { margin-bottom: 8px; }
 .ev { margin-top: 44px; }
 .ev-sec { margin: 0 0 36px; }
 .ev-h { margin: 0 0 14px; padding-top: 16px; border-top: 1px solid var(--hair); font-size: 20px; font-weight: 600; letter-spacing: -.01em; }

@@ -4,7 +4,9 @@
 // figures picked from it, numbered section anchors (#s-N), and a rail that
 // follows the reader. Passage links (#q=…) are found and marked by /site.js.
 
+import type { AnsweredElsewhere, MeasuredElsewhere } from "../content/store";
 import { esc, linkPill, pill, shell } from "../layout";
+import { type InlineLink, spliceLinks } from "../links";
 import { documentHtml, plain } from "../md";
 import { kindColours, topicColours, topicSlug } from "../theme";
 import type { Evidence } from "./evidence";
@@ -108,6 +110,27 @@ export function keyFigures(summary: string, label: string, rest: string): KeyFig
   return figs;
 }
 
+/** "Elsewhere in the record": what other documents answer or measure, each
+ *  with the terms the match rests on, so the reader sees why. */
+function elsewhere(r?: { answered: AnsweredElsewhere[]; measured: MeasuredElsewhere[] }): string {
+  if (!r || (!r.answered.length && !r.measured.length)) return "";
+  const why = (terms: string[]) =>
+    `<span class="ew-why">shared terms: ${terms.map((t) => esc(t)).join(", ")}</span>`;
+  const answered = r.answered
+    .map(
+      (a) =>
+        `<div class="ev-item"><div class="ev-t">${esc(a.question)}</div><div class="ev-l">This document leaves it open. Answered in <a href="${esc(a.route)}">${esc(a.title)}</a>:</div><blockquote class="ev-q">${esc(a.answer.replace(/\*\*|__/g, ""))}</blockquote>${why(a.terms)}</div>`,
+    )
+    .join("");
+  const measured = r.measured
+    .map(
+      (m) =>
+        `<div class="ev-item"><div class="ev-t">${esc(m.figure)} <span class="ew-m">${esc(m.measures)}</span></div><div class="ev-l"><a href="${esc(m.route)}">${esc(m.title)}</a> gives <strong>${esc(m.other)}</strong> for ${esc(m.otherMeasures)}. Both are carried; neither is chosen.</div>${why(m.terms)}</div>`,
+    )
+    .join("");
+  return `<div class="ev"><section class="ev-sec" aria-labelledby="ev-elsewhere"><h2 id="ev-elsewhere" class="ev-h">Elsewhere in the record</h2><p class="ew-note">Found by the words they share, not by a judgement that they agree.</p>${answered}${measured}</section></div>`;
+}
+
 export function renderDocument(
   d: DocView,
   /** readIt: offer Read it; with the draft of a read already made, open it. */
@@ -116,11 +139,18 @@ export function renderDocument(
     readIt?: boolean | { draftId: string; when: string };
     /** What a read found, where the author put it on the page. */
     evidence?: Evidence | null;
+    /** Phrases in the text that link to other documents and to concepts. */
+    links?: InlineLink[];
+    /** Questions it leaves open that others answer; figures others give too. */
+    related?: { answered: AnsweredElsewhere[]; measured: MeasuredElsewhere[] };
   } = {},
 ): string {
   const inv = d.shelf === "investigation";
   const { summary, label, rest } = splitSummary(d.body.replace(/^---[\s\S]*?---\s*/, ""));
-  const B = documentHtml(rest);
+  const B0 = documentHtml(rest);
+  // The record linking itself: shared subjects and named concepts, placed
+  // where the text carries them (site/links.ts).
+  const B = { ...B0, html: opts.links?.length ? spliceLinks(B0.html, opts.links).html : B0.html };
   const summaryHtml = summary ? documentHtml(summary).html : "";
   const figs = keyFigures(summary, label, rest);
   const chars = d.body.length;
@@ -153,7 +183,7 @@ export function renderDocument(
   ].join("");
 
   const cite = `Telford, C. (${d.date.slice(0, 4) || "n.d."}). ${d.title}. Canopticon research document. canopticon.com/p/${d.id}`;
-  const article = `<article class="dcol">${head}<div class="dbody" id="doc-body">${B.html}</div>${opts.evidence?.after ?? ""}<div class="dcite"><div class="dcite-h">Cite this</div>${esc(cite)}</div></article>`;
+  const article = `<article class="dcol">${head}<div class="dbody" id="doc-body">${B.html}</div>${opts.evidence?.after ?? ""}${elsewhere(opts.related)}<div class="dcite"><div class="dcite-h">Cite this</div>${esc(cite)}</div></article>`;
 
   const toc =
     B.heads.length > 1

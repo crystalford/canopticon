@@ -145,6 +145,19 @@
   the workspace proposal's gates). A shown read's kept **figures and open
   questions** also join the Library, search and topic lists
   (`keyFigures()` / `questions()`), each linking to its passage.
+- **The record linking itself** (`site/links.ts`, no model anywhere): a
+  document's text links, in place, the subjects it shares with other
+  documents (the typed graph via `graph/lib/crosslinks.ts allCrossLinks` —
+  never a person, organisation or institution; ≥8 characters; on ≥2 and ≤⅓
+  of documents; one link per phrase and per destination, at most 12) and the
+  concepts it names (`conceptsNamedIn`; the concept page lists them back as
+  "Where it appears"). After the body, **Elsewhere in the record**: a
+  question it leaves open that another document answers, and a figure
+  another gives for the same measure (`answeredElsewhere`,
+  `measuredElsewhere` — matched by shared terms, which are shown; figures
+  need shown reads). Loaded with the uploads overlay, so a page view runs no
+  query; destinations are checked at render (never held). Live check:
+  `/v1/admin/links` through the probe.
 - **Shares sources with** (document rail): other public documents citing the
   same pages — `sharedSources()` in `content/store.ts`, a query over the URLs
   each cites (store research + published uploads via `setUploadedSources`),
