@@ -493,6 +493,20 @@ app.get("/links", async (c) => {
       links++;
       if (held.has(l.route.slice(3))) toHeld++;
     }
+  // ?vocabulary=1: the subject names themselves (no document text), so the
+  // link rules can be tuned against the live vocabulary.
+  if (c.req.query("vocabulary") === "1") {
+    const { subjectVocabulary } = await import("../graph/lib/crosslinks.ts");
+    const userId = c.get("user_id");
+    const kinds = await all<{ label: string; kind: string; type: string | null }>(
+      c.env.DB,
+      `SELECT DISTINCT label, kind, json_extract(metadata, '$.entity_type') AS type FROM nodes
+        WHERE user_id = ? AND kind IN ('entity','event','theme') AND LENGTH(label) >= 8
+          AND COALESCE(json_extract(metadata, '$.entity_type'), '') NOT IN ('person','organization','institution')`,
+      [userId],
+    ).catch(() => []);
+    return c.json({ count: (await subjectVocabulary(c.env.DB, userId)).length, labels: kinds });
+  }
   const slug = c.req.query("slug");
   const show = (id: string) => ({
     slug: id,
