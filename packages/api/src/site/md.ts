@@ -97,6 +97,23 @@ function table(rows: string[], cell: (s: string) => string, caption = ""): strin
 }
 
 /** A research document or a paper → HTML and its section heads. */
+/** A run of list lines, nested by indentation: a deeper line belongs to
+ *  the item above it, as Markdown means it. */
+function listHtml(rows: string[]): string {
+  const depth = (l: string) => /^\s*/.exec(l)?.[0].length ?? 0;
+  const base = depth(rows[0] ?? "");
+  const items: Array<{ text: string; children: string[] }> = [];
+  for (const r of rows) {
+    const last = items[items.length - 1];
+    if (depth(r) > base + 1 && last) last.children.push(r);
+    else items.push({ text: r.replace(LIST, ""), children: [] });
+  }
+  const tag = /^\s*\d/.test(rows[0] ?? "") ? "ol" : "ul";
+  return `<${tag}>${items
+    .map((x) => `<li>${inline(x.text)}${x.children.length ? listHtml(x.children) : ""}</li>`)
+    .join("")}</${tag}>`;
+}
+
 export function documentHtml(src: string): { html: string; heads: Head[] } {
   const lines = src.split("\n");
   const out: string[] = [];
@@ -142,13 +159,9 @@ export function documentHtml(src: string): { html: string; heads: Head[] } {
       continue;
     }
     if (LIST.test(l)) {
-      const ord = /^\s*\d/.test(l);
-      const items: string[] = [];
-      while (i < lines.length && LIST.test(lines[i] ?? "")) {
-        items.push((lines[i++] ?? "").replace(LIST, ""));
-      }
-      const tag = ord ? "ol" : "ul";
-      out.push(`<${tag}>${items.map((x) => `<li>${inline(x)}</li>`).join("")}</${tag}>`);
+      const rows: string[] = [];
+      while (i < lines.length && LIST.test(lines[i] ?? "")) rows.push(lines[i++] ?? "");
+      out.push(listHtml(rows));
       continue;
     }
     const p: string[] = [];

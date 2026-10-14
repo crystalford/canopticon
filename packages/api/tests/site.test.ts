@@ -366,3 +366,29 @@ describe("no JavaScript required to read", () => {
     },
   );
 });
+
+describe("found in the walkthrough", () => {
+  it("nests a document's sub-bullets under their item", async () => {
+    const { documentHtml } = await import("../src/site/md");
+    const { html } = documentHtml("1. First\n   - a detail\n   - another\n2. Second");
+    expect(html).toBe(
+      "<ol><li>First<ul><li>a detail</li><li>another</li></ul></li><li>Second</li></ol>",
+    );
+  });
+
+  it("matches a search term at the start of a word, not inside one", async () => {
+    const html = await text("/search?q=rent");
+    expect(html).not.toMatch(/[a-z]<mark>rent/i);
+    expect(html).toMatch(/<mark>rent<\/mark>/i);
+  });
+
+  it("does not repeat a label in a document's breadcrumb", async () => {
+    const html = await text(
+      "/p/instant-dissolving-whey-for-hot-coffee-where-the-science-and-manufactu",
+    );
+    expect(html).not.toMatch(
+      /Research<\/a><span aria-hidden="true" class="sep">\/<\/span><span>Research/,
+    );
+    expect(html).toMatch(/Published<\/span><span>Sep 2026/);
+  });
+});
