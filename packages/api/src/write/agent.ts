@@ -47,6 +47,8 @@ const PRICE = { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 };
 
 /** Model calls in one turn, at most. A turn that needs more stops and says so. */
 const MAX_STEPS = 24;
+/** A read notes a card per call; even batched, a long document needs more. */
+const READ_STEPS = 80;
 
 export type WriteEvent =
   | { type: "text"; text: string }
@@ -697,7 +699,9 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     emit,
   };
   const usageBefore = usage.cents;
-  const steps = o.maxSteps ?? MAX_STEPS;
+  const steps = o.maxSteps ?? (draft.kind === "read" ? READ_STEPS : MAX_STEPS);
+  // Whether the model finished on its own, rather than hitting the step limit.
+  let ended = false;
 
   for (let step = 0; step < steps; step++) {
     let message: Anthropic.Beta.BetaMessage;
@@ -810,7 +814,10 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     // sending the conversation back as it stands.
     if (message.stop_reason === "pause_turn") continue;
     const uses = toolUses(assistant.content);
-    if (!uses.length) break;
+    if (!uses.length) {
+      ended = true;
+      break;
+    }
 
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const u of uses) {
@@ -856,15 +863,13 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
 
   await store.save(draftId, { usage });
   // A read's receipt: finished, by which model, at what cost.
+  // Its cost always counts; it is "read" only when the document was read and
+  // Claude finished (a failed turn throws before here and stays "reading").
   if (draft.kind === "read" && o.reads && draft.meta.readId) {
-    const r = await o.reads.get(draft.meta.readId);
-    if (r)
-      await o.reads.update(r.id, {
-        status: r.status === "reading" ? "read" : r.status,
-        model: WRITE_MODEL,
-        cents: r.cents + (usage.cents - usageBefore),
-        finishedAt: new Date().toISOString(),
-      });
+    const id = draft.meta.readId;
+    await o.reads.bump(id, { cents: usage.cents - usageBefore });
+    const r = await o.reads.get(id);
+    if (r && ended && r.charsRead > 0) await o.reads.finish(id, WRITE_MODEL);
   }
   emit({ type: "done", usage });
 }
@@ -880,6 +885,16 @@ export interface ChatItem {
 
 export function transcript(history: Message[]): ChatItem[] {
   const out: ChatItem[] = [];
+  // Calls the tools refused: a dropped card reads as dropped after a reload too.
+  const refused = new Set<string>();
+  for (const m of history)
+    if (typeof m.content !== "string")
+      for (const b of m.content as Array<{
+        type: string;
+        tool_use_id?: string;
+        is_error?: boolean;
+      }>)
+        if (b.type === "tool_result" && b.is_error && b.tool_use_id) refused.add(b.tool_use_id);
   for (const m of history) {
     if (typeof m.content === "string") {
       out.push({ who: m.role === "user" ? "you" : "claude", text: m.content });
@@ -891,7 +906,12 @@ export function transcript(history: Message[]): ChatItem[] {
       else if (b.type === "tool_use" && b.name === "propose_entry")
         out.push({ who: "proposal", text: activityLabel(b.name, b.input), toolUseId: b.id });
       else if (b.type === "tool_use" && (b.name === "note" || b.name === "pitch"))
-        out.push({ who: "activity", text: cardLabel(b.name, b.input) });
+        out.push({
+          who: "activity",
+          text: refused.has(b.id)
+            ? `${cardLabel(b.name, b.input)} — dropped: not in the document word for word, or refused`
+            : cardLabel(b.name, b.input),
+        });
       else if (b.type === "tool_use" || b.type === "server_tool_use")
         out.push({ who: "activity", text: activityLabel(b.name, b.input) });
     }

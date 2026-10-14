@@ -386,7 +386,7 @@ describe("a read", () => {
 import app from "../src/index";
 import { heldResearch, setShownReads, shownRead } from "../src/site/content/store";
 import { evidence, publicCards } from "../src/site/pages/evidence";
-import { type Derivation, pitchBrief } from "../src/write/read";
+import { type Derivation, cardKey, pitchBrief } from "../src/write/read";
 
 const card = (over: Partial<Derivation>): Derivation => ({
   id: Math.random().toString(36).slice(2),
@@ -428,7 +428,7 @@ describe("what a read puts on the page", () => {
       card({ role: "finding", span: "the one that stays" }),
       card({ origin: "shape", kind: "question_answered", data: { question: "Q?", answer: "A." } }),
     ]);
-    expect(shown.map((c) => c.span)).toEqual(["the one that stays", "a passage of the document"]);
+    expect(shown.map((c) => c.span)).toEqual(["the one that stays"]);
   });
 
   it("shows figures with their source, questions with their answers, and counts what is on the page", () => {
@@ -558,5 +558,78 @@ describe("Admin knows what each read found", () => {
     expect(await reads.shownAll()).toEqual([]);
     await reads.update(a.id, { status: "shown", shownAt: "2026-10-14T01:00:00Z" });
     expect((await reads.shownAll())[0]?.cards).toHaveLength(1);
+  });
+});
+
+describe("what the review found, kept fixed", () => {
+  it("never anchors a span that is short once its emphasis is gone", () => {
+    expect(locateSpan("Rents fell 3.2% and then 3.2% again.", "**3.2%**")).toBeNull();
+    expect(locateSpan("anything at all", "********")).toBeNull();
+  });
+
+  it("counts a passage once toward a possible article, and never brings back a dismissed one", async () => {
+    const t = await ctx();
+    const span = "Rents fell by 4.1 percent in the first year after the ban";
+    const thesis = "A rent ban trades a visible price for an invisible shortage";
+    const r = await runReadTool(
+      "pitch",
+      { thesis, supports: Array.from({ length: 9 }, () => ({ span, role: "finding" })) },
+      t,
+    );
+    expect(r.card?.data).toMatchObject({ proof: 1, thin: true });
+    expect(
+      (await runReadTool("pitch", { thesis, supports: [{ span, role: "finding" }] }, t)).text,
+    ).toBe("Already proposed.");
+    if (!r.card) throw new Error("no card");
+    await t.reads.ignore(t.docId, "pitch", cardKey(r.card));
+    const t2 = { ...t, readId: (await t.reads.start(t.docId, "d2", 10)).id };
+    const again = await runReadTool("pitch", { thesis, supports: [{ span, role: "finding" }] }, t2);
+    expect(again.card).toBeUndefined();
+  });
+
+  it("puts nothing on the page when nothing kept would show", () => {
+    expect(
+      evidence({
+        read: readRow("doc"),
+        cards: [
+          card({ kind: "coinage" }),
+          card({ kind: "figure", data: { figure: "9%", measures: "x", rejected: true } }),
+          card({
+            origin: "shape",
+            kind: "question_answered",
+            data: { question: "Q?", answer: "A." },
+          }),
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("leaves a read that stopped short as still reading, with its cost counted", async () => {
+    const doc = publicResearch().find((d) => d.body.length > 2000);
+    if (!doc) throw new Error("no doc");
+    const store = memoryDrafts();
+    const reads = memoryReads();
+    const d = await store.create("read");
+    const read = await reads.start(doc.id, d.id, doc.body.length);
+    await store.save(d.id, { meta: { based_on: [doc.id], readId: read.id } });
+    const { stream } = fakeStream([
+      msg(
+        [{ type: "tool_use", id: "r1", name: "read_document", input: { id: doc.id } }],
+        "tool_use",
+      ),
+    ]);
+    await runTurn({
+      stream,
+      env,
+      store,
+      reads,
+      draftId: d.id,
+      text: "Read it.",
+      emit: () => {},
+      maxSteps: 1,
+    });
+    const after = await reads.get(read.id);
+    expect(after?.status).toBe("reading");
+    expect(after?.cents).toBeGreaterThan(0);
   });
 });

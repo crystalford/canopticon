@@ -7,8 +7,9 @@
 //
 // Not shown: possible articles (the author's worklist), the "about the
 // author" flag, recommendations and premises (advice is never evidence),
-// and the document's own Key Findings and Caveats bullets — they are in the
-// body already, and nothing is written twice.
+// and whatever the document's structure gave (its Key Findings and Caveats
+// bullets, its question headings) — that is in the body already, and
+// nothing is written twice.
 
 import type { Derivation, ShownRead } from "../../write/read";
 import { esc } from "../layout";
@@ -39,8 +40,9 @@ export function publicCards(cards: Derivation[]): Derivation[] {
     if (c.status !== "kept") return false;
     if (c.kind === "pitch" || c.kind === "held") return false;
     if (c.role === "recommendation" || c.role === "premise") return false;
-    // The document's own Key Findings and Caveats are already in its body.
-    if (c.origin === "shape" && (c.kind === "finding" || c.kind === "caveat")) return false;
+    // What the file's structure gave (Key Findings, Caveats, question
+    // headings and their answers) is already in its body.
+    if (c.origin === "shape") return false;
     return true;
   });
 }
@@ -139,6 +141,8 @@ export function evidence(shown: ShownRead | null | undefined): Evidence | null {
 
   // What the page shows, counted: a rejected figure is not on it.
   const n = figs.length + (thesis ? 1 : 0) + findings.length + answered.length + open.length;
+  // Nothing that renders: no strip saying "0 passages".
+  if (!n) return null;
   const when = shortDate(shown.read.startedAt.slice(0, 10));
   const strip = `<p class="ev-strip"><span class="ev-check" aria-hidden="true">✓</span> ${n} ${
     n === 1 ? "passage" : "passages"

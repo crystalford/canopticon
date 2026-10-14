@@ -102,12 +102,16 @@ export function locateSpan(doc: string, span: string): string | null {
   if (at >= 0) return want;
   const collapsed = locateCollapsed(doc, want);
   if (collapsed) return collapsed;
-  const plain = stripEmphasis(doc);
-  return locateCollapsed(plain, stripEmphasis(want));
+  // Emphasis aside — and still at least 8 characters once it is gone, so
+  // "**3.2%**" cannot land on any 3.2% in the document.
+  const bare = stripEmphasis(want).trim();
+  if (bare.length < 8) return null;
+  return locateCollapsed(stripEmphasis(doc), bare);
 }
 
 function locateCollapsed(doc: string, want: string): string | null {
   const norm = want.replace(/\s+/g, " ");
+  if (!norm.trim()) return null;
   const map: number[] = [];
   let flat = "";
   let space = false;
@@ -131,9 +135,14 @@ function locateCollapsed(doc: string, want: string): string | null {
   return doc.slice(start, end);
 }
 
-/** The key a dismissal is remembered by. */
+/** The key a dismissal is remembered by: the words, not how they were
+ *  matched (emphasis and spacing aside). */
 export const ignoreKey = (kind: string, span: string) =>
-  `${kind}:${span.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 240)}`;
+  `${kind}:${stripEmphasis(span).replace(/\s+/g, " ").trim().toLowerCase().slice(0, 240)}`;
+
+/** A card's key: a possible article is its thesis, anything else its span. */
+export const cardKey = (d: Pick<Derivation, "kind" | "span" | "data">) =>
+  d.kind === "pitch" ? ignoreKey("pitch", String(d.data.thesis ?? "")) : ignoreKey(d.kind, d.span);
 
 // ---- what the file's own structure says (no model) --------------------------------
 
@@ -214,6 +223,10 @@ export interface ReadStore {
   get(id: string): Promise<ReadRow | null>;
   latest(docId: string): Promise<ReadRow | null>;
   update(id: string, patch: Partial<Omit<ReadRow, "id" | "docId">>): Promise<void>;
+  /** Add to the receipt's counters in one statement (no read-then-write). */
+  bump(id: string, by: { verified?: number; dropped?: number; cents?: number }): Promise<void>;
+  /** Reading → read, only if it is still reading ("Show on the page" wins). */
+  finish(id: string, model: string): Promise<void>;
   add(d: Omit<Derivation, "id" | "createdAt">): Promise<Derivation>;
   derivations(readId: string): Promise<Derivation[]>;
   derivation(id: string): Promise<Derivation | null>;
@@ -354,6 +367,20 @@ export function d1Reads(env: Env, userId: string): ReadStore {
         [docId, userId],
       ).catch(() => null);
       return r ? readFrom(r) : null;
+    },
+    async bump(id, by) {
+      await run(
+        db,
+        "UPDATE reads SET verified = verified + ?, dropped = dropped + ?, cents = cents + ? WHERE id = ? AND user_id = ?",
+        [by.verified ?? 0, by.dropped ?? 0, by.cents ?? 0, id, userId],
+      );
+    },
+    async finish(id, model) {
+      await run(
+        db,
+        "UPDATE reads SET status = 'read', model = ?, finished_at = ? WHERE id = ? AND user_id = ? AND status = 'reading'",
+        [model, now(), id, userId],
+      );
     },
     async update(id, patch) {
       const sets: string[] = [];
@@ -526,6 +553,20 @@ export function memoryReads(): ReadStore & {
           .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0] ?? null
       );
     },
+    async bump(id: string, by: { verified?: number; dropped?: number; cents?: number }) {
+      const r = rows.get(id);
+      if (r)
+        rows.set(id, {
+          ...r,
+          verified: r.verified + (by.verified ?? 0),
+          dropped: r.dropped + (by.dropped ?? 0),
+          cents: r.cents + (by.cents ?? 0),
+        });
+    },
+    async finish(id: string, model: string) {
+      const r = rows.get(id);
+      if (r?.status === "reading") rows.set(id, { ...r, status: "read", model, finishedAt: now() });
+    },
     async update(id: string, patch: Partial<ReadRow>) {
       const r = rows.get(id);
       if (r)
@@ -602,7 +643,7 @@ export const READ_HOW = `You read one research document for Canopticon, a public
 HOW
 1. Read the whole document with read_document (one call; it returns all of it). Read it all before noting anything.
 2. The document's own structure has already been taken without you: its Key Findings and Caveats bullets and its question-shaped headings are cards already. Do not repeat them. Your job is what the structure does not give: the Details, where the evidence and mechanism are.
-3. Note each thing with note, one card per call. Every card rests on a span COPIED EXACTLY from the document — same words, same punctuation; it is located in code, and a span that is not found is dropped and counted against the read.
+3. Note each thing with note, one card per call; send many note calls in one message, not one message per card. Every card rests on a span COPIED EXACTLY from the document — same words, same punctuation; it is located in code, and a span that is not found is dropped and counted against the read.
 4. When you have covered the document, stop and say in the chat, briefly, what you found and anything the author should look at.
 
 WHAT TO NOTE (be complete about what carries the document, selective about the rest)
@@ -726,14 +767,8 @@ export interface ReadToolContext {
 
 export type ReadToolResult = { text: string; error?: boolean; card?: Derivation };
 
-async function drop(t: ReadToolContext, n = 1) {
-  const r = await t.reads.get(t.readId);
-  if (r) await t.reads.update(t.readId, { dropped: r.dropped + n });
-}
-async function verified(t: ReadToolContext, n = 1) {
-  const r = await t.reads.get(t.readId);
-  if (r) await t.reads.update(t.readId, { verified: r.verified + n });
-}
+const drop = (t: ReadToolContext, n = 1) => t.reads.bump(t.readId, { dropped: n });
+const verified = (t: ReadToolContext, n = 1) => t.reads.bump(t.readId, { verified: n });
 
 export async function runReadTool(
   name: string,
@@ -756,7 +791,7 @@ export async function runReadTool(
     if (await t.reads.isIgnored(t.docId, key))
       return { text: "The author dismissed this before; it stays dismissed. Move on." };
     const existing = await t.reads.derivations(t.readId);
-    if (existing.some((d) => ignoreKey(d.kind, d.span) === key)) return { text: "Already noted." };
+    if (existing.some((d) => cardKey(d) === key)) return { text: "Already noted." };
     const data: Record<string, unknown> = {};
     if (n.kind === "figure") {
       if (!n.figure || !span.includes(n.figure.trim()))
@@ -824,12 +859,25 @@ export async function runReadTool(
         text: "Refused: the document already states this thesis. An article that restates one document is a summary (contract §3 rule 11). Find the idea the document does not state.",
         error: true,
       };
+    const key = ignoreKey("pitch", p.data.thesis);
+    if (await t.reads.isIgnored(t.docId, key))
+      return { text: "The author dismissed this before; it stays dismissed. Move on." };
+    if ((await t.reads.derivations(t.readId)).some((d) => cardKey(d) === key))
+      return { text: "Already proposed." };
+    // Each passage counts once, however often it is offered.
     const supports: Array<{ span: string; role: Role; section?: string | undefined }> = [];
+    const seen = new Set<string>();
     let failed = 0;
     for (const s of p.data.supports) {
       const found = locateSpan(t.doc, s.span);
-      if (found) supports.push({ span: found, role: s.role, section: s.section });
-      else failed++;
+      if (!found) {
+        failed++;
+        continue;
+      }
+      const k = ignoreKey("support", found);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      supports.push({ span: found, role: s.role, section: s.section });
     }
     if (failed) await drop(t, failed);
     const proof = supports.filter((s) => s.role === "finding" || s.role === "reasoning").length;

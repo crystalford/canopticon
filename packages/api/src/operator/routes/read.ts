@@ -8,7 +8,7 @@
 import { resolveOperatorId } from "../../public/data";
 import { invalidateUploads } from "../../site/uploads";
 import { d1Drafts } from "../../write/drafts";
-import { d1Reads, ignoreKey, locateSpan, pitchBrief, shapeOf } from "../../write/read";
+import { cardKey, d1Reads, ignoreKey, locateSpan, pitchBrief, shapeOf } from "../../write/read";
 import { sourceText, sourceTitles } from "../../write/sources";
 import { operatorApp } from "./app";
 
@@ -26,8 +26,13 @@ app.post("/read/:docId", async (c) => {
   const drafts = d1Drafts(c.env, userId);
   // One read per document: pressing again opens the one there is.
   const last = await reads.latest(docId);
-  if (last?.draftId && (await drafts.get(last.draftId).catch(() => null)))
-    return c.redirect(`/admin/write/${last.draftId}`, 303);
+  if (last?.draftId && (await drafts.get(last.draftId).catch(() => null))) {
+    // A read that never got going (the tab closed, Claude not connected)
+    // starts again when pressed; one that ran opens as it is.
+    const fresh =
+      last.status === "reading" && !(await drafts.messages(last.draftId).catch(() => [])).length;
+    return c.redirect(`/admin/write/${last.draftId}${fresh ? "?start=1" : ""}`, 303);
+  }
 
   const title = (await sourceTitles(c.env, [docId])).get(docId) ?? docId;
   const draft = await drafts.create("read");
@@ -72,7 +77,7 @@ app.post("/read/card/:id/:act{keep|dismiss}", async (c) => {
   if (c.req.param("act") === "keep") await reads.decide(card.id, "kept");
   else {
     await reads.decide(card.id, "dismissed");
-    await reads.ignore(card.docId, card.kind, ignoreKey(card.kind, card.span));
+    await reads.ignore(card.docId, card.kind, cardKey(card));
   }
   // A read on the page changes the page: the overlay reloads.
   if (read?.status === "shown") invalidateUploads();
