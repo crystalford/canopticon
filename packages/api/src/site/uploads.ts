@@ -26,9 +26,13 @@ import { shortDate } from "./theme";
 const TTL_MS = 60_000;
 let fetchedAt = 0;
 let inflight: Promise<void> | null = null;
+/** Bumped by invalidateUploads(): a read that started before it is stale. */
+let generation = 0;
 
 export function invalidateUploads(): void {
   fetchedAt = 0;
+  generation++;
+  inflight = null;
 }
 
 const KIND: Record<string, LibraryItem["kind"]> = {
@@ -48,9 +52,11 @@ function firstParagraph(md: string): string {
   return "";
 }
 
-export async function refreshUploads(env: Env): Promise<void> {
+export async function refreshUploads(env: Env, force = false): Promise<void> {
+  if (force) invalidateUploads();
   if (Date.now() - fetchedAt < TTL_MS) return;
   if (inflight) return inflight;
+  const started = generation;
   inflight = (async () => {
     try {
       const userId = await resolveOperatorId(env.DB);
@@ -97,7 +103,7 @@ export async function refreshUploads(env: Env): Promise<void> {
       setPublishedArticles(await liveArticles(env, userId));
       // So do the concepts, open problems and figures added from it.
       setRecordEntries(await entryOverlay(env, await d1Entries(env, userId).added()));
-      fetchedAt = Date.now();
+      if (started === generation) fetchedAt = Date.now();
     } catch {
       // A failed read leaves the last good list in place; the page still serves.
     } finally {

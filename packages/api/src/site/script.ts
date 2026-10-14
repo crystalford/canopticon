@@ -373,7 +373,7 @@ export const SITE_JS = `(function () {
       line("ws-msg you", text);
       wsText.value = ""; setFlag(""); wsSend.disabled = true; wsText.disabled = true;
       var reply = null;
-      var status = line("ws-act live", "Working…");
+      var status = line("ws-act live", "Working… keep this tab open until Claude finishes.");
       var handle = function (ev) {
         if (ev.type === "text") {
           if (!reply) { reply = line("ws-msg claude", ""); wsLog.insertBefore(status, null); }

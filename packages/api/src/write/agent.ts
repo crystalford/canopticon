@@ -13,11 +13,12 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { Env } from "../env";
-import { essayContract, libraryItems, problems, researchDoc, terms } from "../site/content/store";
+import { essayContract, problems, researchDoc, terms } from "../site/content/store";
 import { type CheckResult, checkQuotes, describeCheck, draftQuotes } from "./check";
-import type { DraftMeta, DraftStore, Message, Usage } from "./drafts";
+import type { Draft, DraftMeta, DraftStore, Message, Usage } from "./drafts";
 import { NO_USAGE } from "./drafts";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
+import { articleTopics } from "./publish";
 import { listSources, searchSources, sourceText, sourceTexts } from "./sources";
 
 export const WRITE_MODEL = "claude-opus-5-5";
@@ -70,9 +71,14 @@ export async function anthropicStream(env: Env): Promise<StreamFn | null> {
   const client =
     route === "gateway"
       ? new Anthropic({
-          apiKey: env.ANTHROPIC_API_KEY || "unified-billing",
+          // No Anthropic key goes to the gateway: with Unified Billing it
+          // bills Cloudflare credits, and a key it was sent might be used.
+          apiKey: null,
           baseURL: `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${env.AI_GATEWAY_ID}/anthropic`,
-          defaultHeaders: { "cf-aig-authorization": `Bearer ${env.CF_AIG_TOKEN}` },
+          defaultHeaders: {
+            "cf-aig-authorization": `Bearer ${env.CF_AIG_TOKEN}`,
+            "x-api-key": null,
+          },
         })
       : new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   return (params) => client.beta.messages.stream(params) as unknown as StreamLike;
@@ -80,15 +86,8 @@ export async function anthropicStream(env: Env): Promise<StreamFn | null> {
 
 // ---- instructions -----------------------------------------------------------
 
-function topics(): string[] {
-  return [
-    ...new Set(
-      libraryItems()
-        .map((r) => r.topic)
-        .filter(Boolean),
-    ),
-  ].sort();
-}
+/** The topics an article can publish under (publish.ts's own list). */
+const topics = (): string[] => articleTopics();
 
 const HOW = `You are writing for Canopticon, a public research record, with its author, Chris Telford. He talks to you in a workspace: the chat is on the left, and the page you write is on the right, rendered exactly as it will be published. Each time you write, he sees the page change.
 
@@ -469,6 +468,20 @@ const toolUses = (content: Message["content"]): Anthropic.Beta.BetaToolUseBlockP
     ? []
     : (content.filter((b) => b.type === "tool_use") as Anthropic.Beta.BetaToolUseBlockParam[]);
 
+/** After a fallback mid-answer, the declined model's reasoning and tool
+ *  calls before the last `fallback` block must not be replayed or run; its
+ *  text stays (Anthropic: "Echoing fallback turns back"). */
+export function afterFallback(
+  content: Anthropic.Beta.BetaContentBlock[],
+): Anthropic.Beta.BetaContentBlock[] {
+  let cut = -1;
+  content.forEach((b, i) => {
+    if ((b as { type: string }).type === "fallback") cut = i;
+  });
+  if (cut < 0) return content;
+  return content.filter((b, i) => i >= cut || b.type === "text");
+}
+
 /** A turn cut off mid-tool (a closed tab) leaves calls with no results; the
  *  next request must answer them, so they are answered as interrupted. */
 function unanswered(history: Message[]): Message | null {
@@ -481,7 +494,8 @@ function unanswered(history: Message[]): Message | null {
     content: uses.map((u) => ({
       type: "tool_result" as const,
       tool_use_id: u.id,
-      content: "Interrupted before this ran.",
+      content:
+        "The turn was interrupted here; this may or may not have completed. Check the draft before relying on it.",
       is_error: true,
     })),
   };
@@ -497,12 +511,31 @@ export async function runTurn(o: {
   emit: Emit;
   maxSteps?: number;
 }): Promise<void> {
-  const { env, store, draftId, emit } = o;
+  const { store, draftId, emit } = o;
   const draft = await store.get(draftId);
   if (!draft) {
     emit({ type: "error", message: "That draft does not exist." });
     return;
   }
+  // One turn at a time: two at once would interleave their messages and
+  // break the tool-call pairing every later request depends on.
+  if (!(await store.lock(draftId))) {
+    emit({
+      type: "error",
+      message:
+        "Claude is still working on this draft (in another tab, or a turn that was cut off). Try again in a minute.",
+    });
+    return;
+  }
+  try {
+    await turn(o, draft);
+  } finally {
+    await store.unlock(draftId);
+  }
+}
+
+async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<void> {
+  const { env, store, draftId, emit } = o;
   let usage = draft.usage ?? NO_USAGE;
   const history = await store.messages(draftId);
   const repair = unanswered(history);
@@ -516,13 +549,15 @@ export async function runTurn(o: {
   // The instructions and tools are frozen at the conversation's first turn
   // and sent byte for byte ever after: the model's reasoning is bound to the
   // exact conversation, and a topic or tool added later must not change it.
+  // It is saved only once a first reply has come back, so a first turn that
+  // fails (a bad key, a rejected parameter) does not freeze a broken frame.
   let frame: Frame;
   try {
     frame = draft.frame ? (JSON.parse(draft.frame) as Frame) : newFrame();
   } catch {
     frame = newFrame();
   }
-  if (!draft.frame) await store.save(draftId, { frame: JSON.stringify(frame) });
+  let frameSaved = !!draft.frame;
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: "text", text: frame.system, cache_control: { type: "ephemeral" } },
   ];
@@ -565,29 +600,43 @@ export async function runTurn(o: {
         error?: { error?: { message?: string } };
       };
       const detail = e.error?.error?.message ?? e.message ?? "unknown error";
+      const via =
+        claudeRoute(env) === "gateway"
+          ? "through Cloudflare's AI Gateway"
+          : "with the Anthropic API key";
       emit({
         type: "error",
         message:
-          e.status === 401
-            ? claudeRoute(env) === "gateway"
-              ? "Cloudflare's AI Gateway refused the request. Check the CF_AIG_TOKEN secret and that Unified Billing has credits."
-              : "The Anthropic API key was refused. Check the ANTHROPIC_API_KEY secret."
-            : `Claude could not be reached${e.status ? ` (${e.status})` : ""}: ${detail}`,
+          e.status === 401 || e.status === 403
+            ? `Claude refused the credentials ${via} (${e.status}: ${detail}).`
+            : `Claude could not be reached ${via}${e.status ? ` (${e.status})` : ""}: ${detail}`,
       });
       break;
     }
     usage = addUsage(usage, message);
-    const assistant: Message = {
-      role: "assistant",
-      content: message.content as Message["content"],
-    };
-    await store.append(draftId, [assistant]);
-    history.push(assistant);
+    if (!frameSaved) {
+      await store.save(draftId, { frame: JSON.stringify(frame) });
+      frameSaved = true;
+    }
 
+    // A refusal keeps only its text, if any: an empty or half-written
+    // assistant message would make every later request fail.
     if (message.stop_reason === "refusal") {
+      const text = afterFallback(message.content).filter((b) => b.type === "text" && b.text.trim());
+      if (text.length) {
+        const kept: Message = { role: "assistant", content: text as Message["content"] };
+        await store.append(draftId, [kept]);
+        history.push(kept);
+      }
       emit({ type: "error", message: "Claude declined to continue this request." });
       break;
     }
+    const assistant: Message = {
+      role: "assistant",
+      content: afterFallback(message.content) as Message["content"],
+    };
+    await store.append(draftId, [assistant]);
+    history.push(assistant);
     const uses = toolUses(assistant.content);
     if (!uses.length) break;
 

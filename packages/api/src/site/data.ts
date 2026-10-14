@@ -102,7 +102,9 @@ export function docViewFromStore(id: string): DocView | null {
 /** Title of a public document, or null — receipts to a held or missing
  *  document render as nothing rather than a link that 404s. */
 export function docTitle(id: string): string | null {
-  return researchDoc(id)?.title ?? null;
+  // A stored document, or one of the author's published uploads (which the
+  // Library lists by its id); never a held one, which is in neither.
+  return researchDoc(id)?.title ?? libraryRowForDoc(id)?.title ?? null;
 }
 
 // ---- writing --------------------------------------------------------------
