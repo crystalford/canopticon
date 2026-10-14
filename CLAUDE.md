@@ -148,11 +148,14 @@
 - **The record linking itself** (`site/links.ts`, no model anywhere): a
   document's text links, in place, the subjects it shares with other
   documents — the typed graph's subjects as a vocabulary
-  (`graph/lib/crosslinks.ts subjectVocabulary`: never a person, organisation
-  or institution; ≥8 characters), two documents sharing one when **both
-  texts carry the phrase** word for word (or its plain plural), on ≥2 and ≤⅓
-  of documents (`linkIndex` in `content/store.ts`: a word-and-pair index,
-  built once per isolate, ~0.4 s). Not the graph's own document links:
+  (`graph/lib/crosslinks.ts subjectVocabulary` filtered by
+  `isLinkableSubject`: at least two words and 8 characters; never a person,
+  organisation, institution or place; no dates, no "The X", no news outlet or
+  journal — rules set against the live vocabulary), two documents sharing one
+  when **both texts carry the phrase** word for word (or its plain plural), on
+  ≥2 and ≤ a tenth of documents (`linkIndex` in `content/store.ts`: a
+  word-and-pair index, built once per isolate, ~0.3 s; live: 189 phrases, 87
+  of 123 documents). Not the graph's own document links:
   entity resolution keeps one node per subject on the first document that
   named it, so only 2 of 6,175 subjects were "on" two documents (measured
   live 2026-10-14). One link per phrase and per destination, at most 12; the

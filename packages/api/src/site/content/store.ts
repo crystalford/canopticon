@@ -284,7 +284,7 @@ function sourceIndex() {
  * 6,175 subjects, 2 on more than one document). The text can.
  *
  * Limits, as graph/lib/crosslinks.ts sets them: a phrase of at least 8
- * characters, carried by at least 2 documents and at most a third of them
+ * characters, carried by at least 2 documents and at most a tenth of them
  * (a phrase in everything connects nothing), one link per phrase and per
  * destination. Built once per isolate when the documents or the vocabulary
  * change, through a word index so it stays cheap. No model anywhere.
@@ -389,7 +389,10 @@ function linkIndex(): LinkIndex {
       }
     }
   }
-  const ceiling = Math.max(4, Math.floor(texts.size / 3));
+  // On more than a tenth of the record a phrase links too much to mean much
+  // (measured against the live vocabulary: a third let "2025 election" and
+  // "CBC News" wire dozens of documents together).
+  const ceiling = Math.max(3, Math.floor(texts.size / 10));
   const shared: Array<{ label: string; docs: string[] }> = [];
   for (const { label, phrase, ws } of labelWords) {
     if (!ws.length) continue;
@@ -410,7 +413,7 @@ function linkIndex(): LinkIndex {
     for (const id of candidates) {
       if (!hasPhrase(texts.get(id) ?? "", phrase)) continue;
       docs.push(id);
-      // On more than a third of the record it links nothing: stop counting.
+      // Past the ceiling it links nothing: stop counting.
       if (docs.length > ceiling) break;
     }
     if (docs.length >= 2 && docs.length <= ceiling) shared.push({ label, docs });
