@@ -112,6 +112,21 @@
   past 300k tokens; the kept pages remain. **This replaces the old research
   engine (`graph/lib/deep-research.ts`, `/op/research`), which is retired
   once the new one has produced real reports.**
+- **Read it** (`docs/read-it.md`; `write/read.ts`, `site/pages/read.ts`,
+  `operator/routes/read.ts`): a button on Admin's upload cards and on the
+  signed-in document page. It opens a read draft (kind `read`) whose first
+  message the page sends once; Claude (Opus 5.5) reads the document whole and
+  notes cards with `note` and `pitch`. Every span is located in the document
+  in code (`locateSpan`: exact, then whitespace, then emphasis — nothing else)
+  and the document's text is what is stored; a miss is dropped and counted on
+  the receipt. Key Findings, Caveats and question headings are taken first
+  with no model (`shapeOf`). Roles: only findings and reasoning are evidence.
+  A pitch the document already states is refused (contract §3 rule 11); proof
+  is counted in code, 0 never shown, under 8 thin. Cards are kept or
+  dismissed in the workspace's right pane; a dismissal is remembered in
+  `read_ignores` forever. `reads` is the receipt (migration 0070). One read
+  per document; pressing again opens it. Nothing a read finds is public until
+  "Show on the page" (part 2, not built yet).
 
 ---
 

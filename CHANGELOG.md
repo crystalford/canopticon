@@ -6,6 +6,26 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-14, later — Read it
+
+- **"Read it"** on every readable upload in Admin and on a document's page
+  when signed in. Claude reads that one document, whole, once, and lays out
+  what is in it as cards: key figures, findings with their role, questions it
+  answers and raises, its thesis, predictions, caveats, coined names, open
+  problems, and up to three possible articles. It runs only when pressed.
+- **Every card rests on the document's own words**, found in code. A span
+  that is not there is dropped and counted on the receipt, in red, always.
+- **The document's structure comes first, free**: its Key Findings, Caveats
+  and question headings are cards before Claude starts.
+- **Advice is never evidence**: each passage carries its role, and only
+  findings and reasoning count toward a possible article. A possible article
+  the document already states is refused (that is a summary); one no
+  verified finding carries is never shown; under eight is marked thin.
+- **Keep or dismiss**; dismissed never comes back on a re-read. Each read
+  leaves a receipt: characters read of characters held, passages found,
+  passages dropped, cost. Nothing is public yet; "Show on the page", "Write
+  this" and the Admin badges are next. Migration 0070; `docs/read-it.md`.
+
 ## 2026-10-14, late — Research in the workspace
 
 - **"New research"** in `/admin/write`: ask a question, say why and what is

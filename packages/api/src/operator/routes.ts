@@ -18,6 +18,7 @@ import { operatorApp } from "./routes/app";
 import exportRoutes from "./routes/export";
 import leadsRoutes from "./routes/leads";
 import processingRoutes from "./routes/processing";
+import readRoutes from "./routes/read";
 import readingsRoutes from "./routes/readings";
 import researchRoutes from "./routes/research";
 import sessionRoutes from "./routes/session";
@@ -64,6 +65,7 @@ app.route("/", leadsRoutes);
 app.route("/", exportRoutes);
 app.route("/", adminRoutes);
 app.route("/", writeRoutes);
+app.route("/", readRoutes);
 app.route("/", readingsRoutes);
 
 // ---- 301 redirects from old screen paths -------------------------------

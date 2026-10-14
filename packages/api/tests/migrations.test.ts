@@ -49,6 +49,21 @@ describe("the migrations", () => {
     expect(cols("research_sources")).toEqual(
       expect.arrayContaining(["draft_id", "url", "text", "kind"]),
     );
+    expect(cols("reads")).toEqual(
+      expect.arrayContaining([
+        "doc_id",
+        "draft_id",
+        "chars_held",
+        "chars_read",
+        "verified",
+        "dropped",
+        "shown_at",
+      ]),
+    );
+    expect(cols("derivations")).toEqual(
+      expect.arrayContaining(["read_id", "kind", "origin", "role", "span", "data", "status"]),
+    );
+    expect(cols("read_ignores")).toEqual(expect.arrayContaining(["doc_id", "kind", "key"]));
     expect(cols("record_entries")).toEqual(
       expect.arrayContaining(["kind", "data", "status", "tool_use_id"]),
     );

@@ -5,7 +5,7 @@
 
 import type { ChatItem } from "../../write/agent";
 import type { CheckResult } from "../../write/check";
-import type { Draft } from "../../write/drafts";
+import type { Draft, DraftKind } from "../../write/drafts";
 import { type Entry, entryRoute } from "../../write/entries";
 import type { LiveVersion } from "../../write/publish";
 import { esc, shell } from "../layout";
@@ -32,7 +32,7 @@ export function renderWriteList(
     ? drafts
         .map(
           (d) =>
-            `<a class="ws-row" href="/admin/write/${esc(d.id)}"><span class="ws-row-t">${d.kind === "research" ? '<span class="pill">Research</span> ' : ""}${esc(d.meta.title || (d.kind === "research" ? "Untitled research" : "Untitled draft"))}</span>${d.meta.dek ? `<span class="ws-row-d">${esc(d.meta.dek)}</span>` : ""}<span class="ws-row-m">${esc(when(d.updatedAt))} · ${esc(dollars(d.usage.cents))}</span></a>`,
+            `<a class="ws-row" href="/admin/write/${esc(d.id)}"><span class="ws-row-t">${d.kind === "research" ? '<span class="pill">Research</span> ' : d.kind === "read" ? '<span class="pill">Read</span> ' : ""}${esc(d.meta.title || (d.kind === "research" ? "Untitled research" : "Untitled draft"))}</span>${d.meta.dek ? `<span class="ws-row-d">${esc(d.meta.dek)}</span>` : ""}<span class="ws-row-m">${esc(when(d.updatedAt))} · ${esc(dollars(d.usage.cents))}</span></a>`,
         )
         .join("")
     : '<div class="d-clear">No drafts yet.</div>';
@@ -96,6 +96,9 @@ export function renderWorkspace(
     publish?: { problems: string[]; live: LiveVersion | null; changed: boolean };
     /** A research draft: what keeps it from Admin, pages read, where it went. */
     research?: { problems: string[]; pages: number; savedAs?: string | undefined };
+    /** A read: its receipt line (HTML), the document, and the first message
+     *  to send on arrival when Read it was just pressed. */
+    read?: { receipt: string; docId: string; autostart?: string | undefined };
     /** Proposal cards by the tool call that made them. */
     cards?: Map<string, string>;
     flash?: {
@@ -106,6 +109,7 @@ export function renderWorkspace(
   },
 ): string {
   const research = d.kind === "research";
+  const read = d.kind === "read" ? opts.read : undefined;
   const pub = research
     ? {
         problems: opts.research?.problems ?? ["Nothing is written yet."],
@@ -126,29 +130,33 @@ export function renderWorkspace(
       ? '<a class="ws-live" href="/admin" target="_blank" rel="noopener">In Admin</a>'
       : ""
   }${action(rs?.savedAs ? "Save again" : "Save to Admin", "save", "btn sm primary", !ready)}`;
-  const pubbar = research
-    ? savebar
-    : isLive && pub.live
-      ? `<a class="ws-live" href="/articles/${esc(pub.live.slug)}" target="_blank" rel="noopener">Live · version ${pub.live.version}</a>${
-          pub.changed
-            ? action("Update the live article", "publish", "btn sm primary", !ready)
-            : '<span class="ws-uptodate">Up to date</span>'
-        }${action("Take down", "unpublish")}`
-      : `${pub.live ? '<span class="ws-uptodate">Taken down</span>' : ""}${action(pub.live ? "Publish again" : "Publish", "publish", "btn sm primary", !ready)}`;
+  const pubbar = read
+    ? `<a class="ws-live" href="/p/${esc(read.docId)}" target="_blank" rel="noopener">The document</a>`
+    : research
+      ? savebar
+      : isLive && pub.live
+        ? `<a class="ws-live" href="/articles/${esc(pub.live.slug)}" target="_blank" rel="noopener">Live · version ${pub.live.version}</a>${
+            pub.changed
+              ? action("Update the live article", "publish", "btn sm primary", !ready)
+              : '<span class="ws-uptodate">Up to date</span>'
+          }${action("Take down", "unpublish")}`
+        : `${pub.live ? '<span class="ws-uptodate">Taken down</span>' : ""}${action(pub.live ? "Publish again" : "Publish", "publish", "btn sm primary", !ready)}`;
   const f = opts.flash ?? {};
   const flash = f.published
     ? `<div class="ws-flash ok">Published at <a href="/articles/${esc(f.published)}?fresh=1" target="_blank" rel="noopener">/articles/${esc(f.published)}</a>. Search engines have been told.</div>`
     : f.error
-      ? `<div class="ws-flash bad"><strong>${research ? "Not saved." : "Not published."}</strong> ${esc(f.error)}</div>`
+      ? `<div class="ws-flash bad"><strong>${read ? "Not done." : research ? "Not saved." : "Not published."}</strong> ${esc(f.error)}</div>`
       : f.done
         ? `<div class="ws-flash ok">${esc(f.done)}</div>`
         : "";
   const log = items.length
     ? items.map((i) => item(i, opts.cards)).join("")
-    : research
-      ? `<div class="ws-hello">Ask a question about the world, and say why you are asking and what you have already decided. Claude checks the record, searches the web, reads the sources in full, and writes the report on the right. Every quotation is checked against the pages it read. When it is right, Save to Admin, and publish it there.</div>`
-      : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
-  const body = `<div class="ws" data-ws="${esc(d.id)}">
+    : read
+      ? `<div class="ws-hello">Claude reads the whole document once and lays out what is in it on the right: figures, findings, questions, possible articles. Every card is checked word for word against the document; what fails is dropped and counted. Keep or dismiss each one. You can ask about the document here after.</div>`
+      : research
+        ? `<div class="ws-hello">Ask a question about the world, and say why you are asking and what you have already decided. Claude checks the record, searches the web, reads the sources in full, and writes the report on the right. Every quotation is checked against the pages it read. When it is right, Save to Admin, and publish it there.</div>`
+        : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
+  const body = `<div class="ws" data-ws="${esc(d.id)}" data-ws-kind="${esc(d.kind)}"${read?.autostart ? ` data-ws-autostart="${esc(read.autostart)}"` : ""}>
 <section class="ws-chat" aria-label="Conversation">
 <div class="ws-head"><a href="/admin/write" class="ulink">Drafts</a><span class="ws-title">${esc(d.meta.title || (research ? "Untitled research" : "Untitled draft"))}</span></div>
 ${opts.hasKey ? "" : NO_KEY}
@@ -157,17 +165,17 @@ ${opts.hasKey ? "" : NO_KEY}
 <div class="ws-flag" data-ws-flag hidden><span class="ws-flag-l">Flagged</span><span class="ws-flag-t" data-ws-flag-text></span><button type="button" class="ws-flag-x" data-ws-flag-clear aria-label="Remove the flag">×</button></div>
 <div class="ws-files" data-ws-files hidden></div>
 <label for="ws-text" class="vh">Message</label>
-<textarea id="ws-text" name="text" rows="3" placeholder="${research ? "What should Claude find out, or change?" : "What should Claude write or change?"}"${opts.hasKey ? "" : " disabled"}></textarea>
+<textarea id="ws-text" name="text" rows="3" placeholder="${read ? "Ask about the document, or what Claude found" : research ? "What should Claude find out, or change?" : "What should Claude write or change?"}"${opts.hasKey ? "" : " disabled"}></textarea>
 <div class="ws-actions"><span class="ws-left"><label class="ws-attach">Add files<input type="file" multiple accept=".md,.txt,.pdf,.docx" data-ws-file hidden></label><span class="ws-cost" data-ws-cost title="${opts.route ? esc(ROUTE_LABEL[opts.route]) : ""} · estimated, at Anthropic's list price">${esc(dollars(d.usage.cents))} so far</span></span><button type="submit" class="btn"${opts.hasKey ? "" : " disabled"}>Send</button></div>
 </form>
 </section>
 <section class="ws-page" aria-label="The page">
-<div class="ws-bar"><span data-ws-check>${checkLine(check)}</span><span class="ws-pub"><a class="ulink" href="/admin/write/${esc(d.id)}/article.md">Download .md</a>${pubbar}</span></div>${why}${flash}
+<div class="ws-bar"><span data-ws-check>${read ? `<span class="ws-check">${read.receipt}</span>` : checkLine(check)}</span><span class="ws-pub">${read ? "" : `<a class="ulink" href="/admin/write/${esc(d.id)}/article.md">Download .md</a>`}${pubbar}</span></div>${read ? "" : why}${flash}
 <iframe class="ws-frame" src="/admin/write/${esc(d.id)}/preview" title="The article as it will be published" data-ws-preview></iframe>
 </section>
 </div>`;
   return shell({
-    title: d.meta.title ? `Write: ${d.meta.title}` : "Write",
+    title: d.meta.title ? (read ? d.meta.title : `Write: ${d.meta.title}`) : "Write",
     description: "The workspace.",
     path: `/admin/write/${d.id}`,
     signedIn: true,
@@ -201,6 +209,6 @@ article p, article li, article h2, article h3, article blockquote, article figur
 })();
 </script>`;
 
-export function renderEmptyPreview(kind: "article" | "research" = "article"): string {
+export function renderEmptyPreview(kind: DraftKind = "article"): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><link rel="stylesheet" href="/site.css"></head><body><main style="max-width:720px;margin:80px auto;padding:0 24px;color:var(--muted);font-size:17px">The ${kind === "research" ? "report" : "article"} appears here as Claude writes it.</main></body></html>`;
 }

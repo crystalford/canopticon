@@ -1,6 +1,8 @@
 # Read it — the plan
 
-> Status: **plan, not built** (2026-10-14). Written after a research pass over
+> Status: **steps 1–2 built** (2026-10-14): shape, Read it, the cards, Keep /
+> Dismiss / ignore-forever, the receipt. Next: the document page after "Show
+> on the page", "Write this", Admin badges, links. Originally a plan (2026-10-14). Written after a research pass over
 > the Black Box handoff (ESSAY-CONTRACT, `canopticon-record.schema.json`, the
 > Admin / Document Evidence / project prototypes, the content JSON), the
 > product docs (`the-record.md`, HANDOFF, CHANGELOG) and the old pipeline's
@@ -160,11 +162,11 @@ Estimates until the first reads are measured; every read records its own cost.
 6. **Retire** the old pipeline (stop queuing it on Publish), the old research
    engine and the workbench's research and leads pages; keep their tables.
 
-## Decide
+## Decided (2026-10-14, by the author)
 
-- **(A)** How kept cards reach the public page: one "Show on the page" per
-  read (recommended), automatic once kept, or never.
-- **(B)** Pitches: Claude proposes under code gates (recommended) or code
-  queries only.
-- **(C)** The 123 documents already in the record: read on press, one at a
-  time (recommended to start), or a "Read all" button with its cost shown.
+- **(A)** One "Show on the page" per read: cards are kept or dismissed, then
+  one approval puts what was kept on the document's public page.
+- **(B)** Claude proposes possible articles; code gates them (computed Proof,
+  rule 11, never about a person or organisation). "Write this" starts the
+  article.
+- **(C)** Read on press, one document at a time. No "Read all".

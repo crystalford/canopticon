@@ -105,7 +105,11 @@ export function keyFigures(summary: string, label: string, rest: string): KeyFig
   return figs;
 }
 
-export function renderDocument(d: DocView, opts: { signedIn?: boolean } = {}): string {
+export function renderDocument(
+  d: DocView,
+  /** readIt: offer Read it; with the draft of a read already made, open it. */
+  opts: { signedIn?: boolean; readIt?: boolean | { draftId: string; when: string } } = {},
+): string {
   const inv = d.shelf === "investigation";
   const { summary, label, rest } = splitSummary(d.body.replace(/^---[\s\S]*?---\s*/, ""));
   const B = documentHtml(rest);
@@ -158,7 +162,14 @@ export function renderDocument(d: DocView, opts: { signedIn?: boolean } = {}): s
         )
         .join("")}</div>`
     : "";
-  const rail = `<aside class="drail">${toc}${meta}${citedBy}</aside>`;
+  // Signed in, the author can have Claude read it (docs/read-it.md).
+  const readIt =
+    !opts.signedIn || !opts.readIt
+      ? ""
+      : typeof opts.readIt === "object"
+        ? `<div class="dread"><a class="btn sm" href="/admin/write/${esc(opts.readIt.draftId)}">Open its read</a><span>Read ${esc(opts.readIt.when)}.</span></div>`
+        : `<form method="post" action="/op/read/${esc(d.id)}" class="dread"><button type="submit" class="btn sm">Read it</button><span>Claude reads it whole and lays out what is in it, for you to keep or dismiss.</span></form>`;
+  const rail = `<aside class="drail">${toc}${meta}${readIt}${citedBy}</aside>`;
 
   const ld = {
     "@context": "https://schema.org",

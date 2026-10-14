@@ -1000,6 +1000,171 @@ const RESEARCH_PAGES = [
   },
 ];
 
+// A read (docs/read-it.md): the whey report, read once, with cards kept,
+// proposed and one dropped span on the receipt.
+const READ_ROW = {
+  id: "draft-3",
+  kind: "read",
+  meta: JSON.stringify({
+    title: "Read: Instant-Dissolving Whey for Hot Coffee",
+    based_on: [WHEY],
+    readId: "read-1",
+  }),
+  body_md: "",
+  usage: JSON.stringify({
+    input: 31000,
+    output: 6200,
+    cacheRead: 90000,
+    cacheWrite: 33000,
+    cents: 71.4,
+  }),
+  status: "draft",
+  slug: null,
+  created_at: "2026-10-14T02:00:00Z",
+  updated_at: "2026-10-14T02:04:00Z",
+};
+const READ_MESSAGES = [
+  {
+    role: "user",
+    content: [
+      {
+        type: "text",
+        text: `Read "Instant-Dissolving Whey for Hot Coffee" (id: ${WHEY}) in full and lay out what is in it.`,
+      },
+    ],
+  },
+  {
+    role: "assistant",
+    content: [
+      { type: "tool_use", id: "r1", name: "read_document", input: { id: WHEY } },
+      { type: "tool_use", id: "n1", name: "note", input: { kind: "figure", figure: "65 °C" } },
+      { type: "tool_use", id: "n2", name: "note", input: { kind: "finding" } },
+      {
+        type: "tool_use",
+        id: "p1",
+        name: "pitch",
+        input: { thesis: "The protein coffee aisle is built on cold drinks sold as hot ones" },
+      },
+      {
+        type: "text",
+        text: "Read in full. Eleven cards: the two temperatures and the pH the argument rests on, the price rise that makes fermented BLG competitive, and one possible article. One span I proposed was not in the document word for word and was dropped.",
+      },
+    ],
+  },
+].map((m) => ({ message: JSON.stringify(m) }));
+const READ_DB = {
+  id: "read-1",
+  doc_id: WHEY,
+  draft_id: "draft-3",
+  status: "read",
+  model: "claude-opus-5-5",
+  chars_held: 28010,
+  chars_read: 28010,
+  verified: 14,
+  dropped: 1,
+  cents: 71.4,
+  started_at: "2026-10-14T02:00:00Z",
+  finished_at: "2026-10-14T02:04:00Z",
+  shown_at: null,
+};
+const deriv = (id: string, kind: string, span: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  read_id: "read-1",
+  doc_id: WHEY,
+  kind,
+  origin: (extra.origin as string) ?? "read",
+  role: (extra.role as string) ?? null,
+  span,
+  section: (extra.section as string) ?? "Details",
+  data: JSON.stringify(extra.data ?? {}),
+  status: (extra.status as string) ?? "proposed",
+  tool_use_id: null,
+  created_at: "2026-10-14T02:01:00Z",
+});
+const DERIVS = [
+  deriv(
+    "c1",
+    "finding",
+    "Native whey (WPI, WPC, BLG) will denature above about 65 °C and aggregate fastest near pH 5.2.",
+    { origin: "shape", role: "finding", section: "Verdict and Outlook", status: "kept" },
+  ),
+  deriv(
+    "c2",
+    "figure",
+    "**BLG** unfolds irreversibly above about 65 °C at pH 6.7 (reported onsets are 67–72 °C at pH 6.5).",
+    {
+      data: {
+        figure: "65 °C",
+        measures: "the temperature above which BLG unfolds irreversibly",
+        period: null,
+        attributed_to: null,
+        source_rating: null,
+        rejected: false,
+      },
+    },
+  ),
+  deriv(
+    "c3",
+    "figure",
+    "New Hope Network reports WPC costs up 108% and WPI up roughly 139% over two years",
+    {
+      section: "3. Precision-fermentation whey: status in September 2026",
+      status: "kept",
+      data: {
+        figure: "139%",
+        measures: "rise in the price of whey protein isolate",
+        period: "two years to 2026",
+        attributed_to: "New Hope Network",
+        source_rating: null,
+        rejected: false,
+      },
+    },
+  ),
+  deriv(
+    "c4",
+    "finding",
+    "This is strong evidence that a major operator judged whey unsuitable for straight black coffee.",
+    { role: "reasoning", section: '4. Commercial "protein coffee" products: an honest assessment' },
+  ),
+  deriv(
+    "c5",
+    "finding",
+    "add unflavored instantized whey isolate after the coffee has cooled a little (roughly below 60 °C)",
+    { role: "recommendation", section: "TL;DR" },
+  ),
+  deriv(
+    "c6",
+    "prediction",
+    'A true "whey that disappears like collagen in hot coffee" is at best a 2027–2029 prospect.',
+    {
+      section: "TL;DR",
+      data: {
+        standing: "speculative",
+        resolves_when: "a consumer whey powder is sold for hot black coffee",
+      },
+    },
+  ),
+  deriv("c7", "pitch", 'Javvy\'s own guidance is to mix "cold, and then heat it up after mixing"', {
+    data: {
+      thesis: "The protein coffee aisle is built on cold drinks sold as hot ones",
+      proof: 3,
+      thin: true,
+      supports: [
+        {
+          span: 'Javvy\'s own guidance is to mix "cold, and then heat it up after mixing"',
+          role: "finding",
+        },
+        { span: "Laird's 10-K says its product is designed to be consumed cold.", role: "finding" },
+        {
+          span: "This is strong evidence that a major operator judged whey unsuitable for straight black coffee.",
+          role: "reasoning",
+        },
+      ],
+      counter: "They work reasonably well at 10 g.",
+    },
+  }),
+];
+
 const ENTRY_ROW = {
   id: "entry-1",
   kind: "open_problem",
@@ -1056,7 +1221,11 @@ function makeDb(): D1Database {
             ? DRAFT_ROW
             : bound[0] === RESEARCH_ROW.id
               ? RESEARCH_ROW
-              : null;
+              : bound[0] === READ_ROW.id
+                ? READ_ROW
+                : null;
+        if (/FROM reads WHERE id = \?/i.test(sql)) return bound[0] === READ_DB.id ? READ_DB : null;
+        if (/FROM reads WHERE doc_id/i.test(sql)) return bound[0] === WHEY ? READ_DB : null;
         // storedAnswerForQuestion binds [userId, lead_key, kind].
         if (/FROM lead_answers/i.test(sql)) {
           return bound[1] === SEARCH_ANSWER_KEY && bound[2] === "question" ? SEARCH_ANSWER : null;
@@ -1104,9 +1273,19 @@ function makeDb(): D1Database {
         return null;
       },
       async all() {
-        if (/FROM drafts WHERE user_id/i.test(sql)) return { results: [RESEARCH_ROW, DRAFT_ROW] };
+        if (/FROM drafts WHERE user_id/i.test(sql))
+          return { results: [READ_ROW, RESEARCH_ROW, DRAFT_ROW] };
         if (/FROM draft_messages/i.test(sql))
-          return { results: bound[0] === RESEARCH_ROW.id ? RESEARCH_MESSAGES : DRAFT_MESSAGES };
+          return {
+            results:
+              bound[0] === RESEARCH_ROW.id
+                ? RESEARCH_MESSAGES
+                : bound[0] === READ_ROW.id
+                  ? READ_MESSAGES
+                  : DRAFT_MESSAGES,
+          };
+        if (/FROM derivations WHERE read_id/i.test(sql))
+          return { results: bound[0] === READ_DB.id ? DERIVS : [] };
         if (/FROM research_sources/i.test(sql))
           return { results: bound[0] === RESEARCH_ROW.id ? RESEARCH_PAGES : [] };
         if (/FROM record_entries WHERE draft_id/i.test(sql)) return { results: [ENTRY_ROW] };
