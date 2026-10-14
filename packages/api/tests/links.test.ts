@@ -7,18 +7,18 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-import { OWN_UPLOADS_SQL } from "../src/admin/runtime";
 import type { Env } from "../src/env";
-import { allCrossLinks, linksByDocument } from "../src/graph/lib/crosslinks";
+import { subjectVocabulary } from "../src/graph/lib/crosslinks";
 import app from "../src/index";
 import {
   answeredElsewhere,
   conceptUses,
   conceptsNamedIn,
   heldResearch,
+  linkIndexStats,
   measuredElsewhere,
   publicResearch,
-  setGraphLinks,
+  setGraphLabels,
   setShownReads,
   subjectLinks,
   terms,
@@ -50,6 +50,14 @@ describe("placing links in a document's text", () => {
     expect(r.placed.map((p) => p.href)).toEqual(["/p/b", "/p/c"]);
   });
 
+  it("links a plain plural with its phrase, and nothing longer", () => {
+    const r = spliceLinks("<p>Short-term rentally. Short-term rentals fell.</p>", [
+      link("short-term rental", "/p/b"),
+    ]);
+    expect(r.html).toContain('title="Also in: /p/b">Short-term rentals</a> fell.');
+    expect(r.html).toContain("Short-term rentally.");
+  });
+
   it("never links inside a heading, an existing link or code, and each destination once", () => {
     const html =
       '<h2>Housing supply</h2><p><a href="/x">housing supply</a> and <code>housing supply</code>.</p><p>Housing supply fell. Housing supply rose.</p><p>Rent control matters.</p>';
@@ -73,22 +81,6 @@ describe("placing links in a document's text", () => {
 });
 
 describe("what two documents share", () => {
-  it("links every document carrying a label to the others, one link per label and destination", () => {
-    const rows = [
-      { label: "short-term rental registry", slug: "a", title: "A", pieces: 2 },
-      { label: "short-term rental registry", slug: "b", title: "B", pieces: 2 },
-      { label: "vacancy control", slug: "a", title: "A", pieces: 3 },
-      { label: "vacancy control", slug: "b", title: "B", pieces: 3 },
-      { label: "vacancy control", slug: "c", title: "C", pieces: 3 },
-    ];
-    const m = linksByDocument(rows, 12);
-    expect(m.get("a")?.map((l) => [l.label, l.slug])).toEqual([
-      ["short-term rental registry", "b"],
-      ["vacancy control", "c"],
-    ]);
-    expect(m.get("c")?.map((l) => l.slug)).toEqual(["a"]);
-  });
-
   it("matches questions and measures by shared terms, and says which", () => {
     expect(
       sharedTerms(
@@ -144,65 +136,56 @@ function sqliteD1() {
   return { db, d1 };
 }
 
-describe("the subjects query, on the real schema", () => {
-  it("links published own documents on shared subjects — never a person, an organisation, a short label or a draft", async () => {
+describe("the subjects vocabulary, on the real schema", () => {
+  it("takes subjects of 8 characters or more — never a person, an organisation or an institution", async () => {
     const { db, d1 } = sqliteD1();
     db.exec("INSERT INTO users (id, email) VALUES ('u1', 'a@b.c')");
-    const piece = (id: string, status = "published", from = "feed-upload") =>
-      db
-        .prepare(
-          "INSERT INTO pieces (id, user_id, slug, title, kind, publication_status, metadata) VALUES (?, 'u1', ?, ?, 'research-report', ?, ?)",
-        )
-        .run(id, `slug-${id}`, `Title ${id}`, status, JSON.stringify({ ingested_from: from }));
-    piece("a");
-    piece("b");
-    piece("c");
-    piece("d", "working-material");
-    piece("e", "published", "deep-research");
-    for (let i = 0; i < 6; i++) piece(`z${i}`); // enough documents that a ceiling of a third is above two
     let n = 0;
-    const node = (piece: string, label: string, kind = "entity", type = "concept") =>
+    const node = (label: string, kind = "entity", type = "concept") =>
       db
         .prepare(
-          "INSERT INTO nodes (id, user_id, kind, label, metadata, piece_id) VALUES (?, 'u1', ?, ?, ?, ?)",
+          "INSERT INTO nodes (id, user_id, kind, label, metadata, piece_id) VALUES (?, 'u1', ?, ?, ?, 'p1')",
         )
-        .run(`n${n++}`, kind, label, JSON.stringify({ entity_type: type }), piece);
-    for (const p of ["a", "b"]) node(p, "short-term rental registry");
-    for (const p of ["a", "c"]) node(p, "Hamilton Spectator", "entity", "organization");
-    for (const p of ["a", "c"]) node(p, "Jane Example", "entity", "person");
-    for (const p of ["a", "c"]) node(p, "Ontario", "entity", "location"); // under 8 characters
-    for (const p of ["a", "d"]) node(p, "vacancy decontrol"); // d is not published
-    for (const p of ["a", "e"]) node(p, "rent stabilisation"); // e is not an own upload
-    for (const p of ["b", "c"]) node(p, "the 2024 housing pledge", "event");
-    const m = await allCrossLinks(d1, "u1", OWN_UPLOADS_SQL);
-    expect(m.get("slug-a")?.map((l) => [l.label, l.slug])).toEqual([
-      ["short-term rental registry", "slug-b"],
+        .run(`n${n++}`, kind, label, JSON.stringify({ entity_type: type }));
+    node("short-term rental registry");
+    node("the 2024 housing pledge", "event");
+    node("Hamilton Spectator", "entity", "organization");
+    node("Jane Example", "entity", "person");
+    node("Bank of Canada", "entity", "institution");
+    node("Ontario", "entity", "location");
+    node("a long neutral fact sentence", "neutral_fact");
+    expect((await subjectVocabulary(d1, "u1")).sort()).toEqual([
+      "short-term rental registry",
+      "the 2024 housing pledge",
     ]);
-    expect(m.get("slug-c")?.map((l) => l.label)).toEqual(["the 2024 housing pledge"]);
-    expect(m.has("slug-d")).toBe(false);
-    expect(m.has("slug-e")).toBe(false);
   });
 });
 
 describe("the links a page shows", () => {
-  it("are only to public documents — a held document is never a destination", () => {
-    const [a, b] = publicResearch();
-    const held = heldResearch()[0];
-    if (!a || !b) throw new Error("no public research");
-    setGraphLinks(
-      new Map([
-        [
-          a.id,
-          [
-            { label: "shared subject one", slug: b.id },
-            ...(held ? [{ label: "shared subject two", slug: held.id }] : []),
-            { label: "shared subject three", slug: "not-a-document" },
-          ],
-        ],
-      ]),
-    );
-    expect(subjectLinks(a.id).map((l) => l.route)).toEqual([`/p/${b.id}`]);
-    setGraphLinks(new Map());
+  it("link two documents whose texts both carry a subject — both ways, never to a held document", () => {
+    const a = "documented-corruption-conflicts-interest-self-dealing-transnational";
+    const b = "public-record-transnational-financial-administrative-network-strict";
+    setGraphLabels([
+      "Texas v. BlackRock",
+      "short-term rental",
+      "a phrase no document carries at all",
+    ]);
+    expect(subjectLinks(a).map((l) => [l.label, l.route])).toEqual([
+      ["Texas v. BlackRock", `/p/${b}`],
+    ]);
+    expect(subjectLinks(b).map((l) => l.route)).toEqual([`/p/${a}`]);
+    expect(linkIndexStats().labelsShared).toBe(2);
+    const held = new Set(heldResearch().map((d) => d.id));
+    for (const d of publicResearch())
+      for (const l of subjectLinks(d.id)) expect(held.has(l.route.slice(3))).toBe(false);
+    setGraphLabels([]);
+  });
+
+  it("drop a phrase most documents carry: it connects nothing", () => {
+    // "the evidence" is in 45 of the record's 123 documents: over a third.
+    setGraphLabels(["the evidence", "Texas v. BlackRock"]);
+    expect(linkIndexStats().labelsShared).toBe(1);
+    setGraphLabels([]);
   });
 
   it("names concepts both ways: the document links the concept, the concept lists the document", () => {
@@ -217,15 +200,12 @@ describe("the links a page shows", () => {
 
   it("puts them in the public page's text, server-rendered", async () => {
     const env = { LOG_LEVEL: "error", DB: stubDb() } as unknown as Env;
-    const docs = publicResearch();
-    // A phrase that is in document A's body, linked to document B.
-    const a = docs.find((d) => /\bthe evidence\b/i.test(d.body));
-    const b = docs.find((d) => d.id !== a?.id);
-    if (!a || !b) throw new Error("no documents");
-    setGraphLinks(new Map([[a.id, [{ label: "the evidence", slug: b.id }]]]));
-    const html = await (await app.fetch(new Request(`http://test/p/${a.id}`), env)).text();
-    setGraphLinks(new Map());
-    expect(html).toContain(`class="xl subject" href="/p/${b.id}"`);
+    const a = "documented-corruption-conflicts-interest-self-dealing-transnational";
+    const b = "public-record-transnational-financial-administrative-network-strict";
+    setGraphLabels(["Texas v. BlackRock"]);
+    const html = await (await app.fetch(new Request(`http://test/p/${a}`), env)).text();
+    setGraphLabels([]);
+    expect(html).toContain(`class="xl subject" href="/p/${b}"`);
   });
 });
 

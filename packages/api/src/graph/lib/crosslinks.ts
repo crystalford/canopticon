@@ -190,72 +190,21 @@ export function pickSpread(rows: CrossLink[], limit: number): CrossLink[] {
 }
 
 /**
- * Every document's links at once, for the site's overlay (site/uploads.ts):
- * one query a minute per isolate instead of one per page view. The same
- * limits as crossDocumentLinks — a label of at least 8 characters, on at
- * least two documents and at most a third of the corpus, one link per label
- * and per destination — and one more: never a person, an organisation or an
- * institution. A link is a subject two documents share, not a claim about
- * someone (docs/read-it.md, "Links").
- *
- * Keyed by the document's slug; the destinations are slugs too, and the
- * site decides at render time which of them it may link to (a held
- * document never).
+ * The graph's subjects as a vocabulary for the site's links (site/content/
+ * store.ts linkIndex): every subject label of at least 8 characters that is
+ * not a person, an organisation or an institution. Which documents share
+ * one is decided from their text, not from the node's document — entity
+ * resolution keeps one node per subject, on the first document that named it.
  */
-export async function allCrossLinks(
-  db: D1Database,
-  userId: string,
-  ownUploadsSql: string,
-): Promise<Map<string, CrossLink[]>> {
+export async function subjectVocabulary(db: D1Database, userId: string): Promise<string[]> {
   const kinds = LINKABLE_KINDS.map(() => "?").join(",");
-  const rows = await all<{ label: string; slug: string; title: string; pieces: number }>(
+  const rows = await all<{ label: string }>(
     db,
-    `WITH own AS (
-       SELECT id, slug, title FROM pieces
-        WHERE user_id = ? AND publication_status IN ('published','canonical') AND ${ownUploadsSql}
-     ),
-     linkable AS (
-       SELECT n.label AS label, own.slug AS slug, own.title AS title FROM nodes n
-         JOIN own ON own.id = n.piece_id
-        WHERE n.user_id = ? AND n.kind IN (${kinds}) AND LENGTH(n.label) >= ?
-          AND COALESCE(json_extract(n.metadata, '$.entity_type'), '') NOT IN ('person', 'organization', 'institution')
-        GROUP BY n.label, own.slug
-     ),
-     spread AS (
-       SELECT label, COUNT(*) AS pieces FROM linkable GROUP BY label
-     )
-     SELECT linkable.label AS label, linkable.slug AS slug, linkable.title AS title, spread.pieces AS pieces
-       FROM linkable JOIN spread ON spread.label = linkable.label
-      WHERE spread.pieces >= 2
-        AND spread.pieces <= MAX(?, CAST((SELECT COUNT(*) FROM own) * ? AS INTEGER))
-      ORDER BY spread.pieces ASC, LENGTH(linkable.label) DESC, linkable.label ASC, linkable.slug ASC
+    `SELECT DISTINCT label FROM nodes
+      WHERE user_id = ? AND kind IN (${kinds}) AND LENGTH(label) >= ?
+        AND COALESCE(json_extract(metadata, '$.entity_type'), '') NOT IN ('person', 'organization', 'institution')
       LIMIT 20000`,
-    [userId, userId, ...LINKABLE_KINDS, MIN_LABEL_CHARS, MIN_STOPWORD_CEILING, STOPWORD_SHARE],
-  ).catch(() => [] as Array<{ label: string; slug: string; title: string; pieces: number }>);
-  // More candidates than will show: a label the text does not carry
-  // verbatim is skipped at render time, and the next one takes its place.
-  return linksByDocument(rows, MAX_LINKS_PER_DOC * 3);
-}
-
-/** Per document: the other documents carrying each of its labels, most
- *  specific label first, spread by pickSpread. Pure, for the tests. */
-export function linksByDocument(rows: CrossLink[], limit: number): Map<string, CrossLink[]> {
-  const byLabel = new Map<string, CrossLink[]>();
-  for (const r of rows) {
-    const list = byLabel.get(r.label) ?? [];
-    list.push(r);
-    byLabel.set(r.label, list);
-  }
-  const candidates = new Map<string, CrossLink[]>();
-  // rows arrive ordered by specificity, so each document's candidates do too.
-  for (const r of rows)
-    for (const other of byLabel.get(r.label) ?? [])
-      if (other.slug !== r.slug) {
-        const list = candidates.get(r.slug) ?? [];
-        list.push(other);
-        candidates.set(r.slug, list);
-      }
-  const out = new Map<string, CrossLink[]>();
-  for (const [slug, list] of candidates) out.set(slug, pickSpread(list, limit));
-  return out;
+    [userId, ...LINKABLE_KINDS, MIN_LABEL_CHARS],
+  ).catch(() => [] as Array<{ label: string }>);
+  return rows.map((r) => r.label);
 }

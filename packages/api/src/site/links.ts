@@ -67,15 +67,29 @@ export function spliceLinks(
       if (usedLabels.has(key) || usedTargets.has(l.href)) continue;
       const needle = esc(l.label).toLowerCase();
       const hay = text.toLowerCase();
+      // A whole phrase, or its plain plural ("rental" links "rentals", never
+      // "rentally" or a word that only starts the same way).
       let at = hay.indexOf(needle);
-      // A whole phrase only: "rental" must not link inside "rentals".
-      while (at >= 0 && (isWordChar(text[at - 1]) || isWordChar(text[at + needle.length])))
+      let len = needle.length;
+      while (at >= 0) {
+        const end = at + needle.length;
+        if (!isWordChar(text[at - 1])) {
+          if (!isWordChar(text[end])) {
+            len = needle.length;
+            break;
+          }
+          if (text[end] === "s" && !isWordChar(text[end + 1])) {
+            len = needle.length + 1;
+            break;
+          }
+        }
         at = hay.indexOf(needle, at + 1);
+      }
       if (at < 0) continue;
-      found.push(text.slice(at, at + needle.length));
+      found.push(text.slice(at, at + len));
       // The placeholder keeps later labels from matching inside this link.
       const slot = `\uE000${placed.length}\uE000`;
-      text = `${text.slice(0, at)}${slot}${text.slice(at + needle.length)}`;
+      text = `${text.slice(0, at)}${slot}${text.slice(at + len)}`;
       placed.push(l);
       usedLabels.add(key);
       usedTargets.add(l.href);

@@ -10,7 +10,7 @@
 
 import { OWN_UPLOADS_SQL } from "../admin/runtime";
 import type { Env } from "../env";
-import { allCrossLinks } from "../graph/lib/crosslinks";
+import { subjectVocabulary } from "../graph/lib/crosslinks";
 import { all } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
 import { d1Entries, entryOverlay } from "../write/entries";
@@ -20,13 +20,14 @@ import {
   type LibraryItem,
   citedUrls,
   conceptsNamedIn,
-  setGraphLinks,
+  setGraphLabels,
   setPublishedArticles,
   setRecordEntries,
   setShownReads,
   setUploadedConcepts,
   setUploadedRows,
   setUploadedSources,
+  setUploadedTexts,
 } from "./content/store";
 import { plain } from "./md";
 import { shortDate } from "./theme";
@@ -118,7 +119,8 @@ export async function refreshUploads(env: Env, force = false): Promise<void> {
       setShownReads(await d1Reads(env, userId).shownAll());
       // The subjects documents share, from the typed graph (no model), and
       // the concepts each upload names — the links inside a document's text.
-      setGraphLinks(await allCrossLinks(env.DB, userId, OWN_UPLOADS_SQL));
+      setGraphLabels(await subjectVocabulary(env.DB, userId));
+      setUploadedTexts(new Map(rows.map((r) => [r.slug, r.full_md ?? ""])));
       setUploadedConcepts(
         new Map(rows.map((r) => [r.slug, conceptsNamedIn(r.full_md ?? "").map((t) => t.id)])),
       );
