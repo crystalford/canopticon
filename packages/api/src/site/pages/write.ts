@@ -17,9 +17,17 @@ const when = (iso: string) => {
 };
 const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
-const NO_KEY = `<div class="ws-nokey"><strong>Claude is not connected yet.</strong> The workspace needs an Anthropic API key: add it as the <code>ANTHROPIC_API_KEY</code> secret in the repository's GitHub settings, and the next deploy hands it to the site.</div>`;
+const NO_KEY = `<div class="ws-nokey"><strong>Claude is not connected yet.</strong> Either route works: Cloudflare's AI Gateway with Unified Billing (the repository secrets AI_GATEWAY_ID and CF_AIG_TOKEN), or an Anthropic key (the secret ANTHROPIC_API_KEY). The next deploy hands them to the site.</div>`;
 
-export function renderWriteList(drafts: Draft[], opts: { hasKey: boolean }): string {
+const ROUTE_LABEL = {
+  gateway: "Claude Opus 5.5 · via Cloudflare AI Gateway",
+  anthropic: "Claude Opus 5.5 · via the Anthropic API",
+};
+
+export function renderWriteList(
+  drafts: Draft[],
+  opts: { hasKey: boolean; route?: "gateway" | "anthropic" | null },
+): string {
   const rows = drafts.length
     ? drafts
         .map(
@@ -34,7 +42,7 @@ export function renderWriteList(drafts: Draft[], opts: { hasKey: boolean }): str
     path: "/admin/write",
     signedIn: true,
     noindex: true,
-    body: `<div class="d-head"><h1 class="d-h1">Write</h1><span class="d-links"><a href="/admin" class="ulink">Back to Admin</a></span></div>${opts.hasKey ? "" : NO_KEY}<form method="post" action="/op/write/new" style="margin:20px 0 28px"><button type="submit" class="btn tall">New article</button></form><div class="ws-list">${rows}</div>`,
+    body: `<div class="d-head"><h1 class="d-h1">Write</h1>${opts.route ? `<span class="ws-route">${ROUTE_LABEL[opts.route]}</span>` : ""}<span class="d-links"><a href="/admin" class="ulink">Back to Admin</a></span></div>${opts.hasKey ? "" : NO_KEY}<form method="post" action="/op/write/new" style="margin:20px 0 28px"><button type="submit" class="btn tall">New article</button></form><div class="ws-list">${rows}</div>`,
   });
 }
 
@@ -84,6 +92,7 @@ export function renderWorkspace(
   check: CheckResult,
   opts: {
     hasKey: boolean;
+    route?: "gateway" | "anthropic" | null;
     publish?: { problems: string[]; live: LiveVersion | null; changed: boolean };
     /** Proposal cards by the tool call that made them. */
     cards?: Map<string, string>;
@@ -131,7 +140,7 @@ ${opts.hasKey ? "" : NO_KEY}
 <div class="ws-files" data-ws-files hidden></div>
 <label for="ws-text" class="vh">Message</label>
 <textarea id="ws-text" name="text" rows="3" placeholder="What should Claude write or change?"${opts.hasKey ? "" : " disabled"}></textarea>
-<div class="ws-actions"><span class="ws-left"><label class="ws-attach">Add files<input type="file" multiple accept=".md,.txt,.pdf,.docx" data-ws-file hidden></label><span class="ws-cost" data-ws-cost title="Estimated, at list price">${esc(dollars(d.usage.cents))} so far</span></span><button type="submit" class="btn"${opts.hasKey ? "" : " disabled"}>Send</button></div>
+<div class="ws-actions"><span class="ws-left"><label class="ws-attach">Add files<input type="file" multiple accept=".md,.txt,.pdf,.docx" data-ws-file hidden></label><span class="ws-cost" data-ws-cost title="${opts.route ? esc(ROUTE_LABEL[opts.route]) : ""} · estimated, at Anthropic's list price">${esc(dollars(d.usage.cents))} so far</span></span><button type="submit" class="btn"${opts.hasKey ? "" : " disabled"}>Send</button></div>
 </form>
 </section>
 <section class="ws-page" aria-label="The page">

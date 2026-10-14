@@ -18,6 +18,12 @@ product became the publication.
   Dismiss. Added ones appear on their own pages, in Ideas, the Library and
   the key figures list. Concepts are patterns that happen, never names for
   things to build (contract §1b).
+- **Claude through Cloudflare:** the workspace can run on Cloudflare's AI
+  Gateway with Unified Billing (Cloudflare credits, no Anthropic account),
+  through the gateway's Anthropic pass-through, which carries tools and
+  caching. It is used whenever the GitHub secrets `AI_GATEWAY_ID` and
+  `CF_AIG_TOKEN` are set; the Anthropic key is the fallback. The page says
+  which one is in use.
 - **Fixed before it could bite:** each conversation's instructions and tool
   list are now frozen at its first turn. Claude Opus 5.5 rejects a turn when
   they change mid-conversation (a new topic, a new tool), which would have

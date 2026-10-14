@@ -40,7 +40,7 @@ app.post("/write/:id/turn", async (c) => {
     const message = !draft
       ? "That draft does not exist."
       : !stream
-        ? "Claude is not connected: ANTHROPIC_API_KEY is not set."
+        ? "Claude is not connected: set up Cloudflare's AI Gateway or ANTHROPIC_API_KEY."
         : "Say something first.";
     if (!sse) return c.redirect(back, 303);
     return new Response(

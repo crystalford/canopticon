@@ -9,7 +9,7 @@ import { OWN_UPLOADS_SQL } from "../admin/runtime";
 import type { AuthContext } from "../auth/middleware";
 import { one } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
-import { transcript } from "../write/agent";
+import { claudeRoute, transcript } from "../write/agent";
 import { draftArticle, draftMarkdown } from "../write/article";
 import { checkQuotes, draftQuotes } from "../write/check";
 import { d1Drafts } from "../write/drafts";
@@ -187,7 +187,7 @@ app.get("/admin/write", async (c) => {
   if (!signedIn(c)) return html(signIn("/admin/write"), { status: 401 });
   const store = await workspaceStore(c);
   const drafts = store ? await store.list().catch(() => []) : [];
-  return html(renderWriteList(drafts, { hasKey: !!c.env.ANTHROPIC_API_KEY }));
+  return html(renderWriteList(drafts, { hasKey: !!claudeRoute(c.env), route: claudeRoute(c.env) }));
 });
 
 app.get("/admin/write/:id", async (c, next) => {
@@ -215,7 +215,8 @@ app.get("/admin/write/:id", async (c, next) => {
   );
   return html(
     renderWorkspace(d, items, check, {
-      hasKey: !!c.env.ANTHROPIC_API_KEY,
+      hasKey: !!claudeRoute(c.env),
+      route: claudeRoute(c.env),
       cards,
       publish: { problems, live, changed: live ? changedSince(d, live) : true },
       flash: {

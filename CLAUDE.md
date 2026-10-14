@@ -59,8 +59,11 @@
   every public list through `site/uploads.ts` → `setUploadedRows()`.
 - **The workspace** is `/admin/write` (`src/write/`, `site/pages/write.ts`,
   actions in `operator/routes/write.ts`): a chat with Claude beside the real
-  article page, the way Claude Design works. Claude (Opus 5.5, direct
-  Anthropic API — the AI Gateway route cannot run tools or cache) reads the
+  article page, the way Claude Design works. Claude (Opus 5.5, through
+  Cloudflare's AI Gateway Anthropic pass-through when `AI_GATEWAY_ID` +
+  `CF_AIG_TOKEN` are set — Unified Billing, no Anthropic key — else the
+  Anthropic API with `ANTHROPIC_API_KEY`; `env.AI.run()` cannot carry tools
+  or caching, so the workspace never uses it; `claudeRoute()`) reads the
   record through tools (list, search, read), writes with `write_draft` and
   revises one passage with `edit_draft`; every write is checked word for
   word in code (`write/check.ts`, the build's rule) and failures go back to

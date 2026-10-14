@@ -25,6 +25,14 @@ export interface Env {
   // name, so it is a var, not a constant.
   CLAUDE_MODEL?: string;
 
+  // The workspace (/admin/write) reaches Claude through the gateway's
+  // Anthropic pass-through (…/anthropic/v1/messages), which carries tools and
+  // prompt caching where env.AI.run() does not. A gateway with Unified
+  // Billing must be authenticated; this is its token, sent as
+  // cf-aig-authorization. Set with AI_GATEWAY_ID and CLOUDFLARE_ACCOUNT_ID,
+  // the workspace bills Cloudflare credits and needs no Anthropic key.
+  CF_AIG_TOKEN?: string;
+
   // The single operator's email — Cloudflare Access gates the operator
   // app to this email. Public site is unauthenticated for readers; the
   // operator is recognised on public URLs via a session cookie (see below).

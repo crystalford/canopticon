@@ -702,3 +702,16 @@ describe("reports added in the chat", () => {
     expect(empty.status).toBe(400);
   });
 });
+
+describe("how the workspace reaches Claude", () => {
+  it("prefers Cloudflare's AI Gateway when it is set up, else the Anthropic key, else nothing", async () => {
+    const { claudeRoute } = await import("../src/write/agent");
+    const gw = { AI_GATEWAY_ID: "g", CLOUDFLARE_ACCOUNT_ID: "a", CF_AIG_TOKEN: "t" };
+    expect(claudeRoute({ ...env, ...gw } as Env)).toBe("gateway");
+    expect(claudeRoute({ ...env, ...gw, ANTHROPIC_API_KEY: "k" } as Env)).toBe("gateway");
+    expect(claudeRoute({ ...env, ANTHROPIC_API_KEY: "k" } as Env)).toBe("anthropic");
+    expect(
+      claudeRoute({ ...env, AI_GATEWAY_ID: "g", CLOUDFLARE_ACCOUNT_ID: "a" } as Env),
+    ).toBeNull();
+  });
+});

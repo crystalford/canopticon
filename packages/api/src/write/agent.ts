@@ -49,11 +49,32 @@ export interface StreamLike {
 }
 export type StreamFn = (params: StreamParams) => StreamLike;
 
-/** The real thing: the Anthropic SDK, with the operator's key. */
+/** How the workspace reaches Claude: through Cloudflare's AI Gateway when it
+ *  is configured (Unified Billing, no Anthropic key), else directly with
+ *  ANTHROPIC_API_KEY, else not at all. */
+export function claudeRoute(env: Env): "gateway" | "anthropic" | null {
+  if (env.AI_GATEWAY_ID && env.CLOUDFLARE_ACCOUNT_ID && env.CF_AIG_TOKEN) return "gateway";
+  if (env.ANTHROPIC_API_KEY) return "anthropic";
+  return null;
+}
+
+/** The real thing: the Anthropic SDK, pointed at the route above. The
+ *  gateway's Anthropic pass-through takes the Messages API unchanged —
+ *  tools, streaming, caching — and authenticates with the gateway token;
+ *  with Unified Billing the Anthropic key is ignored, so a placeholder
+ *  stands in when there is none. */
 export async function anthropicStream(env: Env): Promise<StreamFn | null> {
-  if (!env.ANTHROPIC_API_KEY) return null;
+  const route = claudeRoute(env);
+  if (!route) return null;
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  const client =
+    route === "gateway"
+      ? new Anthropic({
+          apiKey: env.ANTHROPIC_API_KEY || "unified-billing",
+          baseURL: `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${env.AI_GATEWAY_ID}/anthropic`,
+          defaultHeaders: { "cf-aig-authorization": `Bearer ${env.CF_AIG_TOKEN}` },
+        })
+      : new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   return (params) => client.beta.messages.stream(params) as unknown as StreamLike;
 }
 
@@ -548,7 +569,9 @@ export async function runTurn(o: {
         type: "error",
         message:
           e.status === 401
-            ? "The Anthropic API key was refused. Check the ANTHROPIC_API_KEY secret."
+            ? claudeRoute(env) === "gateway"
+              ? "Cloudflare's AI Gateway refused the request. Check the CF_AIG_TOKEN secret and that Unified Billing has credits."
+              : "The Anthropic API key was refused. Check the ANTHROPIC_API_KEY secret."
             : `Claude could not be reached${e.status ? ` (${e.status})` : ""}: ${detail}`,
       });
       break;

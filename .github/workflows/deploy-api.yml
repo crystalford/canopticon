@@ -12,6 +12,8 @@ name: Deploy to Cloudflare
 #
 # Optional GitHub secrets (pushed to the Worker when present; features
 # stay visible-but-inert without them):
+#   AI_GATEWAY_ID + CF_AIG_TOKEN (the workspace's Claude through Cloudflare's
+#                           AI Gateway with Unified Billing — no Anthropic key)
 #   BRAVE_SEARCH_API_KEY    (record-building on click — "Expand this file")
 #   BRAVE_ANSWERS_API_KEY   (operator-only research triage preview)
 
@@ -112,6 +114,23 @@ jobs:
           fi
           if [ -n "${{ secrets.VIDEO_INTERNAL_TOKEN }}" ]; then
             echo "${{ secrets.VIDEO_INTERNAL_TOKEN }}" | pnpm exec wrangler secret put VIDEO_INTERNAL_TOKEN
+          fi
+          # The workspace's route to Claude through Cloudflare's AI Gateway
+          # (Unified Billing): the gateway's authentication token.
+          if [ -n "${{ secrets.CF_AIG_TOKEN }}" ]; then
+            echo "${{ secrets.CF_AIG_TOKEN }}" | pnpm exec wrangler secret put CF_AIG_TOKEN
+          fi
+
+      # --- Set AI_GATEWAY_ID var, when the secret is set -----------------
+      # The name of the AI Gateway (Unified Billing) the workspace calls
+      # Claude through. Left empty in wrangler.toml when the secret is not set.
+      - name: Patch AI_GATEWAY_ID into wrangler.toml
+        working-directory: packages/api
+        env:
+          AI_GATEWAY_ID: ${{ secrets.AI_GATEWAY_ID }}
+        run: |
+          if [ -n "$AI_GATEWAY_ID" ]; then
+            sed -i "s|^AI_GATEWAY_ID = \"\"|AI_GATEWAY_ID = \"${AI_GATEWAY_ID}\"|" wrangler.toml
           fi
 
       # --- Set OPERATOR_EMAIL var ------------------------------------
