@@ -502,7 +502,53 @@ app.get("/links", async (c) => {
       else if (!researchDoc(l.slug) && !published.has(l.slug)) toUnknown++;
     }
   const slug = c.req.query("slug");
+  // Where the graph's subjects go missing on the way to a link, step by step.
+  const n = async (sql: string, args: unknown[] = []) =>
+    (await one<{ n: number }>(c.env.DB, sql, args).catch(() => null))?.n ?? -1;
+  const OWN = `SELECT id FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical') AND ${OWN_UPLOADS_SQL}`;
+  const funnel = {
+    nodes: await n("SELECT COUNT(*) AS n FROM nodes WHERE user_id = ?", [userId]),
+    nodes_with_a_document: await n(
+      "SELECT COUNT(*) AS n FROM nodes WHERE user_id = ? AND piece_id IS NOT NULL",
+      [userId],
+    ),
+    documents_the_nodes_name: await n(
+      "SELECT COUNT(DISTINCT piece_id) AS n FROM nodes WHERE user_id = ? AND piece_id IS NOT NULL",
+      [userId],
+    ),
+    of_those_still_in_pieces: await n(
+      "SELECT COUNT(DISTINCT n.piece_id) AS n FROM nodes n JOIN pieces p ON p.id = n.piece_id WHERE n.user_id = ?",
+      [userId],
+    ),
+    of_those_published_own: await n(
+      `SELECT COUNT(DISTINCT piece_id) AS n FROM nodes WHERE user_id = ? AND piece_id IN (${OWN})`,
+      [userId, userId],
+    ),
+    published_own_documents: await n(`SELECT COUNT(*) AS n FROM (${OWN})`, [userId]),
+    subject_nodes_on_published_own: await n(
+      `SELECT COUNT(*) AS n FROM nodes WHERE user_id = ? AND kind IN ('entity','event','theme') AND piece_id IN (${OWN})`,
+      [userId, userId],
+    ),
+    labels_on_2_plus_documents_any_type: await n(
+      `SELECT COUNT(*) AS n FROM (SELECT label FROM nodes WHERE user_id = ? AND kind IN ('entity','event','theme') AND piece_id IN (${OWN}) GROUP BY label HAVING COUNT(DISTINCT piece_id) >= 2)`,
+      [userId, userId],
+    ),
+    labels_on_2_plus_case_insensitive: await n(
+      `SELECT COUNT(*) AS n FROM (SELECT LOWER(label) FROM nodes WHERE user_id = ? AND kind IN ('entity','event','theme') AND piece_id IN (${OWN}) GROUP BY LOWER(label) HAVING COUNT(DISTINCT piece_id) >= 2)`,
+      [userId, userId],
+    ),
+    labels_on_2_plus_not_person_org: await n(
+      `SELECT COUNT(*) AS n FROM (SELECT label FROM nodes WHERE user_id = ? AND kind IN ('entity','event','theme') AND piece_id IN (${OWN}) AND COALESCE(json_extract(metadata, '$.entity_type'), '') NOT IN ('person','organization','institution') GROUP BY label HAVING COUNT(DISTINCT piece_id) >= 2)`,
+      [userId, userId],
+    ),
+    by_type_on_published_own: await all<{ kind: string; type: string | null; n: number }>(
+      c.env.DB,
+      `SELECT kind, json_extract(metadata, '$.entity_type') AS type, COUNT(*) AS n FROM nodes WHERE user_id = ? AND piece_id IN (${OWN}) GROUP BY kind, type ORDER BY n DESC LIMIT 20`,
+      [userId, userId],
+    ).catch(() => []),
+  };
   return c.json({
+    funnel,
     documents_with_links: map.size,
     candidate_links: links,
     to_held_documents_dropped_at_render: toHeld,
