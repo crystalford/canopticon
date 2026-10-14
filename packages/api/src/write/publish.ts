@@ -41,7 +41,7 @@ export function articleTopics(): string[] {
 
 /** Ids among `ids` a reader can open: public research, or the operator's own
  *  published uploads. A waiting upload is not public yet. */
-async function publicIds(env: Env, userId: string, ids: string[]): Promise<Set<string>> {
+export async function publicIds(env: Env, userId: string, ids: string[]): Promise<Set<string>> {
   const out = new Set<string>();
   const rest: string[] = [];
   for (const id of new Set(ids)) researchDoc(id) ? out.add(id) : rest.push(id);
@@ -164,17 +164,27 @@ export async function publishDraft(
   const problems = await publishProblems(env, userId, d);
   if (problems.length) return { ok: false, problems };
   const slug = d.slug ?? (await freeSlug(env, userId, d.meta.title ?? "", d.id));
-  const last = await one<{ n: number | null }>(
-    env.DB,
-    "SELECT MAX(version) AS n FROM published_versions WHERE slug = ?",
-    [slug],
-  );
-  const version = (last?.n ?? 0) + 1;
-  await run(
-    env.DB,
-    "INSERT INTO published_versions (slug, version, draft_id, user_id, meta, body_md, published_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [slug, version, d.id, userId, JSON.stringify(d.meta), d.body, new Date().toISOString()],
-  );
+  // Two presses at once would pick the same number; the key refuses the
+  // second, which then takes the next one.
+  let version = 0;
+  for (let attempt = 0; attempt < 3 && !version; attempt++) {
+    const last = await one<{ n: number | null }>(
+      env.DB,
+      "SELECT MAX(version) AS n FROM published_versions WHERE slug = ?",
+      [slug],
+    );
+    const next = (last?.n ?? 0) + 1;
+    try {
+      await run(
+        env.DB,
+        "INSERT INTO published_versions (slug, version, draft_id, user_id, meta, body_md, published_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [slug, next, d.id, userId, JSON.stringify(d.meta), d.body, new Date().toISOString()],
+      );
+      version = next;
+    } catch (err) {
+      if (attempt === 2) throw err;
+    }
+  }
   await store.save(d.id, { status: "published", slug });
   return { ok: true, slug, version };
 }

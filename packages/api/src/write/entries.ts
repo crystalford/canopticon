@@ -17,7 +17,7 @@ import { passageHref } from "../site/md";
 import { shortDate } from "../site/theme";
 import { slugify } from "./article";
 import { verbatimNormal } from "./check";
-import { articleTopics } from "./publish";
+import { articleTopics, publicIds } from "./publish";
 import { sourceText, sourceTitles } from "./sources";
 
 export type EntryKind = "concept" | "open_problem" | "figure";
@@ -226,6 +226,7 @@ const ROUTE: Record<Exclude<EntryKind, "figure">, string> = {
 /** Add a proposal to the record, as written or as the author rewrote it. */
 export async function addEntry(
   env: Env,
+  userId: string,
   store: EntryStore,
   id: string,
   edits: { title?: string; body?: string },
@@ -242,6 +243,10 @@ export async function addEntry(
     ...(title !== e.data.title || body !== e.data.body ? { edited: true } : {}),
   };
   const issues = await proposalProblems(env, e.kind, data);
+  // What enters the record links to its source, so the source must be
+  // public first (a waiting upload is not).
+  if (!(await publicIds(env, userId, [data.doc])).has(data.doc))
+    issues.push("Its document is not public yet. Publish it in Admin first.");
   if (issues.length) return { ok: false, problems: issues };
   let slug: string | undefined;
   if (e.kind !== "figure") {

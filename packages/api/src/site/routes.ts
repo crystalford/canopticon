@@ -72,7 +72,9 @@ const app = new Hono<AuthContext>();
 // isolate for a minute; the static assets do not need them.
 app.use("*", async (c, next) => {
   if (!/^\/(site\.(css|js)|favicon)/.test(c.req.path)) {
-    await refreshUploads(c.env);
+    // ?fresh=1 (the link after a publish) reads D1 now rather than within
+    // the minute, so the author never lands on a 404 for a new page.
+    await refreshUploads(c.env, signedIn(c) && c.req.query("fresh") === "1");
     // The Admin pill carries its count on every page, as the prototype does.
     if (signedIn(c)) {
       const userId = await resolveOperatorId(c.env.DB).catch(() => null);

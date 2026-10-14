@@ -42,7 +42,6 @@ The forms on the shelf behave differently in a hot mug, and none of the native o
 | WPH (hydrolysate) | Enzymatically cut into peptides | Peptides are too small to unfold or gel, so they stay soluble; bitter above about 8% DH |
 | Native / "micellar" whey | Microfiltered straight from milk at low temperature | More native protein, so more heat-reactive, not less; "micellar" usually refers to casein |
 | Pure BLG (Arla BLG-100; fermented BLG) | Single protein, very low minerals | High solubility and low viscosity; clear at up to 23% protein in acidic drinks; still heat-reactive at pH 5 unless functionalized |
-| Pure BLG (dairy or fermented) | Very soluble; unproven hot | Needs functionalization | Leucine-rich (Arla claims +45% vs WPI) | Milk allergen even if "animal-free" |
 
 *Copied from the research’s comparison of whey forms.[Details](doc:instant-dissolving-whey-for-hot-coffee-where-the-science-and-manufactu)*
 

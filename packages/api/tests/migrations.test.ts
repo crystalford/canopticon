@@ -32,11 +32,20 @@ describe("the migrations", () => {
         .all()
         .map((r) => r.name);
     expect(cols("drafts")).toEqual(
-      expect.arrayContaining(["meta", "body_md", "usage", "status", "slug", "frame"]),
+      expect.arrayContaining([
+        "meta",
+        "body_md",
+        "usage",
+        "status",
+        "slug",
+        "frame",
+        "turn_started_at",
+      ]),
     );
     expect(cols("published_versions")).toEqual(
       expect.arrayContaining(["slug", "version", "draft_id", "meta", "body_md"]),
     );
+    expect(cols("draft_messages")).toEqual(expect.arrayContaining(["seq", "message", "part"]));
     expect(cols("record_entries")).toEqual(
       expect.arrayContaining(["kind", "data", "status", "tool_use_id"]),
     );

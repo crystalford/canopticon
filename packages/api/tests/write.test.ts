@@ -641,7 +641,7 @@ describe("proposals for the record", () => {
       },
       draftId: "d",
     });
-    const r = await addEntry(env, entries, e.id, { body: "My own words." });
+    const r = await addEntry(env, "u1", entries, e.id, { body: "My own words." });
     expect(r).toMatchObject({ ok: true, route: "/concepts/a-brand-new-pattern" });
     const added = await entries.get(e.id);
     expect(added?.data).toMatchObject({ body: "My own words.", edited: true });
@@ -657,7 +657,7 @@ describe("proposals for the record", () => {
         topic: topic(),
       },
     });
-    expect((await addEntry(env, entries, fig.id, {})).ok).toBe(true);
+    expect((await addEntry(env, "u1", entries, fig.id, {})).ok).toBe(true);
 
     setRecordEntries(await entryOverlay(env, await entries.added()));
     try {
@@ -689,7 +689,7 @@ describe("proposals for the record", () => {
         topic: topic(),
       },
     });
-    const r = await addEntry(env, entries, e.id, {});
+    const r = await addEntry(env, "u1", entries, e.id, {});
     expect(r.ok).toBe(false);
   });
 });
@@ -713,5 +713,107 @@ describe("how the workspace reaches Claude", () => {
     expect(
       claudeRoute({ ...env, AI_GATEWAY_ID: "g", CLOUDFLARE_ACCOUNT_ID: "a" } as Env),
     ).toBeNull();
+  });
+});
+
+// ---- after the review: what would have broken on first real use -----------------
+
+import { afterFallback } from "../src/write/agent";
+import { PART_CHARS, d1Drafts } from "../src/write/drafts";
+
+describe("a draft survives real use", () => {
+  it("runs one turn at a time", async () => {
+    const store = memoryDrafts();
+    const d = await store.create();
+    await store.lock(d.id);
+    const { stream, calls } = fakeStream([msg([{ type: "text", text: "ok" }], "end_turn")]);
+    const events: WriteEvent[] = [];
+    await runTurn({
+      stream,
+      env,
+      store,
+      draftId: d.id,
+      text: "Again.",
+      emit: (e) => events.push(e),
+    });
+    expect(calls).toHaveLength(0);
+    expect(events[0]?.type).toBe("error");
+    expect(await store.messages(d.id)).toEqual([]);
+    await store.unlock(d.id);
+  });
+
+  it("keeps nothing empty from a refusal, so the next request is still valid", async () => {
+    const store = memoryDrafts();
+    const d = await store.create();
+    const { stream } = fakeStream([msg([], "refusal")]);
+    await runTurn({ stream, env, store, draftId: d.id, text: "Write it.", emit: () => {} });
+    const history = await store.messages(d.id);
+    expect(history.map((m) => m.role)).toEqual(["user"]);
+    expect(await store.lock(d.id)).toBe(true);
+  });
+
+  it("does not freeze the instructions until a first reply has come back", async () => {
+    const store = memoryDrafts();
+    const d = await store.create();
+    const broken: StreamFn = () => {
+      throw new Error("bad request");
+    };
+    await runTurn({ stream: broken, env, store, draftId: d.id, text: "Hi.", emit: () => {} });
+    expect((await store.get(d.id))?.frame).toBeUndefined();
+    const { stream } = fakeStream([msg([{ type: "text", text: "ok" }], "end_turn")]);
+    await runTurn({ stream, env, store, draftId: d.id, text: "Hi again.", emit: () => {} });
+    expect((await store.get(d.id))?.frame).toBeTruthy();
+  });
+
+  it("drops the declined model's calls before a fallback, and keeps its text", () => {
+    const content = [
+      { type: "thinking", thinking: "", signature: "s" },
+      { type: "text", text: "Partial." },
+      { type: "tool_use", id: "cut", name: "write_draft", input: {} },
+      { type: "fallback", from: { model: "a" }, to: { model: "b" } },
+      { type: "tool_use", id: "kept", name: "read_document", input: { id: "x" } },
+    ] as unknown as Anthropic.Beta.BetaContentBlock[];
+    const out = afterFallback(content).map(
+      (b) => (b as { type: string; id?: string }).id ?? b.type,
+    );
+    expect(out).toEqual(["text", "fallback", "kept"]);
+  });
+
+  it("stores a message larger than one D1 row in parts, and reads it back whole", async () => {
+    const rows: Array<{ seq: number; message: string; part: number }> = [];
+    const db = {
+      prepare(sql: string) {
+        let a: unknown[] = [];
+        const st = {
+          bind: (...x: unknown[]) => {
+            a = x;
+            return st;
+          },
+          first: async () =>
+            /MAX\(seq\)/.test(sql)
+              ? { n: rows.length ? Math.max(...rows.map((r) => r.seq)) : null }
+              : null,
+          all: async () => ({
+            results: /FROM draft_messages/.test(sql) ? [...rows].sort((x, y) => x.seq - y.seq) : [],
+          }),
+          run: async () => {
+            if (/INSERT INTO draft_messages/.test(sql))
+              rows.push({ seq: Number(a[1]), message: String(a[2]), part: Number(a[4]) });
+            return { results: [], meta: { changes: 1 } };
+          },
+        };
+        return st;
+      },
+    } as unknown as D1Database;
+    const store = d1Drafts({ ...env, DB: db } as Env, "u1");
+    const big = "x".repeat(PART_CHARS * 2 + 10);
+    await store.append("d", [
+      { role: "user", content: [{ type: "text", text: big }] },
+      { role: "user", content: "small" },
+    ]);
+    expect(rows.filter((r) => r.part > 0)).toHaveLength(2);
+    const back = await store.messages("d");
+    expect(back).toHaveLength(2);
+    expect(JSON.stringify(back[0])).toContain(big);
   });
 });

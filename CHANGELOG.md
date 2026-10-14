@@ -6,6 +6,33 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-14, night — The workspace, made safe for first real use
+
+A review of everything built today, before Claude is connected, found what
+would have broken the first time it ran:
+
+- **One turn at a time per draft** (a lock, migration 0068). Two tabs, or a
+  reload mid-turn, could interleave messages and break a draft for good.
+- **A refusal no longer breaks a draft**: an empty or half-written reply is
+  never saved. After a mid-answer fallback, the declined model's unfinished
+  calls are dropped, as Anthropic specifies.
+- **A first turn that fails no longer freezes broken instructions**; they are
+  frozen after the first reply.
+- **The Cloudflare route sends no Anthropic key**, so Unified Billing is what
+  pays; errors say what the gateway or Anthropic actually answered.
+- **A keep-alive** keeps the stream open while Claude thinks; the page asks
+  you to keep the tab open (the server stops about 30 seconds after it closes).
+- **Personal uploads are never offered to Claude**, and a concept, problem or
+  figure can only be added once its source document is public.
+- **Receipts from your published uploads** now show on public article pages,
+  as they did in the preview.
+- **No 404 after Publish**: the link reads the database at once.
+- Long messages are stored across several rows; Claude is offered only the
+  topics an article can publish under; two Publish presses at once no longer
+  collide; a stale card cannot dismiss an entry already added.
+- The whey article's comparison table carried a stray row from another table
+  (it came with the handoff); removed.
+
 ## 2026-10-14, later — Reports into the chat; Claude proposes for the record
 
 - **Add files** in the workspace (or drop them on the chat): research

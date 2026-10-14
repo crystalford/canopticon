@@ -121,7 +121,7 @@ export function renderWorkspace(
       : `${pub.live ? '<span class="ws-uptodate">Taken down</span>' : ""}${action(pub.live ? "Publish again" : "Publish", "publish", "btn sm primary", !ready)}`;
   const f = opts.flash ?? {};
   const flash = f.published
-    ? `<div class="ws-flash ok">Published at <a href="/articles/${esc(f.published)}" target="_blank" rel="noopener">/articles/${esc(f.published)}</a>. Search engines have been told.</div>`
+    ? `<div class="ws-flash ok">Published at <a href="/articles/${esc(f.published)}?fresh=1" target="_blank" rel="noopener">/articles/${esc(f.published)}</a>. Search engines have been told.</div>`
     : f.error
       ? `<div class="ws-flash bad"><strong>Not published.</strong> ${esc(f.error)}</div>`
       : f.done

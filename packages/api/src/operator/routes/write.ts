@@ -63,14 +63,24 @@ app.post("/write/:id/turn", async (c) => {
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
   const enc = new TextEncoder();
-  // A closed tab must not stop the turn from saving what it did.
+  // Every step is saved as it happens, so a closed tab keeps what was done;
+  // but the Worker is stopped about 30 seconds after the tab goes, so the
+  // page asks for the tab to stay open until Claude finishes.
   const emit = (e: WriteEvent) => {
     const out = e.type === "proposal" ? { ...e, html: proposalCard(e.entry, id) } : e;
     writer.write(enc.encode(`data: ${JSON.stringify(out)}\n\n`)).catch(() => {});
   };
+  // A comment line every 15 seconds keeps proxies and the browser from
+  // closing a stream that is quiet while Claude thinks.
+  const beat = setInterval(() => {
+    writer.write(enc.encode(": still working\n\n")).catch(() => {});
+  }, 15_000);
   const job = runTurn({ stream, env: c.env, store, entries, draftId: id, text, emit })
     .catch((err: Error) => emit({ type: "error", message: err.message }))
-    .finally(() => writer.close().catch(() => {}));
+    .finally(() => {
+      clearInterval(beat);
+      writer.close().catch(() => {});
+    });
   try {
     c.executionCtx.waitUntil(job);
   } catch {
@@ -139,7 +149,9 @@ app.post("/write/:id/entries/:entry/:act{add|dismiss}", async (c) => {
   if (!userId) return c.redirect(back, 303);
   const entries = d1Entries(c.env, userId);
   if (c.req.param("act") === "dismiss") {
-    await entries.decide(entryId, { status: "dismissed" });
+    // A card left open from before must not undo an entry already added.
+    if ((await entries.get(entryId))?.status === "proposed")
+      await entries.decide(entryId, { status: "dismissed" });
     return c.redirect(`${back}#entry-${entryId}`, 303);
   }
   const form = (await c.req.parseBody().catch(() => ({}))) as Record<string, unknown>;
@@ -147,7 +159,7 @@ app.post("/write/:id/entries/:entry/:act{add|dismiss}", async (c) => {
     ...(typeof form.title === "string" ? { title: form.title } : {}),
     ...(typeof form.body === "string" ? { body: form.body } : {}),
   };
-  const r = await addEntry(c.env, entries, entryId, edits);
+  const r = await addEntry(c.env, userId, entries, entryId, edits);
   if (!r.ok)
     return c.redirect(
       `${back}?error=${encodeURIComponent(r.problems.join(" "))}#entry-${entryId}`,

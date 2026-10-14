@@ -26,9 +26,12 @@ export interface Source {
   status: "record" | "published" | "waiting";
 }
 
+// A waiting upload sorted as personal (the author's health, a first-person
+// note) is never offered to Claude: it was held private for a reason.
 const UPLOAD_WHERE = `user_id = ? AND ${OWN_UPLOADS_SQL}
   AND (publication_status IN ('published', 'canonical')
-       OR COALESCE(json_extract(metadata, '$.admin_status'), json_extract(metadata, '$.desk')) = 'waiting')`;
+       OR (COALESCE(json_extract(metadata, '$.admin_status'), json_extract(metadata, '$.desk')) = 'waiting'
+           AND COALESCE(json_extract(metadata, '$.sorted_as'), '') <> 'personal'))`;
 
 interface UploadRow {
   slug: string;
