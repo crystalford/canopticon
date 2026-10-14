@@ -453,11 +453,13 @@ export function d1Reads(env: Env, userId: string): ReadStore {
       const latest = new Map<string, ReadDbRow>();
       for (const r of rows) if (!latest.has(r.doc_id)) latest.set(r.doc_id, r);
       if (!latest.size) return [];
-      const ids = [...latest.values()].map((r) => r.id);
+      // A join, not an IN list: D1 binds at most 100 parameters.
       const cards = await all<DerivDbRow>(
         db,
-        `SELECT * FROM derivations WHERE user_id = ? AND status = 'kept' AND read_id IN (${ids.map(() => "?").join(", ")}) ORDER BY created_at`,
-        [userId, ...ids],
+        `SELECT d.* FROM derivations d JOIN reads r ON r.id = d.read_id
+          WHERE d.user_id = ? AND d.status = 'kept' AND r.status = 'shown'
+          ORDER BY d.created_at`,
+        [userId],
       ).catch(() => [] as DerivDbRow[]);
       return [...latest.values()].map((r) => ({
         read: readFrom(r),

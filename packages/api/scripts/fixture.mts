@@ -1305,7 +1305,7 @@ function makeDb(): D1Database {
         // The site overlay: shown reads, and their kept cards.
         if (/FROM reads WHERE user_id = \? AND status = 'shown'/i.test(sql))
           return { results: [READ_DB] };
-        if (/FROM derivations WHERE user_id = \? AND status = 'kept'/i.test(sql))
+        if (/FROM derivations d JOIN reads r/i.test(sql))
           return { results: DERIVS.filter((d) => d.status === "kept") };
         // Admin: each document's latest read, with what was kept.
         if (/FROM reads r WHERE r.user_id/i.test(sql))
