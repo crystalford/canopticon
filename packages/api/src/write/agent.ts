@@ -20,6 +20,15 @@ import { NO_USAGE } from "./drafts";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
 import { articleTopics } from "./publish";
 import {
+  type Derivation,
+  KIND_LABEL,
+  NOTE_TOOL,
+  PITCH_TOOL,
+  READ_HOW,
+  type ReadStore,
+  runReadTool,
+} from "./read";
+import {
   RESEARCH_HOW,
   type SourceStore,
   WEB_TOOLS,
@@ -44,6 +53,7 @@ export type WriteEvent =
   | { type: "activity"; text: string }
   | { type: "draft"; check: CheckResult }
   | { type: "proposal"; entry: Entry; html?: string }
+  | { type: "card"; card: Derivation; label: string }
   | { type: "error"; message: string }
   | { type: "done"; usage: Usage };
 
@@ -161,7 +171,18 @@ interface Frame {
 const newFrame = (kind: DraftKind = "article"): Frame =>
   kind === "research"
     ? { system: researchSystemPrompt(), tools: researchTools() }
-    : { system: systemPrompt(), tools: TOOLS };
+    : kind === "read"
+      ? { system: READ_HOW, tools: readTools() }
+      : { system: systemPrompt(), tools: TOOLS };
+
+/** A read reads one document (and may look across the record) and notes cards. */
+export const readTools = (): Anthropic.Beta.BetaToolUnion[] => [
+  byName("read_document"),
+  byName("search_documents"),
+  byName("list_documents"),
+  NOTE_TOOL,
+  PITCH_TOOL,
+];
 
 const byName = (n: string) =>
   TOOLS.find((t) => "name" in t && t.name === n) as Anthropic.Beta.BetaToolUnion;
@@ -315,6 +336,15 @@ export const TOOLS: Anthropic.Beta.BetaToolUnion[] = [
   },
 ];
 
+/** A card noted in a read, as the chat shows it. */
+export function cardLabel(name: string, input: unknown): string {
+  const i = (input ?? {}) as Record<string, unknown>;
+  if (name === "pitch") return `Proposed an article: ${String(i.thesis ?? "").slice(0, 120)}`;
+  const kind = String(i.kind ?? "");
+  const label = KIND_LABEL[kind as keyof typeof KIND_LABEL] ?? kind;
+  return `Noted · ${label}${i.figure ? `: ${String(i.figure)}` : ""}`;
+}
+
 /** What the page says Claude is doing, from a tool call. */
 export function activityLabel(name: string, input: unknown): string {
   const i = (input ?? {}) as Record<string, unknown>;
@@ -349,6 +379,10 @@ interface ToolContext {
   store: DraftStore;
   entries?: EntryStore | undefined;
   sources?: SourceStore | undefined;
+  /** Read it: the read's store, which read, and the document's text. */
+  reads?: ReadStore | undefined;
+  readId?: string | undefined;
+  readDoc?: { id: string; text: string } | undefined;
   kind: DraftKind;
   draftId: string;
   emit: Emit;
@@ -423,6 +457,9 @@ async function runTool(
       if (text == null)
         return bad(`"${p.data.id}" is not a document you can read. Use list_documents for ids.`);
       const title = researchDoc(p.data.id)?.title ?? p.data.id;
+      // A read records that the whole document was read.
+      if (t.kind === "read" && t.reads && t.readId && t.readDoc?.id === p.data.id)
+        await t.reads.update(t.readId, { charsRead: text.length });
       return { text: `${title}\n(id: ${p.data.id})\n\n${text}` };
     }
     case "write_draft": {
@@ -478,6 +515,19 @@ async function runTool(
       const { r, line } = await checkFor(t, p.data.body);
       t.emit({ type: "draft", check: r });
       return { text: `Saved. ${line}` };
+    }
+    case "note":
+    case "pitch": {
+      if (!t.reads || !t.readId || !t.readDoc) return bad("Cards are only for a read.");
+      const r = await runReadTool(name, input, {
+        reads: t.reads,
+        readId: t.readId,
+        docId: t.readDoc.id,
+        doc: t.readDoc.text,
+        toolUseId: t.toolUseId,
+      });
+      if (r.card) t.emit({ type: "card", card: r.card, label: cardLabel(name, input) });
+      return { text: r.text, ...(r.error ? { error: true } : {}) };
     }
     case "propose_entry": {
       const p = ProposeInput.safeParse(input);
@@ -575,6 +625,7 @@ export async function runTurn(o: {
   store: DraftStore;
   entries?: EntryStore | undefined;
   sources?: SourceStore | undefined;
+  reads?: ReadStore | undefined;
   draftId: string;
   text: string;
   emit: Emit;
@@ -630,15 +681,22 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: "text", text: frame.system, cache_control: { type: "ephemeral" } },
   ];
+  // A read knows its document: the cards are located in its text.
+  const readDocId = draft.kind === "read" ? draft.meta.based_on?.[0] : undefined;
+  const readText = readDocId ? await sourceText(env, readDocId) : null;
   const ctx: ToolContext = {
     env,
     store,
     entries: o.entries,
     sources: o.sources,
+    reads: o.reads,
+    readId: draft.meta.readId,
+    readDoc: readDocId && readText != null ? { id: readDocId, text: readText } : undefined,
     kind: draft.kind,
     draftId,
     emit,
   };
+  const usageBefore = usage.cents;
   const steps = o.maxSteps ?? MAX_STEPS;
 
   for (let step = 0; step < steps; step++) {
@@ -774,6 +832,9 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       // A proposal shows as its card; a refused one says why.
       if (u.name === "propose_entry") {
         if (r.error) emit({ type: "activity", text: r.text });
+      } else if (u.name === "note" || u.name === "pitch") {
+        // A kept card arrives as its own event; a dropped one says why.
+        if (r.error) emit({ type: "activity", text: `${cardLabel(u.name, u.input)} — ${r.text}` });
       } else if (u.name !== "write_draft" && u.name !== "edit_draft")
         emit({ type: "activity", text: activityLabel(u.name, u.input) });
       results.push({
@@ -794,6 +855,17 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
   }
 
   await store.save(draftId, { usage });
+  // A read's receipt: finished, by which model, at what cost.
+  if (draft.kind === "read" && o.reads && draft.meta.readId) {
+    const r = await o.reads.get(draft.meta.readId);
+    if (r)
+      await o.reads.update(r.id, {
+        status: r.status === "reading" ? "read" : r.status,
+        model: WRITE_MODEL,
+        cents: r.cents + (usage.cents - usageBefore),
+        finishedAt: new Date().toISOString(),
+      });
+  }
   emit({ type: "done", usage });
 }
 
@@ -818,6 +890,8 @@ export function transcript(history: Message[]): ChatItem[] {
         out.push({ who: m.role === "user" ? "you" : "claude", text: b.text });
       else if (b.type === "tool_use" && b.name === "propose_entry")
         out.push({ who: "proposal", text: activityLabel(b.name, b.input), toolUseId: b.id });
+      else if (b.type === "tool_use" && (b.name === "note" || b.name === "pitch"))
+        out.push({ who: "activity", text: cardLabel(b.name, b.input) });
       else if (b.type === "tool_use" || b.type === "server_tool_use")
         out.push({ who: "activity", text: activityLabel(b.name, b.input) });
     }

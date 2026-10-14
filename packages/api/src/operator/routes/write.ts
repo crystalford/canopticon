@@ -12,6 +12,7 @@ import { slugify } from "../../write/article";
 import { d1Drafts } from "../../write/drafts";
 import { addEntry, d1Entries } from "../../write/entries";
 import { announce, articleTopics, publishDraft, takeDown } from "../../write/publish";
+import { d1Reads } from "../../write/read";
 import { checkReport, d1Sources, reportFile, reportProblems } from "../../write/research";
 import { operatorApp } from "./app";
 import { createAndExtract } from "./upload";
@@ -59,6 +60,7 @@ app.post("/write/:id/turn", async (c) => {
 
   const entries = userId ? d1Entries(c.env, userId) : undefined;
   const sources = userId ? d1Sources(c.env, userId) : undefined;
+  const reads = userId ? d1Reads(c.env, userId) : undefined;
   if (!sse) {
     await runTurn({
       stream,
@@ -66,6 +68,7 @@ app.post("/write/:id/turn", async (c) => {
       store,
       entries,
       sources,
+      reads,
       draftId: id,
       text,
       emit: () => {},
@@ -88,7 +91,17 @@ app.post("/write/:id/turn", async (c) => {
   const beat = setInterval(() => {
     writer.write(enc.encode(": still working\n\n")).catch(() => {});
   }, 15_000);
-  const job = runTurn({ stream, env: c.env, store, entries, sources, draftId: id, text, emit })
+  const job = runTurn({
+    stream,
+    env: c.env,
+    store,
+    entries,
+    sources,
+    reads,
+    draftId: id,
+    text,
+    emit,
+  })
     .catch((err: Error) => emit({ type: "error", message: err.message }))
     .finally(() => {
       clearInterval(beat);

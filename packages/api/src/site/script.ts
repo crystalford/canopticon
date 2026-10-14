@@ -352,6 +352,12 @@ export const SITE_JS = `(function () {
         .catch(function () { wait.textContent = "The files could not be added."; wait.className = "ws-file bad"; });
     };
     wsFile.addEventListener("change", function () { addFiles(wsFile.files); wsFile.value = ""; });
+    // A read's cards land one by one; the board reloads at most every two seconds.
+    var soonTimer = 0;
+    var soon = function () {
+      if (soonTimer) return;
+      soonTimer = setTimeout(function () { soonTimer = 0; refresh(); }, 2000);
+    };
     var chat = ws.querySelector(".ws-chat");
     chat.addEventListener("dragover", function (e) { e.preventDefault(); chat.classList.add("drop"); });
     chat.addEventListener("dragleave", function () { chat.classList.remove("drop"); });
@@ -387,6 +393,9 @@ export const SITE_JS = `(function () {
             : n ? '<span class="ws-check bad">' + c.total + " quotations · " + n + " not word for word</span>"
             : '<span class="ws-check ok">' + c.total + " quotations · all word for word</span>";
           refresh();
+        } else if (ev.type === "card") {
+          line("ws-act", ev.label); reply = null; wsLog.insertBefore(status, null);
+          soon();
         } else if (ev.type === "proposal" && ev.html) {
           var box = d.createElement("div"); box.innerHTML = ev.html;
           if (box.firstElementChild) wsLog.appendChild(box.firstElementChild);
@@ -395,6 +404,7 @@ export const SITE_JS = `(function () {
           line("ws-act bad", ev.message);
         } else if (ev.type === "done") {
           if (ev.usage && wsCost) wsCost.textContent = "$" + (ev.usage.cents / 100).toFixed(2) + " so far";
+          if (ws.getAttribute("data-ws-kind") === "read") refresh();
         }
       };
       fetch(wsForm.action, {
@@ -426,6 +436,13 @@ export const SITE_JS = `(function () {
         status.remove(); wsSend.disabled = false; wsText.disabled = false; wsText.focus();
       });
     });
+    // Read it lands here with the first message waiting: send it once.
+    var start = ws.getAttribute("data-ws-autostart");
+    if (start && window.fetch && window.TextDecoder) {
+      try { history.replaceState(null, "", location.pathname); } catch (err) {}
+      wsText.value = start;
+      wsForm.requestSubmit();
+    }
   }
 })();
 `;

@@ -15,6 +15,7 @@ import { checkQuotes, draftQuotes } from "../write/check";
 import { d1Drafts } from "../write/drafts";
 import { d1Entries } from "../write/entries";
 import { articleTopics, changedSince, latestVersion, publishProblems } from "../write/publish";
+import { START_READ, d1Reads } from "../write/read";
 import { checkReport, d1Sources, reportFile, reportProblems } from "../write/research";
 import { sourceTexts, sourceTitles } from "../write/sources";
 import { adminModel, waitingCount } from "./admin-data";
@@ -52,6 +53,7 @@ import { renderIdea } from "./pages/idea";
 import { renderIdeas } from "./pages/ideas";
 import { INVESTIGATIONS, type LibraryQuery, renderLibrary } from "./pages/library";
 import { renderNotFound, renderNotice } from "./pages/notice";
+import { receiptLine, renderReadBoard } from "./pages/read";
 import { renderSearch } from "./pages/search";
 import { renderStatic } from "./pages/static";
 import { renderTopic } from "./pages/topic";
@@ -199,6 +201,31 @@ app.get("/admin/write/:id", async (c, next) => {
   const d = store ? await store.get(c.req.param("id")).catch(() => null) : null;
   if (!store || !d) return next();
   const items = transcript(await store.messages(d.id));
+  if (d.kind === "read") {
+    const uid = (await resolveOperatorId(c.env.DB).catch(() => null)) ?? "";
+    const read = d.meta.readId ? await d1Reads(c.env, uid).get(d.meta.readId) : null;
+    const docId = d.meta.based_on?.[0] ?? "";
+    const title = (await sourceTitles(c.env, [docId])).get(docId) ?? docId;
+    return html(
+      renderWorkspace(
+        d,
+        items,
+        { total: 0, failed: [] },
+        {
+          hasKey: !!claudeRoute(c.env),
+          route: claudeRoute(c.env),
+          read: {
+            receipt: read ? receiptLine(read) : "No read recorded",
+            docId,
+            // Read it was just pressed: the page sends the first message once.
+            autostart:
+              c.req.query("start") === "1" && !items.length ? START_READ(title, docId) : undefined,
+          },
+          flash: { error: c.req.query("error"), done: c.req.query("done") },
+        },
+      ),
+    );
+  }
   if (d.kind === "research") {
     const uid = (await resolveOperatorId(c.env.DB).catch(() => null)) ?? "";
     const pages = await d1Sources(c.env, uid).texts(d.id);
@@ -257,6 +284,15 @@ app.get("/admin/write/:id/preview", async (c, next) => {
   const store = await workspaceStore(c);
   const d = store ? await store.get(c.req.param("id")).catch(() => null) : null;
   if (!d) return next();
+  // A read previews as its board: the cards, kept or dismissed in place.
+  if (d.kind === "read") {
+    const uid = (await resolveOperatorId(c.env.DB).catch(() => null)) ?? "";
+    const reads = d1Reads(c.env, uid);
+    const read = d.meta.readId ? await reads.get(d.meta.readId) : null;
+    if (!read) return html(renderEmptyPreview(d.kind));
+    const title = (await sourceTitles(c.env, [read.docId])).get(read.docId) ?? read.docId;
+    return html(renderReadBoard(read, await reads.derivations(read.id), title));
+  }
   if (!d.body.trim()) return html(renderEmptyPreview(d.kind));
   // A research report previews as the document page it will become.
   if (d.kind === "research") {
@@ -852,7 +888,20 @@ app.get("/p/:id", async (c, next) => {
     );
   }
   const view = docViewFromStore(raw) ?? (await uploadedDoc(c.env, raw));
-  if (view) return html(renderDocument(view, { signedIn: signedIn(c) }));
+  if (view) {
+    if (!signedIn(c)) return html(renderDocument(view));
+    // The author sees Read it, or the read already made.
+    const uid = await resolveOperatorId(c.env.DB).catch(() => null);
+    const read = uid ? await d1Reads(c.env, uid).latest(view.id) : null;
+    return html(
+      renderDocument(view, {
+        signedIn: true,
+        readIt: read?.draftId
+          ? { draftId: read.draftId, when: shortDate(read.startedAt.slice(0, 10)) }
+          : true,
+      }),
+    );
+  }
   // A retired slug: documents renamed by /v1/admin/reslug keep their old
   // address as an alias, and a citation already in the world must resolve.
   const userId = await resolveOperatorId(c.env.DB).catch(() => null);

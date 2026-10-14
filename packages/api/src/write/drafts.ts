@@ -7,7 +7,7 @@ import { all, one, run } from "../lib/d1";
 
 /** An article argues from the record; research asks the web a question and
  *  becomes a report for the record. */
-export type DraftKind = "article" | "research";
+export type DraftKind = "article" | "research" | "read";
 
 export interface DraftMeta {
   title?: string;
@@ -18,6 +18,8 @@ export interface DraftMeta {
   thesis?: string;
   /** Research: the Admin upload the report was last saved as. */
   savedAs?: string;
+  /** Read it: the read this conversation is (reads.id). */
+  readId?: string;
   based_on?: string[];
 }
 
@@ -102,7 +104,7 @@ interface DraftRow {
 
 const fromRow = (r: DraftRow): Draft => ({
   id: r.id,
-  kind: r.kind === "research" ? "research" : "article",
+  kind: r.kind === "research" ? "research" : r.kind === "read" ? "read" : "article",
   meta: parse<DraftMeta>(r.meta, {}),
   body: r.body_md ?? "",
   usage: { ...NO_USAGE, ...parse<Partial<Usage>>(r.usage, {}) },

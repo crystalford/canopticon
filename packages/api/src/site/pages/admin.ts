@@ -63,7 +63,7 @@ function waitingCard(p: AdminPiece, topics: string[]): string {
         `<option value="${esc(t)}"${t === p.topic ? " selected" : ""}>${t ? esc(t) : "Choose a topic…"}</option>`,
     )
     .join("");
-  const form = `<form method="post" action="/op/admin/${esc(p.id)}/publish" class="d-form"><div class="d-row"><span class="d-lab">Read as</span>${kinds}</div><div class="d-row"><label class="d-lab" for="t-${esc(p.id)}">Topic</label><select id="t-${esc(p.id)}" name="topic" class="d-select">${topicOpts}</select></div><div class="d-actions"><a href="/admin/review/${esc(p.id)}" class="d-btn link">Review</a><button type="submit" class="d-btn">${personal ? "Publish anyway" : "Publish"}</button><button type="submit" class="d-btn" formaction="/op/admin/${esc(p.id)}/private">Keep private</button><button type="submit" class="d-btn quiet" formaction="/op/admin/${esc(p.id)}/remove">Remove</button></div></form>`;
+  const form = `<form method="post" action="/op/admin/${esc(p.id)}/publish" class="d-form"><div class="d-row"><span class="d-lab">Read as</span>${kinds}</div><div class="d-row"><label class="d-lab" for="t-${esc(p.id)}">Topic</label><select id="t-${esc(p.id)}" name="topic" class="d-select">${topicOpts}</select></div><div class="d-actions"><a href="/admin/review/${esc(p.id)}" class="d-btn link">Review</a>${personal ? "" : `<button type="submit" class="d-btn" formaction="/op/read/${esc(p.slug)}">Read it</button>`}<button type="submit" class="d-btn">${personal ? "Publish anyway" : "Publish"}</button><button type="submit" class="d-btn" formaction="/op/admin/${esc(p.id)}/private">Keep private</button><button type="submit" class="d-btn quiet" formaction="/op/admin/${esc(p.id)}/remove">Remove</button></div></form>`;
   const note = personal
     ? `Read as <strong>personal</strong> because it ${esc(p.sortedWhy)}. It stays private unless you change how it is read, or publish it anyway.`
     : `Read as ${esc(SORT_LABELS[p.sortedAs].toLowerCase())} because it ${esc(p.sortedWhy)}. ${Math.max(1, Math.round(p.chars / 1000))}k characters.`;
@@ -105,7 +105,11 @@ function doneCard(p: AdminPiece, label: string, undo: string): string {
         ? `Live at <a href="/p/${esc(p.slug)}" class="ulink">/p/${esc(p.slug)}</a>.`
         : "Stored, read, and not public.",
     muted: true,
-    body: `<form method="post" action="${esc(undo)}" class="d-actions"><button type="submit" class="d-btn quiet">Undo</button></form>`,
+    body: `<form method="post" action="${esc(undo)}" class="d-actions">${
+      p.status === "published"
+        ? `<button type="submit" class="d-btn" formaction="/op/read/${esc(p.slug)}">Read it</button>`
+        : ""
+    }<button type="submit" class="d-btn quiet">Undo</button></form>`,
   });
 }
 
