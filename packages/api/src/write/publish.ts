@@ -3,7 +3,7 @@
 // A draft publishes only when every quotation is word for word in its
 // document (check.ts, the build's rule) and every document it quotes or
 // names is itself public — a receipt must land on a page a reader can open.
-// Publishing copies the draft into a new row of article_versions (migration
+// Publishing copies the draft into a new row of published_versions (migration
 // 0066); nothing is overwritten, and the site shows the latest version of
 // each published article. Editing the draft afterwards changes nothing live
 // until Update. Take down sets the draft back to 'draft' and keeps the
@@ -128,8 +128,8 @@ export async function latestVersion(
   }>(
     env.DB,
     `SELECT v.slug, v.version, v.meta, v.body_md, v.published_at,
-            (SELECT MIN(f.published_at) FROM article_versions f WHERE f.slug = v.slug) AS first_at
-       FROM article_versions v
+            (SELECT MIN(f.published_at) FROM published_versions f WHERE f.slug = v.slug) AS first_at
+       FROM published_versions v
       WHERE v.draft_id = ? AND v.user_id = ?
       ORDER BY v.version DESC LIMIT 1`,
     [draftId, userId],
@@ -166,13 +166,13 @@ export async function publishDraft(
   const slug = d.slug ?? (await freeSlug(env, userId, d.meta.title ?? "", d.id));
   const last = await one<{ n: number | null }>(
     env.DB,
-    "SELECT MAX(version) AS n FROM article_versions WHERE slug = ?",
+    "SELECT MAX(version) AS n FROM published_versions WHERE slug = ?",
     [slug],
   );
   const version = (last?.n ?? 0) + 1;
   await run(
     env.DB,
-    "INSERT INTO article_versions (slug, version, draft_id, user_id, meta, body_md, published_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO published_versions (slug, version, draft_id, user_id, meta, body_md, published_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
     [slug, version, d.id, userId, JSON.stringify(d.meta), d.body, new Date().toISOString()],
   );
   await store.save(d.id, { status: "published", slug });
@@ -205,11 +205,11 @@ export async function liveArticles(
   }>(
     env.DB,
     `SELECT v.slug, v.meta, v.body_md, v.published_at,
-            (SELECT MIN(f.published_at) FROM article_versions f WHERE f.slug = v.slug) AS first_at
-       FROM article_versions v
+            (SELECT MIN(f.published_at) FROM published_versions f WHERE f.slug = v.slug) AS first_at
+       FROM published_versions v
        JOIN drafts d ON d.id = v.draft_id AND d.user_id = v.user_id
       WHERE v.user_id = ? AND d.status = 'published'
-        AND v.version = (SELECT MAX(w.version) FROM article_versions w WHERE w.slug = v.slug)
+        AND v.version = (SELECT MAX(w.version) FROM published_versions w WHERE w.slug = v.slug)
       ORDER BY first_at DESC`,
     [userId],
   ).catch(() => []);

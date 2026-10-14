@@ -24,6 +24,11 @@ product became the publication.
   caching. It is used whenever the GitHub secrets `AI_GATEWAY_ID` and
   `CF_AIG_TOKEN` are set; the Anthropic key is the fallback. The page says
   which one is in use.
+- **The publish deploy failed, and is fixed here:** its table was called
+  `article_versions`, a name a legacy table from 0005 already had, so the
+  migration did nothing and then broke. It is `published_versions` now, and
+  a new test applies every migration in order to real SQLite, so a collision
+  like that fails CI instead of the deploy.
 - **Fixed before it could bite:** each conversation's instructions and tool
   list are now frozen at its first turn. Claude Opus 5.5 rejects a turn when
   they change mid-conversation (a new topic, a new tool), which would have

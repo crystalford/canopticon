@@ -382,7 +382,7 @@ function versionDb() {
           return { results: [] };
         },
         async run() {
-          if (/INSERT INTO article_versions/.test(sql))
+          if (/INSERT INTO published_versions/.test(sql))
             versions.push({ slug: String(args[0]), version: Number(args[1]) });
           return { results: [], meta: { changes: 1 } };
         },

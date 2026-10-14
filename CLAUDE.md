@@ -75,7 +75,7 @@
   never a held or private document. Needs `ANTHROPIC_API_KEY` (a GitHub
   secret the deploy pushes to the Worker). **Publish** runs the build's gates
   (every quote word for word, every quoted or named document already public,
-  a real topic) and copies the draft into a new `article_versions` row
+  a real topic) and copies the draft into a new `published_versions` row
   (migration 0066) — nothing overwritten; the site shows the latest version.
   Edits stay private until "Update the live article"; "Take down" keeps the
   address and every version. Live articles join the store as an overlay
