@@ -481,6 +481,19 @@ a.facet:hover { filter: brightness(.96); }
 .ws-check { color: var(--muted); }
 .ws-check.ok { color: var(--green-ink); }
 .ws-check.bad { color: var(--brick); font-weight: 600; }
+.ws-pub { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.ws-pubform { margin: 0; }
+.btn.primary { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.btn.primary:hover { background: var(--ink-2); border-color: var(--ink-2); color: var(--card); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.ws-live { color: var(--green-ink); font-weight: 600; }
+.ws-uptodate { color: var(--muted); }
+.ws-why { padding: 8px 16px; border-bottom: 1px solid var(--hair); font-size: 13px; background: var(--clay-wash); color: var(--clay-ink); }
+.ws-why summary { cursor: pointer; font-weight: 600; }
+.ws-why ul { margin: 6px 0 2px; padding-left: 18px; }
+.ws-flash { padding: 8px 16px; border-bottom: 1px solid var(--hair); font-size: 13.5px; }
+.ws-flash.ok { background: var(--green-wash); color: var(--green-ink); }
+.ws-flash.bad { background: var(--clay-wash); color: var(--clay-ink); }
 .ws-frame { flex: 1; width: 100%; border: 0; background: var(--paper); }
 .ws-nokey { margin: 12px 16px 0; padding: 10px 12px; border-radius: 10px; background: var(--clay-wash); color: var(--clay-ink); font-size: 13.5px; line-height: 1.5; }
 .ws-list { display: flex; flex-direction: column; border-top: 1px solid var(--hair); }

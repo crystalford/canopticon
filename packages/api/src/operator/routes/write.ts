@@ -5,8 +5,10 @@
 // run to the end before the redirect back.
 
 import { resolveOperatorId } from "../../public/data";
+import { invalidateUploads } from "../../site/uploads";
 import { type WriteEvent, anthropicStream, runTurn } from "../../write/agent";
 import { d1Drafts } from "../../write/drafts";
+import { announce, publishDraft, takeDown } from "../../write/publish";
 import { operatorApp } from "./app";
 
 const app = operatorApp();
@@ -72,6 +74,38 @@ app.post("/write/:id/turn", async (c) => {
   return new Response(readable, {
     headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-store" },
   });
+});
+
+// Publish (or update) and take down. Publish runs the same gates as the
+// build; a refusal comes back as the reasons, on the workspace page.
+app.post("/write/:id/publish", async (c) => {
+  const id = c.req.param("id");
+  const back = `/admin/write/${id}`;
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  if (!userId) return c.redirect(back, 303);
+  const r = await publishDraft(c.env, userId, d1Drafts(c.env, userId), id);
+  if (!r.ok) return c.redirect(`${back}?error=${encodeURIComponent(r.problems.join(" "))}`, 303);
+  invalidateUploads();
+  const ping = announce(c.env, r.slug);
+  try {
+    c.executionCtx.waitUntil(ping);
+  } catch {
+    // No execution context (tests): the ping is already running.
+  }
+  return c.redirect(`${back}?published=${encodeURIComponent(r.slug)}&v=${r.version}`, 303);
+});
+
+app.post("/write/:id/unpublish", async (c) => {
+  const id = c.req.param("id");
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  if (userId) {
+    await takeDown(d1Drafts(c.env, userId), id);
+    invalidateUploads();
+  }
+  return c.redirect(
+    `/admin/write/${id}?done=${encodeURIComponent("Taken down. The address and every version are kept.")}`,
+    303,
+  );
 });
 
 export default app;

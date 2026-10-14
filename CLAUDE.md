@@ -70,8 +70,16 @@
   and their conversations are D1 rows (migration 0065), append-only. It may
   quote public research and the operator's own published or waiting uploads,
   never a held or private document. Needs `ANTHROPIC_API_KEY` (a GitHub
-  secret the deploy pushes to the Worker). Publishing from it is the next
-  step; until then a draft downloads as `content/articles/<slug>.md`.
+  secret the deploy pushes to the Worker). **Publish** runs the build's gates
+  (every quote word for word, every quoted or named document already public,
+  a real topic) and copies the draft into a new `article_versions` row
+  (migration 0066) — nothing overwritten; the site shows the latest version.
+  Edits stay private until "Update the live article"; "Take down" keeps the
+  address and every version. Live articles join the store as an overlay
+  (`setPublishedArticles`, loaded with the uploads in `site/uploads.ts`), so
+  the article page, Library, topics, feeds, llms.txt, sitemap and cited-by
+  all read them; `storeVersion()` rebuilds the derived lookups when the
+  overlay changes. A draft also downloads as `content/articles/<slug>.md`.
 
 ---
 

@@ -183,7 +183,7 @@ export function anyResearchDoc(id: string): ResearchDoc | null {
 }
 
 export function article(slug: string): Article | null {
-  return STORE.articles[slug] ?? null;
+  return STORE.articles[slug] ?? PUBLISHED[slug] ?? null;
 }
 
 export function paper(slug: string): Paper | null {
@@ -191,7 +191,8 @@ export function paper(slug: string): Paper | null {
 }
 
 export function allArticles(): Article[] {
-  return Object.values(STORE.articles);
+  const own = Object.values(STORE.articles);
+  return PUBLISHED_ROWS.length ? [...own, ...Object.values(PUBLISHED)] : own;
 }
 
 export function allPapers(): Paper[] {
@@ -202,7 +203,7 @@ export function allPapers(): Paper[] {
  *  appear in a public list. Everything else in library.json is public. */
 export function libraryItems(opts: { signedIn?: boolean } = {}): LibraryItem[] {
   const own = STORE.library.filter((r) => opts.signedIn || r.kind !== "Project");
-  return UPLOADED.length ? [...UPLOADED, ...own] : own;
+  return UPLOADED.length || PUBLISHED_ROWS.length ? [...PUBLISHED_ROWS, ...UPLOADED, ...own] : own;
 }
 
 /**
@@ -215,8 +216,30 @@ export function libraryItems(opts: { signedIn?: boolean } = {}): LibraryItem[] {
 let UPLOADED: LibraryItem[] = [];
 export function setUploadedRows(rows: LibraryItem[]): void {
   const known = new Set(STORE.library.map((r) => r.route));
-  UPLOADED = rows.filter((r) => !known.has(r.route) && !STORE.research[r.doc ?? ""]);
+  const next = rows.filter((r) => !known.has(r.route) && !STORE.research[r.doc ?? ""]);
+  if (JSON.stringify(next) !== JSON.stringify(UPLOADED)) VERSION++;
+  UPLOADED = next;
 }
+
+/**
+ * Articles published from the workspace (/admin/write) live in D1 and join
+ * the store the same way: the article page, the Library, topics, feeds,
+ * llms.txt and the sitemap all read them through article(), allArticles()
+ * and libraryItems(). An article the store already holds is never shadowed.
+ */
+let PUBLISHED: Record<string, Article> = {};
+let PUBLISHED_ROWS: LibraryItem[] = [];
+export function setPublishedArticles(list: Array<{ article: Article; row: LibraryItem }>): void {
+  const keep = list.filter((x) => !STORE.articles[x.article.slug] && !STORE.papers[x.article.slug]);
+  const next = Object.fromEntries(keep.map((x) => [x.article.slug, x.article]));
+  if (JSON.stringify(next) !== JSON.stringify(PUBLISHED)) VERSION++;
+  PUBLISHED = next;
+  PUBLISHED_ROWS = keep.map((x) => x.row);
+}
+
+/** Bumped whenever the D1 overlays change, so derived lookups rebuild. */
+let VERSION = 0;
+export const storeVersion = (): number => VERSION;
 
 export const questions = (): DerivedRow[] => STORE.questions;
 export const keyFigures = (): DerivedRow[] => STORE.figures;

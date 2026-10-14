@@ -6,6 +6,7 @@
 import type { ChatItem } from "../../write/agent";
 import type { CheckResult } from "../../write/check";
 import type { Draft } from "../../write/drafts";
+import type { LiveVersion } from "../../write/publish";
 import { esc, shell } from "../layout";
 
 const SHORT_DATE = new Intl.DateTimeFormat("en-CA", { day: "numeric", month: "short" });
@@ -52,8 +53,40 @@ export function renderWorkspace(
   d: Draft,
   items: ChatItem[],
   check: CheckResult,
-  opts: { hasKey: boolean },
+  opts: {
+    hasKey: boolean;
+    publish?: { problems: string[]; live: LiveVersion | null; changed: boolean };
+    flash?: {
+      published?: string | undefined;
+      error?: string | undefined;
+      done?: string | undefined;
+    };
+  },
 ): string {
+  const pub = opts.publish ?? { problems: ["Nothing is written yet."], live: null, changed: true };
+  const isLive = d.status === "published" && !!pub.live;
+  const ready = !pub.problems.length;
+  const why = pub.problems.length
+    ? `<details class="ws-why"><summary>Not ready to publish</summary><ul>${pub.problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></details>`
+    : "";
+  const action = (label: string, path: string, cls = "btn sm", disabled = false) =>
+    `<form method="post" action="/op/write/${esc(d.id)}/${path}" class="ws-pubform"><button type="submit" class="${cls}"${disabled ? " disabled" : ""}>${label}</button></form>`;
+  const pubbar =
+    isLive && pub.live
+      ? `<a class="ws-live" href="/articles/${esc(pub.live.slug)}" target="_blank" rel="noopener">Live · version ${pub.live.version}</a>${
+          pub.changed
+            ? action("Update the live article", "publish", "btn sm primary", !ready)
+            : '<span class="ws-uptodate">Up to date</span>'
+        }${action("Take down", "unpublish")}`
+      : `${pub.live ? '<span class="ws-uptodate">Taken down</span>' : ""}${action(pub.live ? "Publish again" : "Publish", "publish", "btn sm primary", !ready)}`;
+  const f = opts.flash ?? {};
+  const flash = f.published
+    ? `<div class="ws-flash ok">Published at <a href="/articles/${esc(f.published)}" target="_blank" rel="noopener">/articles/${esc(f.published)}</a>. Search engines have been told.</div>`
+    : f.error
+      ? `<div class="ws-flash bad"><strong>Not published.</strong> ${esc(f.error)}</div>`
+      : f.done
+        ? `<div class="ws-flash ok">${esc(f.done)}</div>`
+        : "";
   const log = items.length
     ? items.map(item).join("")
     : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
@@ -70,7 +103,7 @@ ${opts.hasKey ? "" : NO_KEY}
 </form>
 </section>
 <section class="ws-page" aria-label="The page">
-<div class="ws-bar"><span data-ws-check>${checkLine(check)}</span><a class="ulink" href="/admin/write/${esc(d.id)}/article.md">Download .md</a></div>
+<div class="ws-bar"><span data-ws-check>${checkLine(check)}</span><span class="ws-pub"><a class="ulink" href="/admin/write/${esc(d.id)}/article.md">Download .md</a>${pubbar}</span></div>${why}${flash}
 <iframe class="ws-frame" src="/admin/write/${esc(d.id)}/preview" title="The article as it will be published" data-ws-preview></iframe>
 </section>
 </div>`;

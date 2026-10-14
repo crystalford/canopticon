@@ -31,6 +31,8 @@ export interface Draft {
   body: string;
   usage: Usage;
   status: "draft" | "published";
+  /** The address, fixed at first publish and kept after a take-down. */
+  slug?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,9 +43,17 @@ export interface DraftStore {
   list(): Promise<Draft[]>;
   get(id: string): Promise<Draft | null>;
   create(): Promise<Draft>;
-  save(id: string, patch: { meta?: DraftMeta; body?: string; usage?: Usage }): Promise<void>;
+  save(id: string, patch: DraftPatch): Promise<void>;
   messages(id: string): Promise<Message[]>;
   append(id: string, messages: Message[]): Promise<void>;
+}
+
+export interface DraftPatch {
+  meta?: DraftMeta;
+  body?: string;
+  usage?: Usage;
+  status?: Draft["status"];
+  slug?: string;
 }
 
 export const NO_USAGE: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cents: 0 };
@@ -65,6 +75,7 @@ interface DraftRow {
   body_md: string;
   usage: string;
   status: string;
+  slug?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -76,6 +87,7 @@ const fromRow = (r: DraftRow): Draft => ({
   body: r.body_md ?? "",
   usage: { ...NO_USAGE, ...parse<Partial<Usage>>(r.usage, {}) },
   status: r.status === "published" ? "published" : "draft",
+  ...(r.slug ? { slug: r.slug } : {}),
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -131,6 +143,14 @@ export function d1Drafts(env: Env, userId: string): DraftStore {
       if (patch.usage) {
         sets.push("usage = ?");
         args.push(JSON.stringify(patch.usage));
+      }
+      if (patch.status) {
+        sets.push("status = ?");
+        args.push(patch.status);
+      }
+      if (patch.slug) {
+        sets.push("slug = ?");
+        args.push(patch.slug);
       }
       sets.push("updated_at = ?");
       args.push(now(), id, userId);
@@ -210,6 +230,8 @@ export function memoryDrafts(): DraftStore & {
         ...(patch.meta ? { meta: patch.meta } : {}),
         ...(patch.body !== undefined ? { body: patch.body } : {}),
         ...(patch.usage ? { usage: patch.usage } : {}),
+        ...(patch.status ? { status: patch.status } : {}),
+        ...(patch.slug ? { slug: patch.slug } : {}),
         updatedAt: now(),
       });
     },

@@ -15,6 +15,7 @@ import {
   libraryItems,
   publicResearch,
   researchDoc,
+  storeVersion,
 } from "./content/store";
 import { articleQuotes } from "./md";
 import type { DocView } from "./pages/document";
@@ -22,9 +23,21 @@ import { shortDate, topicSlug } from "./theme";
 
 export const articleRoute = (slug: string) => `/articles/${slug}`;
 
+// The lookups below are built once per store version: published uploads and
+// workspace articles join the store after start-up (storeVersion()).
+let builtFor = -1;
+function fresh(): void {
+  if (builtFor === storeVersion()) return;
+  builtFor = storeVersion();
+  byDoc = null;
+  byRoute = null;
+  citations = null;
+}
+
 let byDoc: Map<string, LibraryItem> | null = null;
 /** The library row for a research document, when it has one. */
 export function libraryRowForDoc(id: string): LibraryItem | undefined {
+  fresh();
   if (!byDoc) {
     byDoc = new Map();
     for (const r of libraryItems({ signedIn: true })) if (r.doc) byDoc.set(r.doc, r);
@@ -34,6 +47,7 @@ export function libraryRowForDoc(id: string): LibraryItem | undefined {
 
 let byRoute: Map<string, LibraryItem> | null = null;
 export function libraryRowForRoute(route: string): LibraryItem | undefined {
+  fresh();
   if (!byRoute) {
     byRoute = new Map();
     for (const r of libraryItems({ signedIn: true })) byRoute.set(r.route, r);
@@ -45,6 +59,7 @@ type Citation = { route: string; title: string; kind: string; quotes: number };
 let citations: Map<string, Citation[]> | null = null;
 /** Which articles quote a document, and how often. */
 export function citedBy(docId: string): Citation[] {
+  fresh();
   if (!citations) {
     citations = new Map();
     for (const a of allArticles()) {
