@@ -89,13 +89,16 @@ jobs:
             PRETTY="${PAYLOAD}"
           fi
 
+          # The body goes through a file: a large response (a vocabulary, an
+          # archive listing) is longer than an argument list may be.
+          printf '%s' "${PRETTY}" > "${RUNNER_TEMP}/probe-body.txt"
           jq -n \
             --arg path "${PROBE_PATH}" \
             --arg method "${PROBE_METHOD}" \
             --arg status "${STATUS}" \
             --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg run "${GITHUB_RUN_ID}" \
-            --argjson payload "$(printf '%s' "${PRETTY}" | jq -Rs .)" \
+            --rawfile payload "${RUNNER_TEMP}/probe-body.txt" \
             '{requested_at:$ts, run_id:$run, method:$method, path:$path, status:($status|tonumber? // $status), body:$payload}' \
             > ops/probe/response.json
 
