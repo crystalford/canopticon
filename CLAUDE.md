@@ -135,7 +135,17 @@
   document's own Key Findings / Caveats bullets (already in the body).
   **"Write this"** on a possible article starts an article draft seeded with
   the thesis and its passages (`pitchBrief`, `drafts.meta.seed`, sent once on
-  arrival). Admin cards show each read: date, kept, dropped, on its page.
+  arrival). Admin cards show each read: date, kept, dropped, on its page. A
+  kept **coined name or open problem** joins Ideas from the board with the
+  paragraph the author writes there (`/op/read/card/:id/idea` → `addEntry`,
+  the workspace proposal's gates). A shown read's kept **figures and open
+  questions** also join the Library, search and topic lists
+  (`keyFigures()` / `questions()`), each linking to its passage.
+- **Shares sources with** (document rail): other public documents citing the
+  same pages — `sharedSources()` in `content/store.ts`, a query over the URLs
+  each cites (store research + published uploads via `setUploadedSources`),
+  newest first, never ranked by count. Two documents "agreeing" may be one
+  upstream page echoing; this makes that visible.
 
 ---
 

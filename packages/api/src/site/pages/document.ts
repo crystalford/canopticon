@@ -23,6 +23,8 @@ export interface DocView {
   body: string;
   /** Articles and papers that quote this document. */
   citedBy: Array<{ route: string; title: string; kind: string; quotes: number }>;
+  /** Other documents citing the same pages (a query over the URLs cited). */
+  shares?: Array<{ route: string; title: string; common: number }>;
 }
 
 const SUMMARY =
@@ -179,7 +181,18 @@ export function renderDocument(
       : typeof opts.readIt === "object"
         ? `<div class="dread"><a class="btn sm" href="/admin/write/${esc(opts.readIt.draftId)}">Open its read</a><span>Read ${esc(opts.readIt.when)}.</span></div>`
         : `<form method="post" action="/op/read/${esc(d.id)}" class="dread"><button type="submit" class="btn sm">Read it</button><span>Claude reads it whole and lays out what is in it, for you to keep or dismiss.</span></form>`;
-  const rail = `<aside class="drail">${toc}${meta}${readIt}${citedBy}</aside>`;
+  const shared = d.shares?.length
+    ? `<div class="citedby shares"><div class="drail-h">Shares sources with</div>${d.shares
+        .slice(0, 6)
+        .map(
+          (s) =>
+            `<a href="${esc(s.route)}">${esc(s.title)}<span class="shares-n">${s.common} ${s.common === 1 ? "page" : "pages"} cited by both</span></a>`,
+        )
+        .join("")}${
+        d.shares.length > 6 ? `<div class="shares-more">and ${d.shares.length - 6} more</div>` : ""
+      }</div>`
+    : "";
+  const rail = `<aside class="drail">${toc}${meta}${readIt}${citedBy}${shared}</aside>`;
 
   const ld = {
     "@context": "https://schema.org",

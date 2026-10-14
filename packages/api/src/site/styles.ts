@@ -543,6 +543,14 @@ a.facet:hover { filter: brightness(.96); }
 .rd-shown { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.5; background: var(--green-wash); color: var(--green-ink); }
 .rd-shown.off { background: var(--tint-3); color: var(--ink-2); }
 .rd-write { font-size: 13.5px; font-weight: 600; color: var(--cobalt); }
+.rd-idea summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--cobalt); }
+.rd-idea-f { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.rd-idea-f label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.rd-idea-f input, .rd-idea-f textarea, .rd-idea-f select { font: inherit; font-size: 14.5px; padding: 7px 9px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); color: var(--ink); }
+.rd-flash { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; font-size: 13.5px; background: var(--green-wash); color: var(--green-ink); }
+.rd-flash.bad { background: var(--clay-wash); color: var(--clay-ink); }
+.shares-n { display: block; font-size: 12px; color: var(--muted); }
+.shares-more { font-size: 12.5px; color: var(--muted); }
 .ev { margin-top: 44px; }
 .ev-sec { margin: 0 0 36px; }
 .ev-h { margin: 0 0 14px; padding-top: 16px; border-top: 1px solid var(--hair); font-size: 20px; font-weight: 600; letter-spacing: -.01em; }

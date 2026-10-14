@@ -633,3 +633,94 @@ describe("what the review found, kept fixed", () => {
     expect(after?.cents).toBeGreaterThan(0);
   });
 });
+
+describe("a coined name or open problem joins Ideas", () => {
+  it("offers the author's own paragraph only once a card is kept, then links to it", () => {
+    const coin = card({ kind: "coinage", status: "kept", data: { flag: "no single name exists" } });
+    const board = (cs: Derivation[]) =>
+      renderReadBoard(readRow("doc"), cs, "Doc", { topics: ["Housing"] });
+    expect(board([coin])).toContain(`/op/read/card/${coin.id}/idea`);
+    expect(board([coin])).toContain("What it names — in your words");
+    expect(board([{ ...coin, status: "proposed" }])).not.toContain("/idea");
+    expect(board([{ ...coin, data: { ideaRoute: "/concepts/the-vacancy-shadow" } }])).toContain(
+      'href="/concepts/the-vacancy-shadow"',
+    );
+  });
+});
+
+describe("a shown read's figures and open questions join the record's lists", () => {
+  it("lists them with the Library's figures and questions, linked to the passage, never for a held document", async () => {
+    const { keyFigures, questions } = await import("../src/site/content/store");
+    const doc = publicResearch()[0];
+    const held = heldResearch()[0];
+    if (!doc) throw new Error("no public research");
+    const fig = (docId: string) =>
+      card({
+        docId,
+        kind: "figure",
+        span: "The registry counted 98,765 units in 2024",
+        data: { figure: "98,765", measures: "units" },
+      });
+    setShownReads([
+      {
+        read: readRow(doc.id),
+        cards: [
+          fig(doc.id),
+          card({
+            docId: doc.id,
+            kind: "question_open",
+            span: "No study has measured what happened to tenants who left.",
+          }),
+        ],
+      },
+      ...(held
+        ? [
+            {
+              read: { ...readRow(held.id), id: "r2" },
+              cards: [
+                card({ ...fig(held.id), readId: "r2", span: "A held figure of 55,555 people" }),
+              ],
+            },
+          ]
+        : []),
+    ]);
+    const f = keyFigures().find((r) => r.v === "98,765");
+    expect(f?.route).toContain(`/p/${doc.id}#q=`);
+    expect(f?.topic).toBe(doc.topic);
+    expect(questions().some((q) => q.title.startsWith("No study has measured"))).toBe(true);
+    expect(keyFigures().some((r) => r.title.includes("55,555"))).toBe(false);
+    setShownReads([]);
+    expect(keyFigures().some((r) => r.v === "98,765")).toBe(false);
+  });
+});
+
+describe("documents that cite the same pages", () => {
+  it("normalises a cited page: scheme, www, trailing slash and punctuation aside", async () => {
+    const { citedUrls } = await import("../src/site/content/store");
+    expect(
+      citedUrls(
+        "See https://www.Example.org/a/ and (http://example.org/a). Also https://b.example/x?id=2#top.",
+      ),
+    ).toEqual(["example.org/a", "b.example/x?id=2"]);
+  });
+
+  it("links both ways, newest first, only to public documents", async () => {
+    const { sharedSources, citedUrls } = await import("../src/site/content/store");
+    const docs = publicResearch();
+    const a = docs.find((d) => sharedSources(d.id).length > 0);
+    if (!a) throw new Error("no two public documents share a cited page");
+    const links = sharedSources(a.id);
+    const b = links[0];
+    if (!b) throw new Error("no link");
+    const bId = b.route.slice("/p/".length);
+    expect(sharedSources(bId).some((x) => x.route === `/p/${a.id}`)).toBe(true);
+    const common = citedUrls(a.body).filter((u) =>
+      citedUrls(publicResearch().find((d) => d.id === bId)?.body ?? "").includes(u),
+    );
+    expect(b.common).toBe(common.length);
+    expect([...links].sort((x, y) => y.date.localeCompare(x.date))).toEqual(links);
+    const heldIds = new Set(heldResearch().map((d) => d.id));
+    for (const d of docs)
+      for (const l of sharedSources(d.id)) expect(heldIds.has(l.route.slice(3))).toBe(false);
+  });
+});

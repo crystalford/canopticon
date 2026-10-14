@@ -2,9 +2,18 @@
 
 > Status: **steps 1–4 built** (2026-10-14): shape, Read it, the cards, Keep /
 > Dismiss / ignore-forever, the receipt, "Show on the page", "Write this",
-> Admin badges. Not built: links as queries (step 5, worth it once many
-> documents are read), coined names and open problems becoming Ideas
-> entries from a read, and retiring the old pipeline (step 6). Written after a research pass over
+> Admin badges, coined names and open problems into Ideas, shown figures
+> and questions in the Library, and the first link ("Shares sources with",
+> from the URLs documents cite — it needs no read). Not built: the links that
+> need many reads (same measure, answered by, shared concept) and retiring
+> the old pipeline (step 6).
+> Checked 2026-10-15: of its steps, `og` (share image) and `index` (Vectorize
+> passages) feed nothing on the new site (no `og:image`; search matches
+> words), `section` and `findings` write fields no new page reads, and
+> `title` only replaces machine filenames. `digest` still makes the quotes
+> behind `/q/<id>` receipts. It runs only while the workbench tab is open,
+> so it costs nothing idle; retiring it is one decision — whether new
+> uploads still need `/q/` receipts — not a cleanup. Written after a research pass over
 > the Black Box handoff (ESSAY-CONTRACT, `canopticon-record.schema.json`, the
 > Admin / Document Evidence / project prototypes, the content JSON), the
 > product docs (`the-record.md`, HANDOFF, CHANGELOG) and the old pipeline's

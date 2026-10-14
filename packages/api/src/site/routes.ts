@@ -28,6 +28,7 @@ import {
   privatePage,
   problem,
   researchDoc,
+  sharedSources,
   shownRead,
   staticPage,
   term,
@@ -303,7 +304,13 @@ app.get("/admin/write/:id/preview", async (c, next) => {
     const read = d.meta.readId ? await reads.get(d.meta.readId) : null;
     if (!read) return html(renderEmptyPreview(d.kind));
     const title = (await sourceTitles(c.env, [read.docId])).get(read.docId) ?? read.docId;
-    return html(renderReadBoard(read, await reads.derivations(read.id), title));
+    return html(
+      renderReadBoard(read, await reads.derivations(read.id), title, {
+        topics: articleTopics(),
+        error: c.req.query("error"),
+        done: c.req.query("done"),
+      }),
+    );
   }
   if (!d.body.trim()) return html(renderEmptyPreview(d.kind));
   // A research report previews as the document page it will become.
@@ -901,6 +908,7 @@ app.get("/p/:id", async (c, next) => {
   }
   const view = docViewFromStore(raw) ?? (await uploadedDoc(c.env, raw));
   if (view) {
+    view.shares = sharedSources(view.id);
     const ev = evidence(shownRead(view.id));
     if (!signedIn(c)) return html(renderDocument(view, { evidence: ev }));
     // The author sees Read it, or the read already made.
