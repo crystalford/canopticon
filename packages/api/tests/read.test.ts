@@ -693,3 +693,34 @@ describe("a shown read's figures and open questions join the record's lists", ()
     expect(keyFigures().some((r) => r.v === "98,765")).toBe(false);
   });
 });
+
+describe("documents that cite the same pages", () => {
+  it("normalises a cited page: scheme, www, trailing slash and punctuation aside", async () => {
+    const { citedUrls } = await import("../src/site/content/store");
+    expect(
+      citedUrls(
+        "See https://www.Example.org/a/ and (http://example.org/a). Also https://b.example/x?id=2#top.",
+      ),
+    ).toEqual(["example.org/a", "b.example/x?id=2"]);
+  });
+
+  it("links both ways, newest first, only to public documents", async () => {
+    const { sharedSources, citedUrls } = await import("../src/site/content/store");
+    const docs = publicResearch();
+    const a = docs.find((d) => sharedSources(d.id).length > 0);
+    if (!a) throw new Error("no two public documents share a cited page");
+    const links = sharedSources(a.id);
+    const b = links[0];
+    if (!b) throw new Error("no link");
+    const bId = b.route.slice("/p/".length);
+    expect(sharedSources(bId).some((x) => x.route === `/p/${a.id}`)).toBe(true);
+    const common = citedUrls(a.body).filter((u) =>
+      citedUrls(publicResearch().find((d) => d.id === bId)?.body ?? "").includes(u),
+    );
+    expect(b.common).toBe(common.length);
+    expect([...links].sort((x, y) => y.date.localeCompare(x.date))).toEqual(links);
+    const heldIds = new Set(heldResearch().map((d) => d.id));
+    for (const d of docs)
+      for (const l of sharedSources(d.id)) expect(heldIds.has(l.route.slice(3))).toBe(false);
+  });
+});

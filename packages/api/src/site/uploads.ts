@@ -17,10 +17,12 @@ import { liveArticles } from "../write/publish";
 import { d1Reads } from "../write/read";
 import {
   type LibraryItem,
+  citedUrls,
   setPublishedArticles,
   setRecordEntries,
   setShownReads,
   setUploadedRows,
+  setUploadedSources,
 } from "./content/store";
 import { plain } from "./md";
 import { shortDate } from "./theme";
@@ -69,9 +71,10 @@ export async function refreshUploads(env: Env, force = false): Promise<void> {
         body_md: string | null;
         published_at: string | null;
         metadata: string | null;
+        full_md: string | null;
       }>(
         env.DB,
-        `SELECT slug, title, substr(body_md, 1, 4000) AS body_md, published_at, metadata, length(body_md) AS chars
+        `SELECT slug, title, substr(body_md, 1, 4000) AS body_md, body_md AS full_md, published_at, metadata, length(body_md) AS chars
            FROM pieces
           WHERE user_id = ? AND publication_status IN ('published', 'canonical') AND ${OWN_UPLOADS_SQL}
           ORDER BY published_at DESC LIMIT 500`,
@@ -101,6 +104,8 @@ export async function refreshUploads(env: Env, force = false): Promise<void> {
           };
         }),
       );
+      // The pages each one cites, for "Shares sources with".
+      setUploadedSources(new Map(rows.map((r) => [r.slug, citedUrls(r.full_md ?? "")])));
       // Articles published from the workspace join the same way.
       setPublishedArticles(await liveArticles(env, userId));
       // So do the concepts, open problems and figures added from it.

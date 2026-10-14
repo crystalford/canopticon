@@ -226,6 +226,83 @@ export function setUploadedRows(rows: LibraryItem[]): void {
 }
 
 /**
+ * Documents that cite the same page (docs/read-it.md, "Links": a query, never
+ * a judgement). Built from the URLs each public document cites — the store's
+ * research and the published uploads (their URLs set with the overlay) — and
+ * rebuilt when the overlays change. Two documents sharing sources may be one
+ * upstream page echoing twice; saying so is the point.
+ */
+export function citedUrls(body: string): string[] {
+  const out = new Set<string>();
+  for (const m of body.matchAll(/https?:\/\/[^\s)\]>"'<]+/g))
+    out.add(
+      m[0]
+        .replace(/[.,;:!?*_]+$/, "")
+        .replace(/^https?:\/\/(www\.)?/i, "")
+        .replace(/#.*$/, "")
+        .replace(/\/$/, "")
+        .toLowerCase(),
+    );
+  return [...out];
+}
+let UPLOAD_URLS = new Map<string, string[]>();
+export function setUploadedSources(next: Map<string, string[]>): void {
+  UPLOAD_URLS = next;
+  SOURCE_INDEX = null;
+}
+let SOURCE_INDEX: {
+  version: number;
+  byUrl: Map<string, string[]>;
+  byDoc: Map<string, string[]>;
+} | null = null;
+function sourceIndex() {
+  if (SOURCE_INDEX && SOURCE_INDEX.version === VERSION) return SOURCE_INDEX;
+  const byDoc = new Map<string, string[]>();
+  for (const d of publicResearch()) byDoc.set(d.id, citedUrls(d.body));
+  for (const r of UPLOADED)
+    if (r.doc && UPLOAD_URLS.has(r.doc)) byDoc.set(r.doc, UPLOAD_URLS.get(r.doc) ?? []);
+  const byUrl = new Map<string, string[]>();
+  for (const [doc, urls] of byDoc)
+    for (const u of urls) {
+      const list = byUrl.get(u) ?? [];
+      list.push(doc);
+      byUrl.set(u, list);
+    }
+  SOURCE_INDEX = { version: VERSION, byUrl, byDoc };
+  return SOURCE_INDEX;
+}
+
+export interface SharedSources {
+  route: string;
+  title: string;
+  date: string;
+  common: number;
+}
+
+/** Other public documents citing pages this one cites, newest first (a list
+ *  order, never a ranking by how many). */
+export function sharedSources(docId: string): SharedSources[] {
+  const ix = sourceIndex();
+  const counts = new Map<string, number>();
+  for (const u of ix.byDoc.get(docId) ?? [])
+    for (const other of ix.byUrl.get(u) ?? [])
+      if (other !== docId) counts.set(other, (counts.get(other) ?? 0) + 1);
+  const out: SharedSources[] = [];
+  for (const [id, common] of counts) {
+    const d = researchDoc(id);
+    const up = d ? null : UPLOADED.find((r) => r.doc === id);
+    if (!d && !up) continue;
+    out.push({
+      route: `/p/${id}`,
+      title: (d?.title ?? up?.title ?? id).replace(/^#\s*/, ""),
+      date: d?.date ?? up?.date ?? "",
+      common,
+    });
+  }
+  return out.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/**
  * Articles published from the workspace (/admin/write) live in D1 and join
  * the store the same way: the article page, the Library, topics, feeds,
  * llms.txt and the sitemap all read them through article(), allArticles()

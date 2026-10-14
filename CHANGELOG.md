@@ -16,6 +16,11 @@ product became the publication.
 - Once a read is on the page, its kept **figures** join the Library's key
   figures, search and the topic pages, and its **open questions** join the
   questions, each linking to the passage it came from.
+- **Shares sources with** on every document page: the other documents that
+  cite the same pages, with how many. Found by code from the links each
+  document cites, no model; newest first. Nineteen of the record's research
+  documents share at least one cited page — and two documents that agree
+  may be one page echoing twice, which this now shows.
 
 ## 2026-10-14, last — What a read feeds
 

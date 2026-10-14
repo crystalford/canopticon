@@ -28,6 +28,7 @@ import {
   privatePage,
   problem,
   researchDoc,
+  sharedSources,
   shownRead,
   staticPage,
   term,
@@ -907,6 +908,7 @@ app.get("/p/:id", async (c, next) => {
   }
   const view = docViewFromStore(raw) ?? (await uploadedDoc(c.env, raw));
   if (view) {
+    view.shares = sharedSources(view.id);
     const ev = evidence(shownRead(view.id));
     if (!signedIn(c)) return html(renderDocument(view, { evidence: ev }));
     // The author sees Read it, or the read already made.

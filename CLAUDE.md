@@ -141,6 +141,11 @@
   the workspace proposal's gates). A shown read's kept **figures and open
   questions** also join the Library, search and topic lists
   (`keyFigures()` / `questions()`), each linking to its passage.
+- **Shares sources with** (document rail): other public documents citing the
+  same pages — `sharedSources()` in `content/store.ts`, a query over the URLs
+  each cites (store research + published uploads via `setUploadedSources`),
+  newest first, never ranked by count. Two documents "agreeing" may be one
+  upstream page echoing; this makes that visible.
 
 ---
 
