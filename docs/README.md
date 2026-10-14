@@ -10,6 +10,8 @@ Read in this order if you are new: `../CLAUDE.md` → `the-record.md` →
 | `the-record.md` | The product definition. §1b names the NEO / neuronal-extension idea; §4 the pipeline; §5 lineage, bridges, readings; §7 findability; §8 design; §9 the cuts; §10 build order (all built). |
 | `HANDOFF.md` | Where the build stands, what only the operator can do, what is next. Updated at the end of every session. |
 | `DESIGN-BRIEF.md` | The briefing for the redesign (2026-09-24): every surface, how the machinery works, the visual system as it stands, what the operator asked for. Describes; does not prescribe. |
+| `blackbox/README.md` | The Black Box design spec (2026-10-11); its prototypes are the tie-breaker for the public pages. |
+| `blackbox/SINCE-PROTOTYPE.md` | Everything built after the Black Box prototype (the workspace, Read it, links, Admin's additions), the rules a redesign must keep, and the data each screen has. **The handoff to Claude Design for the next version**; `packages/api/scripts/look-handoff.mts` takes its screenshots. |
 
 ## Historical — read for context, never as design authority
 

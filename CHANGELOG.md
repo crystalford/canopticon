@@ -6,6 +6,17 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-15, night — A handoff back to Claude Design
+
+- `docs/blackbox/SINCE-PROTOTYPE.md`: everything built since the Black Box
+  prototype, surface by surface, the rules a redesign must keep, what each
+  new screen has to work with, and what most needs a design pass — for the
+  next version in Claude Design, which only knows the prototype.
+- `scripts/look-handoff.mts` takes the 19 screenshots that go with it
+  (desktop and phone, signed in where it matters); the fixture now seeds a
+  second shown read so "Elsewhere in the record" appears in them. The zip
+  is the document plus the screenshots: 20 files, Claude Design's limit.
+
 ## 2026-10-15, evening — The record links itself
 
 - **Links inside the text**, the way a Wikipedia page works: a phrase in a
