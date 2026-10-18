@@ -523,6 +523,12 @@ a.facet:hover { filter: brightness(.96); }
 .cl-mark.on { background: var(--green-bg); color: var(--green-ink); }
 .cl-state { font-size: 12.5px; color: var(--muted); margin-left: 6px; }
 .cl-what { display: block; font-size: 13.5px; color: var(--ink-2); }
+.cl-key { margin: 0 0 24px; padding: 18px 20px; border: 1px solid var(--hair); border-radius: 14px; background: var(--card); }
+.cl-key .cl-h { margin-top: 0; }
+.cl-p { margin: 0 0 12px; font-size: 14.5px; line-height: 1.55; color: var(--body); }
+.cl-keyform { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 10px; }
+.cl-keyform input { flex: 1 1 260px; min-width: 0; font: inherit; font-size: 15px; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); color: var(--ink); }
+.cl-keyform input:focus { outline: 2px solid var(--cobalt); outline-offset: 1px; }
 .cl-steps { margin: 0; padding-left: 20px; font-size: 14.5px; line-height: 1.6; color: var(--body); }
 .cl-steps li { margin-bottom: 6px; }
 .dread { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--hair); font-size: 13px; color: var(--muted); line-height: 1.45; }

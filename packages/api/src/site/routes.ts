@@ -18,6 +18,7 @@ import { articleTopics, changedSince, latestVersion, publishProblems } from "../
 import { START_READ, d1Reads } from "../write/read";
 import { checkReport, d1Sources, reportFile, reportProblems } from "../write/research";
 import { sourceTexts, sourceTitles } from "../write/sources";
+import { loadStoredKey } from "../write/stored-key";
 import { adminModel, waitingCount } from "./admin-data";
 import {
   allPapers,
@@ -91,6 +92,8 @@ app.use("*", async (c, next) => {
     if (signedIn(c)) {
       const userId = await resolveOperatorId(c.env.DB).catch(() => null);
       setWaiting(userId ? await waitingCount(c.env, userId) : 0);
+      // Whether Claude is connected depends on a key pasted on /admin/claude.
+      await loadStoredKey(c.env);
     }
   }
   await next();
@@ -206,7 +209,11 @@ async function workspaceStore(c: { env: Env }) {
 
 // Is Claude connected, and what is missing (never the values).
 app.get("/admin/claude", (c) =>
-  signedIn(c) ? html(renderClaude(c.env)) : html(signIn("/admin/claude"), { status: 401 }),
+  signedIn(c)
+    ? html(
+        renderClaude(c.env, undefined, { error: c.req.query("error"), done: c.req.query("done") }),
+      )
+    : html(signIn("/admin/claude"), { status: 401 }),
 );
 
 app.get("/admin/write", async (c) => {

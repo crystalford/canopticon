@@ -15,6 +15,7 @@ import { html } from "../../site/layout";
 import { renderClaude } from "../../site/pages/claude";
 import { invalidateUploads } from "../../site/uploads";
 import { testClaude } from "../../write/connection";
+import { forgetStoredKey, saveStoredKey } from "../../write/stored-key";
 import { operatorApp } from "./app";
 import { createAndExtract, mimeForName } from "./upload";
 
@@ -204,5 +205,31 @@ app.post("/admin/link", async (c) => {
 // "Test the connection" on /admin/claude: one small call, the way the
 // workspace makes them, and the page again with what came back.
 app.post("/admin/claude-test", async (c) => html(renderClaude(c.env, await testClaude(c.env))));
+
+// The Anthropic key, pasted on /admin/claude: saved encrypted, then tested at
+// once. A key Anthropic refuses is not kept. The key never comes back to any
+// page; the page shows its last four characters.
+app.post("/admin/claude-key", async (c) => {
+  const form = (await c.req.parseBody().catch(() => ({}))) as Record<string, unknown>;
+  const saved = await saveStoredKey(c.env, typeof form.key === "string" ? form.key : "");
+  if (!saved.ok) return c.redirect(`/admin/claude?error=${encodeURIComponent(saved.reason)}`, 303);
+  const test = await testClaude(c.env);
+  if (!test.ok && /^(401|403)\b/.test(test.error)) {
+    await forgetStoredKey(c.env);
+    return c.redirect(
+      `/admin/claude?error=${encodeURIComponent(`Anthropic refused that key (${test.error}). It was not kept.`)}`,
+      303,
+    );
+  }
+  return html(renderClaude(c.env, test, { done: "Key saved." }));
+});
+
+app.post("/admin/claude-key/forget", async (c) => {
+  await forgetStoredKey(c.env);
+  return c.redirect(
+    `/admin/claude?done=${encodeURIComponent("The pasted key is forgotten.")}`,
+    303,
+  );
+});
 
 export default app;

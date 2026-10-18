@@ -8,6 +8,7 @@
 import type { Env } from "../env";
 import { type StreamFn, WRITE_MODEL, anthropicStream, claudeRoute } from "./agent";
 import { WEB_TOOLS } from "./research";
+import { storedKey, storedKeyHint } from "./stored-key";
 
 export interface Setting {
   name: string;
@@ -16,7 +17,16 @@ export interface Setting {
 }
 
 export function connectionSettings(env: Env): Setting[] {
+  const hint = storedKeyHint();
   return [
+    {
+      name: hint ? `Key pasted here (…${hint})` : "Key pasted here",
+      set: !!storedKey(),
+      what:
+        hint && !storedKey()
+          ? "Saved, but it can no longer be read (the site's SESSION_SECRET changed). Paste it again."
+          : "An Anthropic API key you paste below, stored encrypted. Billed by Anthropic, to your API credits.",
+    },
     {
       name: "AI_GATEWAY_ID",
       set: !!env.AI_GATEWAY_ID,
@@ -35,7 +45,7 @@ export function connectionSettings(env: Env): Setting[] {
     {
       name: "ANTHROPIC_API_KEY",
       set: !!env.ANTHROPIC_API_KEY,
-      what: "Only if you are not using the gateway: an Anthropic API key, billed by Anthropic.",
+      what: "The same, set as a GitHub secret instead. A key pasted here is used before it.",
     },
   ];
 }

@@ -13,6 +13,7 @@
 // routes/app.ts, and this file mounts them at "/" so every path is what it
 // was. `createAndExtract` now lives in routes/upload.ts.
 
+import { loadStoredKey } from "../write/stored-key";
 import adminRoutes from "./routes/admin";
 import { operatorApp } from "./routes/app";
 import exportRoutes from "./routes/export";
@@ -26,6 +27,13 @@ import uploadRoutes from "./routes/upload";
 import writeRoutes from "./routes/write";
 
 const app = operatorApp();
+
+// The Anthropic key pasted on /admin/claude: read (cached a minute) before
+// any action, so a turn, a read or a test uses it (write/stored-key.ts).
+app.use("*", async (c, next) => {
+  await loadStoredKey(c.env);
+  await next();
+});
 
 // ---- one site, permission layers (spec v2.5 Part 9) ---------------------
 //

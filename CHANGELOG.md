@@ -6,6 +6,15 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-18 — Paste an Anthropic key on /admin/claude
+
+- Claude can be connected by pasting an Anthropic API key on `/admin/claude`
+  — no GitHub secret, no redeploy, works from a phone. The key is stored
+  encrypted, tested at once (a key Anthropic refuses is not kept), and never
+  shown again except its last four characters; "Forget the pasted key"
+  removes it. It is used before the `ANTHROPIC_API_KEY` secret; the
+  Cloudflare gateway, when set up, before either. Migration 0071.
+
 ## 2026-10-15, night — A handoff back to Claude Design
 
 - `docs/blackbox/SINCE-PROTOTYPE.md`: everything built since the Black Box
