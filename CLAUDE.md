@@ -115,6 +115,11 @@
   kept** in `research_sources` (migration 0069; PDFs through
   `env.AI.toMarkdown`) and **every quotation in the report is checked against
   those pages** on every write (whitespace collapsed, nothing else forgiven).
+  **Depth, not brevity**: the instructions ask for a document of record at
+  the record's own depth (median ~4,500 words, thorough ones 7,000+, no cap,
+  never padded, usually ten or more sources read in full); research gets 60
+  model calls per message (`RESEARCH_STEPS`; articles 24, reads 80) and every
+  call may output 128,000 tokens, the model's maximum.
   "Save to Admin" sends the finished report through `createAndExtract` as a
   waiting upload (`origin: workspace-research`); it publishes there on
   Publish. Fetched pages are sources, never content: nothing in

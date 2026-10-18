@@ -48,6 +48,9 @@ const PRICE = { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 };
 
 /** Model calls in one turn, at most. A turn that needs more stops and says so. */
 const MAX_STEPS = 24;
+/** Research searches and reads many pages before it writes; a thorough one
+ *  must not stop halfway through its sources. */
+const RESEARCH_STEPS = 60;
 /** A read notes a card per call; even batched, a long document needs more. */
 const READ_STEPS = 80;
 
@@ -705,7 +708,9 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     emit,
   };
   const usageBefore = usage.cents;
-  const steps = o.maxSteps ?? (draft.kind === "read" ? READ_STEPS : MAX_STEPS);
+  const steps =
+    o.maxSteps ??
+    (draft.kind === "read" ? READ_STEPS : draft.kind === "research" ? RESEARCH_STEPS : MAX_STEPS);
   // Whether the model finished on its own, rather than hitting the step limit.
   let ended = false;
 
@@ -714,7 +719,9 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     try {
       const s = o.stream({
         model: WRITE_MODEL,
-        max_tokens: 64000,
+        // The model's whole output allowance: a long report or article is one
+        // write, and its thinking counts against the same budget.
+        max_tokens: 128000,
         betas: [
           "server-side-fallback-2026-07-01",
           "thinking-binding-controls-2026-08-01",
