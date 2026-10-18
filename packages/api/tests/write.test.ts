@@ -896,6 +896,42 @@ describe("research: what was read is kept and checked", () => {
       ).join(" "),
     ).toMatch(/Sources/);
     expect(reportFile(ok).startsWith("# Rent bans\n\n## TL;DR")).toBe(true);
+    // A plain web address counts as much as a Markdown link.
+    expect(
+      reportProblems(
+        {
+          ...ok,
+          body: ok.body.replace(
+            "[A page](https://a.example/page)",
+            "A page. https://a.example/page",
+          ),
+        },
+        clean,
+        articleTopics(),
+      ),
+    ).toEqual([]);
+  });
+
+  it("redraws the bar after Claude writes, so Save and Publish never stay stale", async () => {
+    const { SITE_JS: SCRIPT } = await import("../src/site/script");
+    const { renderWorkspace } = await import("../src/site/pages/write");
+    const d = memoryDrafts();
+    const draft = await d.create("research");
+    const html = renderWorkspace(
+      draft,
+      [],
+      { total: 0, failed: [] },
+      {
+        hasKey: true,
+        research: { problems: ["Nothing is written yet."], pages: 0 },
+      },
+    );
+    expect(html).toContain("data-ws-state");
+    expect(html).toContain("data-ws-title");
+    // The not-ready list sits inside the part that is redrawn.
+    expect(html.indexOf("data-ws-state")).toBeLessThan(html.indexOf("Not ready for Admin"));
+    expect(SCRIPT).toContain("restate()");
+    expect(SCRIPT).toContain('"[data-ws-state]"');
   });
 });
 

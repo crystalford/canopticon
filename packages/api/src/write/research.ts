@@ -52,7 +52,8 @@ THE REPORT (write it with write_report, revise one passage with edit_draft)
 - Plain, direct prose. No throat-clearing, no "in conclusion".
 
 IN THE CHAT
-Be brief: say what you are doing and what you found. Do not paste the report into the chat; it is on the page. When Chris flags a passage it arrives as a quoted block (lines starting with "> "); revise that passage with edit_draft.`;
+Be brief: say what you are doing and what you found. Do not paste the report into the chat; it is on the page. When Chris flags a passage it arrives as a quoted block (lines starting with "> "); revise that passage with edit_draft.
+You cannot save or publish the report. Chris does it in two steps: "Save to Admin", the button in the bar above the report on the right (it works once nothing is listed under "Not ready for Admin" there), and then Publish on the report's card in Admin. When he asks you to publish, tell him exactly that, and fix whatever that list names that you can.`;
 
 export const WRITE_REPORT: Anthropic.Beta.BetaToolUnion = {
   name: "write_report",
@@ -271,8 +272,8 @@ export function reportProblems(
   if (d.body.trim().length < 400) p.push("It is not written yet.");
   if (!d.meta.topic || !topics.includes(d.meta.topic))
     p.push("Its topic is not one of the record's topics.");
-  if (!/^##\s+Sources\b[\s\S]*\]\(https?:\/\//m.test(d.body))
-    p.push("It has no Sources list with links.");
+  if (!/^##\s+Sources\b[\s\S]*https?:\/\//m.test(d.body))
+    p.push("It has no Sources list with web addresses.");
   if (check.failed.length)
     p.push(
       `${check.failed.length} ${check.failed.length === 1 ? "quotation is" : "quotations are"} not found in the pages read.`,

@@ -6,6 +6,17 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-18, night — Save to Admin no longer stays grey
+
+- The bar above the page (title, pages read, "Not ready", Save to Admin,
+  Publish) was drawn when the workspace opened and never redrawn, so after
+  Claude wrote a report it still said "0 pages read · Nothing is written
+  yet" with Save greyed out until a reload. It now redraws when Claude
+  finishes a turn that wrote.
+- A Sources list with plain web addresses counts, not only Markdown links.
+- Claude is told how a report gets published (Save to Admin, then Publish
+  in Admin) and an article (Publish), so it says so instead of guessing.
+
 ## 2026-10-18, evening — Claude knows the whole record
 
 - The workspace's Claude now sees Chris's own published articles and papers

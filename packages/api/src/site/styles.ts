@@ -600,6 +600,7 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .ev-strip a { color: var(--green-ink); }
 .ws-live { color: var(--green-ink); font-weight: 600; }
 .ws-uptodate { color: var(--muted); }
+.ws-state { flex: none; }
 .ws-why { padding: 8px 16px; border-bottom: 1px solid var(--hair); font-size: 13px; background: var(--clay-wash); color: var(--clay-ink); }
 .ws-why summary { cursor: pointer; font-weight: 600; }
 .ws-why ul { margin: 6px 0 2px; padding-left: 18px; }

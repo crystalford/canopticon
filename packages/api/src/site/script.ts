@@ -326,6 +326,20 @@ export const SITE_JS = `(function () {
         if (b) view(b.getAttribute("data-ws-tab"));
       });
     }
+    var restate = function () {
+      fetch(location.pathname, { headers: { accept: "text/html" } }).then(function (res) {
+        return res.ok ? res.text() : null;
+      }).then(function (html) {
+        if (!html) return;
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        [["[data-ws-state]"], ["[data-ws-title]"]].forEach(function (k) {
+          var now = ws.querySelector(k[0]), fresh = doc.querySelector(k[0]);
+          if (now && fresh) now.innerHTML = fresh.innerHTML;
+        });
+        wsCheck = ws.querySelector("[data-ws-check]");
+        if (doc.title) d.title = doc.title;
+      }).catch(function () {});
+    };
     var refresh = function () {
       if (tabs && ws.getAttribute("data-view") === "chat") {
         var pt = tabs.querySelector('[data-ws-tab="page"]');
@@ -403,7 +417,7 @@ export const SITE_JS = `(function () {
       if (hello) hello.remove();
       line("ws-msg you", text);
       wsText.value = ""; setFlag(""); wsSend.disabled = true; wsText.disabled = true;
-      var reply = null, finished = false;
+      var reply = null, finished = false, wrote = false;
       var status = line("ws-act live", "Working… keep this tab open until Claude finishes.");
       var handle = function (ev) {
         if (ev.type === "text") {
@@ -417,7 +431,7 @@ export const SITE_JS = `(function () {
           wsCheck.innerHTML = !c.total ? '<span class="ws-check">No quotations yet</span>'
             : n ? '<span class="ws-check bad">' + c.total + " quotations · " + n + " not word for word</span>"
             : '<span class="ws-check ok">' + c.total + " quotations · all word for word</span>";
-          refresh();
+          wrote = true; refresh();
         } else if (ev.type === "update") {
           line("ws-upd", ev.text); reply = null; wsLog.insertBefore(status, null);
         } else if (ev.type === "card") {
@@ -463,6 +477,9 @@ export const SITE_JS = `(function () {
         status.remove(); wsSend.disabled = false; wsText.disabled = false; wsText.focus();
         // A read's receipt and its Show button live outside the frame: reload all.
         if (finished) location.reload();
+        // The bar (title, pages read, what keeps it from Publish or Admin,
+        // the buttons) was drawn when the page opened: redraw it from the server.
+        else if (wrote) restate();
       });
     });
     // Read it lands here with the first message waiting: send it once.
