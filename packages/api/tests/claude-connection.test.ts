@@ -75,3 +75,98 @@ describe("Claude's connection", () => {
     expect(await testClaude(none)).toMatchObject({ ok: false, route: null });
   });
 });
+
+// ---- the key pasted on /admin/claude ---------------------------------------------
+
+import { readFileSync, readdirSync } from "node:fs";
+import { createRequire } from "node:module";
+import { anthropicKey, claudeRoute } from "../src/write/agent";
+import {
+  forgetStoredKey,
+  loadStoredKey,
+  saveStoredKey,
+  storedKey,
+  storedKeyHint,
+} from "../src/write/stored-key";
+
+const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as {
+  DatabaseSync: new (
+    p: string,
+  ) => {
+    exec(sql: string): void;
+    prepare(sql: string): {
+      all(...a: unknown[]): Array<Record<string, unknown>>;
+      run(...a: unknown[]): unknown;
+    };
+  };
+};
+function sqliteD1() {
+  const db = new DatabaseSync(":memory:");
+  const dir = "../../supabase/migrations";
+  for (const f of readdirSync(dir)
+    .filter((f) => /^\d{4}_.*\.sql$/.test(f))
+    .sort())
+    db.exec(readFileSync(`${dir}/${f}`, "utf8"));
+  const d1 = {
+    prepare(sql: string) {
+      let args: unknown[] = [];
+      const stmt = {
+        bind(...a: unknown[]) {
+          args = a;
+          return stmt;
+        },
+        async all() {
+          return { results: db.prepare(sql).all(...args) };
+        },
+        async first() {
+          return db.prepare(sql).all(...args)[0] ?? null;
+        },
+        async run() {
+          db.prepare(sql).run(...args);
+          return { results: [], meta: {} };
+        },
+      };
+      return stmt;
+    },
+  } as unknown as D1Database;
+  return { db, d1 };
+}
+
+const KEY = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789-WXYZ";
+
+describe("a key pasted on /admin/claude", () => {
+  it("is stored encrypted, read back, and shown only by its last four characters", async () => {
+    const { db, d1 } = sqliteD1();
+    const env = { DB: d1, SESSION_SECRET: "s3cret", ANTHROPIC_API_KEY: "" } as unknown as Env;
+    expect(await saveStoredKey(env, "not a key")).toMatchObject({ ok: false });
+    expect(await saveStoredKey(env, ` ${KEY} `)).toEqual({ ok: true });
+    const row = db.prepare("SELECT * FROM operator_secrets").all()[0] as Record<string, string>;
+    expect(JSON.stringify(row)).not.toContain("abcdefghij");
+    expect(row.hint).toBe("WXYZ");
+    await loadStoredKey(env, true);
+    expect(storedKey()).toBe(KEY);
+    expect(storedKeyHint()).toBe("WXYZ");
+    expect(claudeRoute(env)).toBe("anthropic");
+    expect(renderClaude(env)).not.toContain("abcdefghij");
+    expect(renderClaude(env)).toContain("…WXYZ");
+    await forgetStoredKey(env);
+    expect(storedKey()).toBeNull();
+    expect(claudeRoute(env)).toBeNull();
+  });
+
+  it("is used before the deploy's secret, and unreadable once the session secret changes", async () => {
+    const { d1 } = sqliteD1();
+    const env = {
+      DB: d1,
+      SESSION_SECRET: "s3cret",
+      ANTHROPIC_API_KEY: "sk-ant-from-github",
+    } as unknown as Env;
+    await saveStoredKey(env, KEY);
+    expect(anthropicKey(env)).toBe(KEY);
+    await loadStoredKey({ ...env, SESSION_SECRET: "rotated" } as Env, true);
+    expect(storedKey()).toBeNull();
+    expect(storedKeyHint()).toBe("WXYZ"); // the page can say a key was saved but is unreadable
+    expect(anthropicKey(env)).toBe("sk-ant-from-github");
+    await forgetStoredKey(env);
+  });
+});

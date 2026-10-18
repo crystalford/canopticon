@@ -99,7 +99,13 @@
 - **Is Claude connected?** `/admin/claude` (`site/pages/claude.ts`,
   `write/connection.ts`): which settings are present (never their values) and
   "Test the connection" (`POST /op/admin/claude-test`) — one small call with
-  the workspace's own model, betas and declared web tools.
+  the workspace's own model, betas and declared web tools. **An Anthropic key
+  can be pasted there** (`write/stored-key.ts`, `operator_secrets`, migration
+  0071): stored AES-GCM-encrypted with a key derived from `SESSION_SECRET`,
+  tested at once (a 401/403 key is not kept), never shown again beyond its
+  last four characters, loaded into a one-minute per-isolate cache on every
+  `/op` request and signed-in page. Route order: AI Gateway, then the pasted
+  key, then the `ANTHROPIC_API_KEY` secret (`claudeRoute`, `anthropicKey`).
 - **Research** is the same workspace with a research draft ("New research";
   `write/research.ts`): Claude (Opus 5.5) checks the record, then searches the
   web and reads whole pages with Anthropic's server tools (`web_search`,

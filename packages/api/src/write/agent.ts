@@ -38,6 +38,7 @@ import {
   fetchedPages,
 } from "./research";
 import { listSources, searchSources, sourceText, sourceTexts } from "./sources";
+import { storedKey } from "./stored-key";
 
 export const WRITE_MODEL = "claude-opus-5-5";
 
@@ -72,13 +73,18 @@ export interface StreamLike {
 export type StreamFn = (params: StreamParams) => StreamLike;
 
 /** How the workspace reaches Claude: through Cloudflare's AI Gateway when it
- *  is configured (Unified Billing, no Anthropic key), else directly with
- *  ANTHROPIC_API_KEY, else not at all. */
+ *  is configured (Unified Billing, no Anthropic key), else directly with an
+ *  Anthropic key — the one pasted on /admin/claude (write/stored-key.ts),
+ *  else the ANTHROPIC_API_KEY secret — else not at all. */
 export function claudeRoute(env: Env): "gateway" | "anthropic" | null {
   if (env.AI_GATEWAY_ID && env.CLOUDFLARE_ACCOUNT_ID && env.CF_AIG_TOKEN) return "gateway";
-  if (env.ANTHROPIC_API_KEY) return "anthropic";
+  if (anthropicKey(env)) return "anthropic";
   return null;
 }
+
+/** The Anthropic key in use: the pasted one wins over the deploy's secret. */
+export const anthropicKey = (env: Env): string | null =>
+  storedKey() || env.ANTHROPIC_API_KEY || null;
 
 /** The real thing: the Anthropic SDK, pointed at the route above. The
  *  gateway's Anthropic pass-through takes the Messages API unchanged —
@@ -101,7 +107,7 @@ export async function anthropicStream(env: Env): Promise<StreamFn | null> {
             "x-api-key": null,
           },
         })
-      : new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+      : new Anthropic({ apiKey: anthropicKey(env) });
   return (params) => client.beta.messages.stream(params) as unknown as StreamLike;
 }
 
