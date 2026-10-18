@@ -2,7 +2,7 @@
 id: speculative-emerging-oral-compounds-for-skin-aging-mechanism-first-tie
 title: "Speculative & Emerging Oral Compounds for Skin Aging — Mechanism-First Tier Report (Pass 1)"
 kind: "Research pass"
-topic: "AI-directed development"
+topic: "Health & self-care"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true

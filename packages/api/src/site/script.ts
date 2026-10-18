@@ -418,6 +418,8 @@ export const SITE_JS = `(function () {
             : n ? '<span class="ws-check bad">' + c.total + " quotations · " + n + " not word for word</span>"
             : '<span class="ws-check ok">' + c.total + " quotations · all word for word</span>";
           refresh();
+        } else if (ev.type === "update") {
+          line("ws-upd", ev.text); reply = null; wsLog.insertBefore(status, null);
         } else if (ev.type === "card") {
           line("ws-act", ev.label); reply = null; wsLog.insertBefore(status, null);
           soon();

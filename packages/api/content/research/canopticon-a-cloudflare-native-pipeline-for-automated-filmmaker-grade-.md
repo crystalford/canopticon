@@ -2,7 +2,7 @@
 id: canopticon-a-cloudflare-native-pipeline-for-automated-filmmaker-grade-
 title: "CANOPTICON: A Cloudflare-Native Pipeline for Automated, Filmmaker-Grade Daily News Shorts"
 kind: "Research"
-topic: "Prices & markets"
+topic: "Video & design"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true

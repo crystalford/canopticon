@@ -2,7 +2,7 @@
 id: aldershot-build-blueprint-competitive-landscape-product-ux-design
 title: "ALDERSHOT — Build Blueprint, Competitive Landscape & Product/UX Design"
 kind: "Build brief"
-topic: "AI-directed development"
+topic: "Video & design"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true

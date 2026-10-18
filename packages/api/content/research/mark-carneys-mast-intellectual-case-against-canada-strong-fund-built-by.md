@@ -1,6 +1,6 @@
 ---
 id: mark-carneys-mast-intellectual-case-against-canada-strong-fund-built-by
-title: "Carney as central banker / author"
+title: "Mark Carney's Mast: The Intellectual Case Against the Canada Strong Fund — Built by Carney Himself"
 kind: "Research brief"
 topic: "Canadian politics & power"
 date: "2026-07-22"

@@ -1,6 +1,6 @@
 ---
 id: canopticon-dossier-bill-c-22-lawful-access-act-2026
-title: "Gary Anandasangaree, Minister of Public Safety (Liberal, Scarborough—Rouge Park)"
+title: "Canopticon Dossier: Bill C-22 (Lawful Access Act, 2026)"
 kind: "Research brief"
 topic: "Canadian politics & power"
 date: "2026-07-22"

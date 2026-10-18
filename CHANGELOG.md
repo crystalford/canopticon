@@ -6,6 +6,27 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-18, evening — Claude knows the whole record
+
+- The workspace's Claude now sees Chris's own published articles and papers
+  as well as the research documents: listed, searched and read in their own
+  section, labelled as his writing. They are read-only — never a source — so
+  a quotation from an article fails the word-for-word check like any other
+  text that is not a research document.
+- Every new draft's instructions open with a short account of what the
+  record holds and say plainly that Claude can read it but cannot change a
+  title, topic, date or text; when something looks wrong it says what and
+  why, and does not tell Chris where to fix it (it had guessed, wrongly,
+  that Admin could). Applies to drafts started from now on — a draft's
+  instructions are frozen at its first turn.
+- Claude's progress notes show in the chat while it works (italic lines,
+  kept in the conversation): the model's `display: "updates"` thinking.
+- The record cleanup Research found on its first run: five working titles
+  replaced with the documents' real ones, thirteen documents refiled (the
+  Aldershot and film-pipeline dossiers under Video & design, three skin
+  and supplement reports under Health & self-care), and the Telescope
+  report given its date.
+
 ## 2026-10-18, later — Research goes long
 
 - Research is told to write a document of record, not a summary: every

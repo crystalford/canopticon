@@ -2,7 +2,7 @@
 id: aldershot-a-delegation-first-ai-video-editor-product-concept-dossier
 title: "Aldershot: A Delegation-First AI Video Editor — Product Concept Dossier"
 kind: "Build brief"
-topic: "Attribution & credit"
+topic: "Video & design"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true

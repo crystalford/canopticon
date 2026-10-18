@@ -83,6 +83,7 @@ function item(i: ChatItem, cards?: Map<string, string>): string {
   if (i.who === "proposal")
     return (i.toolUseId && cards?.get(i.toolUseId)) || `<div class="ws-act">${esc(i.text)}</div>`;
   if (i.who === "activity") return `<div class="ws-act">${esc(i.text)}</div>`;
+  if (i.who === "update") return `<div class="ws-upd">${esc(i.text)}</div>`;
   return `<div class="ws-msg ${i.who === "you" ? "you" : "claude"}">${esc(i.text)}</div>`;
 }
 

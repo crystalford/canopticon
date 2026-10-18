@@ -12,7 +12,14 @@ import { OWN_UPLOADS_SQL } from "../admin/runtime";
 import type { Env } from "../env";
 import { all, one } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
-import { publicResearch, researchDoc } from "../site/content/store";
+import {
+  allArticles,
+  allPapers,
+  article,
+  paper,
+  publicResearch,
+  researchDoc,
+} from "../site/content/store";
 import { searchTerms } from "../site/pages/search";
 
 export interface Source {
@@ -166,4 +173,80 @@ export async function sourceTitles(env: Env, ids: string[]): Promise<Map<string,
   if (!want.size) return out;
   for (const s of await listSources(env)) if (want.has(s.id)) out.set(s.id, s.title);
   return out;
+}
+
+// ---- the author's own writing: read, never quoted ---------------------------------
+//
+// The articles and papers Chris has published. Claude may list, search and
+// read them — to know what is already written and to build on it — but they
+// are not sources: a quotation must come from a research document, and the
+// verbatim check (sourceTexts above) never returns their text, so a <q> that
+// names one fails.
+
+export interface OwnWriting {
+  id: string;
+  title: string;
+  kind: "Article" | "Paper";
+  topic: string;
+  date: string;
+  route: string;
+}
+
+export function ownWriting(): OwnWriting[] {
+  const articles = allArticles()
+    .filter((a) => !a.withdrawn)
+    .map((a) => ({
+      id: a.slug,
+      title: a.title,
+      kind: "Article" as const,
+      topic: a.topic,
+      date: a.date,
+      route: `/articles/${a.slug}`,
+    }));
+  const papers = allPapers().map((p) => ({
+    id: p.slug,
+    title: p.title,
+    kind: "Paper" as const,
+    topic: p.topic ?? "",
+    date: p.date ?? "",
+    route: `/articles/${p.slug}`,
+  }));
+  return [...articles, ...papers].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** An article's or paper's text, for reading only. */
+export function ownWritingText(
+  id: string,
+): { title: string; kind: string; route: string; text: string } | null {
+  const a = article(id);
+  if (a && !a.withdrawn)
+    return { title: a.title, kind: "Article", route: `/articles/${id}`, text: a.body };
+  const p = paper(id);
+  if (p) return { title: p.title, kind: "Paper", route: `/articles/${id}`, text: p.body };
+  return null;
+}
+
+/** The author's articles and papers that contain every term, each with a passage. */
+export function searchOwnWriting(
+  query: string,
+  limit = 5,
+): Array<{ item: OwnWriting; snippet: string }> {
+  const terms = searchTerms(query);
+  if (!terms.length) return [];
+  const out: Array<{ item: OwnWriting; snippet: string; score: number }> = [];
+  for (const item of ownWriting()) {
+    const text = ownWritingText(item.id)?.text ?? "";
+    const lc = lower(`${item.title}\n${text}`);
+    if (!terms.every((t) => lc.includes(t))) continue;
+    const at = lower(text).indexOf(terms[0] ?? "");
+    const snippet =
+      at >= 0
+        ? text
+            .slice(Math.max(0, at - 160), at + 200)
+            .replace(/\s+/g, " ")
+            .trim()
+        : "";
+    out.push({ item, snippet, score: terms.reduce((n, t) => n + lc.split(t).length - 1, 0) });
+  }
+  return out.sort((a, b) => b.score - a.score).slice(0, limit);
 }

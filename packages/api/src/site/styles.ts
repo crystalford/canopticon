@@ -508,6 +508,7 @@ a.facet:hover { filter: brightness(.96); }
 .btn.primary:hover { background: var(--ink-2); border-color: var(--ink-2); color: var(--card); }
 .btn[disabled] { opacity: .45; cursor: not-allowed; }
 .btn.quiet { color: var(--ink-2); font-weight: 400; }
+.ws-upd { padding: 2px 0 2px 10px; border-left: 2px solid var(--hair); font-size: 13.5px; line-height: 1.5; color: var(--ink-2); font-style: italic; }
 .cl { max-width: 760px; }
 .cl-status { margin: 0 0 16px; padding: 12px 16px; border-radius: 12px; font-size: 15px; background: var(--clay-wash); color: var(--clay-ink); }
 .cl-status.on { background: var(--green-wash); color: var(--green-ink); }

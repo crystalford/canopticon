@@ -1,6 +1,6 @@
 ---
 id: the-pattern-in-brief
-title: "Introduction: The Pattern in Brief"
+title: "The Arrival, the Name, the Exit: A Forensic Audit of Mark Carney's Credit-Capture Pattern"
 kind: "Research brief"
 topic: "Canadian politics & power"
 date: "2026-07-22"

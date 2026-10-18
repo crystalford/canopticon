@@ -567,6 +567,7 @@ describe("a conversation's instructions are frozen", () => {
       expect(JSON.stringify(a.system)).not.toContain("A brand new topic");
       expect(a.thinking).toEqual({
         type: "adaptive",
+        display: "updates",
         block_binding: { prefix_mismatch_behavior: "drop_block" },
       });
       expect(a.betas).toContain("thinking-binding-controls-2026-08-01");

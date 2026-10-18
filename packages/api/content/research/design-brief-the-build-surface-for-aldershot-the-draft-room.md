@@ -2,7 +2,7 @@
 id: design-brief-the-build-surface-for-aldershot-the-draft-room
 title: "Design Brief: The Build Surface for Aldershot — \"The Draft Room\""
 kind: "Build brief"
-topic: "Attribution & credit"
+topic: "Video & design"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true

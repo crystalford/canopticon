@@ -2,7 +2,7 @@
 id: aldershot-a-ground-up-blueprint-for-an-agentic-documentary-video-essay
 title: "ALDERSHOT: A Ground-Up Blueprint for an Agentic Documentary & Video-Essay Engine"
 kind: "Build brief"
-topic: "Prices & markets"
+topic: "Video & design"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true

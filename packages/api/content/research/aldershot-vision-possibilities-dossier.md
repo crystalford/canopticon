@@ -2,7 +2,7 @@
 id: aldershot-vision-possibilities-dossier
 title: "ALDERSHOT — Vision & Possibilities Dossier"
 kind: "Build brief"
-topic: "Attribution & credit"
+topic: "Video & design"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true

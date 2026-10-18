@@ -2,7 +2,7 @@
 id: the-aldershot-product-bible-v1-0-september-2026
 title: "The Aldershot Product Bible — v1.0 (September 2026)"
 kind: "Build brief"
-topic: "Attribution & credit"
+topic: "Video & design"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true
