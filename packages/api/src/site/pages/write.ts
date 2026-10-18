@@ -96,7 +96,13 @@ export function renderWorkspace(
     route?: "gateway" | "anthropic" | null;
     publish?: { problems: string[]; live: LiveVersion | null; changed: boolean };
     /** A research draft: what keeps it from Admin, pages read, where it went. */
-    research?: { problems: string[]; pages: number; savedAs?: string | undefined };
+    research?: {
+      problems: string[];
+      pages: number;
+      savedAs?: string | undefined;
+      /** Saved before under this title: saving updates that copy. */
+      update?: boolean | undefined;
+    };
     /** A read: its receipt line (HTML), the document, and whether what was
      *  kept is on the document's page. */
     read?: { receipt: string; docId: string; readId: string; shown: boolean };
@@ -132,7 +138,9 @@ export function renderWorkspace(
     rs?.savedAs
       ? '<a class="ws-live" href="/admin" target="_blank" rel="noopener">In Admin</a>'
       : ""
-  }${action(rs?.savedAs ? "Save again" : "Save to Admin", "save", "btn sm primary", !ready)}`;
+  }${action(rs?.update ? "Update in Admin" : "Save to Admin", "save", "btn sm primary", !ready)}${
+    rs?.savedAs ? action("Write an article from this", "article") : ""
+  }`;
   const readAction = (label: string, act: string, cls = "btn sm") =>
     `<form method="post" action="/op/read/${esc(read?.readId ?? "")}/${act}" class="ws-pubform"><button type="submit" class="${cls}">${label}</button></form>`;
   const pubbar = read

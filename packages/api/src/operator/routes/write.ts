@@ -4,6 +4,9 @@
 // it: streamed to the page as it happens, or — without the page's script —
 // run to the end before the redirect back.
 
+import { OWN_UPLOADS_SQL } from "../../admin/runtime";
+import { purgeTypedGraphForPiece } from "../../graph/lib/digestion-typed";
+import { one, run } from "../../lib/d1";
 import { resolveOperatorId } from "../../public/data";
 import { proposalCard } from "../../site/pages/write";
 import { invalidateUploads } from "../../site/uploads";
@@ -13,7 +16,13 @@ import { d1Drafts } from "../../write/drafts";
 import { addEntry, d1Entries } from "../../write/entries";
 import { announce, articleTopics, publishDraft, takeDown } from "../../write/publish";
 import { d1Reads } from "../../write/read";
-import { checkReport, d1Sources, reportFile, reportProblems } from "../../write/research";
+import {
+  checkReport,
+  d1Sources,
+  reportBrief,
+  reportFile,
+  reportProblems,
+} from "../../write/research";
 import { operatorApp } from "./app";
 import { createAndExtract } from "./upload";
 
@@ -213,6 +222,15 @@ app.post("/write/:id/save", async (c) => {
   const problems = reportProblems(d, checkReport(d.body, pages), articleTopics());
   if (problems.length)
     return c.redirect(`${back}?error=${encodeURIComponent(problems.join(" "))}`, 303);
+  // Saved before under the same title: the same report, revised.
+  const prior =
+    d.meta.savedAs && d.meta.savedTitle && d.meta.savedTitle === d.meta.title
+      ? await one<{ id: string; publication_status: string }>(
+          c.env.DB,
+          `SELECT id, publication_status FROM pieces WHERE slug = ? AND user_id = ? AND ${OWN_UPLOADS_SQL}`,
+          [d.meta.savedAs, userId],
+        ).catch(() => null)
+      : null;
   const bytes = new TextEncoder().encode(reportFile(d));
   const p = await createAndExtract(
     c.env,
@@ -226,12 +244,52 @@ app.post("/write/:id/save", async (c) => {
       extraMetadata: { origin: "workspace-research", draft_id: id, pages_read: pages.length },
     },
   );
-  await store.save(id, { meta: { ...d.meta, savedAs: p.slug } });
+  let done = "Saved to Admin. It waits there for Publish.";
+  if (p.duplicate) done = "Already in Admin, unchanged.";
+  else if (prior && prior.id !== p.pieceId && prior.publication_status !== "published") {
+    // The same report, revised: the new copy replaces the one still waiting
+    // (Admin's Remove: the graph first, then the row).
+    await purgeTypedGraphForPiece(c.env, userId, prior.id);
+    await run(c.env.DB, "DELETE FROM pieces WHERE id = ? AND user_id = ?", [prior.id, userId]);
+    done = "Updated in Admin. It waits there for Publish.";
+  } else if (prior)
+    done =
+      "The earlier version is already published, so this one was saved as a new document in Admin. It waits there for Publish.";
+  else if (d.meta.savedAs)
+    done =
+      "Saved to Admin as a new document; the earlier report stays there too. It waits there for Publish.";
+  await store.save(id, { meta: { ...d.meta, savedAs: p.slug, savedTitle: d.meta.title ?? "" } });
   invalidateUploads();
-  return c.redirect(
-    `${back}?done=${encodeURIComponent(p.duplicate ? "Already in Admin, unchanged." : "Saved to Admin. It waits there for Publish.")}`,
-    303,
-  );
+  return c.redirect(`${back}?done=${encodeURIComponent(done)}`, 303);
+});
+
+// "Write an article from this": a saved report starts an article draft that
+// reads it first. Pressed again for the same report, it opens that draft.
+app.post("/write/:id/article", async (c) => {
+  const id = c.req.param("id");
+  const back = `/admin/write/${id}`;
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  if (!userId) return c.redirect(back, 303);
+  const store = d1Drafts(c.env, userId);
+  const d = await store.get(id);
+  if (!d || d.kind !== "research" || !d.meta.savedAs)
+    return c.redirect(
+      `${back}?error=${encodeURIComponent("Save the report to Admin first; the article reads it from there.")}`,
+      303,
+    );
+  if (d.meta.articleDraft && d.meta.articleFrom === d.meta.savedAs) {
+    const open = await store.get(d.meta.articleDraft).catch(() => null);
+    if (open) return c.redirect(`/admin/write/${open.id}`, 303);
+  }
+  const title = d.meta.savedTitle || d.meta.title || d.meta.savedAs;
+  const draft = await store.create("article");
+  await store.save(draft.id, {
+    meta: { based_on: [d.meta.savedAs], seed: reportBrief(title, d.meta.savedAs) },
+  });
+  await store.save(id, {
+    meta: { ...d.meta, articleDraft: draft.id, articleFrom: d.meta.savedAs },
+  });
+  return c.redirect(`/admin/write/${draft.id}?start=1`, 303);
 });
 
 // Publish (or update) and take down. Publish runs the same gates as the

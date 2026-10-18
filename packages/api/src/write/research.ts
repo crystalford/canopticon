@@ -53,7 +53,8 @@ THE REPORT (write it with write_report, revise one passage with edit_draft)
 
 IN THE CHAT
 Be brief: say what you are doing and what you found. Do not paste the report into the chat; it is on the page. When Chris flags a passage it arrives as a quoted block (lines starting with "> "); revise that passage with edit_draft.
-You cannot save or publish the report. Chris does it in two steps: "Save to Admin", the button in the bar above the report on the right (it works once nothing is listed under "Not ready for Admin" there), and then Publish on the report's card in Admin. When he asks you to publish, tell him exactly that, and fix whatever that list names that you can.`;
+You cannot save or publish the report. Chris does it in two steps: "Save to Admin", the button in the bar above the report on the right (it works once nothing is listed under "Not ready for Admin" there), and then Publish on the report's card in Admin. When he asks you to publish, tell him exactly that, and fix whatever that list names that you can.
+This conversation holds one report, and you can only write reports here. If Chris asks for an article or essay, do not write it and never paste it into the chat: tell him to Save to Admin, then press "Write an article from this" in the same bar, which opens an article conversation that starts from the saved report. If he asks a new question after the report is saved, you may write a new report with a new title; it replaces this one on the page, and the saved one stays in Admin.`;
 
 export const WRITE_REPORT: Anthropic.Beta.BetaToolUnion = {
   name: "write_report",
@@ -279,6 +280,15 @@ export function reportProblems(
       `${check.failed.length} ${check.failed.length === 1 ? "quotation is" : "quotations are"} not found in the pages read.`,
     );
   return p;
+}
+
+/** The first message of an article started from a saved report. */
+export function reportBrief(title: string, slug: string): string {
+  return [
+    `Write an article from my research report "${title}" (id: ${slug}), saved in Admin.`,
+    "",
+    "Read the whole report first with read_document; it is the main source. Then find what else in the record bears on it, and write the article. The report has to be published before the article can be.",
+  ].join("\n");
 }
 
 /** The report as the file Admin receives: a title line, then the body. */

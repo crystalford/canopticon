@@ -130,7 +130,14 @@
   call may output 128,000 tokens, the model's maximum.
   "Save to Admin" sends the finished report through `createAndExtract` as a
   waiting upload (`origin: workspace-research`); it publishes there on
-  Publish. Fetched pages are sources, never content: nothing in
+  Publish. Saved again under the same title it is **"Update in Admin"**:
+  the new copy replaces the one still waiting (a published one is kept and
+  the new copy is a new document); a new title in the same conversation is
+  a new document (`meta.savedAs` / `savedTitle`). Once saved, **"Write an
+  article from this"** starts an article draft seeded to read the saved
+  report first (`reportBrief`, `meta.articleDraft`). A research conversation
+  cannot write articles, and its instructions say to send Chris to that
+  button rather than paste one into the chat. Fetched pages are sources, never content: nothing in
   `research_sources` is published. Context editing clears old tool results
   past 300k tokens; the kept pages remain. **This replaces the old research
   engine (`graph/lib/deep-research.ts`, `/op/research`), which is retired

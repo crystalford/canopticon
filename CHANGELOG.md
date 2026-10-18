@@ -6,6 +6,19 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-18, late — Reports save cleanly; an article from a report
+
+- Saving a revised report (same title) updates its copy waiting in Admin
+  instead of adding a second one; the button says "Update in Admin". A new
+  report in the same conversation (a new title) is saved as a new document,
+  and the message says so. ("Save again" had suggested it overwrote.)
+- "Write an article from this", beside Save once a report is saved, opens
+  an article conversation that reads the report first. A research
+  conversation cannot write articles — it had pasted one into the chat when
+  asked; it now points to the button.
+- An article conversation holds one article; Claude says to start a new
+  one for a different piece and never pastes an article into the chat.
+
 ## 2026-10-18, night — Save to Admin no longer stays grey
 
 - The bar above the page (title, pages read, "Not ready", Save to Admin,

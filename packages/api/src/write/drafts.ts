@@ -18,6 +18,13 @@ export interface DraftMeta {
   thesis?: string;
   /** Research: the Admin upload the report was last saved as. */
   savedAs?: string;
+  /** Research: the title it had when saved. The same title saves over the
+   *  waiting copy ("Update in Admin"); a new title is a new document. */
+  savedTitle?: string;
+  /** Research: the article draft started from the saved report, and which
+   *  saved report (its slug) it was started from. */
+  articleDraft?: string;
+  articleFrom?: string;
   /** Read it: the read this conversation is (reads.id). */
   readId?: string;
   /** The first message, sent once when the draft opens (Read it, Write this). */
