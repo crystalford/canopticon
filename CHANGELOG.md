@@ -6,6 +6,18 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-18, later — Research goes long
+
+- Research is told to write a document of record, not a summary: every
+  sub-question answered in full with the evidence itself (figures, methods,
+  dates, disagreements), at the depth of the record's own reports (a median
+  of about 4,500 words, the thorough ones 7,000 or more), no length cap,
+  never padded, usually ten or more sources read in full.
+- A research message may take 60 model calls (was 24), so a thorough search
+  does not stop halfway; every call may write up to 128,000 tokens (was
+  64,000), the model's maximum. Articles keep the contract's rule: as long
+  as the research warrants, no caps.
+
 ## 2026-10-18 — Paste an Anthropic key on /admin/claude
 
 - Claude can be connected by pasting an Anthropic API key on `/admin/claude`
