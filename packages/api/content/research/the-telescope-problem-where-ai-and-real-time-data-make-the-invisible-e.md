@@ -3,7 +3,7 @@ id: the-telescope-problem-where-ai-and-real-time-data-make-the-invisible-e
 title: "The Telescope Problem: Where AI and Real-Time Data Make the Invisible Economy Legible"
 kind: "Research"
 topic: "Prices & markets"
-date: ""
+date: "2026-09-01"
 shelf: ""
 listed_in_library: true
 source_file: "uploads/Canopticon Research Documents-20260927T175515Z-1-001/The Telescope Problem_ Making the Invisible Economy Legible Through AI and Real-Time Data.md"

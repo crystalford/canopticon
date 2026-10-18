@@ -37,7 +37,15 @@ import {
   describeReportCheck,
   fetchedPages,
 } from "./research";
-import { listSources, searchSources, sourceText, sourceTexts } from "./sources";
+import {
+  listSources,
+  ownWriting,
+  ownWritingText,
+  searchOwnWriting,
+  searchSources,
+  sourceText,
+  sourceTexts,
+} from "./sources";
 import { storedKey } from "./stored-key";
 
 export const WRITE_MODEL = "claude-opus-5-5";
@@ -57,6 +65,8 @@ const READ_STEPS = 80;
 export type WriteEvent =
   | { type: "text"; text: string }
   | { type: "activity"; text: string }
+  /** A progress note Claude wrote between tool calls. */
+  | { type: "update"; text: string }
   | { type: "draft"; check: CheckResult }
   | { type: "proposal"; entry: Entry; html?: string }
   | { type: "card"; card: Derivation; label: string }
@@ -120,6 +130,9 @@ export async function anthropicStream(env: Env): Promise<StreamFn | null> {
 const topics = (): string[] => articleTopics();
 
 const HOW = `You are writing for Canopticon, a public research record, with its author, Chris Telford. He talks to you in a workspace: the chat is on the left, and the page you write is on the right, rendered exactly as it will be published. Each time you write, he sees the page change.
+
+THE RECORD
+Canopticon holds: research documents (the sources you may quote, with uploads that may still be waiting in Admin); Chris's own published articles and papers (his writing — read them to know what is already written and to build on it, never quote them as a source); and concepts, open problems and key figures. You can read the record; you cannot change anything in it — not a title, topic, date or text. When something there looks wrong (a title that is really a heading, a document under the wrong topic), say what and why in one line, and Chris will have it fixed; do not tell him where to fix it.
 
 HOW YOU WORK
 - Read before you write. Find the research with search_documents and list_documents, then read every document you will rely on in full with read_document. Quotations chosen by keyword search are the ones that matched the search, not the ones that carry the document.
@@ -266,7 +279,7 @@ export const TOOLS: Anthropic.Beta.BetaToolUnion[] = [
   {
     name: "list_documents",
     description:
-      "List the documents in the record you may read and quote: id, title, topic, kind, date, length and whether it is an upload waiting in Admin. Optionally narrow to a topic.",
+      "List the record: first the research documents you may read and quote (id, title, topic, kind, date, length, whether it is an upload waiting in Admin), then Chris's own published articles and papers, which you may read but never quote as a source. Optionally narrow to a topic.",
     input_schema: {
       type: "object",
       properties: { topic: { type: "string", description: "Part of a topic name, e.g. Housing" } },
@@ -275,7 +288,7 @@ export const TOOLS: Anthropic.Beta.BetaToolUnion[] = [
   {
     name: "search_documents",
     description:
-      "Search the full text of every document you may quote. Every word must match; put a phrase in double quotes to match it exactly. Returns the best documents with short passages around the match.",
+      "Search the full text of every research document you may quote, and of Chris's own articles and papers (listed separately; read-only, never a source). Every word must match; put a phrase in double quotes to match it exactly. Returns the best documents with short passages around the match.",
     input_schema: {
       type: "object",
       properties: { query: { type: "string" } },
@@ -284,7 +297,8 @@ export const TOOLS: Anthropic.Beta.BetaToolUnion[] = [
   },
   {
     name: "read_document",
-    description: "Read one document in full. Quote only from text this returns, copied exactly.",
+    description:
+      "Read one research document, or one of Chris's articles or papers, in full. Quote only from research documents, copied exactly from the text this returns.",
     input_schema: {
       type: "object",
       properties: { id: { type: "string", description: "The document id" } },
@@ -366,7 +380,7 @@ export function activityLabel(name: string, input: unknown): string {
       return `Searched: ${String(i.query ?? "")}`;
     case "read_document": {
       const id = String(i.id ?? "");
-      return `Read: ${researchDoc(id)?.title.replace(/^#\s*/, "") ?? id}`;
+      return `Read: ${researchDoc(id)?.title.replace(/^#\s*/, "") ?? ownWritingText(id)?.title ?? id}`;
     }
     case "write_draft":
       return "Wrote the draft";
@@ -436,37 +450,60 @@ async function runTool(
       const rows = (await listSources(t.env)).filter(
         (s) => !want || s.topic.toLowerCase().includes(want),
       );
-      if (!rows.length) return { text: "No documents match." };
+      const own = ownWriting().filter((w) => !want || w.topic.toLowerCase().includes(want));
+      if (!rows.length && !own.length) return { text: "No documents match." };
+      const research = rows
+        .slice(0, 300)
+        .map(
+          (s) =>
+            `${s.id} · ${s.title} · ${s.topic || "no topic"} · ${s.kind} · ${s.date} · ${s.chars} chars${s.status === "waiting" ? " · waiting in Admin" : ""}`,
+        )
+        .join("\n");
+      const mine = own
+        .map(
+          (w) =>
+            `${w.id} · ${w.title} · ${w.topic || "no topic"} · ${w.kind} · ${w.date} · ${w.route}`,
+        )
+        .join("\n");
       return {
-        text: rows
-          .slice(0, 300)
-          .map(
-            (s) =>
-              `${s.id} · ${s.title} · ${s.topic || "no topic"} · ${s.kind} · ${s.date} · ${s.chars} chars${s.status === "waiting" ? " · waiting in Admin" : ""}`,
-          )
-          .join("\n"),
+        text: `RESEARCH DOCUMENTS (${rows.length}) — sources you may quote\n${research || "none"}\n\nCHRIS'S OWN ARTICLES AND PAPERS (${own.length}) — read to know what is already written; never quote them as a source\n${mine || "none"}`,
       };
     }
     case "search_documents": {
       const p = SearchInput.safeParse(input);
       if (!p.success) return bad("Give a query.");
       const hits = await searchSources(t.env, p.data.query);
-      if (!hits.length) return { text: "Nothing matches." };
+      const mine = searchOwnWriting(p.data.query);
+      if (!hits.length && !mine.length) return { text: "Nothing matches." };
+      const research = hits
+        .map(
+          (h) =>
+            `${h.source.id} · ${h.source.title} · ${h.source.topic}\n${h.snippets.map((s) => `  … ${s} …`).join("\n")}`,
+        )
+        .join("\n\n");
+      const own = mine
+        .map(
+          (m) =>
+            `${m.item.id} · ${m.item.title} · ${m.item.kind}${m.snippet ? `\n  … ${m.snippet} …` : ""}`,
+        )
+        .join("\n\n");
       return {
-        text: hits
-          .map(
-            (h) =>
-              `${h.source.id} · ${h.source.title} · ${h.source.topic}\n${h.snippets.map((s) => `  … ${s} …`).join("\n")}`,
-          )
-          .join("\n\n"),
+        text: `${research || "No research document matches."}${own ? `\n\nIN CHRIS'S OWN ARTICLES AND PAPERS (read-only, never a source):\n${own}` : ""}`,
       };
     }
     case "read_document": {
       const p = ReadInput.safeParse(input);
       if (!p.success) return bad("Give a document id.");
       const text = await sourceText(t.env, p.data.id);
-      if (text == null)
+      if (text == null) {
+        // Chris's own article or paper: readable, never a source.
+        const own = ownWritingText(p.data.id);
+        if (own)
+          return {
+            text: `${own.title}\n(Chris's own ${own.kind.toLowerCase()}, published at ${own.route}. Read it to know what is already written and to build on it; it is not a source — never quote it.)\n\n${own.text}`,
+          };
         return bad(`"${p.data.id}" is not a document you can read. Use list_documents for ids.`);
+      }
       const title = researchDoc(p.data.id)?.title ?? p.data.id;
       // A read records that the whole document was read.
       if (t.kind === "read" && t.reads && t.readId && t.readDoc?.id === p.data.id)
@@ -726,6 +763,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
           "server-side-fallback-2026-07-01",
           "thinking-binding-controls-2026-08-01",
           "context-management-2025-06-27",
+          "thinking-display-updates-2026-08-18",
         ],
         // Long sessions read a lot: past 300k tokens, older tool results
         // (documents, fetched pages) are cleared from what Claude sees. The
@@ -743,7 +781,14 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
         fallbacks: "default",
         // A safety net under the frozen frame: if the prefix ever differs,
         // drop the stale reasoning instead of failing the turn.
-        thinking: { type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } },
+        // "updates": the short notes Claude writes between tool calls (what it
+        // just found, what it will do next) come back as text and show in the
+        // chat; its reasoning stays hidden. Without it a long run is silent.
+        thinking: {
+          type: "adaptive",
+          display: "updates",
+          block_binding: { prefix_mismatch_behavior: "drop_block" },
+        },
         output_config: { effort: "high" },
         cache_control: { type: "ephemeral" },
         system,
@@ -751,7 +796,23 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
         messages: history,
       });
       s.on("text", (delta) => emit({ type: "text", text: delta }));
+      // Progress notes arrive as thinking blocks with text (display: "updates");
+      // an empty one is reasoning, and shows nothing.
+      const notes = new Map<number, string>();
       s.on("streamEvent", (ev) => {
+        if (ev.type === "content_block_start" && ev.content_block.type === "thinking")
+          notes.set(ev.index, "");
+        if (
+          ev.type === "content_block_delta" &&
+          ev.delta.type === "thinking_delta" &&
+          notes.has(ev.index)
+        )
+          notes.set(ev.index, (notes.get(ev.index) ?? "") + ev.delta.thinking);
+        if (ev.type === "content_block_stop" && notes.has(ev.index)) {
+          const note = (notes.get(ev.index) ?? "").trim();
+          notes.delete(ev.index);
+          if (note) emit({ type: "update", text: note });
+        }
         if (ev.type === "content_block_start" && ev.content_block.type === "server_tool_use") {
           emit({
             type: "activity",
@@ -890,7 +951,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
 // ---- the conversation as the page shows it ------------------------------------
 
 export interface ChatItem {
-  who: "you" | "claude" | "activity" | "proposal";
+  who: "you" | "claude" | "activity" | "update" | "proposal";
   text: string;
   /** A proposal's tool call, to find its card. */
   toolUseId?: string;
@@ -916,6 +977,9 @@ export function transcript(history: Message[]): ChatItem[] {
     for (const b of m.content) {
       if (b.type === "text" && b.text.trim())
         out.push({ who: m.role === "user" ? "you" : "claude", text: b.text });
+      // A progress note (display: "updates"); reasoning comes back empty.
+      else if (b.type === "thinking" && b.thinking.trim())
+        out.push({ who: "update", text: b.thinking.trim() });
       else if (b.type === "tool_use" && b.name === "propose_entry")
         out.push({ who: "proposal", text: activityLabel(b.name, b.input), toolUseId: b.id });
       else if (b.type === "tool_use" && (b.name === "note" || b.name === "pitch"))

@@ -72,7 +72,15 @@
   compiled into the store — change the contract, change the drafter. Drafts
   and their conversations are D1 rows (migration 0065), append-only. It may
   quote public research and the operator's own published or waiting uploads,
-  never a held or private document. Needs `ANTHROPIC_API_KEY` (a GitHub
+  never a held or private document. It also **reads Chris's own articles and
+  papers** (`ownWriting` / `ownWritingText` / `searchOwnWriting` in
+  `write/sources.ts`), listed and labelled apart, never quotable —
+  `sourceText` does not return them, so a `<q>` from one fails the check.
+  The instructions open with **THE RECORD** (what the record holds; Claude
+  can read it and change nothing; it reports what looks wrong without
+  saying where to fix it). Thinking is `display: "updates"` (beta
+  `thinking-display-updates-2026-08-18`): non-empty thinking blocks stream
+  as `update` events and show in the chat as italic progress lines. Needs `ANTHROPIC_API_KEY` (a GitHub
   secret the deploy pushes to the Worker). **Publish** runs the build's gates
   (every quote word for word, every quoted or named document already public,
   a real topic) and copies the draft into a new `published_versions` row

@@ -70,9 +70,14 @@ export async function testClaude(env: Env, fake?: StreamFn): Promise<TestResult>
         "server-side-fallback-2026-07-01",
         "thinking-binding-controls-2026-08-01",
         "context-management-2025-06-27",
+        "thinking-display-updates-2026-08-18",
       ],
       fallbacks: "default",
-      thinking: { type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } },
+      thinking: {
+        type: "adaptive",
+        display: "updates",
+        block_binding: { prefix_mismatch_behavior: "drop_block" },
+      },
       output_config: { effort: "low" },
       // Declared so the request proves they are available; never called.
       tools: WEB_TOOLS,

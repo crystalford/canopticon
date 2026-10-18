@@ -2,7 +2,7 @@
 id: the-creative-layer-dossier-for-aldershot-montage-the-device-object-and
 title: "The Creative-Layer Dossier for ALDERSHOT: Montage, the \"Device Object,\" and the Sourcing Engine"
 kind: "Build brief"
-topic: "AI-directed development"
+topic: "Video & design"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true

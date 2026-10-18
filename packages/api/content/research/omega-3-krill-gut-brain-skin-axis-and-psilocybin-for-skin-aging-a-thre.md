@@ -2,7 +2,7 @@
 id: omega-3-krill-gut-brain-skin-axis-and-psilocybin-for-skin-aging-a-thre
 title: "Omega-3/Krill, Gut–Brain–Skin Axis, and Psilocybin for Skin Aging: A Three-Part Evidence Audit"
 kind: "Evidence review"
-topic: "Attribution & credit"
+topic: "Health & self-care"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true

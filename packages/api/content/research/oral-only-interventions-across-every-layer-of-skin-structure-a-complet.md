@@ -2,7 +2,7 @@
 id: oral-only-interventions-across-every-layer-of-skin-structure-a-complet
 title: "Oral-Only Interventions Across Every Layer of Skin Structure: A Complete Audit"
 kind: "Research"
-topic: "Attribution & credit"
+topic: "Health & self-care"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true

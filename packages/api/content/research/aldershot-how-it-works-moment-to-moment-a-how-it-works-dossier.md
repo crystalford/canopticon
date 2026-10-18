@@ -2,7 +2,7 @@
 id: aldershot-how-it-works-moment-to-moment-a-how-it-works-dossier
 title: "ALDERSHOT: How It Works, Moment to Moment — A \"How It Works\" Dossier"
 kind: "Build brief"
-topic: "AI-directed development"
+topic: "Video & design"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true

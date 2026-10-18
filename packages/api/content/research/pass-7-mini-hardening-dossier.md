@@ -1,6 +1,6 @@
 ---
 id: pass-7-mini-hardening-dossier
-title: "Compiled: May 11, 2026"
+title: "Pass 7-mini Hardening Dossier: Carney-Era PCO/Pollara Contract and the Data Sciences/Nadeau Personnel Pattern"
 kind: "Research brief"
 topic: "Canadian politics & power"
 date: "2026-07-22"

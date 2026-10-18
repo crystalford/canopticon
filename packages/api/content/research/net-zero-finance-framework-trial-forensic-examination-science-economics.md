@@ -1,6 +1,6 @@
 ---
 id: net-zero-finance-framework-trial-forensic-examination-science-economics
-title: "Title and Executive Summary"
+title: "The Net-Zero Finance Framework on Trial: A Forensic Examination of the Science, Economics, and Empirical Record of Mark Carney's Climate Architecture"
 kind: "Research brief"
 topic: "Canadian politics & power"
 date: "2026-07-22"

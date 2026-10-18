@@ -2,7 +2,7 @@
 id: code-generated-animation-for-automated-documentary-frameworks-visual-v
 title: "Code-Generated Animation for Automated Documentary: Frameworks, Visual Vocabularies & a Cloudflare-Native Build Plan"
 kind: "Research"
-topic: "Prices & markets"
+topic: "Video & design"
 date: "2026-09-01"
 shelf: ""
 listed_in_library: true
