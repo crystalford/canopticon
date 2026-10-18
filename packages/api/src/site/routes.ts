@@ -270,6 +270,7 @@ app.get("/admin/write/:id", async (c, next) => {
             : ["Nothing is written yet."],
           pages: pages.length,
           savedAs: d.meta.savedAs,
+          update: !!d.meta.savedAs && !!d.meta.savedTitle && d.meta.savedTitle === d.meta.title,
         },
         flash: { error: c.req.query("error"), done: c.req.query("done") },
       }),
