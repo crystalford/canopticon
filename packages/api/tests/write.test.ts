@@ -793,9 +793,17 @@ describe("a draft survives real use", () => {
           first: async () =>
             /MAX\(seq\)/.test(sql)
               ? { n: rows.length ? Math.max(...rows.map((r) => r.seq)) : null }
-              : null,
+              : /FROM drafts WHERE id/.test(sql)
+                ? { id: a[0] }
+                : null,
           all: async () => ({
-            results: /FROM draft_messages/.test(sql) ? [...rows].sort((x, y) => x.seq - y.seq) : [],
+            results: /FROM draft_messages/.test(sql)
+              ? [...rows]
+                  .filter((r) =>
+                    /BETWEEN/.test(sql) ? r.seq >= Number(a[1]) && r.seq <= Number(a[2]) : true,
+                  )
+                  .sort((x, y) => x.seq - y.seq)
+              : [],
           }),
           run: async () => {
             if (/INSERT INTO draft_messages/.test(sql))

@@ -181,3 +181,109 @@ describe("research: the bar's buttons", () => {
     expect(bar({ savedAs: "a" })).toContain(`action="/op/write/${d.id}/article"`);
   });
 });
+
+describe("a long research conversation is read in batches", () => {
+  it("reads the conversation and every kept page back whole, never more than a batch per query", async () => {
+    const { BATCH_CHARS, batches, d1Drafts: drafts0 } = await import("../src/write/drafts");
+    const { d1Sources } = await import("../src/write/research");
+    expect(
+      batches(
+        [
+          ["a", 10],
+          ["b", 10],
+          ["c", 10],
+        ],
+        20,
+      ),
+    ).toEqual([
+      ["a", "b"],
+      ["c", "c"],
+    ]);
+    expect(
+      batches(
+        [
+          ["a", 50],
+          ["b", 1],
+        ],
+        20,
+      ),
+    ).toEqual([
+      ["a", "a"],
+      ["b", "b"],
+    ]);
+    expect(
+      batches(
+        [
+          ["a", 1],
+          ["b", 1],
+          ["c", 1],
+        ],
+        100,
+        2,
+      ),
+    ).toEqual([
+      ["a", "b"],
+      ["c", "c"],
+    ]);
+
+    const { db, d1 } = sqliteD1();
+    db.exec(
+      "INSERT INTO users (id, email, created_at) VALUES ('op1', 'op@example.com', '2026-01-01T00:00:00Z')",
+    );
+    // Measure what each query hands back.
+    let largest = 0;
+    const measured = {
+      prepare(sql: string) {
+        const stmt = d1.prepare(sql) as unknown as {
+          bind(...a: unknown[]): unknown;
+          all(): Promise<{ results: unknown[] }>;
+        };
+        const wrap = {
+          bind(...a: unknown[]) {
+            stmt.bind(...a);
+            return wrap;
+          },
+          async all() {
+            const r = await stmt.all();
+            largest = Math.max(largest, JSON.stringify(r.results).length);
+            return r;
+          },
+          first: async () => (await wrap.all()).results[0] ?? null,
+          run: () => (stmt as unknown as { run(): Promise<unknown> }).run(),
+        };
+        return wrap;
+      },
+    } as unknown as D1Database;
+    const env = { DB: measured, SESSION_SECRET: SECRET } as unknown as Env;
+    const store = drafts0(env, "op1");
+    const d = await store.create("research");
+
+    // Forty messages, a dozen of them a page read of 700,000 characters.
+    const page = (i: number) => `${i} `.padEnd(700_000, "x");
+    const msgs = Array.from({ length: 40 }, (_, i) => ({
+      role: i % 2 ? ("assistant" as const) : ("user" as const),
+      content: i % 3 === 0 ? page(i) : `message ${i}`,
+    }));
+    for (const m of msgs) await store.append(d.id, [m]);
+    largest = 0;
+    const back = await store.messages(d.id);
+    expect(back).toEqual(msgs);
+    expect(largest).toBeLessThan(BATCH_CHARS + 600_000);
+
+    // A hundred and twenty pages kept: more rows than one query may bind.
+    const sources = d1Sources(env, "op1");
+    const pages = Array.from({ length: 120 }, (_, i) => ({
+      url: `https://p${i}.example/`,
+      title: null,
+      retrievedAt: null,
+      kind: "text" as const,
+      text: i % 10 === 0 ? `page ${i} `.padEnd(400_000, "y") : `page ${i}`,
+    }));
+    await sources.add(d.id, pages);
+    largest = 0;
+    const texts = await sources.texts(d.id);
+    expect(texts.map((t) => t.url)).toEqual(pages.map((p) => p.url));
+    expect(texts[10]?.text.length).toBe(400_000);
+    expect(largest).toBeLessThan(BATCH_CHARS + 600_000);
+  });
+});
