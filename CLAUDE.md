@@ -127,7 +127,12 @@
   the record's own depth (median ~4,500 words, thorough ones 7,000+, no cap,
   never padded, usually ten or more sources read in full); research gets 60
   model calls per message (`RESEARCH_STEPS`; articles 24, reads 80) and every
-  call may output 128,000 tokens, the model's maximum.
+  call may output 128,000 tokens, the model's maximum. Web allowance: 80
+  searches and 80 page reads (`SEARCH_LIMIT` / `READ_LIMIT`, `max_uses`, per
+  request); a `max_uses_exceeded` result is said once in the chat ("reply
+  keep going"), and each research turn ends with what it spent ("This
+  message: N web searches · M pages read"). Frozen with the frame, so only
+  new research drafts get a changed allowance.
   "Save to Admin" sends the finished report through `createAndExtract` as a
   waiting upload (`origin: workspace-research`); it publishes there on
   Publish. Saved again under the same title it is **"Update in Admin"**:

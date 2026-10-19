@@ -935,6 +935,49 @@ describe("research: what was read is kept and checked", () => {
   });
 });
 
+describe("research: the web allowance", () => {
+  it("is 80 searches and 80 reads, and a limit reached is said once in the chat", async () => {
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    const capped = (id: string) => ({
+      type: "web_search_tool_result",
+      tool_use_id: id,
+      content: { type: "web_search_tool_result_error", error_code: "max_uses_exceeded" },
+    });
+    const { stream, calls } = fakeStream([
+      msg(
+        [
+          { type: "server_tool_use", id: "s1", name: "web_search", input: { query: "a" } },
+          capped("s1"),
+          { type: "server_tool_use", id: "s2", name: "web_search", input: { query: "b" } },
+          capped("s2"),
+          { type: "text", text: "The search allowance is spent." },
+        ],
+        "end_turn",
+      ),
+    ]);
+    const events: WriteEvent[] = [];
+    await runTurn({
+      stream,
+      env,
+      store,
+      sources: memorySources(),
+      draftId: d.id,
+      text: "Go deep.",
+      emit: (e) => events.push(e),
+    });
+    const errors = events.filter((e) => e.type === "error");
+    expect(errors).toHaveLength(1);
+    expect(JSON.stringify(errors[0])).toContain("keep going");
+    const tools = (calls[0] as { tools: Array<Record<string, unknown>> }).tools;
+    expect(tools.find((t) => t.name === "web_search")).toMatchObject({ max_uses: 80 });
+    expect(tools.find((t) => t.name === "web_fetch")).toMatchObject({ max_uses: 80 });
+    expect((calls[0] as { system: Array<{ text: string }> }).system[0]?.text).toContain(
+      "YOUR WEB ALLOWANCE",
+    );
+  });
+});
+
 describe("research: a turn", () => {
   it("searches, reads, keeps the pages, writes the report and checks it against them", async () => {
     const store = memoryDrafts();
@@ -996,6 +1039,11 @@ describe("research: a turn", () => {
       expect.arrayContaining(["Searched the web: rent ban study", "Read: https://a.example/page"]),
     );
     expect(calls).toHaveLength(3); // the paused turn resumed
+    // What the message spent on the web, said at the end.
+    expect(events.filter((e) => e.type === "activity").at(-1)).toEqual({
+      type: "activity",
+      text: "This message: 1 web search · 1 page read",
+    });
     const first = calls[0] as {
       tools: Array<Record<string, unknown>>;
       context_management?: unknown;

@@ -38,6 +38,9 @@ HOW YOU RESEARCH
 DEPTH
 The report is a document of record, not a summary. Be comprehensive: answer every sub-question in full, with the evidence itself — the figures, who measured them and how, the dates, the conditions, the competing accounts and why one is stronger — not a sentence pointing at it. The record's research documents run a median of about 4,500 words, and the thorough ones 7,000 or more; write at that depth whenever the evidence supports it, and longer when the question needs it. There is no length cap. Never pad: no repetition, no restating the TL;DR in the Details, no filler. If the evidence is genuinely thin, say so plainly in Open questions rather than stretching. Read widely before you write — usually ten or more sources read in full for a substantial question.
 
+YOUR WEB ALLOWANCE
+In one message you may run up to 80 web searches and read up to 80 pages. A substantial question usually takes 20 to 40 searches and 15 to 30 pages read in full; use what the question needs, not the whole allowance. Spend reads on primary sources, not on pages that only repeat them. If a search or read comes back "max_uses_exceeded", the allowance for this message is spent: write or revise the report with what you have, say under Open questions exactly what is still uncovered, and tell Chris to reply "keep going" — his next message brings a fresh allowance, and you continue where you stopped and revise the report.
+
 THE REPORT (write it with write_report, revise one passage with edit_draft)
 - Markdown, in this shape: no "# Title" line (the title is its own field).
   ## TL;DR — three to five sentences that answer the question.
@@ -74,12 +77,14 @@ export const WRITE_REPORT: Anthropic.Beta.BetaToolUnion = {
 
 /** Anthropic's server tools. Fetch is direct only, so every page Claude reads
  *  comes back where it can be kept and checked. */
+export const SEARCH_LIMIT = 80;
+export const READ_LIMIT = 80;
 export const WEB_TOOLS: Anthropic.Beta.BetaToolUnion[] = [
-  { type: "web_search_20260209", name: "web_search", max_uses: 25 },
+  { type: "web_search_20260209", name: "web_search", max_uses: SEARCH_LIMIT },
   {
     type: "web_fetch_20260209",
     name: "web_fetch",
-    max_uses: 30,
+    max_uses: READ_LIMIT,
     allowed_callers: ["direct"],
     max_content_tokens: 60000,
   },

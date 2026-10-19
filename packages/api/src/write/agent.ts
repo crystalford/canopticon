@@ -752,6 +752,8 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     (draft.kind === "read" ? READ_STEPS : draft.kind === "research" ? RESEARCH_STEPS : MAX_STEPS);
   // Whether the model finished on its own, rather than hitting the step limit.
   let ended = false;
+  // What this message spent on the web, said at the end of a research turn.
+  const web = { searches: 0, reads: 0, capped: new Set<string>() };
 
   for (let step = 0; step < steps; step++) {
     let message: Anthropic.Beta.BetaMessage;
@@ -882,9 +884,34 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       const pages = await fetchedPages(env, message.content as unknown[]);
       if (pages.length) await o.sources.add(draftId, pages);
     }
-    for (const b of message.content as Array<{ type: string; name?: string; input?: unknown }>) {
-      if (b.type === "server_tool_use" && b.name)
+    for (const b of message.content as Array<{
+      type: string;
+      name?: string;
+      input?: unknown;
+      content?: { error_code?: string };
+    }>) {
+      if (b.type === "server_tool_use" && b.name) {
         emit({ type: "activity", text: activityLabel(b.name, b.input) });
+        if (b.name === "web_search") web.searches++;
+        if (b.name === "web_fetch") web.reads++;
+      }
+      // A limit reached is said in the chat, not left for Claude to mention.
+      if (
+        (b.type === "web_search_tool_result" || b.type === "web_fetch_tool_result") &&
+        b.content?.error_code === "max_uses_exceeded"
+      ) {
+        const kind = b.type === "web_search_tool_result" ? "search" : "read";
+        if (!web.capped.has(kind)) {
+          web.capped.add(kind);
+          emit({
+            type: "error",
+            message:
+              kind === "search"
+                ? "The web search limit for this message was reached. Reply “keep going” to continue with a fresh allowance."
+                : "The page-reading limit for this message was reached. Reply “keep going” to continue with a fresh allowance.",
+          });
+        }
+      }
     }
     // A long run of server-side searches can pause the turn; it resumes by
     // sending the conversation back as it stands.
@@ -937,6 +964,11 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       });
   }
 
+  if (draft.kind === "research" && (web.searches || web.reads))
+    emit({
+      type: "activity",
+      text: `This message: ${web.searches} web ${web.searches === 1 ? "search" : "searches"} · ${web.reads} ${web.reads === 1 ? "page" : "pages"} read`,
+    });
   await store.save(draftId, { usage });
   // A read's receipt: finished, by which model, at what cost.
   // Its cost always counts; it is "read" only when the document was read and

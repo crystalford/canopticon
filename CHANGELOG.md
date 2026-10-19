@@ -6,6 +6,17 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-19 — Research gets a bigger web allowance
+
+- Research may run 80 web searches and read 80 pages at a time (was 25 and
+  30), and is told how to spend them: 20–40 searches and 15–30 full reads
+  for a substantial question, reads on primary sources.
+- When a limit is reached the chat says so (it had been left for Claude to
+  mention), and Claude writes with what it has, lists what is uncovered, and
+  asks for "keep going", which continues with a fresh allowance.
+- Each research message ends with what it spent: "This message: 23 web
+  searches · 31 pages read". New research drafts only.
+
 ## 2026-10-18, late — Reports save cleanly; an article from a report
 
 - Saving a revised report (same title) updates its copy waiting in Admin
