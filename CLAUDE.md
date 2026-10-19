@@ -103,7 +103,13 @@
   byte: Claude's reasoning is bound to the exact conversation, and a changed
   prompt or tool list mid-conversation fails the request on newer accounts.
   `thinking.block_binding: drop_block` is the safety net. Never edit a
-  draft's stored messages.
+  draft's stored messages. **Never read a conversation or a draft's kept
+  pages in one query**: a research draft stores every page read (in its
+  messages and in `research_sources`), and one query over all of it exceeded
+  D1's CPU limit. Sizes come from covering indexes (migration 0072,
+  `draft_messages.chars`) and the text is read ~2 MB and ≤90 rows a query
+  (`batches` in `write/drafts.ts`); the drafts list never selects
+  `body_md` or `frame`.
 - **Is Claude connected?** `/admin/claude` (`site/pages/claude.ts`,
   `write/connection.ts`): which settings are present (never their values) and
   "Test the connection" (`POST /op/admin/claude-test`) — one small call with

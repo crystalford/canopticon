@@ -73,6 +73,38 @@ export interface DraftStore {
 /** A message is stored in rows of at most this many characters (D1 caps a
  *  row at 2MB; a character can take three bytes). */
 export const PART_CHARS = 500_000;
+
+/** Characters read from D1 in one query at most (one row may be larger). */
+export const BATCH_CHARS = 2_000_000;
+
+/** Consecutive keys grouped so each group's sizes add up to BATCH_CHARS at
+ *  most (a single larger row is a group of its own) and it holds at most
+ *  `maxRows` rows (D1 binds at most 100 values a query): [first, last]. */
+export function batches<K>(
+  rows: Array<[K, number]>,
+  limit = BATCH_CHARS,
+  maxRows = 90,
+): Array<[K, K]> {
+  const out: Array<[K, K]> = [];
+  let start: K | null = null;
+  let last: K | null = null;
+  let sum = 0;
+  let n = 0;
+  for (const [key, size] of rows) {
+    if (start !== null && last !== null && (sum + size > limit || n >= maxRows)) {
+      out.push([start, last]);
+      start = null;
+      sum = 0;
+      n = 0;
+    }
+    n++;
+    if (start === null) start = key;
+    last = key;
+    sum += size;
+  }
+  if (start !== null && last !== null) out.push([start, last]);
+  return out;
+}
 /** A turn's claim on a draft lapses after this long. */
 const STALE_MS = 20 * 60_000;
 
@@ -130,7 +162,10 @@ export function d1Drafts(env: Env, userId: string): DraftStore {
     async list() {
       const rows = await all<DraftRow>(
         db,
-        "SELECT * FROM drafts WHERE user_id = ? ORDER BY updated_at DESC LIMIT 200",
+        // The list never needs a draft's text or its frozen instructions,
+        // which together run to hundreds of kilobytes a draft.
+        `SELECT id, kind, meta, '' AS body_md, usage, status, slug, NULL AS frame, created_at, updated_at
+           FROM drafts WHERE user_id = ? ORDER BY updated_at DESC LIMIT 200`,
         [userId],
       );
       return rows.map(fromRow);
@@ -193,12 +228,30 @@ export function d1Drafts(env: Env, userId: string): DraftStore {
       await run(db, `UPDATE drafts SET ${sets.join(", ")} WHERE id = ? AND user_id = ?`, args);
     },
     async messages(id) {
-      const rows = await all<{ message: string; part: number | null }>(
+      // Never the whole conversation in one query: a long research draft
+      // holds every page read, and one query over all of it exceeds D1's
+      // CPU limit. The sizes come from the index; the text a batch at a time.
+      const owned = await one<{ id: string }>(
         db,
-        `SELECT m.message, m.part FROM draft_messages m JOIN drafts d ON d.id = m.draft_id
-          WHERE m.draft_id = ? AND d.user_id = ? ORDER BY m.seq`,
+        "SELECT id FROM drafts WHERE id = ? AND user_id = ?",
         [id, userId],
       );
+      if (!owned) return [];
+      const sizes = await all<{ seq: number; chars: number | null }>(
+        db,
+        "SELECT seq, chars FROM draft_messages WHERE draft_id = ? ORDER BY seq",
+        [id],
+      );
+      const rows: Array<{ message: string; part: number | null }> = [];
+      for (const [from, to] of batches(sizes.map((r) => [r.seq, r.chars ?? PART_CHARS]))) {
+        rows.push(
+          ...(await all<{ message: string; part: number | null }>(
+            db,
+            "SELECT message, part FROM draft_messages WHERE draft_id = ? AND seq BETWEEN ? AND ? ORDER BY seq",
+            [id, from, to],
+          )),
+        );
+      }
       // A long message spans rows; a row with part > 0 continues the last.
       const joined: string[] = [];
       for (const r of rows) {
@@ -221,8 +274,15 @@ export function d1Drafts(env: Env, userId: string): DraftStore {
         for (let part = 0, at = 0; part === 0 || at < json.length; part++, at += PART_CHARS) {
           await run(
             db,
-            "INSERT INTO draft_messages (draft_id, seq, message, created_at, part) VALUES (?, ?, ?, ?, ?)",
-            [id, seq++, json.slice(at, at + PART_CHARS), t, part],
+            "INSERT INTO draft_messages (draft_id, seq, message, created_at, part, chars) VALUES (?, ?, ?, ?, ?, ?)",
+            [
+              id,
+              seq++,
+              json.slice(at, at + PART_CHARS),
+              t,
+              part,
+              json.slice(at, at + PART_CHARS).length,
+            ],
           );
         }
       }

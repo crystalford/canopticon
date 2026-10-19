@@ -6,6 +6,15 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-10-19, later — Long research no longer breaks the database
+
+- A long research conversation failed with "D1 DB exceeded its CPU time
+  limit": every turn and every page view read the whole conversation, and
+  every page Claude had read (up to 600,000 characters each), in one query
+  each. Both are now read in batches of about 2 MB, sized from an index so
+  the size list never touches the text (migration 0072). The drafts list
+  no longer loads each draft's text and instructions.
+
 ## 2026-10-19 — Research gets a bigger web allowance
 
 - Research may run 80 web searches and read 80 pages at a time (was 25 and

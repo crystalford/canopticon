@@ -19,6 +19,7 @@ import type { Env } from "../env";
 import { all, run } from "../lib/d1";
 import type { CheckResult, QuoteFailure } from "./check";
 import { verbatimNormal } from "./check";
+import { batches } from "./drafts";
 
 // ---- what Claude is told --------------------------------------------------------
 
@@ -193,17 +194,45 @@ export function d1Sources(env: Env, userId: string): SourceStore {
       }
     },
     async texts(draftId) {
-      const rows = await all<{
+      // A batch at a time, by the sizes in the index: eighty pages of up to
+      // 600,000 characters in one query exceed D1's CPU limit.
+      const sizes = await all<{ id: string; chars: number }>(
+        env.DB,
+        "SELECT id, chars FROM research_sources INDEXED BY research_sources_size WHERE draft_id = ? ORDER BY created_at, rowid",
+        [draftId],
+      ).catch(() => []);
+      const rows: Array<{
         url: string;
         title: string | null;
         retrieved_at: string | null;
         kind: string;
         text: string;
-      }>(
-        env.DB,
-        "SELECT url, title, retrieved_at, kind, text FROM research_sources WHERE draft_id = ? AND user_id = ? ORDER BY created_at",
-        [draftId, userId],
-      ).catch(() => []);
+      }> = [];
+      const ids = sizes.map((r) => r.id);
+      const index = new Map(ids.map((id, i) => [id, i]));
+      for (const [from, to] of batches(
+        sizes.map((r) => [r.id, Math.min(r.chars, KEEP_CHARS)] as [string, number]),
+      )) {
+        const group = ids.slice(index.get(from) ?? 0, (index.get(to) ?? 0) + 1);
+        const got = await all<{
+          id: string;
+          url: string;
+          title: string | null;
+          retrieved_at: string | null;
+          kind: string;
+          text: string;
+        }>(
+          env.DB,
+          `SELECT id, url, title, retrieved_at, kind, text FROM research_sources
+            WHERE draft_id = ? AND user_id = ? AND id IN (${group.map(() => "?").join(", ")})`,
+          [draftId, userId, ...group],
+        ).catch(() => []);
+        const byId = new Map(got.map((r) => [r.id, r]));
+        for (const id of group) {
+          const r = byId.get(id);
+          if (r) rows.push(r);
+        }
+      }
       return rows.map((r) => ({
         url: r.url,
         title: r.title,
