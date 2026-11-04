@@ -260,3 +260,44 @@ describe("a page as the model reads it", () => {
     expect(entities("CMHC&#x27;s")).toBe("CMHC's");
   });
 });
+
+describe("searching the web", () => {
+  it("asks Cloudflare's Web Search first, and Brave only when it fails", async () => {
+    const { webSearch } = await import("../src/write/engines");
+    const brave = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            web: { results: [{ title: "B", url: "https://b.example", description: "" }] },
+          }),
+        ),
+    );
+    vi.stubGlobal("fetch", brave);
+    const asked: unknown[] = [];
+    const env = (websearch: (i: unknown) => Promise<unknown>) =>
+      ({
+        SEARCH_GATEWAY_ID: "canopticon-search",
+        BRAVE_SEARCH_API_KEY: "k",
+        AI: { websearch },
+      }) as unknown as Env;
+    const hits = await webSearch(
+      env(async (i) => {
+        asked.push(i);
+        return {
+          result: { items: [{ title: "C&amp;D", url: "https://c.example", snippet: "s" }] },
+        };
+      }),
+      "rents",
+    );
+    expect(hits).toEqual([{ title: "C&D", url: "https://c.example", description: "s" }]);
+    expect(asked[0]).toMatchObject({ query: "rents", gatewayId: "canopticon-search" });
+    expect(brave).not.toHaveBeenCalled();
+    const fallback = await webSearch(
+      env(async () => {
+        throw new Error("Invalid gateway ID");
+      }),
+      "rents",
+    );
+    expect(fallback.map((h) => h.url)).toEqual(["https://b.example"]);
+  });
+});

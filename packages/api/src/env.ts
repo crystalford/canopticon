@@ -83,6 +83,13 @@ export interface Env {
   // a "key not configured" notice). Set with `wrangler secret put
   // BRAVE_SEARCH_API_KEY`.
   BRAVE_SEARCH_API_KEY?: string;
+  // The AI Gateway that Cloudflare's Web Search runs through (the workspace's
+  // web_search on Workers AI). Its own setting, apart from AI_GATEWAY_ID:
+  // that one also moves the processing pipeline onto Claude. Named in
+  // wrangler.toml [vars]; the gateway itself is created once in the dashboard.
+  SEARCH_GATEWAY_ID?: string;
+  // Which of Cloudflare's search partners to ask; empty means its default.
+  SEARCH_PROVIDER?: string;
 
   // The video Worker's URL (video.canopticon.com) — where "Produce video
   // essay" POSTs a signed reading's content, and where the public /videos

@@ -12,8 +12,8 @@
 // which engine ran. This module converts it to the OpenAI chat format the
 // Workers AI models take, and converts each reply back. The web is reached
 // with our own tools here (Anthropic's server tools are Claude-only):
-// web_search through Brave (BRAVE_SEARCH_API_KEY) or, once an AI Gateway
-// exists, Cloudflare's Web Search; web_fetch through a plain fetch, converted
+// web_search through Cloudflare's Web Search (an AI Gateway named in
+// SEARCH_GATEWAY_ID), else Brave (BRAVE_SEARCH_API_KEY); web_fetch through a plain fetch, converted
 // to Markdown by env.AI.toMarkdown. Every page read is kept in
 // research_sources, so a report's quotations are checked against it.
 //
@@ -128,48 +128,76 @@ export interface SearchHit {
   description: string;
 }
 
+/** Cloudflare's Web Search first (billed on the Cloudflare account, no key),
+ *  Brave when that is not set up or fails. */
 export async function webSearch(env: Env, query: string): Promise<SearchHit[]> {
-  if (env.BRAVE_SEARCH_API_KEY) {
-    const res = await fetch(
-      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=8`,
-      {
-        headers: { Accept: "application/json", "X-Subscription-Token": env.BRAVE_SEARCH_API_KEY },
-        signal: AbortSignal.timeout(20_000),
-      },
-    );
-    if (!res.ok) throw new Error(`the search service answered ${res.status}`);
-    const json = (await res.json()) as {
-      web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
-    };
-    return (json.web?.results ?? [])
-      .map((r) => ({
-        title: entities((r.title ?? "").replace(/<[^>]+>/g, "")),
-        url: r.url ?? "",
-        description: entities((r.description ?? "").replace(/<[^>]+>/g, "")),
-      }))
-      .filter((r) => r.url);
-  }
-  // Cloudflare's Web Search (beta, through an AI Gateway). The answer's shape
-  // is read defensively: a list under items or results, each with a url.
   const ai = env.AI as unknown as { websearch?: (i: Record<string, unknown>) => Promise<unknown> };
-  if (env.AI_GATEWAY_ID && ai.websearch) {
-    const r = await ai.websearch({ query, limit: 8, gatewayId: env.AI_GATEWAY_ID });
-    const body = (r instanceof Response ? await r.json() : r) as Record<string, unknown>;
-    const list = (body.items ??
-      body.results ??
-      (body.result as Record<string, unknown>)?.items ??
-      []) as Array<Record<string, unknown>>;
-    return list
-      .map((i) => ({
-        title: String(i.title ?? ""),
-        url: String(i.url ?? i.link ?? ""),
-        description: String(i.snippet ?? i.description ?? i.text ?? "").slice(0, 400),
-      }))
-      .filter((i) => i.url);
+  let cloudflareError: string | null = null;
+  if (env.SEARCH_GATEWAY_ID && ai.websearch) {
+    try {
+      return await cloudflareSearch(ai.websearch, env, query);
+    } catch (err) {
+      cloudflareError = (err as Error).message;
+      if (!env.BRAVE_SEARCH_API_KEY) throw new Error(`Cloudflare's Web Search: ${cloudflareError}`);
+    }
   }
+  if (env.BRAVE_SEARCH_API_KEY) return braveSearch(env.BRAVE_SEARCH_API_KEY, query);
   throw new Error(
-    "No web search is set up: add BRAVE_SEARCH_API_KEY, or create an AI Gateway (AI_GATEWAY_ID) for Cloudflare's Web Search.",
+    "No web search is set up: create the AI Gateway named in SEARCH_GATEWAY_ID (Cloudflare dashboard → AI → AI Gateway), or add BRAVE_SEARCH_API_KEY.",
   );
+}
+
+/** Cloudflare's Web Search (beta since 2026-10-02, through an AI Gateway).
+ *  The answer's shape is read defensively: a list under items or results
+ *  (or result.items), each with a url, a title and a snippet. */
+export async function cloudflareSearch(
+  websearch: (i: Record<string, unknown>) => Promise<unknown>,
+  env: Env,
+  query: string,
+): Promise<SearchHit[]> {
+  const r = await websearch({
+    query,
+    limit: 8,
+    gatewayId: env.SEARCH_GATEWAY_ID,
+    ...(env.SEARCH_PROVIDER ? { provider: env.SEARCH_PROVIDER } : {}),
+  });
+  if (r instanceof Response && !r.ok)
+    throw new Error(`answered ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const body = (r instanceof Response ? await r.json() : r) as Record<string, unknown>;
+  const inner = (body.result ?? {}) as Record<string, unknown>;
+  const list = (body.items ?? body.results ?? inner.items ?? inner.results ?? []) as Array<
+    Record<string, unknown>
+  >;
+  return list
+    .map((i) => ({
+      title: entities(String(i.title ?? "")),
+      url: String(i.url ?? i.link ?? ""),
+      description: entities(
+        String(i.snippet ?? i.description ?? i.summary ?? i.text ?? i.content ?? ""),
+      ).slice(0, 400),
+    }))
+    .filter((i) => i.url);
+}
+
+async function braveSearch(key: string, query: string): Promise<SearchHit[]> {
+  const res = await fetch(
+    `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=8`,
+    {
+      headers: { Accept: "application/json", "X-Subscription-Token": key },
+      signal: AbortSignal.timeout(20_000),
+    },
+  );
+  if (!res.ok) throw new Error(`the search service answered ${res.status}`);
+  const json = (await res.json()) as {
+    web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
+  };
+  return (json.web?.results ?? [])
+    .map((r) => ({
+      title: entities((r.title ?? "").replace(/<[^>]+>/g, "")),
+      url: r.url ?? "",
+      description: entities((r.description ?? "").replace(/<[^>]+>/g, "")),
+    }))
+    .filter((r) => r.url);
 }
 
 interface ToMarkdownAi {

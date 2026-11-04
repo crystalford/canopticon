@@ -1565,7 +1565,9 @@ app.get("/models", async (c) => {
       const r = (await ai.websearch({
         query: q,
         limit: 3,
-        gatewayId: c.req.query("gateway") ?? c.env.AI_GATEWAY_ID ?? "default",
+        gatewayId:
+          c.req.query("gateway") ?? c.env.SEARCH_GATEWAY_ID ?? c.env.AI_GATEWAY_ID ?? "default",
+        ...(c.req.query("provider") ? { provider: c.req.query("provider") } : {}),
       })) as unknown;
       out.search =
         r instanceof Response ? { status: r.status, body: (await r.text()).slice(0, 4000) } : r;

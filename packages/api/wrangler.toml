@@ -79,6 +79,12 @@ binding = "AI"
 
 [vars]
 LOG_LEVEL = "info"
+# The AI Gateway Cloudflare's Web Search runs through (the workspace's
+# web_search on Workers AI). Create a gateway with exactly this name once:
+# Cloudflare dashboard → AI → AI Gateway → Create. Until it exists, search
+# falls back to Brave. Kept apart from AI_GATEWAY_ID, which would also move
+# the processing pipeline onto Claude.
+SEARCH_GATEWAY_ID = "canopticon-search"
 OPERATOR_EMAIL = ""
 # Set on the operator session cookie so it crosses canopticon.com →
 # video.canopticon.com (the daily video Worker shares SESSION_SECRET and

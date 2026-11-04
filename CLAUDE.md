@@ -120,9 +120,12 @@
   `/v1/admin/models?try=`. Same loop, instructions, tools and checks: the
   stored conversation stays Anthropic-shaped; `workersStep` converts it to the
   OpenAI chat format (`toChat`/`toFunctions`) and the reply back (`fromChat`).
-  The web is our own tools there: `web_search` through Brave
-  (`BRAVE_SEARCH_API_KEY`, set live) or Cloudflare's Web Search binding once
-  `AI_GATEWAY_ID` exists (it answered "Invalid gateway ID" without one);
+  The web is our own tools there: `web_search` through Cloudflare's Web
+  Search (`env.AI.websearch`, beta, billed on the Cloudflare account) via the
+  gateway named in `SEARCH_GATEWAY_ID` (wrangler.toml, "canopticon-search";
+  created once in the dashboard), falling back to Brave
+  (`BRAVE_SEARCH_API_KEY`, set live). Never `AI_GATEWAY_ID` for this: that
+  also moves the processing pipeline onto Claude (`preferredProvider`);
   `web_fetch` through `fetch` + `env.AI.toMarkdown`, 40,000 characters at a
   time with an offset, every page kept in `research_sources`. Measured spend
   before this (`/v1/admin/spend`, 2026-11-04): $72 recorded over 14
