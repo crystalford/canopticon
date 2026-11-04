@@ -250,3 +250,13 @@ describe("choosing the engine", () => {
     );
   });
 });
+
+describe("a page as the model reads it", () => {
+  it("keeps the words of links, drops images, front matter and entity codes", async () => {
+    const { readable, entities } = await import("../src/write/engines");
+    const md =
+      '---\ntitle: Hamilton, Ontario - Wikipedia\n---\n\n![A view](https://x/y.jpg)\nHamilton is a [port city](https://en.wikipedia.org/wiki/Port_city "Port city") in [Ontario](https://en.wikipedia.org/wiki/Ontario_(province)).\n\n\n\nIt&#x27;s &amp; more.';
+    expect(readable(md)).toBe("Hamilton is a port city in Ontario.\n\nIt's & more.");
+    expect(entities("CMHC&#x27;s")).toBe("CMHC's");
+  });
+});

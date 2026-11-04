@@ -143,9 +143,9 @@ export async function webSearch(env: Env, query: string): Promise<SearchHit[]> {
     };
     return (json.web?.results ?? [])
       .map((r) => ({
-        title: r.title ?? "",
+        title: entities((r.title ?? "").replace(/<[^>]+>/g, "")),
         url: r.url ?? "",
-        description: (r.description ?? "").replace(/<[^>]+>/g, ""),
+        description: entities((r.description ?? "").replace(/<[^>]+>/g, "")),
       }))
       .filter((r) => r.url);
   }
@@ -213,9 +213,12 @@ export async function readPage(env: Env, url: string): Promise<ResearchSource | 
   } else {
     text = new TextDecoder().decode(bytes);
   }
-  text = (text ?? "").trim();
+  // The front matter's title, then the text as a reader sees it.
+  const front = /^---\n([\s\S]*?)\n---\n/.exec(text ?? "");
+  const fmTitle = front ? /^title:\s*(.+)$/m.exec(front[1] ?? "")?.[1]?.trim() : undefined;
+  text = readable(text ?? "");
   if (text.length < 200) return null;
-  const title = /^#\s+(.+)$/m.exec(text)?.[1]?.trim() ?? null;
+  const title = fmTitle ?? /^#\s+(.+)$/m.exec(text)?.[1]?.trim() ?? null;
   return {
     url: res.url || url,
     title,
@@ -223,6 +226,36 @@ export async function readPage(env: Env, url: string): Promise<ResearchSource | 
     kind: pdf ? "pdf" : "text",
     text,
   };
+}
+
+/** Markdown from a converted page as a reader sees it: links as their words,
+ *  no images, no front matter, entities decoded. A page converted whole was
+ *  mostly link addresses (Wikipedia's Hamilton, Ontario: 634,656 characters),
+ *  which spent the model's reading on URLs. What is kept is what the model
+ *  reads and what quotations are checked against. */
+export function readable(md: string): string {
+  return entities(
+    md
+      .replace(/^---\n[\s\S]*?\n---\n/, "")
+      .replace(/!\[[^\]]*\]\((?:[^()\s]|\([^)]*\))*(?:\s+"[^"]*")?\)/g, "")
+      .replace(/\[([^\]]*)\]\((?:[^()\s]|\([^)]*\))*(?:\s+"[^"]*")?\)/g, "$1")
+      .replace(/^\s*\[[^\]]*\]:\s*\S+.*$/gm, "")
+      .replace(/[ \t]+$/gm, "")
+      .replace(/\n{3,}/g, "\n\n"),
+  ).trim();
+}
+
+/** The common HTML entities, decoded. */
+export function entities(s: string): string {
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(Number.parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&nbsp;/g, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
 }
 
 /** HTML to plain text, for when the converter is not there. */
