@@ -1634,4 +1634,59 @@ app.get("/spend", async (c) => {
   });
 });
 
+/** One research turn on a Workers AI engine, run in memory (nothing saved,
+ *  nothing in the drafts list): what it did, the report it wrote, whether its
+ *  quotations were found word for word in the pages it read, and the cost.
+ *  ?q=<question>&model=<engine id>&steps=<max model calls, default 14>. */
+app.get("/engine-try", async (c) => {
+  const { runTurn } = await import("../write/agent.ts");
+  const { memoryDrafts } = await import("../write/drafts.ts");
+  const { memorySources, checkReport } = await import("../write/research.ts");
+  const { DEFAULT_ENGINE, isWorkersAi } = await import("../write/engines.ts");
+  const model = c.req.query("model") ?? DEFAULT_ENGINE;
+  if (!isWorkersAi(model)) return c.json({ error: "Not a Workers AI engine." }, 400);
+  const q =
+    c.req.query("q") ??
+    "How many housing units were started in the City of Toronto in the first half of 2026, and how does that compare with the previous decade?";
+  const store = memoryDrafts();
+  const sources = memorySources();
+  const d = await store.create("research");
+  const events: Array<Record<string, unknown>> = [];
+  const t0 = Date.now();
+  await runTurn({
+    stream: null,
+    defaultEngine: model,
+    env: c.env,
+    store,
+    sources,
+    draftId: d.id,
+    text: q,
+    maxSteps: Math.min(30, Math.max(2, Number(c.req.query("steps")) || 14)),
+    emit: (e) => {
+      const x = e as Record<string, unknown>;
+      events.push({ ...x, ...(typeof x.text === "string" ? { text: x.text.slice(0, 300) } : {}) });
+    },
+  });
+  const done = await store.get(d.id);
+  const pages = await sources.texts(d.id);
+  const body = done?.body ?? "";
+  const check = checkReport(body, pages);
+  return c.json({
+    model,
+    seconds: Math.round((Date.now() - t0) / 1000),
+    dollars: Math.round((done?.usage.cents ?? 0) * 100) / 10000,
+    usage: done?.usage,
+    pages_read: pages.map((p) => ({ url: p.url, chars: p.text.length })),
+    report: {
+      title: done?.meta.title,
+      topic: done?.meta.topic,
+      words: body.split(/\s+/).filter(Boolean).length,
+      quotations: check.total,
+      not_found: check.failed.map((f) => f.text.slice(0, 160)),
+      start: body.slice(0, 2500),
+    },
+    events,
+  });
+});
+
 export default app;
