@@ -6,6 +6,7 @@
 import type { ChatItem } from "../../write/agent";
 import type { CheckResult } from "../../write/check";
 import type { Draft, DraftKind } from "../../write/drafts";
+import { CLAUDE, ENGINES, type EngineId, engine, isWorkersAi } from "../../write/engines";
 import { type Entry, entryRoute } from "../../write/entries";
 import type { LiveVersion } from "../../write/publish";
 import { esc, shell } from "../layout";
@@ -26,13 +27,18 @@ const ROUTE_LABEL = {
 
 export function renderWriteList(
   drafts: Draft[],
-  opts: { hasKey: boolean; route?: "gateway" | "anthropic" | null },
+  opts: { hasKey: boolean; route?: "gateway" | "anthropic" | null; engine?: EngineId },
 ): string {
+  const chosen = opts.engine ?? CLAUDE;
+  const choice = `<label class="ws-eng"><span>Runs on</span><select name="engine">${ENGINES.map(
+    (e) =>
+      `<option value="${esc(e.id)}"${e.id === chosen ? " selected" : ""}>${esc(`${e.label} — ${e.note}`)}</option>`,
+  ).join("")}</select></label>`;
   const rows = drafts.length
     ? drafts
         .map(
           (d) =>
-            `<a class="ws-row" href="/admin/write/${esc(d.id)}"><span class="ws-row-t">${d.kind === "research" ? '<span class="pill">Research</span> ' : d.kind === "read" ? '<span class="pill">Read</span> ' : ""}${esc(d.meta.title || (d.kind === "research" ? "Untitled research" : "Untitled draft"))}</span>${d.meta.dek ? `<span class="ws-row-d">${esc(d.meta.dek)}</span>` : ""}<span class="ws-row-m">${esc(when(d.updatedAt))} · ${esc(dollars(d.usage.cents))}</span></a>`,
+            `<a class="ws-row" href="/admin/write/${esc(d.id)}"><span class="ws-row-t">${d.kind === "research" ? '<span class="pill">Research</span> ' : d.kind === "read" ? '<span class="pill">Read</span> ' : ""}${esc(d.meta.title || (d.kind === "research" ? "Untitled research" : "Untitled draft"))}</span>${d.meta.dek ? `<span class="ws-row-d">${esc(d.meta.dek)}</span>` : ""}<span class="ws-row-m">${esc(when(d.updatedAt))} · ${esc(engine(d.meta.engine ?? CLAUDE).label)} · ${esc(dollars(d.usage.cents))}</span></a>`,
         )
         .join("")
     : '<div class="d-clear">No drafts yet.</div>';
@@ -42,7 +48,7 @@ export function renderWriteList(
     path: "/admin/write",
     signedIn: true,
     noindex: true,
-    body: `<div class="d-head"><h1 class="d-h1">Write and research</h1>${opts.route ? `<span class="ws-route">${ROUTE_LABEL[opts.route]}</span>` : ""}<span class="d-links"><a href="/admin" class="ulink">Back to Admin</a></span></div>${opts.hasKey ? "" : NO_KEY}<div class="ws-new"><form method="post" action="/op/write/new"><button type="submit" class="btn tall">New article</button></form><form method="post" action="/op/write/new"><input type="hidden" name="kind" value="research"><button type="submit" class="btn tall">New research</button></form></div><div class="ws-list">${rows}</div>`,
+    body: `<div class="d-head"><h1 class="d-h1">Write and research</h1>${opts.route ? `<span class="ws-route">${ROUTE_LABEL[opts.route]}</span>` : ""}<span class="d-links"><a href="/admin" class="ulink">Back to Admin</a></span></div>${opts.hasKey || isWorkersAi(chosen) ? "" : NO_KEY}<form method="post" action="/op/write/new" class="ws-new">${choice}<button type="submit" name="kind" value="article" class="btn tall">New article</button><button type="submit" name="kind" value="research" class="btn tall">New research</button></form><p class="ws-eng-note">The choice stays with each conversation. Claude reads and writes best; the Workers AI models run the same checks for much less.</p><div class="ws-list">${rows}</div>`,
   });
 }
 
@@ -94,6 +100,8 @@ export function renderWorkspace(
   opts: {
     hasKey: boolean;
     route?: "gateway" | "anthropic" | null;
+    /** The engine this conversation runs on. */
+    engine?: EngineId;
     publish?: { problems: string[]; live: LiveVersion | null; changed: boolean };
     /** A research draft: what keeps it from Admin, pages read, where it went. */
     research?: {
@@ -176,7 +184,7 @@ export function renderWorkspace(
   const body = `<div class="ws" data-ws="${esc(d.id)}" data-ws-kind="${esc(d.kind)}"${opts.autostart ? ` data-ws-autostart="${esc(opts.autostart)}"` : ""}>
 <div class="ws-tabs" role="tablist" aria-label="Show" data-ws-tabs hidden><button type="button" role="tab" data-ws-tab="chat" aria-selected="true">Chat</button><button type="button" role="tab" data-ws-tab="page" aria-selected="false">${read ? "What it found" : "The page"}</button></div>
 <section class="ws-chat" aria-label="Conversation">
-<div class="ws-head"><a href="/admin/write" class="ulink">Drafts</a><span class="ws-title" data-ws-title>${esc(d.meta.title || (research ? "Untitled research" : "Untitled draft"))}</span></div>
+<div class="ws-head"><a href="/admin/write" class="ulink">Drafts</a><span class="ws-eng-tag" title="${esc(engine(opts.engine ?? CLAUDE).note)}">${esc(engine(opts.engine ?? CLAUDE).label)}</span><span class="ws-title" data-ws-title>${esc(d.meta.title || (research ? "Untitled research" : "Untitled draft"))}</span></div>
 ${opts.hasKey ? "" : NO_KEY}
 <div class="ws-log" data-ws-log>${log}</div>
 <form class="ws-form" method="post" action="/op/write/${esc(d.id)}/turn" data-ws-form>
@@ -184,7 +192,7 @@ ${opts.hasKey ? "" : NO_KEY}
 <div class="ws-files" data-ws-files hidden></div>
 <label for="ws-text" class="vh">Message</label>
 <textarea id="ws-text" name="text" rows="3" placeholder="${read ? "Ask about the document, or what Claude found" : research ? "What should Claude find out, or change?" : "What should Claude write or change?"}"${opts.hasKey ? "" : " disabled"}></textarea>
-<div class="ws-actions"><span class="ws-left"><label class="ws-attach">Add files<input type="file" multiple accept=".md,.txt,.pdf,.docx" data-ws-file hidden></label><span class="ws-cost" data-ws-cost title="${opts.route ? esc(ROUTE_LABEL[opts.route]) : ""} · estimated, at Anthropic's list price">${esc(dollars(d.usage.cents))} so far</span></span><button type="submit" class="btn"${opts.hasKey ? "" : " disabled"}>Send</button></div>
+<div class="ws-actions"><span class="ws-left"><label class="ws-attach">Add files<input type="file" multiple accept=".md,.txt,.pdf,.docx" data-ws-file hidden></label><span class="ws-cost" data-ws-cost title="${isWorkersAi(opts.engine) ? "Workers AI, billed to Cloudflare" : opts.route ? esc(ROUTE_LABEL[opts.route]) : ""} · estimated, at the list price">${esc(dollars(d.usage.cents))} so far</span></span><button type="submit" class="btn"${opts.hasKey ? "" : " disabled"}>Send</button></div>
 </form>
 </section>
 <section class="ws-page" aria-label="The page">

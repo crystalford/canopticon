@@ -30,6 +30,9 @@ export interface DraftMeta {
   /** The first message, sent once when the draft opens (Read it, Write this). */
   seed?: string;
   based_on?: string[];
+  /** The engine chosen when the conversation was started (before its first
+   *  turn freezes it into the frame): "claude" or a Workers AI model id. */
+  engine?: string;
 }
 
 export interface Usage {

@@ -110,6 +110,24 @@
   `draft_messages.chars`) and the text is read ~2 MB and ≤90 rows a query
   (`batches` in `write/drafts.ts`); the drafts list never selects
   `body_md` or `frame`.
+- **Engines: Claude or Workers AI** (`write/engines.ts`, 2026-11-04). Every
+  conversation runs on one engine, chosen beside New article / New research
+  (remembered as the default in `users.preferences.engine`) and frozen in the
+  frame at the first turn (`frame.engine`; absent = Claude; a conversation
+  with messages but no frame stays Claude). Workers AI engines:
+  `@cf/deepseek-ai/deepseek-v4.1-flash-1017` (default, $0.30/$1.20 per M) and
+  `@cf/zai-org/glm-5.3` ($1.40/$4.40) — both tool-calling-tested live through
+  `/v1/admin/models?try=`. Same loop, instructions, tools and checks: the
+  stored conversation stays Anthropic-shaped; `workersStep` converts it to the
+  OpenAI chat format (`toChat`/`toFunctions`) and the reply back (`fromChat`).
+  The web is our own tools there: `web_search` through Brave
+  (`BRAVE_SEARCH_API_KEY`, set live) or Cloudflare's Web Search binding once
+  `AI_GATEWAY_ID` exists (it answered "Invalid gateway ID" without one);
+  `web_fetch` through `fetch` + `env.AI.toMarkdown`, 40,000 characters at a
+  time with an offset, every page kept in `research_sources`. Measured spend
+  before this (`/v1/admin/spend`, 2026-11-04): $72 recorded over 14
+  conversations, research $68.62, more than half of it Claude cache writes —
+  hence also `max_content_tokens` 60k → 30k on Claude's web_fetch.
 - **Is Claude connected?** `/admin/claude` (`site/pages/claude.ts`,
   `write/connection.ts`): which settings are present (never their values) and
   "Test the connection" (`POST /op/admin/claude-test`) — one small call with

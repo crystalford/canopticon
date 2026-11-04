@@ -6,6 +6,20 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-11-04 — Write and research on Workers AI, for a fraction of Claude
+
+- Every conversation now runs on a chosen engine: DeepSeek V4.1 Flash
+  (Workers AI, the new default, about a fifteenth of Claude's price),
+  GLM-5.3 (Workers AI, stronger, about a quarter) or Claude Opus 5.5. The
+  choice sits beside New article / New research, is remembered, and stays
+  with each conversation. Same instructions, same tools, same word-for-word
+  checks; the web on Workers AI is Brave search plus our own page reader.
+- Why: Claude research cost about $69 over eleven conversations, more than
+  half of it in re-sent pages (prompt-cache writes). Claude also now takes
+  pages 30,000 tokens at a time (was 60,000).
+- Probes: `/v1/admin/models` (the live catalog, a tool-call try, our web
+  tools) and `/v1/admin/spend` (where the money went, no titles or text).
+
 ## 2026-10-19, later — Long research no longer breaks the database
 
 - A long research conversation failed with "D1 DB exceeded its CPU time
