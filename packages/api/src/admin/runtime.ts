@@ -1530,6 +1530,35 @@ app.get("/models", async (c) => {
       out.try = { model: tryModel, error: String(err), ms: Date.now() - t0 };
     }
   }
+  // The Workers AI engine's own web tools, as a research turn uses them.
+  const { readPage, webSearch } = await import("../write/engines.ts");
+  const ws = c.req.query("websearch");
+  if (ws) {
+    try {
+      out.websearch = (await webSearch(c.env, ws)).slice(0, 5);
+    } catch (err) {
+      out.websearch = { error: String(err) };
+    }
+  }
+  const read = c.req.query("read");
+  if (read) {
+    const t0 = Date.now();
+    try {
+      const page = await readPage(c.env, read);
+      out.read = page
+        ? {
+            url: page.url,
+            title: page.title,
+            kind: page.kind,
+            chars: page.text.length,
+            start: page.text.slice(0, 600),
+            ms: Date.now() - t0,
+          }
+        : { empty: true, ms: Date.now() - t0 };
+    } catch (err) {
+      out.read = { error: String(err), ms: Date.now() - t0 };
+    }
+  }
   const q = c.req.query("search");
   if (q && ai.websearch) {
     try {

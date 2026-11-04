@@ -13,6 +13,7 @@ import { invalidateUploads } from "../../site/uploads";
 import { type WriteEvent, anthropicStream, runTurn } from "../../write/agent";
 import { slugify } from "../../write/article";
 import { d1Drafts } from "../../write/drafts";
+import { ENGINES, defaultEngine, setDefaultEngine } from "../../write/engines";
 import { addEntry, d1Entries } from "../../write/entries";
 import { announce, articleTopics, publishDraft, takeDown } from "../../write/publish";
 import { d1Reads } from "../../write/read";
@@ -32,7 +33,14 @@ app.post("/write/new", async (c) => {
   const userId = await resolveOperatorId(c.env.DB).catch(() => null);
   if (!userId) return c.redirect("/admin/write");
   const form = (await c.req.parseBody().catch(() => ({}))) as Record<string, unknown>;
-  const d = await d1Drafts(c.env, userId).create(form.kind === "research" ? "research" : "article");
+  const store = d1Drafts(c.env, userId);
+  const d = await store.create(form.kind === "research" ? "research" : "article");
+  // The engine chosen stays with the conversation, and becomes the default.
+  const chosen = String(form.engine ?? "");
+  if (ENGINES.some((e) => e.id === chosen)) {
+    await store.save(d.id, { meta: { ...d.meta, engine: chosen } });
+    await setDefaultEngine(c.env.DB, userId, chosen).catch(() => {});
+  }
   return c.redirect(`/admin/write/${d.id}`, 303);
 });
 
@@ -47,14 +55,13 @@ app.post("/write/:id/turn", async (c) => {
     .trim()
     .slice(0, 20000);
   const sse = (c.req.header("accept") ?? "").includes("text/event-stream");
+  // Claude's stream, when Claude is connected; a conversation on Workers AI
+  // runs without it (runTurn says so if a Claude conversation has none).
   const stream = await anthropicStream(c.env);
+  const defaultEngineId = userId ? await defaultEngine(c.env.DB, userId) : undefined;
 
-  if (!store || !draft || !text || !stream) {
-    const message = !draft
-      ? "That draft does not exist."
-      : !stream
-        ? "Claude is not connected: set up Cloudflare's AI Gateway or ANTHROPIC_API_KEY."
-        : "Say something first.";
+  if (!store || !draft || !text) {
+    const message = !draft ? "That draft does not exist." : "Say something first.";
     if (!sse) return c.redirect(back, 303);
     return new Response(
       `data: ${JSON.stringify({ type: "error", message })}\n\ndata: {"type":"done"}\n\n`,
@@ -80,6 +87,7 @@ app.post("/write/:id/turn", async (c) => {
       reads,
       draftId: id,
       text,
+      ...(defaultEngineId ? { defaultEngine: defaultEngineId } : {}),
       emit: () => {},
     });
     return c.redirect(back, 303);
@@ -109,6 +117,7 @@ app.post("/write/:id/turn", async (c) => {
     reads,
     draftId: id,
     text,
+    ...(defaultEngineId ? { defaultEngine: defaultEngineId } : {}),
     emit,
   })
     .catch((err: Error) => emit({ type: "error", message: err.message }))

@@ -87,7 +87,9 @@ export const WEB_TOOLS: Anthropic.Beta.BetaToolUnion[] = [
     name: "web_fetch",
     max_uses: READ_LIMIT,
     allowed_callers: ["direct"],
-    max_content_tokens: 60000,
+    // Half of what it was: on the live record (2026-11-04) cache writes of
+    // fetched pages were most of what Claude research cost.
+    max_content_tokens: 30000,
   },
 ];
 

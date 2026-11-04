@@ -482,8 +482,12 @@ a.facet:hover { filter: brightness(.96); }
 .ws-check.ok { color: var(--green-ink); }
 .ws-check.bad { color: var(--brick); font-weight: 600; }
 .ws-route { font-size: 13px; color: var(--muted); }
-.ws-new { display: flex; gap: 10px; margin: 20px 0 28px; }
+.ws-new { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 20px 0 6px; }
 .ws-new form { margin: 0; }
+.ws-eng { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); flex: 1 1 320px; min-width: 0; }
+.ws-eng select { font: inherit; font-size: 14px; color: var(--ink); padding: 9px 10px; border: 1px solid var(--hair); border-radius: 8px; background: var(--card); max-width: 100%; }
+.ws-eng-note { margin: 0 0 24px; font-size: 13px; color: var(--muted); }
+.ws-eng-tag { flex: none; font-size: 12px; padding: 1px 8px; border: 1px solid var(--hair); border-radius: 999px; color: var(--muted); }
 .ws-left { display: flex; align-items: center; gap: 14px; }
 .ws-attach { font-size: 13px; color: var(--cobalt); cursor: pointer; }
 .ws-attach:hover { text-decoration: underline; }

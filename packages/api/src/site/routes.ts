@@ -13,6 +13,7 @@ import { claudeRoute, transcript } from "../write/agent";
 import { draftArticle, draftMarkdown } from "../write/article";
 import { checkQuotes, draftQuotes } from "../write/check";
 import { d1Drafts } from "../write/drafts";
+import { CLAUDE, DEFAULT_ENGINE, defaultEngine, draftEngine, isWorkersAi } from "../write/engines";
 import { d1Entries } from "../write/entries";
 import { articleTopics, changedSince, latestVersion, publishProblems } from "../write/publish";
 import { START_READ, d1Reads } from "../write/read";
@@ -220,7 +221,14 @@ app.get("/admin/write", async (c) => {
   if (!signedIn(c)) return html(signIn("/admin/write"), { status: 401 });
   const store = await workspaceStore(c);
   const drafts = store ? await store.list().catch(() => []) : [];
-  return html(renderWriteList(drafts, { hasKey: !!claudeRoute(c.env), route: claudeRoute(c.env) }));
+  const uid = await resolveOperatorId(c.env.DB).catch(() => null);
+  return html(
+    renderWriteList(drafts, {
+      hasKey: !!claudeRoute(c.env),
+      route: claudeRoute(c.env),
+      engine: uid ? await defaultEngine(c.env.DB, uid) : DEFAULT_ENGINE,
+    }),
+  );
 });
 
 app.get("/admin/write/:id", async (c, next) => {
@@ -229,6 +237,13 @@ app.get("/admin/write/:id", async (c, next) => {
   const d = store ? await store.get(c.req.param("id")).catch(() => null) : null;
   if (!store || !d) return next();
   const items = transcript(await store.messages(d.id));
+  // Which engine this conversation runs on; Workers AI needs no Claude key.
+  const engUid = await resolveOperatorId(c.env.DB).catch(() => null);
+  const eng = draftEngine(
+    d,
+    items.length ? CLAUDE : engUid ? await defaultEngine(c.env.DB, engUid) : DEFAULT_ENGINE,
+  );
+  const ready = isWorkersAi(eng) || !!claudeRoute(c.env);
   if (d.kind === "read") {
     const uid = (await resolveOperatorId(c.env.DB).catch(() => null)) ?? "";
     const read = d.meta.readId ? await d1Reads(c.env, uid).get(d.meta.readId) : null;
@@ -240,7 +255,8 @@ app.get("/admin/write/:id", async (c, next) => {
         items,
         { total: 0, failed: [] },
         {
-          hasKey: !!claudeRoute(c.env),
+          hasKey: ready,
+          engine: eng,
           route: claudeRoute(c.env),
           read: {
             receipt: read ? receiptLine(read) : "No read recorded",
@@ -262,7 +278,8 @@ app.get("/admin/write/:id", async (c, next) => {
     const rcheck = checkReport(d.body, pages);
     return html(
       renderWorkspace(d, items, rcheck, {
-        hasKey: !!claudeRoute(c.env),
+        hasKey: ready,
+        engine: eng,
         route: claudeRoute(c.env),
         research: {
           problems: d.body.trim()
@@ -295,7 +312,8 @@ app.get("/admin/write/:id", async (c, next) => {
   );
   return html(
     renderWorkspace(d, items, check, {
-      hasKey: !!claudeRoute(c.env),
+      hasKey: ready,
+      engine: eng,
       route: claudeRoute(c.env),
       cards,
       publish: { problems, live, changed: live ? changedSince(d, live) : true },

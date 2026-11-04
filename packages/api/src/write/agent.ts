@@ -17,6 +17,18 @@ import { essayContract, problems, researchDoc, terms } from "../site/content/sto
 import { type CheckResult, checkQuotes, describeCheck, draftQuotes } from "./check";
 import type { Draft, DraftKind, DraftMeta, DraftStore, Message, Usage } from "./drafts";
 import { NO_USAGE } from "./drafts";
+import {
+  CLAUDE,
+  type EngineId,
+  FETCH_TOOL,
+  PAGE_CHARS,
+  SEARCH_TOOL,
+  engine as engineOf,
+  isWorkersAi,
+  readPage,
+  webSearch,
+  workersStep,
+} from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
 import { articleTopics } from "./publish";
 import {
@@ -29,7 +41,10 @@ import {
   runReadTool,
 } from "./read";
 import {
+  READ_LIMIT,
   RESEARCH_HOW,
+  type ResearchSource,
+  SEARCH_LIMIT,
   type SourceStore,
   WEB_TOOLS,
   WRITE_REPORT,
@@ -193,13 +208,20 @@ Below is the standard every article meets. Where it describes the old desk, the 
 interface Frame {
   system: string;
   tools: Anthropic.Beta.BetaToolUnion[];
+  /** Which engine the conversation runs on; absent means Claude (every
+   *  conversation before engines existed). Frozen with the rest. */
+  engine?: EngineId;
 }
-const newFrame = (kind: DraftKind = "article"): Frame =>
-  kind === "research"
-    ? { system: researchSystemPrompt(), tools: researchTools() }
-    : kind === "read"
-      ? { system: READ_HOW, tools: readTools() }
-      : { system: systemPrompt(), tools: TOOLS };
+const newFrame = (kind: DraftKind = "article", eng: EngineId = CLAUDE): Frame => {
+  const workers = isWorkersAi(eng);
+  const f: Frame =
+    kind === "research"
+      ? { system: researchSystemPrompt(), tools: researchTools(workers) }
+      : kind === "read"
+        ? { system: READ_HOW, tools: readTools() }
+        : { system: systemPrompt(), tools: TOOLS };
+  return workers ? { ...f, engine: eng } : f;
+};
 
 /** A read reads one document (and may look across the record) and notes cards. */
 export const readTools = (): Anthropic.Beta.BetaToolUnion[] => [
@@ -213,12 +235,13 @@ export const readTools = (): Anthropic.Beta.BetaToolUnion[] => [
 const byName = (n: string) =>
   TOOLS.find((t) => "name" in t && t.name === n) as Anthropic.Beta.BetaToolUnion;
 
-/** A research draft reads the record and the web, and writes a report. */
-export const researchTools = (): Anthropic.Beta.BetaToolUnion[] => [
+/** A research draft reads the record and the web, and writes a report. On
+ *  Claude the web is Anthropic's server tools; on Workers AI, our own. */
+export const researchTools = (workers = false): Anthropic.Beta.BetaToolUnion[] => [
   byName("list_documents"),
   byName("search_documents"),
   byName("read_document"),
-  ...WEB_TOOLS,
+  ...(workers ? [SEARCH_TOOL, FETCH_TOOL] : WEB_TOOLS),
   WRITE_REPORT,
   byName("edit_draft"),
 ];
@@ -414,6 +437,8 @@ interface ToolContext {
   draftId: string;
   emit: Emit;
   toolUseId?: string;
+  /** The web allowance spent this message (Workers AI's own web tools). */
+  web?: { searches: number; reads: number; capped: Set<string> };
 }
 
 /** A research report is checked against the pages read; an article against
@@ -603,6 +628,56 @@ async function runTool(
       t.emit({ type: "proposal", entry });
       return { text: "Proposed. Chris will add it as written, rewrite it, or dismiss it." };
     }
+    // The web on Workers AI: our own tools (Claude's are Anthropic's server
+    // tools and never arrive here).
+    case "web_search": {
+      const q = String((input as { query?: unknown } | null)?.query ?? "").trim();
+      if (!q) return bad("Give a query.");
+      if (t.web && t.web.searches >= SEARCH_LIMIT)
+        return bad("max_uses_exceeded: the web search allowance for this message is spent.");
+      if (t.web) t.web.searches++;
+      try {
+        const hits = await webSearch(t.env, q);
+        if (!hits.length) return { text: "No results." };
+        return {
+          text: hits.map((h, i) => `${i + 1}. ${h.title}\n${h.url}\n${h.description}`).join("\n\n"),
+        };
+      } catch (e) {
+        return bad(`The search failed: ${(e as Error).message}`);
+      }
+    }
+    case "web_fetch": {
+      const i = (input ?? {}) as { url?: unknown; offset?: unknown };
+      const url = String(i.url ?? "").trim();
+      const offset = Math.max(0, Math.floor(Number(i.offset) || 0));
+      if (!/^https?:\/\//i.test(url)) return bad("Give a full address, https://…");
+      let page: ResearchSource | null = null;
+      if (offset > 0 && t.sources)
+        page = (await t.sources.texts(t.draftId)).find((p) => p.url === url) ?? null;
+      if (!page) {
+        if (t.web && t.web.reads >= READ_LIMIT)
+          return bad("max_uses_exceeded: the page-reading allowance for this message is spent.");
+        if (t.web) t.web.reads++;
+        try {
+          page = await readPage(t.env, url);
+        } catch (e) {
+          return bad(`Could not read it: ${(e as Error).message}`);
+        }
+        if (!page)
+          return bad("Nothing readable came back (an empty page, a login wall, or a bot check).");
+        page = { ...page, url };
+        if (t.sources) await t.sources.add(t.draftId, [page]);
+      }
+      const slice = page.text.slice(offset, offset + PAGE_CHARS);
+      const more = offset + PAGE_CHARS < page.text.length;
+      return {
+        text: `${page.title ?? url}\n${url}\n\n${slice}${
+          more
+            ? `\n\n[${page.text.length.toLocaleString("en")} characters in all; read on with offset ${offset + PAGE_CHARS}]`
+            : ""
+        }`,
+      };
+    }
     default:
       return bad(`No tool called ${name}.`);
   }
@@ -610,16 +685,20 @@ async function runTool(
 
 // ---- the turn ---------------------------------------------------------------
 
-function addUsage(u: Usage, m: Anthropic.Beta.BetaMessage): Usage {
+function addUsage(
+  u: Usage,
+  m: Anthropic.Beta.BetaMessage,
+  price: { input: number; output: number; cacheRead: number; cacheWrite: number } = PRICE,
+): Usage {
   const input = m.usage.input_tokens ?? 0;
   const output = m.usage.output_tokens ?? 0;
   const cacheRead = m.usage.cache_read_input_tokens ?? 0;
   const cacheWrite = m.usage.cache_creation_input_tokens ?? 0;
   const cents =
-    ((input * PRICE.input +
-      output * PRICE.output +
-      cacheRead * PRICE.cacheRead +
-      cacheWrite * PRICE.cacheWrite) /
+    ((input * price.input +
+      output * price.output +
+      cacheRead * price.cacheRead +
+      cacheWrite * price.cacheWrite) /
       1_000_000) *
     100;
   return {
@@ -670,7 +749,11 @@ function unanswered(history: Message[]): Message | null {
 }
 
 export async function runTurn(o: {
-  stream: StreamFn;
+  /** Claude's stream; null when Claude is not connected (a Workers AI
+   *  conversation does not need it). */
+  stream: StreamFn | null;
+  /** The engine a conversation starts on when it was not given one. */
+  defaultEngine?: EngineId;
   env: Env;
   store: DraftStore;
   entries?: EntryStore | undefined;
@@ -707,7 +790,31 @@ export async function runTurn(o: {
 async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<void> {
   const { env, store, draftId, emit } = o;
   let usage = draft.usage ?? NO_USAGE;
+  // The instructions and tools are frozen at the conversation's first turn
+  // and sent byte for byte ever after: the model's reasoning is bound to the
+  // exact conversation, and a topic or tool added later must not change it.
+  // It is saved only once a first reply has come back, so a first turn that
+  // fails (a bad key, a rejected parameter) does not freeze a broken frame.
+  // The engine is part of it: a conversation stays on the engine it began on.
+  // A conversation that already has messages but no frame began on Claude.
   const history = await store.messages(draftId);
+  const startOn = draft.meta.engine ?? (history.length ? CLAUDE : (o.defaultEngine ?? CLAUDE));
+  let frame: Frame;
+  try {
+    frame = draft.frame ? (JSON.parse(draft.frame) as Frame) : newFrame(draft.kind, startOn);
+  } catch {
+    frame = newFrame(draft.kind, startOn);
+  }
+  const engineId = frame.engine ?? CLAUDE;
+  const workers = isWorkersAi(engineId);
+  if (!workers && !o.stream) {
+    emit({
+      type: "error",
+      message:
+        "Claude is not connected, and this conversation runs on Claude. Connect it on /admin/claude, or start a new conversation on a Workers AI model.",
+    });
+    return;
+  }
   const repair = unanswered(history);
   const opening: Message[] = [
     ...(repair ? [repair] : []),
@@ -716,17 +823,6 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
   await store.append(draftId, opening);
   history.push(...opening);
 
-  // The instructions and tools are frozen at the conversation's first turn
-  // and sent byte for byte ever after: the model's reasoning is bound to the
-  // exact conversation, and a topic or tool added later must not change it.
-  // It is saved only once a first reply has come back, so a first turn that
-  // fails (a bad key, a rejected parameter) does not freeze a broken frame.
-  let frame: Frame;
-  try {
-    frame = draft.frame ? (JSON.parse(draft.frame) as Frame) : newFrame(draft.kind);
-  } catch {
-    frame = newFrame(draft.kind);
-  }
   let frameSaved = !!draft.frame;
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: "text", text: frame.system, cache_control: { type: "ephemeral" } },
@@ -734,7 +830,10 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
   // A read knows its document: the cards are located in its text.
   const readDocId = draft.kind === "read" ? draft.meta.based_on?.[0] : undefined;
   const readText = readDocId ? await sourceText(env, readDocId) : null;
+  // What this message spent on the web, said at the end of a research turn.
+  const web = { searches: 0, reads: 0, capped: new Set<string>() };
   const ctx: ToolContext = {
+    web,
     env,
     store,
     entries: o.entries,
@@ -752,110 +851,140 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     (draft.kind === "read" ? READ_STEPS : draft.kind === "research" ? RESEARCH_STEPS : MAX_STEPS);
   // Whether the model finished on its own, rather than hitting the step limit.
   let ended = false;
-  // What this message spent on the web, said at the end of a research turn.
-  const web = { searches: 0, reads: 0, capped: new Set<string>() };
 
   for (let step = 0; step < steps; step++) {
     let message: Anthropic.Beta.BetaMessage;
-    try {
-      const s = o.stream({
-        model: WRITE_MODEL,
-        // The model's whole output allowance: a long report or article is one
-        // write, and its thinking counts against the same budget.
-        max_tokens: 128000,
-        betas: [
-          "server-side-fallback-2026-07-01",
-          "thinking-binding-controls-2026-08-01",
-          "context-management-2025-06-27",
-          "thinking-display-updates-2026-08-18",
-        ],
-        // Long sessions read a lot: past 300k tokens, older tool results
-        // (documents, fetched pages) are cleared from what Claude sees. The
-        // pages themselves are kept (research_sources) and can be re-read.
-        context_management: {
-          edits: [
-            {
-              type: "clear_tool_uses_20250919",
-              trigger: { type: "input_tokens", value: 300_000 },
-              keep: { type: "tool_uses", value: 8 },
-              exclude_tools: ["write_draft", "write_report", "edit_draft"],
-            },
+    if (workers) {
+      // An open model on Workers AI: the whole reply at once, then the same
+      // loop as Claude's (its tool calls arrive as tool_use blocks).
+      try {
+        message = await workersStep(env, engineId, frame.system, frame.tools, history);
+      } catch (err) {
+        emit({
+          type: "error",
+          message: `${engineOf(engineId).label} on Workers AI could not answer: ${String((err as Error).message ?? err).slice(0, 400)}`,
+        });
+        break;
+      }
+      const said = message.content
+        .filter((b) => b.type === "text")
+        .map((b) => (b as { text: string }).text)
+        .join("")
+        .trim();
+      const calls = message.content.filter((b) => b.type === "tool_use") as Array<{ name: string }>;
+      // Words between tool calls are progress notes; the last words are the reply.
+      if (said) emit(calls.length ? { type: "update", text: said } : { type: "text", text: said });
+      for (const c of calls)
+        if (c.name === "write_draft" || c.name === "write_report" || c.name === "edit_draft")
+          emit({ type: "activity", text: c.name === "edit_draft" ? "Revising…" : "Writing…" });
+    } else if (!o.stream) {
+      break;
+    } else
+      try {
+        const s = o.stream({
+          model: WRITE_MODEL,
+          // The model's whole output allowance: a long report or article is one
+          // write, and its thinking counts against the same budget.
+          max_tokens: 128000,
+          betas: [
+            "server-side-fallback-2026-07-01",
+            "thinking-binding-controls-2026-08-01",
+            "context-management-2025-06-27",
+            "thinking-display-updates-2026-08-18",
           ],
-        },
-        fallbacks: "default",
-        // A safety net under the frozen frame: if the prefix ever differs,
-        // drop the stale reasoning instead of failing the turn.
-        // "updates": the short notes Claude writes between tool calls (what it
-        // just found, what it will do next) come back as text and show in the
-        // chat; its reasoning stays hidden. Without it a long run is silent.
-        thinking: {
-          type: "adaptive",
-          display: "updates",
-          block_binding: { prefix_mismatch_behavior: "drop_block" },
-        },
-        output_config: { effort: "high" },
-        cache_control: { type: "ephemeral" },
-        system,
-        tools: frame.tools,
-        messages: history,
-      });
-      s.on("text", (delta) => emit({ type: "text", text: delta }));
-      // Progress notes arrive as thinking blocks with text (display: "updates");
-      // an empty one is reasoning, and shows nothing.
-      const notes = new Map<number, string>();
-      s.on("streamEvent", (ev) => {
-        if (ev.type === "content_block_start" && ev.content_block.type === "thinking")
-          notes.set(ev.index, "");
-        if (
-          ev.type === "content_block_delta" &&
-          ev.delta.type === "thinking_delta" &&
-          notes.has(ev.index)
-        )
-          notes.set(ev.index, (notes.get(ev.index) ?? "") + ev.delta.thinking);
-        if (ev.type === "content_block_stop" && notes.has(ev.index)) {
-          const note = (notes.get(ev.index) ?? "").trim();
-          notes.delete(ev.index);
-          if (note) emit({ type: "update", text: note });
-        }
-        if (ev.type === "content_block_start" && ev.content_block.type === "server_tool_use") {
-          emit({
-            type: "activity",
-            text: ev.content_block.name === "web_fetch" ? "Reading a page…" : "Searching the web…",
-          });
-        }
-        if (ev.type === "content_block_start" && ev.content_block.type === "tool_use") {
-          const n = ev.content_block.name;
-          if (n === "write_draft" || n === "edit_draft")
+          // Long sessions read a lot: past 300k tokens, older tool results
+          // (documents, fetched pages) are cleared from what Claude sees. The
+          // pages themselves are kept (research_sources) and can be re-read.
+          context_management: {
+            edits: [
+              {
+                type: "clear_tool_uses_20250919",
+                trigger: { type: "input_tokens", value: 300_000 },
+                keep: { type: "tool_uses", value: 8 },
+                exclude_tools: ["write_draft", "write_report", "edit_draft"],
+              },
+            ],
+          },
+          fallbacks: "default",
+          // A safety net under the frozen frame: if the prefix ever differs,
+          // drop the stale reasoning instead of failing the turn.
+          // "updates": the short notes Claude writes between tool calls (what it
+          // just found, what it will do next) come back as text and show in the
+          // chat; its reasoning stays hidden. Without it a long run is silent.
+          thinking: {
+            type: "adaptive",
+            display: "updates",
+            block_binding: { prefix_mismatch_behavior: "drop_block" },
+          },
+          output_config: { effort: "high" },
+          cache_control: { type: "ephemeral" },
+          system,
+          tools: frame.tools,
+          messages: history,
+        });
+        s.on("text", (delta) => emit({ type: "text", text: delta }));
+        // Progress notes arrive as thinking blocks with text (display: "updates");
+        // an empty one is reasoning, and shows nothing.
+        const notes = new Map<number, string>();
+        s.on("streamEvent", (ev) => {
+          if (ev.type === "content_block_start" && ev.content_block.type === "thinking")
+            notes.set(ev.index, "");
+          if (
+            ev.type === "content_block_delta" &&
+            ev.delta.type === "thinking_delta" &&
+            notes.has(ev.index)
+          )
+            notes.set(ev.index, (notes.get(ev.index) ?? "") + ev.delta.thinking);
+          if (ev.type === "content_block_stop" && notes.has(ev.index)) {
+            const note = (notes.get(ev.index) ?? "").trim();
+            notes.delete(ev.index);
+            if (note) emit({ type: "update", text: note });
+          }
+          if (ev.type === "content_block_start" && ev.content_block.type === "server_tool_use") {
             emit({
               type: "activity",
-              text: n === "write_draft" ? "Writing the draft…" : "Revising…",
+              text:
+                ev.content_block.name === "web_fetch" ? "Reading a page…" : "Searching the web…",
             });
-        }
-      });
-      message = await s.finalMessage();
-    } catch (err) {
-      const e = err as {
-        status?: number;
-        message?: string;
-        error?: { error?: { message?: string } };
-      };
-      const detail = e.error?.error?.message ?? e.message ?? "unknown error";
-      const via =
-        claudeRoute(env) === "gateway"
-          ? "through Cloudflare's AI Gateway"
-          : "with the Anthropic API key";
-      emit({
-        type: "error",
-        message:
-          e.status === 401 || e.status === 403
-            ? `Claude refused the credentials ${via} (${e.status}: ${detail}).`
-            : `Claude could not be reached ${via}${e.status ? ` (${e.status})` : ""}: ${detail}`,
-      });
-      break;
-    }
-    usage = addUsage(usage, message);
+          }
+          if (ev.type === "content_block_start" && ev.content_block.type === "tool_use") {
+            const n = ev.content_block.name;
+            if (n === "write_draft" || n === "edit_draft")
+              emit({
+                type: "activity",
+                text: n === "write_draft" ? "Writing the draft…" : "Revising…",
+              });
+          }
+        });
+        message = await s.finalMessage();
+      } catch (err) {
+        const e = err as {
+          status?: number;
+          message?: string;
+          error?: { error?: { message?: string } };
+        };
+        const detail = e.error?.error?.message ?? e.message ?? "unknown error";
+        const via =
+          claudeRoute(env) === "gateway"
+            ? "through Cloudflare's AI Gateway"
+            : "with the Anthropic API key";
+        emit({
+          type: "error",
+          message:
+            e.status === 401 || e.status === 403
+              ? `Claude refused the credentials ${via} (${e.status}: ${detail}).`
+              : `Claude could not be reached ${via}${e.status ? ` (${e.status})` : ""}: ${detail}`,
+        });
+        break;
+      }
+    usage = workers ? addUsage(usage, message, engineOf(engineId).price) : addUsage(usage, message);
     if (!frameSaved) {
-      await store.save(draftId, { frame: JSON.stringify(frame) });
+      // The engine also goes in the meta, which the drafts list reads.
+      const now = await store.get(draftId);
+      await store.save(draftId, {
+        frame: JSON.stringify(frame),
+        ...(now && now.meta.engine !== engineId ? { meta: { ...now.meta, engine: engineId } } : {}),
+      });
       frameSaved = true;
     }
 
