@@ -1655,7 +1655,10 @@ app.get("/engine-try", async (c) => {
   const d = await store.create("research");
   const events: Array<Record<string, unknown>> = [];
   const t0 = Date.now();
-  await runTurn({
+  // A research turn can outlast the probe's wait: answer at the deadline
+  // with what has happened so far (each event stamped with its second).
+  const deadline = Math.min(280, Math.max(20, Number(c.req.query("deadline")) || 240)) * 1000;
+  const turn = runTurn({
     stream: null,
     defaultEngine: model,
     env: c.env,
@@ -1666,15 +1669,24 @@ app.get("/engine-try", async (c) => {
     maxSteps: Math.min(30, Math.max(2, Number(c.req.query("steps")) || 14)),
     emit: (e) => {
       const x = e as Record<string, unknown>;
-      events.push({ ...x, ...(typeof x.text === "string" ? { text: x.text.slice(0, 300) } : {}) });
+      events.push({
+        s: Math.round((Date.now() - t0) / 1000),
+        ...x,
+        ...(typeof x.text === "string" ? { text: x.text.slice(0, 300) } : {}),
+      });
     },
   });
+  const finished = await Promise.race([
+    turn.then(() => true),
+    new Promise<boolean>((r) => setTimeout(() => r(false), deadline)),
+  ]);
   const done = await store.get(d.id);
   const pages = await sources.texts(d.id);
   const body = done?.body ?? "";
   const check = checkReport(body, pages);
   return c.json({
     model,
+    finished,
     seconds: Math.round((Date.now() - t0) / 1000),
     dollars: Math.round((done?.usage.cents ?? 0) * 100) / 10000,
     usage: done?.usage,

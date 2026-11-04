@@ -40,6 +40,11 @@ on:
         required: false
         default: ""
         type: string
+      max_time:
+        description: "Seconds to wait for the answer (a research try takes minutes)"
+        required: false
+        default: "30"
+        type: string
 
 permissions:
   contents: write
@@ -58,6 +63,7 @@ jobs:
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           PROBE_PATH: ${{ github.event.inputs.path }}
           PROBE_METHOD: ${{ github.event.inputs.method }}
+          PROBE_MAX_TIME: ${{ github.event.inputs.max_time }}
           PROBE_BODY: ${{ github.event.inputs.body }}
         run: |
           set -euo pipefail
@@ -69,7 +75,7 @@ jobs:
 
           # Build curl args. Capture body + status separately so we always
           # write a structured response even on non-2xx.
-          ARGS=(-sS -m 30 -X "${PROBE_METHOD}"
+          ARGS=(-sS -m "${PROBE_MAX_TIME:-30}" -X "${PROBE_METHOD}"
                 -H "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}"
                 -H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}"
                 -H "content-type: application/json"
