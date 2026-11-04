@@ -1464,4 +1464,145 @@ app.get("/backfill-cost-whitelists", async (c) => {
   return c.json({ ok: true, checked: DEFAULT_WHITELISTS.length, inserted });
 });
 
+// ---- what the cheaper engine could run on, and where the Claude money went ----
+
+/** The live Workers AI text-generation catalog (ids, context, tools, price
+ *  as the catalog states them). ?try=<model> runs one tiny tool-calling call
+ *  on that model and returns what came back; ?search=<query> tries the
+ *  Web Search binding once. Read-only apart from those two small calls. */
+app.get("/models", async (c) => {
+  const ai = c.env.AI as unknown as {
+    models?: (p?: Record<string, unknown>) => Promise<Array<Record<string, unknown>>>;
+    run: (model: string, input: unknown) => Promise<unknown>;
+    websearch?: (input: Record<string, unknown>) => Promise<unknown>;
+  };
+  const out: Record<string, unknown> = {
+    websearch_binding: typeof ai.websearch,
+    ai_gateway_id_set: !!c.env.AI_GATEWAY_ID,
+    brave_search_key_set: !!c.env.BRAVE_SEARCH_API_KEY,
+  };
+  try {
+    const list = (await ai.models?.({ task: "Text Generation", per_page: 300 })) ?? [];
+    out.models = list.map((m) => ({
+      name: m.name,
+      description: String(m.description ?? "").slice(0, 160),
+      created_at: m.created_at,
+      properties: Object.fromEntries(
+        ((m.properties as Array<{ property_id: string; value: unknown }>) ?? []).map((p) => [
+          p.property_id,
+          p.value,
+        ]),
+      ),
+    }));
+  } catch (err) {
+    out.models_error = String(err);
+  }
+  const tryModel = c.req.query("try");
+  if (tryModel) {
+    const t0 = Date.now();
+    try {
+      out.try = {
+        model: tryModel,
+        result: await ai.run(tryModel, {
+          messages: [
+            { role: "system", content: "Use the tool when a question needs it." },
+            { role: "user", content: "What is the population of Hamilton, Ontario? Look it up." },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "web_search",
+                description: "Search the web.",
+                parameters: {
+                  type: "object",
+                  properties: { query: { type: "string" } },
+                  required: ["query"],
+                },
+              },
+            },
+          ],
+          max_tokens: 400,
+        }),
+        ms: Date.now() - t0,
+      };
+    } catch (err) {
+      out.try = { model: tryModel, error: String(err), ms: Date.now() - t0 };
+    }
+  }
+  const q = c.req.query("search");
+  if (q && ai.websearch) {
+    try {
+      const r = (await ai.websearch({
+        query: q,
+        limit: 3,
+        gatewayId: c.req.query("gateway") ?? c.env.AI_GATEWAY_ID ?? "default",
+      })) as unknown;
+      out.search =
+        r instanceof Response ? { status: r.status, body: (await r.text()).slice(0, 4000) } : r;
+    } catch (err) {
+      out.search = { error: String(err) };
+    }
+  }
+  return c.json(out);
+});
+
+/** Where the workspace's Claude spending went: per kind of conversation and
+ *  the costliest conversations, by token type. No titles, no text. */
+app.get("/spend", async (c) => {
+  const userId = c.get("user_id");
+  const rows = await all<{ id: string; kind: string; created_at: string; usage: string }>(
+    c.env.DB,
+    "SELECT id, kind, created_at, usage FROM drafts WHERE user_id = ?",
+    [userId],
+  ).catch(() => []);
+  const msgs = await all<{ draft_id: string; n: number }>(
+    c.env.DB,
+    "SELECT draft_id, COUNT(*) AS n FROM draft_messages GROUP BY draft_id",
+    [],
+  ).catch(() => []);
+  const pages = await all<{ draft_id: string; n: number }>(
+    c.env.DB,
+    "SELECT draft_id, COUNT(*) AS n FROM research_sources GROUP BY draft_id",
+    [],
+  ).catch(() => []);
+  const count = (list: Array<{ draft_id: string; n: number }>) =>
+    new Map(list.map((r) => [r.draft_id, r.n]));
+  const m = count(msgs);
+  const p = count(pages);
+  const each = rows.map((r) => {
+    const u = JSON.parse(r.usage || "{}") as Record<string, number>;
+    return {
+      kind: r.kind,
+      created: r.created_at.slice(0, 10),
+      dollars: Math.round(u.cents ?? 0) / 100,
+      input: u.input ?? 0,
+      output: u.output ?? 0,
+      cache_read: u.cacheRead ?? 0,
+      cache_write: u.cacheWrite ?? 0,
+      message_rows: m.get(r.id) ?? 0,
+      pages_read: p.get(r.id) ?? 0,
+    };
+  });
+  const byKind: Record<string, Record<string, number>> = {};
+  for (const e of each) {
+    const k = (byKind[e.kind] ??= {
+      drafts: 0,
+      dollars: 0,
+      input: 0,
+      output: 0,
+      cache_read: 0,
+      cache_write: 0,
+    });
+    k.drafts = (k.drafts ?? 0) + 1;
+    for (const f of ["dollars", "input", "output", "cache_read", "cache_write"] as const)
+      k[f] = (k[f] ?? 0) + e[f];
+  }
+  return c.json({
+    total_dollars: Math.round(each.reduce((a, e) => a + e.dollars, 0) * 100) / 100,
+    by_kind: byKind,
+    costliest: each.sort((a, b) => b.dollars - a.dollars).slice(0, 15),
+  });
+});
+
 export default app;
