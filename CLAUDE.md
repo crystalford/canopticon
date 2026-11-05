@@ -140,7 +140,11 @@
   operator's bill was ~$100 against $72 recorded: turns cut off by errors
   were never counted). Context editing clears rarely and in bulk (trigger
   500k, `clear_at_least` 200k): every clear rewrites the cached conversation.
-  "Test the connection" also tries Sonnet with the advisor.
+  "Test the connection" also tries Sonnet with the advisor. **Claude's cache
+  is one hour** (`ttl: "1h"` on the system block, the request and the
+  advisor; writes priced at 2× input): the operator reads for longer than
+  five minutes between messages, and each reply after that re-bought the
+  whole conversation.
 - **Is Claude connected?** `/admin/claude` (`site/pages/claude.ts`,
   `write/connection.ts`): which settings are present (never their values) and
   "Test the connection" (`POST /op/admin/claude-test`) — one small call with

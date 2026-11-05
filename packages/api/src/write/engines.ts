@@ -45,7 +45,7 @@ export interface Engine {
 }
 
 /** Claude Opus 5.5's rates, also what an Opus advisor's calls cost. */
-export const OPUS_PRICE = { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 };
+export const OPUS_PRICE = { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 8 };
 
 export const CLAUDE: EngineId = "claude";
 export const DEFAULT_ENGINE: EngineId = "@cf/deepseek-ai/deepseek-v4.1-flash-1017";
@@ -72,7 +72,7 @@ export const ENGINES: Engine[] = [
     id: "claude-sonnet-advised",
     label: "Claude Sonnet 5.5 + Opus advice",
     note: "Anthropic · $2 in / $10 out, with Opus 5.5 planning · about half of Claude Opus",
-    price: { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
+    price: { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 4 },
     provider: "anthropic",
     model: "claude-sonnet-5-5",
     advisor: "claude-opus-5-5",
@@ -105,7 +105,7 @@ export function advisorTool(id: EngineId): Anthropic.Beta.BetaToolUnion | null {
     name: "advisor",
     model: e.advisor,
     max_tokens: 2048,
-    caching: { type: "ephemeral", ttl: "5m" },
+    caching: { type: "ephemeral", ttl: "1h" },
   } as unknown as Anthropic.Beta.BetaToolUnion;
 }
 

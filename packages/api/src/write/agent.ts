@@ -69,7 +69,8 @@ export const WRITE_MODEL = "claude-opus-5-5";
 
 /** List price per million tokens (Claude Opus 5.5); a cache write costs
  *  1.25× input. The page shows the tally as an estimate. */
-const PRICE = { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 };
+// Cache writes at the one-hour rate (2× input): see the cache_control below.
+const PRICE = { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 8 };
 
 /** Model calls in one turn, at most. A turn that needs more stops and says so. */
 const MAX_STEPS = 24;
@@ -855,7 +856,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
 
   let frameSaved = !!draft.frame;
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
-    { type: "text", text: frame.system, cache_control: { type: "ephemeral" } },
+    { type: "text", text: frame.system, cache_control: { type: "ephemeral", ttl: "1h" } },
   ];
   // A read knows its document: the cards are located in its text.
   const readDocId = draft.kind === "read" ? draft.meta.based_on?.[0] : undefined;
@@ -957,7 +958,12 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
             block_binding: { prefix_mismatch_behavior: "drop_block" },
           },
           output_config: { effort: "high" },
-          cache_control: { type: "ephemeral" },
+          // One hour, not five minutes: Chris reads a report for longer than
+          // five minutes before replying, and each reply after that re-bought
+          // the whole conversation at the write rate. One-hour writes cost 2×
+          // input instead of 1.25×, and every reply within the hour reads it
+          // back at a twentieth of input.
+          cache_control: { type: "ephemeral", ttl: "1h" },
           system,
           tools: frame.tools,
           messages: history,
