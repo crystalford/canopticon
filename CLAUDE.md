@@ -175,7 +175,12 @@
   write, so citation numbers never drift. `write_report` is gone from new
   research frames. With notes kept, pages leave the model's view sooner:
   Claude clears at 250k (≥120k, keep 6), Workers AI past 300k characters.
-  `reportProblems` lists parts still to write.
+  `reportProblems` lists parts still to write. **Checkpoints in code**
+  (`nudges` in `agent.ts`, said once a message in the next tool result): no
+  outline after the second step → write_outline now; six pages read and
+  nothing noted → note first; outlined, sixteen pages read, nothing written
+  → write. Live, DeepSeek otherwise read twenty pages chasing one figure
+  and never outlined or noted.
 - **Is Claude connected?** `/admin/claude` (`site/pages/claude.ts`,
   `write/connection.ts`): which settings are present (never their values) and
   "Test the connection" (`POST /op/admin/claude-test`) — one small call with
