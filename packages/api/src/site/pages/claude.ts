@@ -46,7 +46,13 @@ export function renderClaude(
   }</section>`;
   const test = result
     ? result.ok
-      ? `<div class="cl-result ok"><strong>It works.</strong> ${esc(result.model)} answered “${esc(result.reply)}” in ${(result.ms / 1000).toFixed(1)} s, with the features the workspace uses (fallbacks, reasoning, web search and fetch available).</div>`
+      ? `<div class="cl-result ok"><strong>It works.</strong> ${esc(result.model)} answered “${esc(result.reply)}” in ${(result.ms / 1000).toFixed(1)} s, with the features the workspace uses (fallbacks, reasoning, web search and fetch available).${
+          result.advised
+            ? result.advised.ok
+              ? " Claude Sonnet 5.5 with Opus advice works too."
+              : ` Claude Sonnet 5.5 with Opus advice did not: <code>${esc(result.advised.detail)}</code>`
+            : ""
+        }</div>`
       : `<div class="cl-result bad"><strong>The test failed.</strong> ${result.route ? `${result.route === "gateway" ? "Cloudflare's gateway" : "Anthropic"} answered: ` : ""}<code>${esc(result.error)}</code></div>`
     : "";
   const body = `<div class="cl"><div class="d-head"><h1 class="d-h1">Claude</h1><span class="d-links"><a href="/admin" class="ulink">Back to Admin</a></span></div>

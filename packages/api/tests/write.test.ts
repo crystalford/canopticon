@@ -1069,3 +1069,79 @@ describe("research: a turn", () => {
     expect(first.system[0]?.text).toContain("HOW YOU RESEARCH");
   });
 });
+
+// ---- Claude's cost: the advised engine, the accounting, the clearing ---------------
+
+describe("Claude Sonnet with Opus advice", () => {
+  it("runs on Sonnet with the advisor tool and its beta, and counts the advice at Opus's rates", async () => {
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    await store.save(d.id, { meta: { engine: "claude-sonnet-advised" } });
+    const m = msg([{ type: "text", text: "Done." }], "end_turn");
+    (m.usage as unknown as Record<string, unknown>).iterations = [
+      { type: "message", input_tokens: 1000, output_tokens: 500 },
+      {
+        type: "advisor_message",
+        model: "claude-opus-5-5",
+        input_tokens: 10_000,
+        output_tokens: 1000,
+      },
+    ];
+    (m.usage as unknown as Record<string, unknown>).server_tool_use = { web_search_requests: 3 };
+    const { stream, calls } = fakeStream([m]);
+    await runTurn({ stream, env, store, draftId: d.id, text: "Go.", emit: () => {} });
+    const p = calls[0] as {
+      model: string;
+      betas: string[];
+      tools: Array<Record<string, unknown>>;
+    };
+    expect(p.model).toBe("claude-sonnet-5-5");
+    expect(p.betas).toContain("advisor-tool-2026-03-01");
+    expect(p.tools.find((t) => t.name === "advisor")).toMatchObject({
+      type: "advisor_20260301",
+      model: "claude-opus-5-5",
+      max_tokens: 2048,
+    });
+    // Sonnet: 1000 in × $2 + 500 out × $10 + 2000 cached × $0.10 = $0.0072;
+    // Opus advice: 10,000 × $4 + 1000 × $20 = $0.06; three searches: $0.03.
+    expect((await store.get(d.id))?.usage.cents).toBeCloseTo(0.72 + 6 + 3, 4);
+    expect(JSON.parse((await store.get(d.id))?.frame ?? "{}").engine).toBe("claude-sonnet-advised");
+  });
+
+  it("leaves Claude Opus without the advisor, clearing old pages rarely and in large batches", async () => {
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    const { stream, calls } = fakeStream([msg([{ type: "text", text: "ok" }], "end_turn")]);
+    await runTurn({ stream, env, store, draftId: d.id, text: "Go.", emit: () => {} });
+    const p = calls[0] as {
+      model: string;
+      betas: string[];
+      tools: Array<{ name?: string }>;
+      context_management: { edits: Array<Record<string, unknown>> };
+    };
+    expect(p.model).toBe("claude-opus-5-5");
+    expect(p.betas).not.toContain("advisor-tool-2026-03-01");
+    expect(p.tools.some((t) => t.name === "advisor")).toBe(false);
+    expect(p.context_management.edits[0]).toMatchObject({
+      trigger: { type: "input_tokens", value: 500_000 },
+      clear_at_least: { type: "input_tokens", value: 200_000 },
+    });
+  });
+
+  it("saves what each step cost as it goes, so a turn cut off by an error is still counted", async () => {
+    const store = memoryDrafts();
+    const d = await store.create("article");
+    let n = 0;
+    const first = fakeStream([
+      msg([{ type: "tool_use", id: "t1", name: "list_documents", input: {} }], "tool_use"),
+    ]);
+    const stream: StreamFn = (params) => {
+      n++;
+      if (n > 1) throw new Error("connection reset");
+      return first.stream(params);
+    };
+    await runTurn({ stream, env, store, draftId: d.id, text: "Go.", emit: () => {} });
+    // One Opus step: 1000 × $4 + 500 × $20 + 2000 × $0.20 = $0.0144.
+    expect((await store.get(d.id))?.usage.cents).toBeCloseTo(1.44, 4);
+  });
+});

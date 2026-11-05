@@ -7,6 +7,7 @@
 
 import type { Env } from "../env";
 import { type StreamFn, WRITE_MODEL, anthropicStream, claudeRoute } from "./agent";
+import { ENGINES, advisorTool } from "./engines";
 import { WEB_TOOLS } from "./research";
 import { storedKey, storedKeyHint } from "./stored-key";
 
@@ -51,7 +52,15 @@ export function connectionSettings(env: Env): Setting[] {
 }
 
 export type TestResult =
-  | { ok: true; route: "gateway" | "anthropic"; model: string; ms: number; reply: string }
+  | {
+      ok: true;
+      route: "gateway" | "anthropic";
+      model: string;
+      ms: number;
+      reply: string;
+      /** The cheaper Claude engine (Sonnet with Opus advice), tried the same way. */
+      advised?: { ok: boolean; detail: string };
+    }
   | { ok: false; route: "gateway" | "anthropic" | null; error: string };
 
 /** One small call, made the way the workspace makes them. Costs a fraction
@@ -88,7 +97,39 @@ export async function testClaude(env: Env, fake?: StreamFn): Promise<TestResult>
       .map((b) => (b.type === "text" ? b.text : ""))
       .join("")
       .trim();
-    return { ok: true, route, model: m.model, ms: Date.now() - t0, reply: reply.slice(0, 200) };
+    // The cheaper Claude engine: one tiny Sonnet call with the advisor tool
+    // and its beta declared, so a rejected pairing or parameter shows here.
+    let advised: { ok: boolean; detail: string } | undefined;
+    const sonnet = ENGINES.find((e) => e.advisor);
+    const tool = sonnet ? advisorTool(sonnet.id) : null;
+    if (sonnet?.model && tool) {
+      try {
+        const a = await stream({
+          model: sonnet.model,
+          max_tokens: 200,
+          betas: ["advisor-tool-2026-03-01", "thinking-display-updates-2026-08-18"],
+          thinking: { type: "adaptive", display: "updates" },
+          output_config: { effort: "low" },
+          tools: [tool],
+          messages: [{ role: "user", content: "Reply with one word: connected." }],
+        }).finalMessage();
+        advised = { ok: true, detail: `${a.model} answered` };
+      } catch (err) {
+        const e = err as { status?: number; message?: string };
+        advised = {
+          ok: false,
+          detail: `${e.status ? `${e.status}: ` : ""}${(e.message ?? String(err)).slice(0, 300)}`,
+        };
+      }
+    }
+    return {
+      ok: true,
+      route,
+      model: m.model,
+      ms: Date.now() - t0,
+      reply: reply.slice(0, 200),
+      ...(advised ? { advised } : {}),
+    };
   } catch (err) {
     const e = err as { status?: number; message?: string };
     return {
