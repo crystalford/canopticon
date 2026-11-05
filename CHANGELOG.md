@@ -15,6 +15,9 @@ product became the publication.
   turn cut off by an error had cost money that was never counted — the bill
   was about $100 against $72 shown), with Claude's web searches ($10 per
   thousand) and advisor calls included.
+- Claude's memory of a conversation (the prompt cache) lasts an hour, not
+  five minutes: a reply after a pause no longer re-buys the whole
+  conversation. Storing costs a little more; reading it back stays cheap.
 - Claude clears old pages from its context rarely and in large batches
   (past 500,000 tokens, at least 200,000 at a time): each clear made it
   re-buy its cache, and cache writes were over half of what research cost.

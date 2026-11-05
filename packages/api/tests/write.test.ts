@@ -203,7 +203,7 @@ describe("a turn", () => {
     const first = calls[0] as Record<string, unknown>;
     expect(first.model).toBe("claude-opus-5-5");
     expect(first.fallbacks).toBe("default");
-    expect(first.cache_control).toEqual({ type: "ephemeral" });
+    expect(first.cache_control).toEqual({ type: "ephemeral", ttl: "1h" });
     expect((first.tools as Array<{ name: string }>).map((t) => t.name)).toEqual([
       "list_documents",
       "search_documents",
