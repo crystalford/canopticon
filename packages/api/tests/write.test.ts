@@ -1062,7 +1062,8 @@ describe("research: a turn", () => {
       allowed_callers: ["direct"],
     });
     expect(first.tools.find((t) => t.name === "web_search")).toMatchObject({
-      type: "web_search_20260209",
+      type: "web_search_20260318",
+      response_inclusion: "excluded",
     });
     expect(first.tools.some((t) => t.name === "write_draft")).toBe(false);
     expect(first.context_management).toBeTruthy();
@@ -1204,6 +1205,60 @@ describe("Claude's web allowance per message", () => {
     );
     expect(JSON.stringify(reply)).toContain(
       "The web allowance for this message is spent (80 searches",
+    );
+  });
+});
+
+describe("edit_draft with several passages", () => {
+  it("applies them all in one call, or none when one is not found", async () => {
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    await store.save(d.id, { body: "Alpha one. Beta two. Gamma three." });
+    const { stream } = fakeStream([
+      msg(
+        [
+          {
+            type: "tool_use",
+            id: "e1",
+            name: "edit_draft",
+            input: {
+              find: "Alpha one.",
+              replace: "A1.",
+              also: [{ find: "Gamma three.", replace: "G3." }],
+            },
+          },
+        ],
+        "tool_use",
+      ),
+      msg(
+        [
+          {
+            type: "tool_use",
+            id: "e2",
+            name: "edit_draft",
+            input: {
+              find: "Beta two.",
+              replace: "B2.",
+              also: [{ find: "Not there.", replace: "x" }],
+            },
+          },
+        ],
+        "tool_use",
+      ),
+      msg([{ type: "text", text: "Done." }], "end_turn"),
+    ]);
+    await runTurn({
+      stream,
+      env,
+      store,
+      sources: memorySources(),
+      draftId: d.id,
+      text: "Fix.",
+      emit: () => {},
+    });
+    expect((await store.get(d.id))?.body).toBe("A1. Beta two. G3.");
+    expect(JSON.stringify(await store.messages(d.id))).toContain(
+      "change 2 of 2; nothing was changed",
     );
   });
 });
