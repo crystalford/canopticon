@@ -1703,4 +1703,87 @@ app.get("/engine-try", async (c) => {
   });
 });
 
+/** How the workspace's conversations actually behaved, from their stored
+ *  messages: model calls per message, tools used and how much each returned,
+ *  pages fetched more than once, whole-report rewrites against passage edits,
+ *  failed quotation checks. Counts only — no titles, no text.
+ *  ?kind=research|article|read (default research)&limit=12. */
+app.get("/turns", async (c) => {
+  const { d1Drafts } = await import("../write/drafts.ts");
+  const store = d1Drafts(c.env, c.get("user_id"));
+  const kind = c.req.query("kind") ?? "research";
+  const drafts = (await store.list())
+    .filter((d) => d.kind === kind)
+    .slice(0, Math.min(30, Number(c.req.query("limit")) || 12));
+  const out: Array<Record<string, unknown>> = [];
+  for (const d of drafts) {
+    const msgs = await store.messages(d.id).catch(() => []);
+    let said = 0;
+    let calls = 0;
+    const tools: Record<string, number> = {};
+    const resultChars: Record<string, number> = {};
+    const names = new Map<string, string>();
+    const urls = new Map<string, number>();
+    const reports: number[] = [];
+    let edits = 0;
+    let failedChecks = 0;
+    let errors = 0;
+    let thinkingBlocks = 0;
+    for (const m of msgs) {
+      const blocks = (
+        typeof m.content === "string" ? [{ type: "text", text: m.content }] : m.content
+      ) as Array<Record<string, unknown>>;
+      if (m.role === "assistant") {
+        calls++;
+        for (const b of blocks) {
+          if (b.type === "thinking") thinkingBlocks++;
+          if (b.type === "tool_use" || b.type === "server_tool_use") {
+            const name = String(b.name);
+            tools[name] = (tools[name] ?? 0) + 1;
+            names.set(String(b.id), name);
+            const input = (b.input ?? {}) as Record<string, unknown>;
+            if (name === "web_fetch" && typeof input.url === "string" && !input.offset)
+              urls.set(input.url, (urls.get(input.url) ?? 0) + 1);
+            if (name === "write_report" || name === "write_draft")
+              reports.push(String(input.body ?? "").length);
+            if (name === "edit_draft") edits++;
+          }
+          if (String(b.type).endsWith("_tool_result")) {
+            const name = names.get(String(b.tool_use_id)) ?? String(b.type);
+            resultChars[name] = (resultChars[name] ?? 0) + JSON.stringify(b.content ?? "").length;
+          }
+        }
+      } else {
+        if (blocks.some((b) => b.type === "text")) said++;
+        for (const b of blocks) {
+          if (b.type !== "tool_result") continue;
+          const name = names.get(String(b.tool_use_id)) ?? "?";
+          const text = JSON.stringify(b.content ?? "");
+          resultChars[name] = (resultChars[name] ?? 0) + text.length;
+          if (b.is_error) errors++;
+          if (/NOT FOUND|not word for word|not found word for word/i.test(text)) failedChecks++;
+        }
+      }
+    }
+    out.push({
+      created: d.createdAt.slice(0, 10),
+      engine: d.meta.engine ?? "claude",
+      dollars: Math.round(d.usage.cents) / 100,
+      messages_from_chris: said,
+      model_calls: calls,
+      tools,
+      result_chars_by_tool: resultChars,
+      pages_fetched: urls.size,
+      pages_fetched_more_than_once: [...urls.values()].filter((n) => n > 1).length,
+      whole_writes: reports.length,
+      whole_write_chars: reports,
+      passage_edits: edits,
+      failed_quote_checks: failedChecks,
+      tool_errors: errors,
+      thinking_blocks: thinkingBlocks,
+    });
+  }
+  return c.json({ kind, conversations: out });
+});
+
 export default app;
