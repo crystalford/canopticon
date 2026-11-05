@@ -36,6 +36,14 @@ then fixed:
   for the model is not retried uselessly.
 - Kept pages load once per turn instead of on every write; the preview
   reloads at most every two seconds.
+- From the live record's own conversations (`/v1/admin/turns`): Claude
+  research made 7–22 failed quotation checks and up to 24 single-passage
+  edits per conversation, each a full model call. edit_draft now takes
+  several passages at once (all or none), and the instructions say to fix
+  every failing quotation in one edit. Search results — 0.3–1.6 million
+  characters per conversation — are no longer carried once Claude's search
+  filtering has used them (`web_search_20260318`, `response_inclusion:
+  "excluded"`; new conversations).
 
 ## 2026-11-05 — Claude for less: Sonnet with Opus advice, honest costs
 

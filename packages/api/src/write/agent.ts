@@ -289,7 +289,8 @@ const WriteInput = z.object({
   why: z.string().optional(),
   body: z.string().min(1),
 });
-const EditInput = z.object({ find: z.string().min(1), replace: z.string() });
+const Replacement = z.object({ find: z.string().min(1), replace: z.string() });
+const EditInput = Replacement.extend({ also: z.array(Replacement).max(40).optional() });
 const ReportInput = z.object({
   title: z.string().min(1),
   topic: z.string(),
@@ -360,13 +361,22 @@ export const TOOLS: Anthropic.Beta.BetaToolUnion[] = [
   {
     name: "edit_draft",
     description:
-      "Replace one exact passage of the draft body with new text. `find` must occur exactly once. Returns the verbatim check.",
+      "Replace one exact passage of the draft body with new text. `find` must occur exactly once. To change several passages — several quotations to fix, say — give the rest in `also`, all in this one call: they are applied in order, all or none. Returns the verbatim check.",
     eager_input_streaming: true,
     input_schema: {
       type: "object",
       properties: {
         find: { type: "string", description: "The exact current text, long enough to be unique" },
         replace: { type: "string" },
+        also: {
+          type: "array",
+          description: "Further replacements, applied in order after the first",
+          items: {
+            type: "object",
+            properties: { find: { type: "string" }, replace: { type: "string" } },
+            required: ["find", "replace"],
+          },
+        },
       },
       required: ["find", "replace"],
     },
@@ -589,14 +599,22 @@ async function runTool(
       if (!p.success) return bad("Give find and replace.");
       const d = await t.store.get(t.draftId);
       if (!d) return bad("The draft is gone.");
-      const n = d.body.split(p.data.find).length - 1;
-      if (n !== 1)
-        return bad(
-          n === 0
-            ? "That passage is not in the draft. Copy it exactly from your last write."
-            : `That passage occurs ${n} times; include more text so it is unique.`,
-        );
-      const body = d.body.replace(p.data.find, () => p.data.replace);
+      // Several passages in one call (each quotation fix had been its own
+      // model call, re-reading the whole conversation): all or none.
+      let body = d.body;
+      const all = [{ find: p.data.find, replace: p.data.replace }, ...(p.data.also ?? [])];
+      for (const [i, e] of all.entries()) {
+        const n = body.split(e.find).length - 1;
+        const which =
+          all.length > 1 ? ` (change ${i + 1} of ${all.length}; nothing was changed)` : "";
+        if (n !== 1)
+          return bad(
+            n === 0
+              ? `That passage is not in the draft${which}. Copy it exactly from your last write: "${e.find.slice(0, 120)}"`
+              : `That passage occurs ${n} times${which}; include more text so it is unique: "${e.find.slice(0, 120)}"`,
+          );
+        body = body.replace(e.find, () => e.replace);
+      }
       await t.store.save(t.draftId, { body });
       const { r, line } = await checkFor(t, body);
       t.emit({ type: "draft", check: r });

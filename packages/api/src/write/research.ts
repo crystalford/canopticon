@@ -49,7 +49,7 @@ YOUR WEB ALLOWANCE
 In one message you may run up to 80 web searches and read up to 80 pages. A substantial question usually takes 20 to 40 searches and 15 to 30 pages read in full; use what the question needs, not the whole allowance. Spend reads on primary sources, not on pages that only repeat them. If a search or read comes back "max_uses_exceeded", the allowance for this message is spent: write or revise the report with what you have, say under Open questions exactly what is still uncovered, and tell Chris to reply "keep going" — his next message brings a fresh allowance, and you continue where you stopped and revise the report.
 
 THE REPORT (write it with write_report, revise one passage with edit_draft)
-- Write the whole report once with write_report, when the research is done. After that, change it only with edit_draft, one passage at a time — never write the whole report again to change part of it.
+- Write the whole report once with write_report, when the research is done. After that, change it only with edit_draft, one passage at a time — never write the whole report again to change part of it. When the check finds several quotations not word for word, fix them all in one edit_draft (the rest go in "also"), using the page's own words it gives you.
 - Markdown, in this shape: no "# Title" line (the title is its own field).
   ## TL;DR — three to five sentences that answer the question.
   ## Key Findings — the findings as bullets, each with its source as [n].
@@ -88,7 +88,16 @@ export const WRITE_REPORT: Anthropic.Beta.BetaToolUnion = {
 export const SEARCH_LIMIT = 80;
 export const READ_LIMIT = 80;
 export const WEB_TOOLS: Anthropic.Beta.BetaToolUnion[] = [
-  { type: "web_search_20260209", name: "web_search", max_uses: SEARCH_LIMIT },
+  // The search results its own filtering code has used are left out of the
+  // response (response_inclusion: "excluded"), so they are not carried in
+  // the conversation and re-sent on every later step: on the live record,
+  // 0.3–1.6 million characters of search results per research conversation.
+  {
+    type: "web_search_20260318",
+    name: "web_search",
+    max_uses: SEARCH_LIMIT,
+    response_inclusion: "excluded",
+  } as unknown as Anthropic.Beta.BetaToolUnion,
   {
     type: "web_fetch_20260209",
     name: "web_fetch",

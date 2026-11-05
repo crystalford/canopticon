@@ -158,7 +158,12 @@
   `max_tokens`, `_unreadable` arguments get a plain message. Straight
   quotation marks open/close only at word edges (`reportQuotations`), and a
   failed quotation comes back with the page's nearest words
-  (`nearestPassage`).
+  (`nearestPassage`). `edit_draft` takes several passages (`also`, all or
+  none) — live conversations had made up to 24 single-passage edits, each a
+  full model call. Claude's search is `web_search_20260318` with
+  `response_inclusion: "excluded"` (results its filtering used are not
+  carried: 0.3–1.6M characters per conversation). `/v1/admin/turns` reports
+  how conversations behaved (counts only).
 - **Is Claude connected?** `/admin/claude` (`site/pages/claude.ts`,
   `write/connection.ts`): which settings are present (never their values) and
   "Test the connection" (`POST /op/admin/claude-test`) — one small call with
