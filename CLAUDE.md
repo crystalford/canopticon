@@ -178,8 +178,9 @@
   `reportProblems` lists parts still to write. **Checkpoints in code**
   (`nudges` in `agent.ts`, said once a message in the next tool result): no
   outline after the second step → write_outline now; six pages read and
-  nothing noted → note first; outlined, sixteen pages read, nothing written
-  → write. Live, DeepSeek otherwise read twenty pages chasing one figure
+  nothing noted → note first; outlined, nothing written, and sixteen pages
+  read or fifteen notes or twelve steps → write (live, it had taken 45
+  notes from 9 pages and not written). Live, DeepSeek otherwise read twenty pages chasing one figure
   and never outlined or noted.
 - **Is Claude connected?** `/admin/claude` (`site/pages/claude.ts`,
   `write/connection.ts`): which settings are present (never their values) and

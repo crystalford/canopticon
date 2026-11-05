@@ -1116,10 +1116,13 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
         "notes",
         `You have read ${web.reads} pages and noted nothing. Before reading more, note the passages you will use with note_evidence — several in one message, each with its section number.`,
       );
-    if (outlined && !written && web.reads >= 16)
+    // Live: with the outline and notes checkpoints, DeepSeek took 45 notes
+    // from 9 pages for a 600-word report and never wrote; so notes and steps
+    // count here as well as pages.
+    if (outlined && !written && (web.reads >= 16 || noted >= 15 || step >= 12))
       say(
         "write",
-        "You have read enough to start writing. Write the sections you have notes for with write_section now; read further only for a gap you can name.",
+        `You have ${noted} notes from ${web.reads} pages: enough to start writing. Write the sections you have notes for with write_section now (list_notes with a section number gives that section's notes); read further only for a gap you can name.`,
       );
     return out;
   };
