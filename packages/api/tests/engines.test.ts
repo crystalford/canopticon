@@ -301,3 +301,151 @@ describe("searching the web", () => {
     expect(fallback.map((h) => h.url)).toEqual(["https://b.example"]);
   });
 });
+
+describe("the audit's fixes", () => {
+  it("does not take the prose between two short quoted terms for a quotation", async () => {
+    const { reportQuotations } = await import("../src/write/research");
+    const body =
+      'The plan calls itself "net zero" but the accounting behind it, which this report examines at length, counts only "scope 1" emissions.\n\nThe filing says "the company will reach net zero across all three scopes by the year 2040" [1].';
+    expect(reportQuotations(body)).toEqual([
+      "the company will reach net zero across all three scopes by the year 2040",
+    ]);
+  });
+
+  it("gives the page's own words when a quotation is not found", async () => {
+    const { checkReport, describeReportCheck } = await import("../src/write/research");
+    const pages = [
+      {
+        url: "https://a.example",
+        title: null,
+        retrievedAt: null,
+        kind: "text" as const,
+        text: "The survey of 1,200 households found that rents fell by 4.1 percent in the first year after the ban.",
+      },
+    ];
+    const body =
+      'It found "rents fell by 4.1 percent in the first twelve months after the ban took effect" [1].';
+    const line = describeReportCheck(checkReport(body, pages), pages);
+    expect(line).toContain("NOT FOUND");
+    expect(line).toContain("The page https://a.example says, word for word:");
+    expect(line).toContain("rents fell by 4.1 percent in the first year after the ban");
+  });
+
+  it("treats a reply cut off mid-call as cut off, and says so for unreadable arguments", async () => {
+    const m = fromChat(
+      reply({ content: null, tool_calls: [call("c1", "write_report", { title: "x" })] }, "length"),
+      DEFAULT_ENGINE,
+    );
+    expect(m.stop_reason).toBe("max_tokens");
+    const bad = fromChat(
+      reply(
+        {
+          content: null,
+          tool_calls: [
+            {
+              id: "c2",
+              type: "function",
+              function: { name: "write_report", arguments: '{"title": "x", "bo' },
+            },
+          ],
+        },
+        "tool_calls",
+      ),
+      DEFAULT_ENGINE,
+    );
+    expect((bad.content[0] as { input: Record<string, unknown> }).input).toHaveProperty(
+      "_unreadable",
+    );
+  });
+
+  it("sheds older page reads from a long Workers AI conversation, in batches", async () => {
+    const { CHAT_CLEAR_CHARS } = await import("../src/write/engines");
+    const big = "x".repeat(Math.ceil(CHAT_CLEAR_CHARS / 10));
+    const history: Message[] = [{ role: "user", content: [{ type: "text", text: "Go." }] }];
+    for (let i = 0; i < 18; i++) {
+      history.push({
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: `f${i}`,
+            name: "web_fetch",
+            input: { url: `https://p${i}.example` },
+          },
+        ],
+      } as Message);
+      history.push({
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: `f${i}`, content: big }],
+      } as Message);
+    }
+    const chat = toChat("S", history);
+    const tools = chat.filter((m) => m.role === "tool");
+    // 18 reads: the oldest 8 cleared (a batch of eight), the latest 10 whole.
+    expect(tools.filter((m) => m.content?.startsWith("[Cleared")).length).toBe(8);
+    expect(tools.at(-1)?.content).toBe(big);
+    expect(toChat("S", history.slice(0, 7)).some((m) => m.content?.startsWith("[Cleared"))).toBe(
+      false,
+    );
+  });
+
+  it("reads a page once: the second ask comes from what was kept, and parallel reads all run", async () => {
+    const fetches: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        fetches.push(String(url));
+        return new Response(`<p>${"A long enough page about rents. ".repeat(20)}</p>`, {
+          headers: { "content-type": "text/html" },
+        });
+      }),
+    );
+    const script = [
+      reply(
+        {
+          content: null,
+          tool_calls: [
+            call("a", "web_fetch", { url: "https://one.example" }),
+            call("b", "web_fetch", { url: "https://two.example" }),
+          ],
+        },
+        "tool_calls",
+      ),
+      reply(
+        { content: null, tool_calls: [call("c", "web_fetch", { url: "https://one.example" })] },
+        "tool_calls",
+      ),
+      reply({ content: "Done." }),
+    ];
+    const seen: Array<Record<string, unknown>> = [];
+    const env = {
+      LOG_LEVEL: "error",
+      DB: stubDb(),
+      AI: {
+        run: async (_m: string, input: Record<string, unknown>) => {
+          seen.push(structuredClone(input));
+          return script.shift();
+        },
+      },
+    } as unknown as Env;
+    const store = memoryDrafts();
+    const sources = memorySources();
+    const d = await store.create("research");
+    await runTurn({
+      stream: null,
+      defaultEngine: DEFAULT_ENGINE,
+      env,
+      store,
+      sources,
+      draftId: d.id,
+      text: "Go.",
+      emit: () => {},
+    });
+    expect(fetches.sort()).toEqual(["https://one.example", "https://two.example"]);
+    expect((await sources.texts(d.id)).length).toBe(2);
+    const last = (seen[2]?.messages as Array<{ role: string; content: string }>)
+      .filter((m) => m.role === "tool")
+      .at(-1);
+    expect(last?.content).toContain("You have read this page already");
+  });
+});

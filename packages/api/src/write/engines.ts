@@ -262,20 +262,28 @@ export async function readPage(env: Env, url: string): Promise<ResearchSource | 
   });
   if (!res.ok) throw new Error(`the page answered ${res.status}`);
   const type = (res.headers.get("content-type") ?? "").toLowerCase();
+  // A page too large to read whole is refused rather than read into memory.
+  const declared = Number(res.headers.get("content-length") ?? 0);
+  if (declared > MAX_PAGE_BYTES)
+    throw new Error(`the page is ${Math.round(declared / 1e6)} MB, too large to read`);
   const bytes = await res.arrayBuffer();
+  if (bytes.byteLength > MAX_PAGE_BYTES)
+    throw new Error(`the page is ${Math.round(bytes.byteLength / 1e6)} MB, too large to read`);
   const pdf = type.includes("pdf") || /\.pdf($|\?)/i.test(url);
   let text: string | null = null;
   const ai = env.AI as unknown as Partial<ToMarkdownAi>;
   if (pdf || type.includes("html")) {
     if (typeof ai.toMarkdown === "function") {
-      const out = await ai
-        .toMarkdown([
-          {
-            name: pdf ? "page.pdf" : "page.html",
-            blob: new Blob([bytes], { type: pdf ? "application/pdf" : "text/html" }),
-          },
-        ])
-        .catch(() => []);
+      // HTML goes to the converter without its scripts, styles and drawings
+      // (a large page took 16 s whole), and the converter gets 15 s before
+      // the plain-text reading below is used instead.
+      const body = pdf
+        ? new Blob([bytes], { type: "application/pdf" })
+        : new Blob([stripHeavy(new TextDecoder().decode(bytes))], { type: "text/html" });
+      const out = await Promise.race([
+        ai.toMarkdown([{ name: pdf ? "page.pdf" : "page.html", blob: body }]).catch(() => []),
+        new Promise<[]>((r) => setTimeout(() => r([]), 15_000)),
+      ]);
       const first = out[0];
       text = first && first.format === "markdown" ? first.data : null;
     }
@@ -328,6 +336,17 @@ export function entities(s: string): string {
     .replace(/&amp;/g, "&");
 }
 
+/** Pages larger than this are not read (a PDF of a whole book, a data dump). */
+export const MAX_PAGE_BYTES = 15_000_000;
+
+/** HTML without what a reader never sees: scripts, styles, drawings,
+ *  templates, comments. */
+export function stripHeavy(html: string): string {
+  return html
+    .replace(/<(script|style|svg|noscript|template|iframe)\b[\s\S]*?<\/\1>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "");
+}
+
 /** HTML to plain text, for when the converter is not there. */
 export function htmlText(html: string): string {
   return html
@@ -371,7 +390,28 @@ const text = (c: unknown): string =>
 
 /** The stored conversation as chat messages: text stays text, tool calls and
  *  results pair by id, reasoning is left out (each model reasons afresh). */
+/** Past this many characters a conversation sheds its older page reads, in
+ *  batches of eight (keeping the latest eight), so the cut moves rarely and
+ *  the model's own prompt cache keeps hitting. The pages stay kept: reading
+ *  one again comes from what was kept, free. */
+export const CHAT_CLEAR_CHARS = 800_000;
+const CLEARED =
+  "[Cleared to keep the conversation short. The page is kept: web_fetch the same address to read it again — it costs nothing.]";
+
 export function toChat(system: string, history: Message[]): ChatMessage[] {
+  const out = toChatWhole(system, history);
+  const size = out.reduce((n, m) => n + (m.content?.length ?? 0), 0);
+  if (size <= CHAT_CLEAR_CHARS) return out;
+  const fetchCalls = new Set<string>();
+  for (const m of out)
+    for (const c of m.tool_calls ?? []) if (c.function.name === "web_fetch") fetchCalls.add(c.id);
+  const reads = out.filter((m) => m.role === "tool" && fetchCalls.has(m.tool_call_id ?? ""));
+  const clear = Math.floor(Math.max(0, reads.length - 8) / 8) * 8;
+  for (const m of reads.slice(0, clear)) m.content = CLEARED;
+  return out;
+}
+
+function toChatWhole(system: string, history: Message[]): ChatMessage[] {
   const out: ChatMessage[] = [{ role: "system", content: system }];
   for (const m of history) {
     const blocks = typeof m.content === "string" ? [{ type: "text", text: m.content }] : m.content;
@@ -485,7 +525,9 @@ export function fromChat(reply: ChatReply, model: string): Anthropic.Beta.BetaMe
     role: "assistant",
     model,
     content,
-    stop_reason: calls.length ? "tool_use" : finish === "length" ? "max_tokens" : "end_turn",
+    // Cut off is cut off, tool calls or not: a call whose arguments ran out
+    // must not be run as if it were whole.
+    stop_reason: finish === "length" ? "max_tokens" : calls.length ? "tool_use" : "end_turn",
     stop_sequence: null,
     usage: {
       input_tokens: Math.max(0, (reply.usage?.prompt_tokens ?? 0) - cached),
@@ -514,7 +556,13 @@ export async function workersStep(
   try {
     reply = await ai.run(model, { ...input, max_tokens: MAX_OUT });
   } catch (err) {
-    if (!/max_tokens|max tokens|too large|exceed/i.test(String(err))) throw err;
+    // Only an output allowance the model will not take is retried with less;
+    // a conversation too long for the model is not (it would fail again).
+    if (
+      !/max_tokens|max tokens/i.test(String(err)) ||
+      /context|prompt is too long/i.test(String(err))
+    )
+      throw err;
     reply = await ai.run(model, { ...input, max_tokens: 8192 });
   }
   return fromChat(reply as ChatReply, model);

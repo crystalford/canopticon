@@ -153,7 +153,7 @@ THE RECORD
 Canopticon holds: research documents (the sources you may quote, with uploads that may still be waiting in Admin); Chris's own published articles and papers (his writing — read them to know what is already written and to build on it, never quote them as a source); and concepts, open problems and key figures. You can read the record; you cannot change anything in it — not a title, topic, date or text. When something there looks wrong (a title that is really a heading, a document under the wrong topic), say what and why in one line, and Chris will have it fixed; do not tell him where to fix it.
 
 HOW YOU WORK
-- Read before you write. Find the research with search_documents and list_documents, then read every document you will rely on in full with read_document. Quotations chosen by keyword search are the ones that matched the search, not the ones that carry the document.
+- Read before you write. Find the research with search_documents and list_documents, then read every document you will rely on in full with read_document — several at once when you already know which ones you need. Quotations chosen by keyword search are the ones that matched the search, not the ones that carry the document.
 - Write the whole article with write_draft. Revise with edit_draft, which replaces one exact passage, when only part of it changes — above all when Chris flags a passage.
 - Every write returns the verbatim check. If any quotation failed, fix it (copy the passage exactly from read_document's text, or drop it) before you finish your turn.
 - In the chat, be brief: say what you did and what you need from him. Do not paste the article into the chat; it is on the page.
@@ -444,15 +444,26 @@ interface ToolContext {
   toolUseId?: string;
   /** The web allowance spent this message (Workers AI's own web tools). */
   web?: { searches: number; reads: number; capped: Set<string> };
+  /** The draft's kept pages, loaded once a turn and added to as pages are
+   *  read: every write's quotation check used to reload them all from D1. */
+  kept?: { list: ResearchSource[] | null };
+}
+
+async function keptPages(t: ToolContext): Promise<ResearchSource[]> {
+  if (!t.sources) return [];
+  if (t.kept?.list) return t.kept.list;
+  const list = await t.sources.texts(t.draftId);
+  if (t.kept) t.kept.list = list;
+  return list;
 }
 
 /** A research report is checked against the pages read; an article against
  *  the record's documents. */
 async function checkFor(t: ToolContext, body: string): Promise<{ r: CheckResult; line: string }> {
   if (t.kind === "research") {
-    const pages = t.sources ? await t.sources.texts(t.draftId) : [];
+    const pages = await keptPages(t);
     const r = checkReport(body, pages);
-    return { r, line: describeReportCheck(r, pages.length) };
+    return { r, line: describeReportCheck(r, pages) };
   }
   const r = await check(t.env, body);
   return { r, line: describeCheck(r) };
@@ -474,6 +485,13 @@ async function runTool(
   t: ToolContext,
 ): Promise<{ text: string; error?: boolean }> {
   const bad = (msg: string) => ({ text: msg, error: true });
+  // Arguments a model could not finish (cut off, or not valid JSON) are said
+  // to be so, not reported as missing fields — which had the model write the
+  // whole thing again and be cut off again.
+  if (input && typeof input === "object" && "_unreadable" in input)
+    return bad(
+      "Your arguments were cut off or were not valid JSON, so nothing was done. Send less at once: write a shorter version first, then add to it with edit_draft.",
+    );
   switch (name) {
     case "list_documents": {
       const p = ListInput.safeParse(input ?? {});
@@ -656,9 +674,12 @@ async function runTool(
       const url = String(i.url ?? "").trim();
       const offset = Math.max(0, Math.floor(Number(i.offset) || 0));
       if (!/^https?:\/\//i.test(url)) return bad("Give a full address, https://…");
-      let page: ResearchSource | null = null;
-      if (offset > 0 && t.sources)
-        page = (await t.sources.texts(t.draftId)).find((p) => p.url === url) ?? null;
+      // A page already read is served from what was kept: no second fetch,
+      // no allowance spent, no duplicate row.
+      let page: ResearchSource | null =
+        [...(t.kept?.list ?? [])].reverse().find((p) => p.url === url) ??
+        (t.sources ? await t.sources.byUrl(t.draftId, url) : null);
+      const again = !!page && offset === 0;
       if (!page) {
         if (t.web && t.web.reads >= READ_LIMIT)
           return bad("max_uses_exceeded: the page-reading allowance for this message is spent.");
@@ -671,12 +692,16 @@ async function runTool(
         if (!page)
           return bad("Nothing readable came back (an empty page, a login wall, or a bot check).");
         page = { ...page, url };
-        if (t.sources) await t.sources.add(t.draftId, [page]);
+        if (t.sources && (await t.sources.add(t.draftId, [page])))
+          return bad(
+            "The page was read but could not be kept, so quotations from it would fail the check. Read another source for this.",
+          );
+        if (t.kept?.list) t.kept.list.push(page);
       }
       const slice = page.text.slice(offset, offset + PAGE_CHARS);
       const more = offset + PAGE_CHARS < page.text.length;
       return {
-        text: `${page.title ?? url}\n${url}\n\n${slice}${
+        text: `${again ? "(You have read this page already; here it is again from what was kept.)\n" : ""}${page.title ?? url}\n${url}\n\n${slice}${
           more
             ? `\n\n[${page.text.length.toLocaleString("en")} characters in all; read on with offset ${offset + PAGE_CHARS}]`
             : ""
@@ -900,6 +925,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
   const web = { searches: 0, reads: 0, capped: new Set<string>() };
   const ctx: ToolContext = {
     web,
+    kept: { list: null },
     env,
     store,
     entries: o.entries,
@@ -1097,7 +1123,10 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     // against what was actually read.
     if (draft.kind === "research" && o.sources) {
       const pages = await fetchedPages(env, message.content as unknown[]);
-      if (pages.length) await o.sources.add(draftId, pages);
+      if (pages.length) {
+        await o.sources.add(draftId, pages);
+        if (ctx.kept?.list) ctx.kept.list.push(...pages);
+      }
     }
     for (const b of message.content as Array<{
       type: string;
@@ -1138,7 +1167,29 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     }
 
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
-    for (const u of uses) {
+    // Reading tools asked for together run together (search, fetch, read the
+    // record); anything that writes runs one at a time, in order.
+    const readOnly = new Set([
+      "list_documents",
+      "search_documents",
+      "read_document",
+      "web_search",
+      "web_fetch",
+    ]);
+    const early =
+      message.stop_reason !== "max_tokens" &&
+      uses.length > 1 &&
+      uses.every((u) => readOnly.has(u.name))
+        ? await Promise.all(
+            uses.map((u) =>
+              runTool(u.name, u.input, { ...ctx, toolUseId: u.id }).catch((e: Error) => ({
+                text: `Failed: ${e.message}`,
+                error: true,
+              })),
+            ),
+          )
+        : null;
+    for (const [n, u] of uses.entries()) {
       // A tool input cut off at max_tokens can still parse; never run it.
       if (message.stop_reason === "max_tokens") {
         results.push({
@@ -1150,10 +1201,12 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
         });
         continue;
       }
-      const r = await runTool(u.name, u.input, { ...ctx, toolUseId: u.id }).catch((e: Error) => ({
-        text: `Failed: ${e.message}`,
-        error: true,
-      }));
+      const r =
+        early?.[n] ??
+        (await runTool(u.name, u.input, { ...ctx, toolUseId: u.id }).catch((e: Error) => ({
+          text: `Failed: ${e.message}`,
+          error: true,
+        })));
       // A proposal shows as its card; a refused one says why.
       if (u.name === "propose_entry") {
         if (r.error) emit({ type: "activity", text: r.text });
@@ -1169,7 +1222,26 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
         ...(r.error ? { is_error: true } : {}),
       });
     }
-    const reply: Message = { role: "user", content: results };
+    // Claude's web tools count per request, so a message of many requests
+    // could read far past its allowance: once it is spent, say so.
+    const spent =
+      !workers &&
+      draft.kind === "research" &&
+      !web.capped.has("budget") &&
+      (web.searches >= SEARCH_LIMIT || web.reads >= READ_LIMIT);
+    if (spent) web.capped.add("budget");
+    const reply: Message = {
+      role: "user",
+      content: spent
+        ? [
+            ...results,
+            {
+              type: "text",
+              text: `The web allowance for this message is spent (${web.searches} searches, ${web.reads} pages read). Do not search or read more now: write or revise the report with what you have, say under Open questions what is still uncovered, and ask Chris to reply "keep going".`,
+            },
+          ]
+        : results,
+    };
     await store.append(draftId, [reply]);
     history.push(reply);
     if (step === steps - 1)

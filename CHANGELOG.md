@@ -6,6 +6,37 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-11-05, later — An audit of the research and writing loop
+
+Found by a code audit and a review of how good research agents are built,
+then fixed:
+
+- Claude's cache: the previous request's end is marked as a cache
+  breakpoint. Automatic caching looks back about 20 blocks; one research
+  step adds more, so the whole conversation had been written to the cache
+  again — the likely bulk of the 8.2M tokens of cache writes.
+- A quotation-check bug: the prose between two short quoted terms ("net
+  zero" … "scope 1") was taken for a quotation, failed, blocked Save to
+  Admin and sent the model chasing it.
+- A failed quotation now comes back with the page's own words for it, so it
+  is fixed without reading the page again.
+- A page is read once: asking again serves it from what was kept (no fetch,
+  no allowance, no duplicate row). Pages over 15 MB are refused; the HTML
+  converter gets 15 s and a page without scripts and styles.
+- Reading tools asked for together run together (searches, page reads,
+  record reads). The instructions now say to ask for them together, to
+  start with short queries, never to read a page twice, to stop when new
+  sources add nothing, and to revise with passage edits after the first
+  full write (new conversations).
+- Claude's web allowance is now per message, as the instructions say (it
+  was per request): once spent, Claude is told to write with what it has.
+- On Workers AI: a reply cut off mid-call is treated as cut off (it had been
+  run with half its arguments), unreadable arguments say so, long
+  conversations shed old page reads in batches, and a conversation too long
+  for the model is not retried uselessly.
+- Kept pages load once per turn instead of on every write; the preview
+  reloads at most every two seconds.
+
 ## 2026-11-05 — Claude for less: Sonnet with Opus advice, honest costs
 
 - A new engine, Claude Sonnet 5.5 + Opus advice: Sonnet reads and writes at

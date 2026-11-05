@@ -1169,3 +1169,41 @@ describe("the cache: the previous request's end is marked", () => {
     expect(JSON.stringify(await store.messages(d.id))).not.toContain("cache_control");
   });
 });
+
+describe("Claude's web allowance per message", () => {
+  it("says the allowance is spent once a message has used it, across requests", async () => {
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    const searches = Array.from({ length: 80 }, (_, i) => ({
+      type: "server_tool_use",
+      id: `s${i}`,
+      name: "web_search",
+      input: { query: `q${i}` },
+    }));
+    const { stream } = fakeStream([
+      msg(
+        [...searches, { type: "tool_use", id: "t1", name: "list_documents", input: {} }],
+        "tool_use",
+      ),
+      msg([{ type: "text", text: "Writing now." }], "end_turn"),
+    ]);
+    await runTurn({
+      stream,
+      env,
+      store,
+      sources: memorySources(),
+      draftId: d.id,
+      text: "Go.",
+      emit: () => {},
+    });
+    const reply = (await store.messages(d.id)).find(
+      (m) =>
+        m.role === "user" &&
+        Array.isArray(m.content) &&
+        m.content.some((b) => b.type === "tool_result"),
+    );
+    expect(JSON.stringify(reply)).toContain(
+      "The web allowance for this message is spent (80 searches",
+    );
+  });
+});

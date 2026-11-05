@@ -149,6 +149,16 @@
   looks back ~20 blocks, and one research step adds more (two per search or
   page read), so the previous entry was missed and the whole conversation
   re-written — the likely source of the 8.2M tokens of cache writes.
+  **Loop hygiene (2026-11-05 audit):** a page is read once (`byUrl`, served
+  from what was kept, no allowance spent); kept pages load once per turn
+  (`ctx.kept`); read-only tools asked for together run in parallel; Claude's
+  web allowance is counted per message and a spent allowance is said in the
+  next tool result; on Workers AI `toChat` sheds old page reads in batches of
+  eight past 800k characters, a `finish_reason: "length"` reply is
+  `max_tokens`, `_unreadable` arguments get a plain message. Straight
+  quotation marks open/close only at word edges (`reportQuotations`), and a
+  failed quotation comes back with the page's nearest words
+  (`nearestPassage`).
 - **Is Claude connected?** `/admin/claude` (`site/pages/claude.ts`,
   `write/connection.ts`): which settings are present (never their values) and
   "Test the connection" (`POST /op/admin/claude-test`) — one small call with

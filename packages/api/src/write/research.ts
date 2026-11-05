@@ -16,7 +16,7 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Env } from "../env";
-import { all, run } from "../lib/d1";
+import { all, one, run } from "../lib/d1";
 import type { CheckResult, QuoteFailure } from "./check";
 import { verbatimNormal } from "./check";
 import { batches } from "./drafts";
@@ -36,6 +36,12 @@ HOW YOU RESEARCH
 5. Be skeptical. Where sources disagree, say so, say which is more credible and why. Separate findings (what is true in the world, with a source) from your own inference, and label the inference.
 6. Before you finish, check every citation: replace a blog, aggregator or encyclopedia with the primary source behind it, or say no stronger source exists.
 
+HOW TO SEARCH AND READ WELL
+- Start wide, then narrow: short queries (a few words) first, more specific ones once you see what exists. Never run the same query twice.
+- Work in parallel: when several searches or several page reads do not depend on each other, ask for them together in one message, not one at a time.
+- Never read the same page twice; everything you read is kept.
+- Stop when new sources stop adding anything new. More reading past that point makes a report worse, not better: it buries the strong sources under weak ones.
+
 DEPTH
 The report is a document of record, not a summary. Be comprehensive: answer every sub-question in full, with the evidence itself — the figures, who measured them and how, the dates, the conditions, the competing accounts and why one is stronger — not a sentence pointing at it. The record's research documents run a median of about 4,500 words, and the thorough ones 7,000 or more; write at that depth whenever the evidence supports it, and longer when the question needs it. There is no length cap. Never pad: no repetition, no restating the TL;DR in the Details, no filler. If the evidence is genuinely thin, say so plainly in Open questions rather than stretching. Read widely before you write — usually ten or more sources read in full for a substantial question.
 
@@ -43,6 +49,7 @@ YOUR WEB ALLOWANCE
 In one message you may run up to 80 web searches and read up to 80 pages. A substantial question usually takes 20 to 40 searches and 15 to 30 pages read in full; use what the question needs, not the whole allowance. Spend reads on primary sources, not on pages that only repeat them. If a search or read comes back "max_uses_exceeded", the allowance for this message is spent: write or revise the report with what you have, say under Open questions exactly what is still uncovered, and tell Chris to reply "keep going" — his next message brings a fresh allowance, and you continue where you stopped and revise the report.
 
 THE REPORT (write it with write_report, revise one passage with edit_draft)
+- Write the whole report once with write_report, when the research is done. After that, change it only with edit_draft, one passage at a time — never write the whole report again to change part of it.
 - Markdown, in this shape: no "# Title" line (the title is its own field).
   ## TL;DR — three to five sentences that answer the question.
   ## Key Findings — the findings as bullets, each with its source as [n].
@@ -164,13 +171,17 @@ export async function fetchedPages(env: Env, content: unknown[]): Promise<Resear
 }
 
 export interface SourceStore {
-  add(draftId: string, pages: ResearchSource[]): Promise<void>;
+  /** Keeps the pages; resolves to how many could not be kept. */
+  add(draftId: string, pages: ResearchSource[]): Promise<number>;
   texts(draftId: string): Promise<ResearchSource[]>;
+  /** One kept page by its address, without loading the others. */
+  byUrl(draftId: string, url: string): Promise<ResearchSource | null>;
 }
 
 export function d1Sources(env: Env, userId: string): SourceStore {
   return {
     async add(draftId, pages) {
+      let lost = 0;
       for (const p of pages) {
         const text =
           p.text.length > KEEP_CHARS
@@ -192,8 +203,33 @@ export function d1Sources(env: Env, userId: string): SourceStore {
             p.text.length,
             new Date().toISOString(),
           ],
-        ).catch(() => null);
+        ).catch(() => {
+          lost++;
+        });
       }
+      return lost;
+    },
+    async byUrl(draftId, url) {
+      const r = await one<{
+        url: string;
+        title: string | null;
+        retrieved_at: string | null;
+        kind: string;
+        text: string;
+      }>(
+        env.DB,
+        "SELECT url, title, retrieved_at, kind, text FROM research_sources WHERE draft_id = ? AND user_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
+        [draftId, userId, url],
+      ).catch(() => null);
+      return r
+        ? {
+            url: r.url,
+            title: r.title,
+            retrievedAt: r.retrieved_at,
+            kind: r.kind === "pdf" ? "pdf" : "text",
+            text: r.text,
+          }
+        : null;
     },
     async texts(draftId) {
       // A batch at a time, by the sizes in the index: eighty pages of up to
@@ -252,9 +288,13 @@ export function memorySources(): SourceStore & { rows: Map<string, ResearchSourc
     rows,
     async add(draftId, pages) {
       rows.set(draftId, [...(rows.get(draftId) ?? []), ...pages]);
+      return 0;
     },
     async texts(draftId) {
       return rows.get(draftId) ?? [];
+    },
+    async byUrl(draftId, url) {
+      return [...(rows.get(draftId) ?? [])].reverse().find((p) => p.url === url) ?? null;
     },
   };
 }
@@ -270,8 +310,13 @@ const flat = (s: string) => verbatimNormal(s).replace(/\s+/g, " ").trim();
  *  or more (shorter quoted words are names and terms, not passages). */
 export function reportQuotations(body: string): string[] {
   const out: string[] = [];
-  // A quotation may wrap onto a second line, never across a blank line.
-  for (const m of body.matchAll(/“((?:[^”\n]|\n(?!\n)){40,})”|"((?:[^"\n]|\n(?!\n)){40,})"/g))
+  // A quotation may wrap onto a second line, never across a blank line. A
+  // straight quote opens only where a word does not end and closes only where
+  // a word does not begin: between two short quoted terms ("net zero" … "scope
+  // 1") the text is prose, and had been taken for a quotation that then failed.
+  for (const m of body.matchAll(
+    /“((?:[^”\n]|\n(?!\n)){40,})”|(?<![\w"])"(?=\S)((?:[^"\n]|\n(?!\n)){40,}?)(?<=\S)"(?![\w])/g,
+  ))
     out.push((m[1] ?? m[2] ?? "").trim());
   return out;
 }
@@ -288,14 +333,45 @@ export function checkReport(body: string, sources: ResearchSource[]): CheckResul
   return { total: quotes.length, failed };
 }
 
-export function describeReportCheck(r: CheckResult, pages: number): string {
+export function describeReportCheck(r: CheckResult, kept: number | ResearchSource[]): string {
+  const pages = typeof kept === "number" ? kept : kept.length;
   const read = `${pages} ${pages === 1 ? "page" : "pages"} read so far.`;
   if (!r.total) return `No quotations. ${read}`;
   if (!r.failed.length)
     return `${r.total} quotations, all found word for word in the pages you read. ${read}`;
+  // Where a page says nearly the same thing, its exact words are given, so the
+  // quotation can be corrected without reading the page again.
+  const near = (q: string) => (typeof kept === "number" ? null : nearestPassage(q, kept));
   return `${r.total} quotations, ${r.failed.length} NOT FOUND in any page you fetched. Copy each exactly from a page you fetched with web_fetch, or remove the quotation marks and paraphrase:\n${r.failed
-    .map((f) => `- "${f.text.slice(0, 160)}"`)
+    .map((f) => {
+      const n = near(f.text);
+      return `- "${f.text.slice(0, 160)}"${n ? `\n  The page ${n.url} says, word for word: "${n.text}"` : ""}`;
+    })
     .join("\n")}\n${read}`;
+}
+
+/** The passage of a kept page that a failed quotation was probably taken
+ *  from: found by the quotation's first (else last) six words, and given at
+ *  the quotation's length, exactly as the page has it (whitespace collapsed). */
+export function nearestPassage(
+  quote: string,
+  pages: ResearchSource[],
+): { url: string; text: string } | null {
+  const words = flat(quote).split(" ");
+  if (words.length < 6) return null;
+  for (const probe of [words.slice(0, 6).join(" "), words.slice(-6).join(" ")]) {
+    for (const p of pages) {
+      const text = flat(p.text);
+      const at = text.indexOf(probe);
+      if (at < 0) continue;
+      const start =
+        probe === words.slice(0, 6).join(" ")
+          ? at
+          : Math.max(0, at - flat(quote).length + probe.length);
+      return { url: p.url, text: text.slice(start, start + flat(quote).length + 40).trim() };
+    }
+  }
+  return null;
 }
 
 /** Why a report cannot go to Admin yet; empty when it can. */
