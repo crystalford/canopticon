@@ -6,6 +6,19 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-11-05, evening — Research writes from notes, section by section
+
+- New research conversations work the way research agents that do this
+  well work: lay the report out first (sections with target lengths), note
+  each passage while reading — checked word for word against the page the
+  moment it is noted, numbered as a source in code — and write each section
+  from its own notes, the summary last. The Sources list builds itself from
+  the notes, so a citation number never drifts.
+- Because the notes carry what the report needs, pages leave the model's
+  view sooner (they stay kept for the quotation check): less re-sent on
+  every step, on Claude and on Workers AI.
+- A report with parts still to write says which before Save to Admin.
+
 ## 2026-11-05, later — An audit of the research and writing loop
 
 Found by a code audit and a review of how good research agents are built,

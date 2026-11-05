@@ -164,6 +164,18 @@
   `response_inclusion: "excluded"` (results its filtering used are not
   carried: 0.3–1.6M characters per conversation). `/v1/admin/turns` reports
   how conversations behaved (counts only).
+  **Research writes from notes, section by section** (`write/notes.ts`,
+  migration 0073 `research_notes`, new research conversations): the model
+  lays the report out with `write_outline` (Details sections with target
+  lengths), notes each passage it will use with `note_evidence` (checked word
+  for word against the kept page when made — refused with the page's nearest
+  words otherwise — and numbered in code), reads them back with
+  `list_notes`, and writes each part with `write_section` (a section number,
+  "summary", "closing"); the Sources list is rebuilt from the notes on every
+  write, so citation numbers never drift. `write_report` is gone from new
+  research frames. With notes kept, pages leave the model's view sooner:
+  Claude clears at 250k (≥120k, keep 6), Workers AI past 300k characters.
+  `reportProblems` lists parts still to write.
 - **Is Claude connected?** `/admin/claude` (`site/pages/claude.ts`,
   `write/connection.ts`): which settings are present (never their values) and
   "Test the connection" (`POST /op/admin/claude-test`) — one small call with

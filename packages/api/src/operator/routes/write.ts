@@ -15,6 +15,7 @@ import { slugify } from "../../write/article";
 import { d1Drafts } from "../../write/drafts";
 import { ENGINES, defaultEngine, setDefaultEngine } from "../../write/engines";
 import { addEntry, d1Entries } from "../../write/entries";
+import { d1Notes } from "../../write/notes";
 import { announce, articleTopics, publishDraft, takeDown } from "../../write/publish";
 import { d1Reads } from "../../write/read";
 import {
@@ -76,6 +77,7 @@ app.post("/write/:id/turn", async (c) => {
 
   const entries = userId ? d1Entries(c.env, userId) : undefined;
   const sources = userId ? d1Sources(c.env, userId) : undefined;
+  const notes = userId ? d1Notes(c.env, userId) : undefined;
   const reads = userId ? d1Reads(c.env, userId) : undefined;
   if (!sse) {
     await runTurn({
@@ -84,6 +86,7 @@ app.post("/write/:id/turn", async (c) => {
       store,
       entries,
       sources,
+      notes,
       reads,
       draftId: id,
       text,
@@ -114,6 +117,7 @@ app.post("/write/:id/turn", async (c) => {
     store,
     entries,
     sources,
+    notes,
     reads,
     draftId: id,
     text,

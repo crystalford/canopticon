@@ -1644,6 +1644,7 @@ app.get("/engine-try", async (c) => {
   const { runTurn } = await import("../write/agent.ts");
   const { memoryDrafts } = await import("../write/drafts.ts");
   const { memorySources, checkReport } = await import("../write/research.ts");
+  const { memoryNotes } = await import("../write/notes.ts");
   const { DEFAULT_ENGINE, isWorkersAi } = await import("../write/engines.ts");
   const model = c.req.query("model") ?? DEFAULT_ENGINE;
   if (!isWorkersAi(model)) return c.json({ error: "Not a Workers AI engine." }, 400);
@@ -1664,6 +1665,7 @@ app.get("/engine-try", async (c) => {
     env: c.env,
     store,
     sources,
+    notes: memoryNotes(),
     draftId: d.id,
     text: q,
     maxSteps: Math.min(30, Math.max(2, Number(c.req.query("steps")) || 14)),

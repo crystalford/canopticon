@@ -398,10 +398,14 @@ export const CHAT_CLEAR_CHARS = 800_000;
 const CLEARED =
   "[Cleared to keep the conversation short. The page is kept: web_fetch the same address to read it again — it costs nothing.]";
 
-export function toChat(system: string, history: Message[]): ChatMessage[] {
+export function toChat(
+  system: string,
+  history: Message[],
+  clearAt = CHAT_CLEAR_CHARS,
+): ChatMessage[] {
   const out = toChatWhole(system, history);
   const size = out.reduce((n, m) => n + (m.content?.length ?? 0), 0);
-  if (size <= CHAT_CLEAR_CHARS) return out;
+  if (size <= clearAt) return out;
   const fetchCalls = new Set<string>();
   for (const m of out)
     for (const c of m.tool_calls ?? []) if (c.function.name === "web_fetch") fetchCalls.add(c.id);
@@ -549,9 +553,10 @@ export async function workersStep(
   system: string,
   tools: Anthropic.Beta.BetaToolUnion[],
   history: Message[],
+  clearAt?: number,
 ): Promise<Anthropic.Beta.BetaMessage> {
   const ai = env.AI as unknown as { run: (m: string, i: unknown) => Promise<unknown> };
-  const input = { messages: toChat(system, history), tools: toFunctions(tools) };
+  const input = { messages: toChat(system, history, clearAt), tools: toFunctions(tools) };
   let reply: unknown;
   try {
     reply = await ai.run(model, { ...input, max_tokens: MAX_OUT });

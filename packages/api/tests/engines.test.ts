@@ -197,7 +197,15 @@ describe("a research turn on Workers AI", () => {
     const fnNames = (calls[0]?.input.tools as Array<{ function: { name: string } }>).map(
       (t) => t.function.name,
     );
-    expect(fnNames).toEqual(expect.arrayContaining(["web_search", "web_fetch", "write_report"]));
+    expect(fnNames).toEqual(
+      expect.arrayContaining([
+        "web_search",
+        "web_fetch",
+        "write_outline",
+        "note_evidence",
+        "write_section",
+      ]),
+    );
     // The page was kept, so the report's quotation is checked against it.
     expect((await sources.texts(d.id)).map((p) => p.url)).toEqual(["https://a.example/page"]);
     const toolMessages = (
