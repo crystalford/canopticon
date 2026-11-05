@@ -131,6 +131,16 @@
   before this (`/v1/admin/spend`, 2026-11-04): $72 recorded over 14
   conversations, research $68.62, more than half of it Claude cache writes —
   hence also `max_content_tokens` 60k → 30k on Claude's web_fetch.
+  **A third Anthropic engine**, `claude-sonnet-advised`: Sonnet 5.5 runs the
+  conversation ($2/$10) and consults Opus 5.5 through the advisor tool
+  (`advisorTool`, beta `advisor-tool-2026-03-01`, 2,048-token cap, advisor
+  caching on) — frozen into the frame's tools like the rest. Cost is counted
+  by `claudeUsage`: the engine's rates, advisor iterations at Opus's, and $10
+  per thousand web searches; **usage is saved after every step** (the
+  operator's bill was ~$100 against $72 recorded: turns cut off by errors
+  were never counted). Context editing clears rarely and in bulk (trigger
+  500k, `clear_at_least` 200k): every clear rewrites the cached conversation.
+  "Test the connection" also tries Sonnet with the advisor.
 - **Is Claude connected?** `/admin/claude` (`site/pages/claude.ts`,
   `write/connection.ts`): which settings are present (never their values) and
   "Test the connection" (`POST /op/admin/claude-test`) — one small call with

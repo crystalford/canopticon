@@ -6,6 +6,19 @@ product, the "Fabric" graph era, the film engine) are in `docs/archive/LINEAGE.m
 and `docs/archive/canopticon-changelog.md`; this file starts where the
 product became the publication.
 
+## 2026-11-05 — Claude for less: Sonnet with Opus advice, honest costs
+
+- A new engine, Claude Sonnet 5.5 + Opus advice: Sonnet reads and writes at
+  half Opus's rates and consults Opus 5.5 for planning (Anthropic's advisor
+  tool). "Test the connection" checks it too.
+- Costs shown in the workspace are now complete: saved after every step (a
+  turn cut off by an error had cost money that was never counted — the bill
+  was about $100 against $72 shown), with Claude's web searches ($10 per
+  thousand) and advisor calls included.
+- Claude clears old pages from its context rarely and in large batches
+  (past 500,000 tokens, at least 200,000 at a time): each clear made it
+  re-buy its cache, and cache writes were over half of what research cost.
+
 ## 2026-11-04 — Write and research on Workers AI, for a fraction of Claude
 
 - Every conversation now runs on a chosen engine: DeepSeek V4.1 Flash

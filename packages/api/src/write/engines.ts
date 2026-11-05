@@ -35,7 +35,17 @@ export interface Engine {
   note: string;
   /** US dollars per million tokens. */
   price: { input: number; output: number; cacheRead: number; cacheWrite: number };
+  /** Who runs it: Cloudflare's Workers AI, or Anthropic (Claude). */
+  provider: "workers" | "anthropic";
+  /** Anthropic: the model that runs the conversation. */
+  model?: string;
+  /** Anthropic: a stronger model the conversation consults for planning
+   *  (the advisor tool), billed at its own rates for those calls only. */
+  advisor?: string;
 }
+
+/** Claude Opus 5.5's rates, also what an Opus advisor's calls cost. */
+export const OPUS_PRICE = { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 };
 
 export const CLAUDE: EngineId = "claude";
 export const DEFAULT_ENGINE: EngineId = "@cf/deepseek-ai/deepseek-v4.1-flash-1017";
@@ -46,18 +56,34 @@ export const ENGINES: Engine[] = [
     label: "DeepSeek V4.1 Flash",
     note: "Workers AI · $0.30 in / $1.20 out per million tokens · about a fifteenth of Claude",
     price: { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0.3 },
+    provider: "workers",
   },
   {
     id: "@cf/zai-org/glm-5.3",
     label: "GLM-5.3",
     note: "Workers AI · $1.40 in / $4.40 out · stronger writing, about a quarter of Claude",
     price: { input: 1.4, output: 4.4, cacheRead: 0.26, cacheWrite: 1.4 },
+    provider: "workers",
+  },
+  {
+    // Sonnet does the reading and writing at half Opus's rates and consults
+    // Opus for planning (Anthropic's advisor tool): most of Opus's judgement
+    // where it matters, at about half the price.
+    id: "claude-sonnet-advised",
+    label: "Claude Sonnet 5.5 + Opus advice",
+    note: "Anthropic · $2 in / $10 out, with Opus 5.5 planning · about half of Claude Opus",
+    price: { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
+    provider: "anthropic",
+    model: "claude-sonnet-5-5",
+    advisor: "claude-opus-5-5",
   },
   {
     id: CLAUDE,
     label: "Claude Opus 5.5",
     note: "Anthropic · $4 in / $20 out · the strongest, and the most expensive",
-    price: { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
+    price: OPUS_PRICE,
+    provider: "anthropic",
+    model: "claude-opus-5-5",
   },
 ];
 
@@ -65,7 +91,23 @@ export const engine = (id: EngineId | undefined | null): Engine =>
   ENGINES.find((e) => e.id === id) ?? (ENGINES.find((e) => e.id === DEFAULT_ENGINE) as Engine);
 
 export const isWorkersAi = (id: EngineId | undefined | null): boolean =>
-  !!id && id !== CLAUDE && ENGINES.some((e) => e.id === id);
+  !!id && ENGINES.some((e) => e.id === id && e.provider === "workers");
+
+/** The advisor tool for an engine that has one (Anthropic's beta
+ *  advisor-tool-2026-03-01). Each call's output is capped at 2,048 tokens
+ *  (Anthropic measured about a seventh of the uncapped length with no loss),
+ *  and the advisor's own transcript is cached across calls. */
+export function advisorTool(id: EngineId): Anthropic.Beta.BetaToolUnion | null {
+  const e = ENGINES.find((x) => x.id === id);
+  if (!e?.advisor) return null;
+  return {
+    type: "advisor_20260301",
+    name: "advisor",
+    model: e.advisor,
+    max_tokens: 2048,
+    caching: { type: "ephemeral", ttl: "5m" },
+  } as unknown as Anthropic.Beta.BetaToolUnion;
+}
 
 // ---- the default for new conversations: kept in users.preferences ------------
 

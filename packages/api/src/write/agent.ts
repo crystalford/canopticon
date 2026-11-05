@@ -21,8 +21,10 @@ import {
   CLAUDE,
   type EngineId,
   FETCH_TOOL,
+  OPUS_PRICE,
   PAGE_CHARS,
   SEARCH_TOOL,
+  advisorTool,
   engine as engineOf,
   isWorkersAi,
   readPage,
@@ -220,7 +222,9 @@ const newFrame = (kind: DraftKind = "article", eng: EngineId = CLAUDE): Frame =>
       : kind === "read"
         ? { system: READ_HOW, tools: readTools() }
         : { system: systemPrompt(), tools: TOOLS };
-  return workers ? { ...f, engine: eng } : f;
+  const advisor = advisorTool(eng);
+  const g = advisor ? { ...f, tools: [...f.tools, advisor] } : f;
+  return eng !== CLAUDE ? { ...g, engine: eng } : g;
 };
 
 /** A read reads one document (and may look across the record) and notes cards. */
@@ -710,6 +714,32 @@ function addUsage(
   };
 }
 
+/** What a Claude call cost: its own tokens at the engine's rates, an
+ *  advisor's calls at Opus's (they are reported apart, in usage.iterations),
+ *  and each web search at $10 per thousand. */
+function claudeUsage(
+  u: Usage,
+  m: Anthropic.Beta.BetaMessage,
+  price: { input: number; output: number; cacheRead: number; cacheWrite: number },
+): Usage {
+  let next = addUsage(u, m, price);
+  const iterations = ((m.usage as unknown as { iterations?: unknown[] }).iterations ??
+    []) as Array<{
+    type?: string;
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  }>;
+  for (const it of iterations)
+    if (it.type === "advisor_message")
+      next = addUsage(next, { usage: it } as unknown as Anthropic.Beta.BetaMessage, OPUS_PRICE);
+  const searches =
+    (m.usage as unknown as { server_tool_use?: { web_search_requests?: number } }).server_tool_use
+      ?.web_search_requests ?? 0;
+  return searches ? { ...next, cents: next.cents + searches } : next;
+}
+
 const toolUses = (content: Message["content"]): Anthropic.Beta.BetaToolUseBlockParam[] =>
   typeof content === "string"
     ? []
@@ -882,7 +912,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     } else
       try {
         const s = o.stream({
-          model: WRITE_MODEL,
+          model: engineOf(engineId).model ?? WRITE_MODEL,
           // The model's whole output allowance: a long report or article is one
           // write, and its thinking counts against the same budget.
           max_tokens: 128000,
@@ -891,17 +921,27 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
             "thinking-binding-controls-2026-08-01",
             "context-management-2025-06-27",
             "thinking-display-updates-2026-08-18",
+            ...(advisorTool(engineId) ? ["advisor-tool-2026-03-01"] : []),
           ],
-          // Long sessions read a lot: past 300k tokens, older tool results
+          // Long sessions read a lot: past 500k tokens, older tool results
           // (documents, fetched pages) are cleared from what Claude sees. The
           // pages themselves are kept (research_sources) and can be re-read.
           context_management: {
             edits: [
               {
                 type: "clear_tool_uses_20250919",
-                trigger: { type: "input_tokens", value: 300_000 },
+                // Rarely and in large batches: every clear rewrites the cached
+                // conversation after it, and on the live record (2026-11-04)
+                // cache writes were over half of what Claude research cost.
+                trigger: { type: "input_tokens", value: 500_000 },
+                clear_at_least: { type: "input_tokens", value: 200_000 },
                 keep: { type: "tool_uses", value: 8 },
-                exclude_tools: ["write_draft", "write_report", "edit_draft"],
+                exclude_tools: [
+                  "write_draft",
+                  "write_report",
+                  "edit_draft",
+                  ...(advisorTool(engineId) ? ["advisor"] : []),
+                ],
               },
             ],
           },
@@ -977,7 +1017,12 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
         });
         break;
       }
-    usage = workers ? addUsage(usage, message, engineOf(engineId).price) : addUsage(usage, message);
+    usage = workers
+      ? addUsage(usage, message, engineOf(engineId).price)
+      : claudeUsage(usage, message, engineOf(engineId).price);
+    // Saved at every step, not at the end: a turn cut off by an error had
+    // cost money that was never counted.
+    await store.save(draftId, { usage });
     if (!frameSaved) {
       // The engine also goes in the meta, which the drafts list reads.
       const now = await store.get(draftId);
