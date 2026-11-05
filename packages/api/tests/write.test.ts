@@ -1145,3 +1145,27 @@ describe("Claude Sonnet with Opus advice", () => {
     expect((await store.get(d.id))?.usage.cents).toBeCloseTo(1.44, 4);
   });
 });
+
+describe("the cache: the previous request's end is marked", () => {
+  it("marks the block the last request ended on, in what is sent only", async () => {
+    const store = memoryDrafts();
+    const d = await store.create("article");
+    const { stream, calls } = fakeStream([
+      msg([{ type: "tool_use", id: "t1", name: "list_documents", input: {} }], "tool_use"),
+      msg([{ type: "text", text: "Done." }], "end_turn"),
+    ]);
+    await runTurn({ stream, env, store, draftId: d.id, text: "Go.", emit: () => {} });
+    type Sent = { messages: Array<{ role: string; content: Array<Record<string, unknown>> }> };
+    const [first, second] = calls as Sent[];
+    // The first request has nothing before it to read.
+    expect(JSON.stringify(first?.messages)).not.toContain("cache_control");
+    // The second reads the first's whole prefix: the opening message is marked.
+    expect(second?.messages[0]?.content.at(-1)?.cache_control).toEqual({
+      type: "ephemeral",
+      ttl: "1h",
+    });
+    expect(second?.messages.at(-1)?.content.at(-1)?.cache_control).toBeUndefined();
+    // Nothing stored carries the mark.
+    expect(JSON.stringify(await store.messages(d.id))).not.toContain("cache_control");
+  });
+});

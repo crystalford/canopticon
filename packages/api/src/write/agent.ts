@@ -715,6 +715,41 @@ function addUsage(
   };
 }
 
+/** The conversation with the previous request's end marked as a cache
+ *  breakpoint. Automatic caching marks only the last block and looks back
+ *  about 20 blocks for the previous request's entry; a research step adds
+ *  more than that (each search and each page read is two blocks, with notes
+ *  between), so the previous entry was missed and the whole conversation was
+ *  written to the cache again — 8.2M tokens of writes across eleven research
+ *  conversations, at a write price. Marking the block the previous request
+ *  ended on makes that prefix a read, so only what is new is written. The
+ *  previous request ended on the message just before the latest assistant
+ *  message (always a user message: text or tool results). The stored
+ *  conversation is not touched; only what is sent carries the mark. */
+export function markPreviousEnd(history: Message[]): Message[] {
+  let a = -1;
+  for (let i = history.length - 1; i >= 0; i--)
+    if (history[i]?.role === "assistant") {
+      a = i;
+      break;
+    }
+  const k = a - 1;
+  const m = k >= 0 ? history[k] : undefined;
+  if (!m || m.role !== "user") return history;
+  const blocks = (
+    typeof m.content === "string" ? [{ type: "text", text: m.content }] : m.content
+  ) as Array<Record<string, unknown>>;
+  const last = blocks[blocks.length - 1];
+  if (!last || !["text", "tool_result", "document", "image"].includes(String(last.type)))
+    return history;
+  if (last.type === "text" && !String(last.text ?? "").trim()) return history;
+  const marked = {
+    ...m,
+    content: [...blocks.slice(0, -1), { ...last, cache_control: { type: "ephemeral", ttl: "1h" } }],
+  } as unknown as Message;
+  return [...history.slice(0, k), marked, ...history.slice(k + 1)];
+}
+
 /** What a Claude call cost: its own tokens at the engine's rates, an
  *  advisor's calls at Opus's (they are reported apart, in usage.iterations),
  *  and each web search at $10 per thousand. */
@@ -966,7 +1001,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
           cache_control: { type: "ephemeral", ttl: "1h" },
           system,
           tools: frame.tools,
-          messages: history,
+          messages: markPreviousEnd(history),
         });
         s.on("text", (delta) => emit({ type: "text", text: delta }));
         // Progress notes arrive as thinking blocks with text (display: "updates");

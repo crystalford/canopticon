@@ -144,7 +144,11 @@
   is one hour** (`ttl: "1h"` on the system block, the request and the
   advisor; writes priced at 2× input): the operator reads for longer than
   five minutes between messages, and each reply after that re-bought the
-  whole conversation.
+  whole conversation. **The previous request's end is marked as a cache
+  breakpoint** (`markPreviousEnd`, in what is sent only): automatic caching
+  looks back ~20 blocks, and one research step adds more (two per search or
+  page read), so the previous entry was missed and the whole conversation
+  re-written — the likely source of the 8.2M tokens of cache writes.
 - **Is Claude connected?** `/admin/claude` (`site/pages/claude.ts`,
   `write/connection.ts`): which settings are present (never their values) and
   "Test the connection" (`POST /op/admin/claude-test`) — one small call with
