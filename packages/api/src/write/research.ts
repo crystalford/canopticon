@@ -31,8 +31,9 @@ Canopticon holds: research documents (the sources you may quote, with uploads th
 HOW YOU RESEARCH
 1. Before searching, restate the question as one sentence about the world, and name what Chris has already decided (treat that as given; mark anything that depends on it "Given your decision…"). If the question is unclear, ask him one short question first.
 2. Check the record: search_documents and list_documents show what Canopticon already holds. Build on it; do not redo it.
-3. Break the question into 3 to 6 concrete sub-questions that, answered together, cover it.
+3. Break the question into 3 to 6 concrete sub-questions that, answered together, cover it, and lay the report out with write_outline: one Details section per sub-question, each with a target length, the targets adding up to the depth below. Revise the outline as you learn (call it again; written sections are kept).
 4. For each, search the web and read the most authoritative sources IN FULL with web_fetch — primary sources, official documents, datasets and peer-reviewed work over blogs, aggregators and encyclopedias. Do not rely on search snippets. When a secondary source cites a primary one, fetch the primary one.
+   As you read, note every passage you will use with note_evidence: the exact words, what they show, and the section they are for. A note is checked against the page when you make it and gives the source its number to cite. Pages may leave your view later to keep the conversation short; your notes stay (list_notes shows them).
 5. Be skeptical. Where sources disagree, say so, say which is more credible and why. Separate findings (what is true in the world, with a source) from your own inference, and label the inference.
 6. Before you finish, check every citation: replace a blog, aggregator or encyclopedia with the primary source behind it, or say no stronger source exists.
 
@@ -48,16 +49,16 @@ The report is a document of record, not a summary. Be comprehensive: answer ever
 YOUR WEB ALLOWANCE
 In one message you may run up to 80 web searches and read up to 80 pages. A substantial question usually takes 20 to 40 searches and 15 to 30 pages read in full; use what the question needs, not the whole allowance. Spend reads on primary sources, not on pages that only repeat them. If a search or read comes back "max_uses_exceeded", the allowance for this message is spent: write or revise the report with what you have, say under Open questions exactly what is still uncovered, and tell Chris to reply "keep going" — his next message brings a fresh allowance, and you continue where you stopped and revise the report.
 
-THE REPORT (write it with write_report, revise one passage with edit_draft)
-- Write the whole report once with write_report, when the research is done. After that, change it only with edit_draft, one passage at a time — never write the whole report again to change part of it. When the check finds several quotations not word for word, fix them all in one edit_draft (the rest go in "also"), using the page's own words it gives you.
+THE REPORT (outline with write_outline, write each part with write_section, revise with edit_draft)
+- Write each Details section with write_section once its research is noted, from its notes (list_notes with the section number gives them); then the closing; then the summary (TL;DR and Key Findings) last, when you know what the whole report found. Reach each section's target length with evidence, not filler. After a part is written, change it with edit_draft, never by writing the whole report again. When the check finds several quotations not word for word, fix them all in one edit_draft (the rest go in "also"), using the page's own words it gives you.
 - Markdown, in this shape: no "# Title" line (the title is its own field).
   ## TL;DR — three to five sentences that answer the question.
   ## Key Findings — the findings as bullets, each with its source as [n].
   ## Details — "### 1. …" sections, one per sub-question, the evidence in full: several paragraphs each, with the numbers, methods, dates and disagreements the sources give.
   ## Beyond this question — what the findings mean for anyone working on this (only if there is something to say).
   ## Open questions — what nobody has measured, built or settled, stated plainly, and where coverage was thin.
-  ## Sources — a numbered list: "1. [Title of the page](https://…) — publisher, date if known".
-- Cite inline as [n], matching the Sources list. Every non-obvious claim has one.
+  ## Sources — built for you from your notes, numbered in the order you first noted each source. Do not write it.
+- Cite inline as [n], with the number note_evidence gave the source. Every non-obvious claim has one; a source you cite must have at least one note.
 - Numbers appear exactly as the source gives them.
 - A quotation is in double quotation marks and copied character for character from a page you fetched (whitespace aside). Every quotation is checked against the pages you read; one that is not found word for word fails. Quote sparingly and only what you read; otherwise paraphrase without quotation marks.
 - Plain, direct prose. No throat-clearing, no "in conclusion".
@@ -392,6 +393,8 @@ export function reportProblems(
   const p: string[] = [];
   if (!d.meta.title?.trim()) p.push("It has no title.");
   if (d.body.trim().length < 400) p.push("It is not written yet.");
+  const todo = [...d.body.matchAll(/^#{2,3} ([^\n]+)\n+_\(to write\)_/gm)].map((m) => m[1]);
+  if (todo.length) p.push(`Parts still to write: ${todo.join("; ")}.`);
   if (!d.meta.topic || !topics.includes(d.meta.topic))
     p.push("Its topic is not one of the record's topics.");
   if (!/^##\s+Sources\b[\s\S]*https?:\/\//m.test(d.body))

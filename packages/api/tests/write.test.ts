@@ -1124,8 +1124,9 @@ describe("Claude Sonnet with Opus advice", () => {
     expect(p.betas).not.toContain("advisor-tool-2026-03-01");
     expect(p.tools.some((t) => t.name === "advisor")).toBe(false);
     expect(p.context_management.edits[0]).toMatchObject({
-      trigger: { type: "input_tokens", value: 500_000 },
-      clear_at_least: { type: "input_tokens", value: 200_000 },
+      // A research conversation keeps notes, so its pages can go sooner.
+      trigger: { type: "input_tokens", value: 250_000 },
+      clear_at_least: { type: "input_tokens", value: 120_000 },
     });
   });
 

@@ -32,6 +32,18 @@ import {
   workersStep,
 } from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
+import {
+  NOTES_TOOLS,
+  type NoteStore,
+  type OutlineSection,
+  describeNotes,
+  placeNote,
+  replacePart,
+  skeleton,
+  sourceNumbers,
+  unwritten,
+  withSources,
+} from "./notes";
 import { articleTopics } from "./publish";
 import {
   type Derivation,
@@ -49,7 +61,6 @@ import {
   SEARCH_LIMIT,
   type SourceStore,
   WEB_TOOLS,
-  WRITE_REPORT,
   checkReport,
   describeReportCheck,
   fetchedPages,
@@ -247,9 +258,14 @@ export const researchTools = (workers = false): Anthropic.Beta.BetaToolUnion[] =
   byName("search_documents"),
   byName("read_document"),
   ...(workers ? [SEARCH_TOOL, FETCH_TOOL] : WEB_TOOLS),
-  WRITE_REPORT,
+  // Outline first, note while reading, write section by section (notes.ts).
+  ...NOTES_TOOLS,
   byName("edit_draft"),
 ];
+
+/** Whether a conversation's frozen tools are the notes-and-sections kind. */
+const notesMode = (tools: Anthropic.Beta.BetaToolUnion[]) =>
+  tools.some((t) => "name" in t && t.name === "note_evidence");
 
 export function researchSystemPrompt(): string {
   return `${RESEARCH_HOW}
@@ -432,6 +448,20 @@ export function activityLabel(name: string, input: unknown): string {
       return `Read: ${String(i.url ?? "")}`;
     case "write_report":
       return "Wrote the report";
+    case "write_outline":
+      return "Laid out the report";
+    case "write_section": {
+      const p = String(i.part ?? "");
+      return p === "summary"
+        ? "Wrote the summary"
+        : p === "closing"
+          ? "Wrote the closing"
+          : `Wrote section ${p}`;
+    }
+    case "note_evidence":
+      return `Noted: ${String(i.claim ?? "").slice(0, 90)}`;
+    case "list_notes":
+      return "Looked over the notes";
     case "propose_entry":
       return `Proposed ${i.kind === "open_problem" ? "an open problem" : i.kind === "figure" ? "a key figure" : "a concept"}: ${String(i.kind === "figure" ? i.body : i.title)}`;
     default:
@@ -454,6 +484,8 @@ interface ToolContext {
   toolUseId?: string;
   /** The web allowance spent this message (Workers AI's own web tools). */
   web?: { searches: number; reads: number; capped: Set<string> };
+  /** The research notes bank (notes.ts). */
+  notes?: NoteStore | undefined;
   /** The draft's kept pages, loaded once a turn and added to as pages are
    *  read: every write's quotation check used to reload them all from D1. */
   kept?: { list: ResearchSource[] | null };
@@ -669,6 +701,101 @@ async function runTool(
       t.emit({ type: "proposal", entry });
       return { text: "Proposed. Chris will add it as written, rewrite it, or dismiss it." };
     }
+    // ---- notes and sections (notes.ts) ----
+    case "write_outline": {
+      const i = (input ?? {}) as { title?: unknown; topic?: unknown; sections?: unknown };
+      const sections = (Array.isArray(i.sections) ? i.sections : [])
+        .map((s: { heading?: unknown; words?: unknown }) => ({
+          heading: String(s?.heading ?? "").trim(),
+          words: Math.max(100, Math.round(Number(s?.words) || 600)),
+        }))
+        .filter((s: OutlineSection) => s.heading) as OutlineSection[];
+      if (!String(i.title ?? "").trim() || !sections.length || sections.length > 12)
+        return bad(
+          "Give a title, a topic and 1 to 12 sections, each a heading and a target length.",
+        );
+      const d = await t.store.get(t.draftId);
+      const notes = t.notes ? await t.notes.list(t.draftId) : [];
+      const body = withSources(skeleton(sections, d?.body ?? ""), notes, await keptPages(t));
+      await t.store.save(t.draftId, {
+        meta: {
+          ...(d?.meta ?? {}),
+          title: String(i.title).trim(),
+          topic: String(i.topic ?? "").trim(),
+        },
+        body,
+      });
+      const { r, line } = await checkFor(t, body);
+      t.emit({ type: "draft", check: r });
+      const total = sections.reduce((n, s) => n + s.words, 0);
+      return {
+        text: `Outline saved: ${sections.length} sections, about ${total.toLocaleString("en")} words of Details. Note evidence as you read (note_evidence, with the section number); write each section with write_section once its notes are in, the summary and closing last. ${line}`,
+      };
+    }
+    case "note_evidence": {
+      const i = (input ?? {}) as {
+        url?: unknown;
+        quote?: unknown;
+        claim?: unknown;
+        section?: unknown;
+      };
+      const url = String(i.url ?? "").trim();
+      const quote = String(i.quote ?? "").trim();
+      const claim = String(i.claim ?? "").trim();
+      if (!url || quote.length < 15 || !claim)
+        return bad("Give the page's address, its exact words (a sentence or two) and the claim.");
+      if (!t.notes) return bad("Notes are not available in this conversation.");
+      const placed = placeNote(quote, url, await keptPages(t));
+      if ("near" in placed)
+        return bad(
+          `Not noted: those words are not on ${url} or any page you have read, word for word.${
+            placed.near
+              ? ` The page ${placed.near.url} says: "${placed.near.text}"`
+              : " Read the page first with web_fetch."
+          }`,
+        );
+      const section =
+        Number.isInteger(Number(i.section)) && Number(i.section) > 0 ? Number(i.section) : null;
+      const note = await t.notes.add(t.draftId, { url: placed.url, quote, claim, section });
+      const k = sourceNumbers(await t.notes.list(t.draftId)).get(note.url);
+      return { text: `Noted #${note.n}. Cite it as [${k}].` };
+    }
+    case "list_notes": {
+      if (!t.notes) return bad("Notes are not available in this conversation.");
+      const s = Number((input as { section?: unknown } | null)?.section);
+      return {
+        text: describeNotes(
+          await t.notes.list(t.draftId),
+          Number.isInteger(s) && s > 0 ? s : undefined,
+        ),
+      };
+    }
+    case "write_section": {
+      const i = (input ?? {}) as { part?: unknown; text?: unknown };
+      const part = String(i.part ?? "")
+        .trim()
+        .toLowerCase();
+      const text = String(i.text ?? "").trim();
+      if (!part || text.length < 20)
+        return bad('Give the part (a section number, "summary" or "closing") and its text.');
+      const d = await t.store.get(t.draftId);
+      if (!d?.body.includes("\n## Details"))
+        return bad("Lay the report out first with write_outline.");
+      const replaced = replacePart(d.body, part, text);
+      if (replaced === null)
+        return bad(
+          `There is no part "${part}" in the outline. Use a Details section's number, "summary" or "closing".`,
+        );
+      const notes = t.notes ? await t.notes.list(t.draftId) : [];
+      const body = withSources(replaced, notes, await keptPages(t));
+      await t.store.save(t.draftId, { body });
+      const { r, line } = await checkFor(t, body);
+      t.emit({ type: "draft", check: r });
+      const left = unwritten(body);
+      return {
+        text: `Saved. ${left.length ? `Still to write: ${left.join("; ")}.` : "Every part is written."} ${line}`,
+      };
+    }
     // The web on Workers AI: our own tools (Claude's are Anthropic's server
     // tools and never arrive here).
     case "web_search": {
@@ -867,6 +994,7 @@ export async function runTurn(o: {
   store: DraftStore;
   entries?: EntryStore | undefined;
   sources?: SourceStore | undefined;
+  notes?: NoteStore | undefined;
   reads?: ReadStore | undefined;
   draftId: string;
   text: string;
@@ -948,6 +1076,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     store,
     entries: o.entries,
     sources: o.sources,
+    notes: o.notes,
     reads: o.reads,
     readId: draft.meta.readId,
     readDoc: readDocId && readText != null ? { id: readDocId, text: readText } : undefined,
@@ -968,7 +1097,15 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       // An open model on Workers AI: the whole reply at once, then the same
       // loop as Claude's (its tool calls arrive as tool_use blocks).
       try {
-        message = await workersStep(env, engineId, frame.system, frame.tools, history);
+        // With notes kept, pages can leave the model's view much sooner.
+        message = await workersStep(
+          env,
+          engineId,
+          frame.system,
+          frame.tools,
+          history,
+          notesMode(frame.tools) ? 300_000 : undefined,
+        );
       } catch (err) {
         emit({
           type: "error",
@@ -1013,13 +1150,25 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
                 // Rarely and in large batches: every clear rewrites the cached
                 // conversation after it, and on the live record (2026-11-04)
                 // cache writes were over half of what Claude research cost.
-                trigger: { type: "input_tokens", value: 500_000 },
-                clear_at_least: { type: "input_tokens", value: 200_000 },
-                keep: { type: "tool_uses", value: 8 },
+                // With notes kept (notes.ts), pages carry nothing the report
+                // still needs once noted, and can be cleared much sooner.
+                trigger: {
+                  type: "input_tokens",
+                  value: notesMode(frame.tools) ? 250_000 : 500_000,
+                },
+                clear_at_least: {
+                  type: "input_tokens",
+                  value: notesMode(frame.tools) ? 120_000 : 200_000,
+                },
+                keep: { type: "tool_uses", value: notesMode(frame.tools) ? 6 : 8 },
                 exclude_tools: [
                   "write_draft",
                   "write_report",
                   "edit_draft",
+                  "write_outline",
+                  "write_section",
+                  "note_evidence",
+                  "list_notes",
                   ...(advisorTool(engineId) ? ["advisor"] : []),
                 ],
               },
