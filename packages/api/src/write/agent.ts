@@ -1090,6 +1090,39 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     (draft.kind === "read" ? READ_STEPS : draft.kind === "research" ? RESEARCH_STEPS : MAX_STEPS);
   // Whether the model finished on its own, rather than hitting the step limit.
   let ended = false;
+  // The research workflow's checkpoints, each said once a message.
+  const nudges = async (step: number): Promise<string[]> => {
+    const out: string[] = [];
+    const now = await store.get(draftId);
+    const outlined = !!now?.body.includes("\n## Details");
+    const noted = o.notes ? (await o.notes.list(draftId)).length : 0;
+    // Some Details section already has text (not just its "to write" mark).
+    const body = now?.body ?? "";
+    const sections = (body.match(/^### /gm) ?? []).length;
+    const blank = unwritten(body).filter((h) => /^\d+\. /.test(h)).length;
+    const written = outlined && sections > blank;
+    const say = (key: string, text: string) => {
+      if (web.capped.has(key)) return;
+      web.capped.add(key);
+      out.push(text);
+    };
+    if (!outlined && step >= 2)
+      say(
+        "outline",
+        "Lay the report out now with write_outline (one Details section per sub-question, each with a target length) before reading further. The rest of the research follows the outline.",
+      );
+    if (noted === 0 && web.reads >= 6)
+      say(
+        "notes",
+        `You have read ${web.reads} pages and noted nothing. Before reading more, note the passages you will use with note_evidence — several in one message, each with its section number.`,
+      );
+    if (outlined && !written && web.reads >= 16)
+      say(
+        "write",
+        "You have read enough to start writing. Write the sections you have notes for with write_section now; read further only for a gap you can name.",
+      );
+    return out;
+  };
 
   for (let step = 0; step < steps; step++) {
     let message: Anthropic.Beta.BetaMessage;
@@ -1397,16 +1430,19 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       !web.capped.has("budget") &&
       (web.searches >= SEARCH_LIMIT || web.reads >= READ_LIMIT);
     if (spent) web.capped.add("budget");
+    const said: string[] = [];
+    if (spent)
+      said.push(
+        `The web allowance for this message is spent (${web.searches} searches, ${web.reads} pages read). Do not search or read more now: write or revise the report with what you have, say under Open questions what is still uncovered, and ask Chris to reply "keep going".`,
+      );
+    // Keeping to the workflow (notes.ts). A cheaper model, live on
+    // 2026-11-05, read twenty pages in four minutes chasing one figure and
+    // never outlined or noted anything; each nudge is said once a message.
+    if (draft.kind === "research" && notesMode(frame.tools)) said.push(...(await nudges(step)));
     const reply: Message = {
       role: "user",
-      content: spent
-        ? [
-            ...results,
-            {
-              type: "text",
-              text: `The web allowance for this message is spent (${web.searches} searches, ${web.reads} pages read). Do not search or read more now: write or revise the report with what you have, say under Open questions what is still uncovered, and ask Chris to reply "keep going".`,
-            },
-          ]
+      content: said.length
+        ? [...results, ...said.map((text) => ({ type: "text" as const, text }))]
         : results,
     };
     await store.append(draftId, [reply]);

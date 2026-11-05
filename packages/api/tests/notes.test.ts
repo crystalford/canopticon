@@ -209,3 +209,65 @@ describe("a research turn with notes and sections", () => {
     expect(reportProblems(saved as never, { total: 1, failed: [] }, articleTopics())).toEqual([]);
   });
 });
+
+describe("keeping a cheaper model to the workflow", () => {
+  it("asks for the outline after a few steps, and for notes after six pages, each once", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (url: string) =>
+          new Response(`<p>${`Page ${url} about housing starts in Toronto. `.repeat(20)}</p>`, {
+            headers: { "content-type": "text/html" },
+          }),
+      ),
+    );
+    let k = 0;
+    const fetches = (n: number) => ({
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: null,
+            tool_calls: Array.from({ length: n }, () => {
+              k++;
+              return {
+                id: `f${k}`,
+                type: "function",
+                function: {
+                  name: "web_fetch",
+                  arguments: JSON.stringify({ url: `https://p${k}.example` }),
+                },
+              };
+            }),
+          },
+          finish_reason: "tool_calls",
+        },
+      ],
+      usage: { prompt_tokens: 100, completion_tokens: 10 },
+    });
+    const script = [
+      fetches(2),
+      fetches(2),
+      fetches(3),
+      fetches(2),
+      { choices: [{ message: { content: "Stopping." }, finish_reason: "stop" }] },
+    ];
+    const env = { LOG_LEVEL: "error", AI: { run: async () => script.shift() } } as unknown as Env;
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    await runTurn({
+      stream: null,
+      defaultEngine: DEFAULT_ENGINE,
+      env,
+      store,
+      sources: memorySources(),
+      notes: memoryNotes(),
+      draftId: d.id,
+      text: "Go.",
+      emit: () => {},
+    });
+    const all = JSON.stringify(await store.messages(d.id));
+    expect(all.split("Lay the report out now with write_outline").length - 1).toBe(1);
+    expect(all.split("pages and noted nothing").length - 1).toBe(1);
+  });
+});
