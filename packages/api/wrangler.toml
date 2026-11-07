@@ -74,8 +74,14 @@ binding = "AI"
 # Re-enable by uncommenting the two lines below. Everything else about
 # the Worker (the public site, the operator console, on-demand actions)
 # is untouched — this only stops the background sweep.
-# [triggers]
-# crons = ["*/2 * * * *", "0 12 * * 1"]
+#
+# ⚠ Commenting the block out did NOT stop it: wrangler leaves a deployed
+# schedule in place when the key is absent. It ran every two minutes until
+# 2026-11-07 (settle steps in orchestrator_events at :30, :32, :34, :36; its
+# profile query reset D1 under load). An empty list is what removes it.
+# Re-enable with: crons = ["*/2 * * * *", "0 12 * * 1"] and CRON_ENABLED = "1".
+[triggers]
+crons = []
 
 [vars]
 LOG_LEVEL = "info"

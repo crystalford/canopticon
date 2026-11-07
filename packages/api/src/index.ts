@@ -275,6 +275,10 @@ import { all as dbAll } from "./lib/d1.ts";
 // not a redesign, just less pressure per unit time. Revisit if ingest
 // throughput becomes the bottleneck instead.
 const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, ctx) => {
+  // Nothing runs unattended (CLAUDE.md rule 4). The schedule outlived its
+  // commented-out config and ran every two minutes until 2026-11-07, so the
+  // handler itself now refuses unless it is switched on deliberately.
+  if (env.CRON_ENABLED !== "1") return;
   const cron = controller.cron;
   if (cron === "0 12 * * 1") {
     const monitors = await dbAll<{ id: string }>(

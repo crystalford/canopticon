@@ -61,7 +61,27 @@ function fromStore(): Source[] {
   }));
 }
 
-async function uploads(env: Env): Promise<Source[]> {
+// Searches asked for together share one listing: the query reads every
+// upload's length, and three parallel searches made it three times.
+let listed: { at: number; db: unknown; rows: Promise<Source[]> } | null = null;
+const LISTED_MS = 20_000;
+
+function uploads(env: Env): Promise<Source[]> {
+  if (listed && listed.db === env.DB && Date.now() - listed.at < LISTED_MS) return listed.rows;
+  const rows = readUploads(env);
+  listed = { at: Date.now(), db: env.DB, rows };
+  rows.catch(() => {
+    listed = null;
+  });
+  return rows;
+}
+
+/** Forget the shared listing (a new upload, a test). */
+export function forgetListing() {
+  listed = null;
+}
+
+async function readUploads(env: Env): Promise<Source[]> {
   const userId = await resolveOperatorId(env.DB).catch(() => null);
   if (!userId) return [];
   const rows = await all<UploadRow>(
@@ -116,6 +136,38 @@ export async function sourceTexts(env: Env, ids: string[]): Promise<Map<string, 
   return out;
 }
 
+/** Every listed upload's text in a few queries (~2 MB and ≤90 rows each),
+ *  not one query per document: a search read them all one by one. */
+async function uploadTexts(env: Env, sources: Source[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ups = sources.filter((s) => s.status !== "record");
+  if (!ups.length) return out;
+  const userId = await resolveOperatorId(env.DB).catch(() => null);
+  if (!userId) return out;
+  const groups: Source[][] = [];
+  let group: Source[] = [];
+  let sum = 0;
+  for (const s of ups) {
+    if (group.length && (sum + s.chars > 2_000_000 || group.length >= 90)) {
+      groups.push(group);
+      group = [];
+      sum = 0;
+    }
+    group.push(s);
+    sum += s.chars;
+  }
+  if (group.length) groups.push(group);
+  for (const g of groups) {
+    const rows = await all<{ slug: string; body_md: string | null }>(
+      env.DB,
+      `SELECT slug, body_md FROM pieces WHERE slug IN (${g.map(() => "?").join(",")}) AND ${UPLOAD_WHERE}`,
+      [...g.map((s) => s.id), userId],
+    ).catch(() => [] as Array<{ slug: string; body_md: string | null }>);
+    for (const r of rows) out.set(r.slug, r.body_md ?? "");
+  }
+  return out;
+}
+
 export interface SearchHit {
   source: Source;
   snippets: string[];
@@ -129,9 +181,10 @@ export async function searchSources(env: Env, query: string, limit = 10): Promis
   const terms = searchTerms(query);
   if (!terms.length) return [];
   const sources = await listSources(env);
+  const texts = await uploadTexts(env, sources);
   const scored: Array<{ source: Source; text: string; score: number; all: boolean }> = [];
   for (const source of sources) {
-    const text = (await sourceText(env, source.id)) ?? "";
+    const text = researchDoc(source.id)?.body ?? texts.get(source.id) ?? "";
     const lc = lower(text);
     const title = lower(source.title);
     let score = 0;

@@ -409,7 +409,10 @@ still be incoherent for the reader this corpus actually has.**
    sitemap, `llms.txt` and the feed are all generated from one query over one
    table. They cannot drift apart because there is only one of them. New
    surfaces go in `public/machine.ts`, not into a second renderer.
-4. **Nothing runs unattended.** The cron is disabled (`packages/api/wrangler.toml`).
+4. **Nothing runs unattended.** The cron is disabled (`packages/api/wrangler.toml`:
+   `crons = []` — commenting the block out did NOT remove the deployed
+   schedule, which ran every two minutes until 2026-11-07; the handler also
+   returns at once unless `CRON_ENABLED = "1"`).
    Work happens when a person does something. If you need a queue drained,
    add a button, not a schedule — an idle site should cost nothing.
 5. **AI output is an input artifact, never a function.** Nothing calls a model

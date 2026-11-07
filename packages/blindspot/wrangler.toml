@@ -38,8 +38,10 @@ binding = "AI"
 # operator clicks "Refresh sources" (POST /refresh) when they want to
 # re-pull the official statistics. No scheduled ingest. Re-enable by
 # uncommenting the [triggers] block once the manual flow is settled.
-# [triggers]
-# crons = ["0 13 * * 1"]
+# (An absent [triggers] block leaves a deployed schedule in place; the empty
+# list removes it. To enable: crons = ["0 13 * * 1"].)
+[triggers]
+crons = []
 
 [vars]
 LOG_LEVEL = "info"
