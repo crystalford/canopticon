@@ -384,6 +384,44 @@ export function nearestPassage(
   return null;
 }
 
+/** Citations in the report that point at nothing: a number past the Sources
+ *  list (live, models cited their note numbers: 73 of 115 in one report),
+ *  or a bracket that names a source in words ("[12 as background]",
+ *  "[Canada.ca, BC gov]"). Empty when every citation is a listed number. */
+export function citationProblems(body: string): string[] {
+  const at = body.indexOf("\n## Sources");
+  if (at < 0) return [];
+  const text = body.slice(0, at);
+  const listed = (body.slice(at).match(/^\d+\. /gm) ?? []).length;
+  const beyond = new Set<number>();
+  for (const m of text.matchAll(/\[(\d+(?:\s*[,–-]\s*\d+)*)\](?!\()/g))
+    for (const x of (m[1] ?? "").match(/\d+/g) ?? []) {
+      const k = Number(x);
+      if (k < 1 || k > listed) beyond.add(k);
+    }
+  const worded = new Set<string>();
+  for (const m of text.matchAll(/\[([^\]\n]{2,60})\](?!\()/g)) {
+    const inner = m[1] ?? "";
+    if (/^\d+\s+[a-z]/i.test(inner) || /\b[\w-]+\.(ca|com|org|gov|net)\b|\bgov\b/i.test(inner))
+      worded.add(`[${inner}]`);
+  }
+  const out: string[] = [];
+  if (beyond.size)
+    out.push(
+      `${[...beyond]
+        .sort((a, b) => a - b)
+        .map((k) => `[${k}]`)
+        .join(
+          ", ",
+        )} ${beyond.size === 1 ? "is" : "are"} not on the Sources list (it has ${listed}). Cite the number shown as "cite as [n]" in list_notes — not the note number.`,
+    );
+  if (worded.size)
+    out.push(
+      `Citations must be the source's number alone, like [3]: ${[...worded].slice(0, 6).join(", ")}.`,
+    );
+  return out;
+}
+
 /** Why a report cannot go to Admin yet; empty when it can. */
 export function reportProblems(
   d: { meta: { title?: string; topic?: string }; body: string },
@@ -403,6 +441,7 @@ export function reportProblems(
     p.push(
       `${check.failed.length} ${check.failed.length === 1 ? "quotation is" : "quotations are"} not found in the pages read.`,
     );
+  p.push(...citationProblems(d.body));
   return p;
 }
 

@@ -271,3 +271,56 @@ describe("keeping a cheaper model to the workflow", () => {
     expect(all.split("pages and noted nothing").length - 1).toBe(1);
   });
 });
+
+describe("citations that point at nothing", () => {
+  it("names numbers past the Sources list and sources cited in words", async () => {
+    const { citationProblems } = await import("../src/write/research");
+    const body = [
+      "## TL;DR",
+      "Four signed [1][2]. BC paid [7] and [12 as background]; see [Canada.ca, BC gov].",
+      "A link [the plan](https://example.ca) and [3, 4] are fine.",
+      "",
+      "## Sources",
+      "",
+      "1. [A](https://a.example)",
+      "2. [B](https://b.example)",
+      "3. [C](https://c.example)",
+      "4. [D](https://d.example)",
+    ].join("\n");
+    const p = citationProblems(body);
+    expect(p[0]).toContain("[7]");
+    expect(p[0]).toContain("it has 4");
+    expect(p[1]).toContain("[12 as background]");
+    expect(p[1]).toContain("[Canada.ca, BC gov]");
+    expect(
+      citationProblems(
+        body
+          .replace(/ and \[12 as background\]; see \[Canada\.ca, BC gov\]/, "")
+          .replace("[7]", "[4]"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("lists notes by the number to cite, not the note number first", async () => {
+    const { describeNotes } = await import("../src/write/notes");
+    const out = describeNotes([
+      { n: 1, url: "https://a.example", quote: "q one", claim: "c one", section: 1 },
+      { n: 2, url: "https://b.example", quote: "q two", claim: "c two", section: 2 },
+      { n: 3, url: "https://a.example", quote: "q three", claim: "c three", section: 2 },
+    ] as never);
+    expect(out.split("\n")[0]).toMatch(/^cite as \[1\] · section 1 · note 1: c one/);
+    expect(out).toContain("cite as [1] · section 2 · note 3");
+  });
+});
+
+describe("the engine menu", () => {
+  it("offers DeepSeek V4 Pro and no longer GLM-5.3", async () => {
+    const { ENGINES, TRIAL_ENGINES, engine } = await import("../src/write/engines");
+    const ids = ENGINES.map((e) => e.id);
+    expect(ids).toContain("@cf/deepseek-ai/deepseek-v4-pro-0813");
+    expect(ids).not.toContain("@cf/zai-org/glm-5.3");
+    // A conversation frozen on GLM-5.3 keeps it.
+    expect(engine("@cf/zai-org/glm-5.3").id).toBe("@cf/zai-org/glm-5.3");
+    expect(TRIAL_ENGINES.some((e) => e.id === "@cf/zai-org/glm-5.3")).toBe(true);
+  });
+});
