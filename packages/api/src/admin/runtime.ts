@@ -1743,6 +1743,10 @@ app.get("/engine-try", async (c) => {
       publish = await publishProblems(c.env, c.get("user_id"), done).catch((e) => [String(e)]);
     }
     const kept = await notes.list(d.id);
+    // The support check on the final report, for measuring it (support.ts).
+    const { supportCheck } = await import("../write/support.ts");
+    const support =
+      kind === "research" ? await supportCheck(c.env, body, kept).catch(() => []) : [];
     const words = body.split(/\s+/).filter(Boolean).length;
     const figures = kind === "research" ? figureProblems(body, pages) : [];
     const cites = kind === "research" ? citationProblems(body) : [];
@@ -1790,6 +1794,16 @@ app.get("/engine-try", async (c) => {
               changed: !body.replace(/\s+/g, " ").includes(f.sentence.replace(/\s+/g, " ").trim()),
             })),
             publish_problems: publish,
+            support: {
+              checked: support.length,
+              below_20: support.filter((x) => x.p < 0.2).length,
+              below_50: support.filter((x) => x.p < 0.5).length,
+              mean: support.length
+                ? Math.round((support.reduce((a, x) => a + x.p, 0) / support.length) * 1000) / 1000
+                : null,
+              ...(full ? { sentences: support } : {}),
+            },
+            ...(full ? { notes: kept } : {}),
             unwritten: unwritten(body),
             ...(full ? { body } : { start: body.slice(0, 2500) }),
           },

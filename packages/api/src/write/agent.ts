@@ -80,6 +80,7 @@ import {
   sourceTexts,
 } from "./sources";
 import { storedKey } from "./stored-key";
+import { type Support, UNSUPPORTED_BELOW, supportCheck } from "./support";
 import {
   ENOUGH_NOTES,
   FLAG_TOOL,
@@ -940,12 +941,14 @@ function oneAtATime(n: NoteStore): NoteStore {
 
 async function runTeam(o: {
   ctx: ToolContext;
-  reader: EngineId;
+  /** Researchers take these models in turn: each model has its own
+   *  per-minute limit, so two spread the load. */
+  readers: EngineId[];
   question: string;
   need: Array<{ n: number; heading: string }>;
   all: Array<{ n: number; heading: string }>;
   tools: Anthropic.Beta.BetaToolUnion[];
-  onStep: (m: Anthropic.Beta.BetaMessage) => Promise<void>;
+  onStep: (m: Anthropic.Beta.BetaMessage, model: EngineId) => Promise<void>;
 }): Promise<string> {
   const { ctx } = o;
   // Loaded once before anyone reads, so every researcher shares one list.
@@ -966,11 +969,14 @@ async function runTeam(o: {
   const retried = new Set<number>();
   const worker = async () => {
     for (let s = queue.shift(); s; s = queue.shift()) {
-      const r = await runResearcher({ ...o, ctx: shared, section: s }).catch((e: Error) => ({
-        said: `Stopped: ${e.message.slice(0, 200)}`,
-        pages: new Set<string>(),
-        failed: true,
-      }));
+      const reader = o.readers[(s.n - 1) % o.readers.length] ?? (o.readers[0] as EngineId);
+      const r = await runResearcher({ ...o, reader, ctx: shared, section: s }).catch(
+        (e: Error) => ({
+          said: `Stopped: ${e.message.slice(0, 200)}`,
+          pages: new Set<string>(),
+          failed: true,
+        }),
+      );
       // A researcher Workers AI stopped gets one more go, at the back.
       if ("failed" in r && !retried.has(s.n)) {
         retried.add(s.n);
@@ -999,7 +1005,7 @@ async function runResearcher(o: {
   all: Array<{ n: number; heading: string }>;
   section: { n: number; heading: string };
   tools: Anthropic.Beta.BetaToolUnion[];
-  onStep: (m: Anthropic.Beta.BetaMessage) => Promise<void>;
+  onStep: (m: Anthropic.Beta.BetaMessage, model: EngineId) => Promise<void>;
 }): Promise<{ said: string; pages: Set<string> }> {
   const { ctx, section } = o;
   const history: Message[] = [
@@ -1017,7 +1023,7 @@ async function runResearcher(o: {
       200_000,
       `${ctx.draftId}-s${section.n}`,
     );
-    await o.onStep(m);
+    await o.onStep(m, o.reader);
     const assistant: Message = { role: "assistant", content: m.content as Message["content"] };
     history.push(assistant);
     const uses = toolUses(assistant.content);
@@ -1074,10 +1080,10 @@ const flatten = (x: string) => verbatimNormal(x).replace(/\s+/g, " ").trim();
 
 async function runReview(o: {
   ctx: ToolContext;
-  reader: EngineId;
+  readers: EngineId[];
   question: string;
   tools: Anthropic.Beta.BetaToolUnion[];
-  onStep: (m: Anthropic.Beta.BetaMessage) => Promise<void>;
+  onStep: (m: Anthropic.Beta.BetaMessage, model: EngineId) => Promise<void>;
 }): Promise<string> {
   const { ctx } = o;
   const d = await ctx.store.get(ctx.draftId);
@@ -1115,7 +1121,8 @@ async function runReview(o: {
         notes,
         (n) => n.section === s.n || cited.has(numbers.get(n.url) ?? -1),
       );
-      const r = await runReviewer({ ...o, ctx: shared, section: s, notes: mine }).catch(
+      const reader = o.readers[(s.n - 1) % o.readers.length] ?? (o.readers[0] as EngineId);
+      const r = await runReviewer({ ...o, reader, ctx: shared, section: s, notes: mine }).catch(
         (e: Error) => {
           ctx.emit({ type: "activity", text: `§${s.n} review stopped: ${e.message.slice(0, 90)}` });
           return { flags: [] as ReviewFlag[], dropped: 0, said: e.message };
@@ -1129,7 +1136,27 @@ async function runReview(o: {
       });
     }
   };
-  await Promise.all(Array.from({ length: Math.min(MAX_RESEARCHERS, queue.length) }, worker));
+  // The support check runs beside the reviewers: every cited sentence,
+  // a calibrated yes/no each (support.ts). Only a sentence it is nearly sure
+  // is unsupported, and no reviewer flagged, goes to the writer.
+  const [, support] = await Promise.all([
+    Promise.all(Array.from({ length: Math.min(MAX_RESEARCHERS, queue.length) }, worker)),
+    supportCheck(ctx.env, body, notes).catch(() => [] as Support[]),
+  ]);
+  for (const x of support) {
+    if (x.p >= UNSUPPORTED_BELOW || flags.some((f) => f.sentence === x.sentence)) continue;
+    flags.push({
+      section: x.section,
+      kind: "unsupported",
+      sentence: x.sentence,
+      why: `The support checker gives about ${Math.round(x.p * 100)}% that the passages noted from ${x.cites.map((k) => `[${k}]`).join(" ")} state this.`,
+    });
+  }
+  if (support.length)
+    ctx.emit({
+      type: "activity",
+      text: `Support check: ${support.length} cited sentences, ${support.filter((x) => x.p < UNSUPPORTED_BELOW).length} probably unsupported`,
+    });
   flags.sort((a, b) => a.section - b.section);
   const now = await ctx.store.get(ctx.draftId);
   if (now) await ctx.store.save(ctx.draftId, { meta: { ...now.meta, review: flags } });
@@ -1143,7 +1170,7 @@ async function runReviewer(o: {
   section: { n: number; heading: string; text: string };
   notes: string;
   tools: Anthropic.Beta.BetaToolUnion[];
-  onStep: (m: Anthropic.Beta.BetaMessage) => Promise<void>;
+  onStep: (m: Anthropic.Beta.BetaMessage, model: EngineId) => Promise<void>;
 }): Promise<{ flags: ReviewFlag[]; dropped: number; said: string }> {
   const { ctx, section } = o;
   const history: Message[] = [
@@ -1163,7 +1190,7 @@ async function runReviewer(o: {
       200_000,
       `${ctx.draftId}-r${section.n}`,
     );
-    await o.onStep(m);
+    await o.onStep(m, o.reader);
     const assistant: Message = { role: "assistant", content: m.content as Message["content"] };
     history.push(assistant);
     const uses = toolUses(assistant.content);
@@ -1470,13 +1497,13 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       for (const s of fresh) covered.add(s.heading.toLowerCase());
       return runTeam({
         ctx,
-        reader: crew.reader,
+        readers: crew.readers ?? [crew.reader],
         question: firstText ?? o.text,
         need: fresh,
         all,
         tools: frame.tools.filter((t) => RESEARCHER_TOOLS.has((t as { name: string }).name)),
-        onStep: async (m) => {
-          usage = addUsage(usage, m, engineOf(crew.reader).price);
+        onStep: async (m, model) => {
+          usage = addUsage(usage, m, engineOf(model).price);
           await store.save(draftId, { usage });
         },
       });
@@ -1488,14 +1515,14 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       reviewing = true;
       return runReview({
         ctx,
-        reader: crew.reader,
+        readers: crew.readers ?? [crew.reader],
         question: firstText ?? o.text,
         tools: [
           ...frame.tools.filter((t) => REVIEWER_TOOLS.has((t as { name: string }).name)),
           FLAG_TOOL as unknown as Anthropic.Beta.BetaToolUnion,
         ],
-        onStep: async (m) => {
-          usage = addUsage(usage, m, engineOf(crew.reader).price);
+        onStep: async (m, model) => {
+          usage = addUsage(usage, m, engineOf(model).price);
           await store.save(draftId, { usage });
         },
       });

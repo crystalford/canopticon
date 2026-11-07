@@ -45,7 +45,7 @@ export interface Engine {
   /** Workers AI research team (agent.ts runTeam): once the report is laid
    *  out, one `reader` per section searches, reads and notes at the same
    *  time; `writer` runs the conversation and writes from the notes. */
-  team?: { reader: EngineId; writer: EngineId };
+  team?: { reader: EngineId; writer: EngineId; readers?: EngineId[] };
 }
 
 /** Claude Opus 5.5's rates, also what an Opus advisor's calls cost. */
@@ -130,6 +130,32 @@ export const TRIAL_ENGINES: Engine[] = [
     team: {
       reader: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
       writer: "@cf/deepseek-ai/deepseek-v4-pro-0813",
+    },
+  },
+  {
+    // The older Flash: a second model with its own per-minute limit, so a
+    // team can spread its researchers across two (team:flash2).
+    id: "@cf/deepseek-ai/deepseek-v4-flash-0731",
+    label: "DeepSeek V4 Flash (0731)",
+    note: "Workers AI · $0.44 in / $1.32 out · on trial",
+    price: { input: 0.44, output: 1.32, cacheRead: 0.014, cacheWrite: 0.44 },
+    provider: "workers",
+  },
+  {
+    // The research team with its researchers alternating between two Flash
+    // models: each has its own per-minute limit, which the team hit.
+    id: "team:flash2",
+    label: "DeepSeek research team, two Flash models",
+    note: "Workers AI · researchers alternate V4.1 Flash and V4 Flash; V4.1 Flash writes · on trial",
+    price: { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0.3 },
+    provider: "workers",
+    team: {
+      reader: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+      readers: [
+        "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+        "@cf/deepseek-ai/deepseek-v4-flash-0731",
+      ],
+      writer: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
     },
   },
   {
