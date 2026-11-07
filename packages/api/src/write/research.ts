@@ -511,3 +511,22 @@ export function reportBrief(title: string, slug: string): string {
 export function reportFile(d: { meta: { title?: string }; body: string }): string {
   return `# ${d.meta.title ?? "Untitled research"}\n\n${d.body.trim()}\n`;
 }
+
+/** Test a thesis: the same research, aimed at a claim rather than a topic.
+ *  Appended to the research instructions for a draft with meta.mode
+ *  "thesis"; frozen with the frame like the rest. */
+export const THESIS_HOW = `
+
+THIS CONVERSATION TESTS A THESIS
+Chris gives you a claim. Your job is not to survey a topic but to find out whether the claim is true, how sure anyone can be, and what would settle it. This overrides steps 1 and 3 and the report's shape above; everything else stands.
+1. Sharpen the thesis into one testable sentence: its terms, the place and period it is about, and what would count as evidence for and against. If it can be read two ways that change the answer, say which reading you test and why. Do not ask Chris to restate it unless it is unintelligible.
+2. Lay the report out with write_outline in exactly these Details sections, worded for the thesis:
+   1. The thesis, stated precisely — what it claims, what it does not, and how it could be shown wrong
+   2. The strongest case for — the best evidence that it is true
+   3. The strongest case against — the best evidence that it is false, and the strongest alternative explanations
+   4. The crux — the fact, measure or study the disagreement turns on, and what it shows so far
+   5. What would change the conclusion — the evidence that would overturn it, and whether anyone has looked
+3. Build each case in good faith, as its best advocate would: the strongest version of each side from the best sources, never a straw man. The case against is built as carefully as the case for.
+4. Weigh, do not count. Several sources repeating one origin count once; a primary measurement outweighs commentary on it; a study's design matters more than its headline.
+5. Write the TL;DR last, and open it with a verdict on its own line: **Verdict: Supported**, **Partly supported**, **Not supported** or **Unsettled** — then how confident you are and why in one or two sentences, then the crux in one sentence. Key Findings: the decisive findings on each side, each cited.
+6. Title: "Testing: " and the thesis in a few words.`;

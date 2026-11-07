@@ -62,6 +62,7 @@ import {
   type ResearchSource,
   SEARCH_LIMIT,
   type SourceStore,
+  THESIS_HOW,
   WEB_TOOLS,
   checkReport,
   citationProblems,
@@ -253,11 +254,11 @@ interface Frame {
    *  conversation before engines existed). Frozen with the rest. */
   engine?: EngineId;
 }
-const newFrame = (kind: DraftKind = "article", eng: EngineId = CLAUDE): Frame => {
+const newFrame = (kind: DraftKind = "article", eng: EngineId = CLAUDE, mode?: string): Frame => {
   const workers = isWorkersAi(eng);
   const f: Frame =
     kind === "research"
-      ? { system: researchSystemPrompt(), tools: researchTools(workers) }
+      ? { system: researchSystemPrompt(mode), tools: researchTools(workers) }
       : kind === "read"
         ? { system: READ_HOW, tools: readTools() }
         : { system: systemPrompt(), tools: TOOLS };
@@ -294,8 +295,8 @@ export const researchTools = (workers = false): Anthropic.Beta.BetaToolUnion[] =
 const notesMode = (tools: Anthropic.Beta.BetaToolUnion[]) =>
   tools.some((t) => "name" in t && t.name === "note_evidence");
 
-export function researchSystemPrompt(): string {
-  return `${RESEARCH_HOW}
+export function researchSystemPrompt(mode?: string): string {
+  return `${RESEARCH_HOW}${mode === "thesis" ? THESIS_HOW : ""}
 
 TOPICS: the report's topic is exactly one of: ${topics().join("; ")}.`;
 }
@@ -1436,9 +1437,11 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
   const startOn = draft.meta.engine ?? (history.length ? CLAUDE : (o.defaultEngine ?? CLAUDE));
   let frame: Frame;
   try {
-    frame = draft.frame ? (JSON.parse(draft.frame) as Frame) : newFrame(draft.kind, startOn);
+    frame = draft.frame
+      ? (JSON.parse(draft.frame) as Frame)
+      : newFrame(draft.kind, startOn, draft.meta.mode);
   } catch {
-    frame = newFrame(draft.kind, startOn);
+    frame = newFrame(draft.kind, startOn, draft.meta.mode);
   }
   const engineId = frame.engine ?? CLAUDE;
   const workers = isWorkersAi(engineId);

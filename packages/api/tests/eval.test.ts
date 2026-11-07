@@ -5,9 +5,29 @@ import { CLAUDE, DEFAULT_ENGINE, defaultEngine, setDefaultEngine } from "../src/
 import { BAR, EVAL_SET, grade } from "../src/write/eval";
 
 describe("the engine test", () => {
-  it("covers research of three kinds and an article", () => {
-    expect(EVAL_SET.filter((t) => t.kind === "research")).toHaveLength(3);
+  it("covers research of three kinds, an article and a thesis test", () => {
+    expect(EVAL_SET.filter((t) => t.kind === "research" && !t.mode)).toHaveLength(3);
     expect(EVAL_SET.filter((t) => t.kind === "article")).toHaveLength(1);
+    expect(EVAL_SET.filter((t) => t.mode === "thesis")).toHaveLength(1);
+  });
+
+  it("reads a thesis report's verdict, and fails one without", async () => {
+    const { verdictOf } = await import("../src/write/eval");
+    expect(verdictOf("## TL;DR\n\n**Verdict: Partly supported** — moderately sure.")).toBe(
+      "Partly supported",
+    );
+    expect(verdictOf("## TL;DR\n\nIt depends.")).toBeNull();
+    const r = grade({
+      kind: "research",
+      finished: true,
+      words: 4000,
+      quotations: 20,
+      notFound: 0,
+      citations: 0,
+      pages: 12,
+      verdict: false,
+    });
+    expect(r.misses).toEqual(["no verdict line"]);
   });
 
   it("passes a report at the bar and names every miss below it", () => {

@@ -39,6 +39,7 @@ export function researcherSystem(): string {
     "- Figures: note them with who published them and for what date or period.",
     "- Where sources disagree, note both sides.",
     "- Aim for 6 to 12 notes from at least three different sources. Stay on your section; the others are covered.",
+    "- If your section is the case for or against a claim, build that case as its best advocate would, from the best sources — and note the weaknesses you find in it too.",
     "- Before you call something unpublished or unknown, search for it specifically once or twice.",
     "",
     "WHEN YOU ARE DONE",

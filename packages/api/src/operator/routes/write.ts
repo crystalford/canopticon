@@ -35,7 +35,11 @@ app.post("/write/new", async (c) => {
   if (!userId) return c.redirect("/admin/write");
   const form = (await c.req.parseBody().catch(() => ({}))) as Record<string, unknown>;
   const store = d1Drafts(c.env, userId);
-  const d = await store.create(form.kind === "research" ? "research" : "article");
+  // "Test a thesis" is a research conversation in thesis mode.
+  const thesis = form.kind === "thesis";
+  const created = await store.create(form.kind === "research" || thesis ? "research" : "article");
+  if (thesis) await store.save(created.id, { meta: { ...created.meta, mode: "thesis" } });
+  const d = thesis ? ((await store.get(created.id)) ?? created) : created;
   // The engine chosen stays with the conversation, and becomes the default.
   const chosen = String(form.engine ?? "");
   if (ENGINES.some((e) => e.id === chosen)) {
