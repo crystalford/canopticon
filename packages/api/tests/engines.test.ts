@@ -472,3 +472,38 @@ describe("trial engines", () => {
     }
   });
 });
+
+describe("Workers AI's limits", () => {
+  it("waits and asks again after the per-minute limit, and gives up after four", async () => {
+    const { workersStep, setSleep, RETRY_WAITS } = await import("../src/write/engines");
+    const waits: number[] = [];
+    setSleep(async (ms) => {
+      waits.push(ms);
+    });
+    let calls = 0;
+    const ok = {
+      choices: [{ message: { role: "assistant", content: "Fine." }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
+    };
+    const env = {
+      AI: {
+        run: async () => {
+          calls++;
+          if (calls < 3)
+            throw new Error("3021: rate limiting: inference request per min rate reached");
+          return ok;
+        },
+      },
+    } as unknown as Env;
+    const m = await workersStep(env, "@cf/x/y", "sys", [], [{ role: "user", content: "Hi" }]);
+    expect(m.content).toMatchObject([{ type: "text", text: "Fine." }]);
+    expect(waits).toEqual([RETRY_WAITS[0], RETRY_WAITS[1]]);
+
+    calls = -100;
+    await expect(
+      workersStep(env, "@cf/x/y", "sys", [], [{ role: "user", content: "Hi" }]),
+    ).rejects.toThrow(/3021/);
+    expect(waits).toHaveLength(2 + RETRY_WAITS.length);
+    setSleep((ms) => new Promise((r) => setTimeout(r, ms)));
+  });
+});

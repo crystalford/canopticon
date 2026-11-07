@@ -42,6 +42,10 @@ export interface Engine {
   /** Anthropic: a stronger model the conversation consults for planning
    *  (the advisor tool), billed at its own rates for those calls only. */
   advisor?: string;
+  /** Workers AI research team (agent.ts runTeam): once the report is laid
+   *  out, one `reader` per section searches, reads and notes at the same
+   *  time; `writer` runs the conversation and writes from the notes. */
+  team?: { reader: EngineId; writer: EngineId };
 }
 
 /** Claude Opus 5.5's rates, also what an Opus advisor's calls cost. */
@@ -97,6 +101,32 @@ export const ENGINES: Engine[] = [
  *  words; GLM-5.3 Flash $0.28 and unfinished; Qwen 3.8 timed out three
  *  times. Prices from the Workers AI catalog (2026-11). */
 export const TRIAL_ENGINES: Engine[] = [
+  {
+    id: "team:deepseek",
+    label: "DeepSeek research team",
+    note: "Workers AI · V4.1 Flash researchers read every section at once; V4 Pro writes · on trial",
+    // The conversation's own calls are V4 Pro's; each researcher's are
+    // counted at Flash's rates (runTeam).
+    price: { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 1.32 },
+    provider: "workers",
+    team: {
+      reader: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+      writer: "@cf/deepseek-ai/deepseek-v4-pro-0813",
+    },
+  },
+  {
+    // The same team with Flash writing too: V4 Pro writes slowly (one test
+    // run spent its 25 minutes writing six sections).
+    id: "team:flash",
+    label: "DeepSeek Flash research team",
+    note: "Workers AI · V4.1 Flash researchers read every section at once, and Flash writes · on trial",
+    price: { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0.3 },
+    provider: "workers",
+    team: {
+      reader: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+      writer: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+    },
+  },
   {
     // Retired from the menu 2026-11-07: $3.17 for the report V4.1 Flash wrote
     // for $0.18. Conversations already on it keep running on it.
@@ -593,6 +623,14 @@ export function fromChat(reply: ChatReply, model: string): Anthropic.Beta.BetaMe
 const MAX_OUT = 32_768;
 
 /** One step on a Workers AI model: the conversation in, one reply out. */
+/** Waits before asking again after Workers AI's per-minute limit (3021). */
+export const RETRY_WAITS = [10_000, 20_000, 30_000, 45_000];
+let sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+/** Tests: no real waiting. */
+export function setSleep(f: (ms: number) => Promise<void>) {
+  sleep = f;
+}
+
 export async function workersStep(
   env: Env,
   model: string,
@@ -611,8 +649,23 @@ export async function workersStep(
   // every step was billed as fresh input.
   const opts = session ? { headers: { "x-session-affinity": `ses_${session}` } } : undefined;
   let reply: unknown;
+  // Cloudflare's per-minute request limit (3021) and its request timeout
+  // (3046) pass: wait and ask again. Live, four runs at once on V4.1 Flash
+  // hit the limit and ended their turns with the report half written.
+  const once = async (max: number) => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await ai.run(model, { ...input, max_tokens: max }, opts);
+      } catch (err) {
+        const busy = /\b3021\b|rate limit/i.test(String(err));
+        const slow = /\b3046\b|request timeout/i.test(String(err));
+        if (!(busy && attempt < RETRY_WAITS.length) && !(slow && attempt < 1)) throw err;
+        await sleep(busy ? (RETRY_WAITS[attempt] ?? 30_000) : 2_000);
+      }
+    }
+  };
   try {
-    reply = await ai.run(model, { ...input, max_tokens: MAX_OUT }, opts);
+    reply = await once(MAX_OUT);
   } catch (err) {
     // Only an output allowance the model will not take is retried with less;
     // a conversation too long for the model is not (it would fail again).
@@ -621,7 +674,7 @@ export async function workersStep(
       /context|prompt is too long/i.test(String(err))
     )
       throw err;
-    reply = await ai.run(model, { ...input, max_tokens: 8192 }, opts);
+    reply = await once(8192);
   }
   return fromChat(reply as ChatReply, model);
 }
@@ -641,4 +694,10 @@ export function draftEngine(
     }
   }
   return d.meta.engine ?? fallback;
+}
+
+/** The Workers AI model a conversation's own calls go to: a team's writer,
+ *  else the engine itself. */
+export function workersModel(id: EngineId): string {
+  return engine(id).team?.writer ?? id;
 }

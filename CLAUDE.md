@@ -133,6 +133,16 @@
   `ops/eval/latest.md` naming the cheapest model that passed everything. A
   new Workers AI model goes in `TRIAL_ENGINES`, through the test, and into
   the menu only if it passes.
+  **The research team** (`write/team.ts`, `runTeam` in `agent.ts`; engine
+  `team:deepseek`, on trial until the engine test passes it): when the lead
+  (V4 Pro) lays the report out, one researcher per section still short of
+  notes (≤6 at once, 16 steps each, V4.1 Flash) searches, reads and notes at
+  the same time — same tools, page store, allowance and word-for-word note
+  check; notes filed under its section by code and added one at a time. The
+  lead is told what each found and could not find, then writes from the
+  notes. Researchers cannot write or start researchers; a revised outline
+  does not re-send them in the same message. Their calls are counted at
+  Flash's rates.
   Workers AI calls carry `x-session-affinity` per conversation — without it
   the cached prefix (≈94% of input, billed at ~2%) is not reused. Research on
   Workers AI gets 100 steps (Flash used all 60). Two of six models cited their

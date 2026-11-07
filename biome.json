@@ -18,7 +18,8 @@
       "packages/studio/lab",
       "design",
       "docs/blackbox",
-      "packages/api/content"
+      "packages/api/content",
+      "ops"
     ]
   },
   "formatter": {

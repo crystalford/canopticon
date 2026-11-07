@@ -43,7 +43,9 @@ export const EVAL_SET: EvalTask[] = [
   {
     kind: "article",
     label: "article from the record",
-    text: "Write an article from the record's research on whether banning or restricting Airbnb and other short-term rentals actually improved housing in Canadian cities. Argue from what the documents show, quoting them.",
+    // Not Airbnb bans: two articles on them are already published, and V4 Pro
+    // rightly declined to write a third (engine test, 2026-11-07).
+    text: "Write an article from the record's research on algorithmic rent-setting software in Canada: what it does, what the record found about its use and its effects on rents, and what remains unproven. Argue from what the documents show, quoting them.",
   },
 ];
 
