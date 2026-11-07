@@ -206,6 +206,19 @@
   The web is our own tools there: `web_search` through Cloudflare's Web
   Search (`env.AI.websearch`, beta, billed on the Cloudflare account) via the
   gateway named in `SEARCH_GATEWAY_ID` (wrangler.toml, "canopticon-search").
+  **Free by default — research never needs a bill or credits (2026-11-08):**
+  `webSearch` asks Cloudflare's Web Search only when its gateway exists and
+  can bill (a 402 / "credit balance is zero" turns it off for ten minutes);
+  otherwise the **free source finder** (`write/finder.ts`) answers — GDELT
+  news (three months), Crossref papers and reports, Europe PMC, Wikipedia
+  and Open Canada data, keyless, asked at once, each result labelled. No
+  general web search is free anywhere, so the Workers AI frames add
+  `FREE_SEARCH_HOW`: fetch the authoritative source directly, follow the
+  links a page lists (`pageLinks`: reports, PDFs and data first, at most 30,
+  returned with a fresh read but never kept — the kept text is what
+  quotations are checked against), cite Wikipedia's references, not
+  Wikipedia. Cloudflare's Web Search needs prepaid AI Gateway credits
+  (with auto top-up) — optional.
   **Cloudflare only — no Brave, no third-party bills (2026-11-07):** the
   gateway had never been created, so every search had fallen through to
   Brave until its credits ran out. Brave is gone from the code (workspace,

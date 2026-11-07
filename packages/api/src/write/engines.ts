@@ -24,6 +24,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Env } from "../env";
 import type { Message } from "./drafts";
+import { findSources } from "./finder";
 import type { ResearchSource } from "./research";
 
 export type EngineId = string;
@@ -279,20 +280,36 @@ export interface SearchHit {
 
 /** Cloudflare's Web Search first (billed on the Cloudflare account, no key),
  *  Brave when that is not set up or fails. */
+/** When Cloudflare's paid search last said it could not be billed: skipped
+ *  for ten minutes after, per isolate. */
+let paidSearchOffUntil = 0;
+
 export async function webSearch(env: Env, query: string): Promise<SearchHit[]> {
-  // Cloudflare only, billed to the Cloudflare account. Brave is gone
-  // (2026-11-07): the gateway had never been created, so every search had
-  // fallen through to Brave and run up its bill.
+  // Free first-class: research must never need a bill or credits (2026-11-08;
+  // Brave ran out, and Cloudflare's Web Search needs prepaid AI Gateway
+  // credits). Cloudflare's search is used only when its gateway exists and
+  // can bill; otherwise, or when it fails, the free source finder answers.
   const ai = env.AI as unknown as { websearch?: (i: Record<string, unknown>) => Promise<unknown> };
-  if (!env.SEARCH_GATEWAY_ID || !ai.websearch)
-    throw new Error(
-      "Web search is not set up: the AI Gateway named in SEARCH_GATEWAY_ID has to exist (run the “Create the search gateway” workflow, or Cloudflare dashboard → AI → AI Gateway).",
-    );
-  try {
-    return await cloudflareSearch(ai.websearch, env, query);
-  } catch (err) {
-    throw new Error(`Cloudflare's Web Search: ${(err as Error).message}`);
+  if (env.SEARCH_GATEWAY_ID && ai.websearch && Date.now() > paidSearchOffUntil) {
+    try {
+      const hits = await cloudflareSearch(ai.websearch, env, query);
+      if (hits.length) return hits;
+    } catch (err) {
+      if (/402|payment|credit|configure AI Gateway/i.test(String(err)))
+        paidSearchOffUntil = Date.now() + 10 * 60_000;
+    }
   }
+  const found = await findSources(query);
+  if (!found.length)
+    throw new Error(
+      "No results from the free sources (news, research papers, Wikipedia, government data). Try other words, or fetch the authoritative source you know directly with web_fetch.",
+    );
+  return found;
+}
+
+/** Tests: forget that the paid search was unavailable. */
+export function resetPaidSearch() {
+  paidSearchOffUntil = 0;
 }
 
 /** Cloudflare's Web Search (beta since 2026-10-02, through an AI Gateway).
@@ -382,13 +399,66 @@ export async function readPage(env: Env, url: string): Promise<ResearchSource | 
   text = readable(text ?? "");
   if (text.length < 200) return null;
   const title = fmTitle ?? /^#\s+(.+)$/m.exec(text)?.[1]?.trim() ?? null;
+  const at = res.url || url;
   return {
-    url: res.url || url,
+    url: at,
     title,
     retrievedAt: new Date().toISOString(),
     kind: pdf ? "pdf" : "text",
     text,
+    ...(type.includes("html") ? { links: pageLinks(new TextDecoder().decode(bytes), at) } : {}),
   };
+}
+
+/** A page's links worth following, for browsing the way a researcher does
+ *  when search is thin: reports, PDFs, data and deeper pages first; menus,
+ *  log-ins, social sharing and same-page anchors left out. At most 30. */
+export function pageLinks(html: string, base: string): Array<{ text: string; url: string }> {
+  const seen = new Set<string>();
+  const out: Array<{ text: string; url: string; score: number }> = [];
+  const site = (() => {
+    try {
+      return new URL(base).hostname;
+    } catch {
+      return "";
+    }
+  })();
+  for (const m of html.matchAll(
+    /<a\s[^>]*href\s*=\s*["']([^"'#][^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+  )) {
+    let url: string;
+    try {
+      url = new URL(entities(m[1] ?? ""), base).toString().replace(/#.*$/, "");
+    } catch {
+      continue;
+    }
+    const text = entities((m[2] ?? "").replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!/^https?:/.test(url) || seen.has(url) || url === base) continue;
+    if (text.length < 4 || text.length > 140) continue;
+    if (
+      /(log ?in|sign ?in|sign ?up|subscribe|privacy|cookie|terms of|contact us|skip to|menu|share on|facebook|twitter|linkedin|instagram|youtube)/i.test(
+        text,
+      )
+    )
+      continue;
+    seen.add(url);
+    let score = 0;
+    if (/\.pdf($|\?)/i.test(url)) score += 3;
+    if (
+      /(report|data|table|statistic|publication|study|survey|estimate|evaluation|budget|analysis|act|regulation)/i.test(
+        `${text} ${url}`,
+      )
+    )
+      score += 2;
+    if (new URL(url).hostname === site) score += 1;
+    out.push({ text, url, score });
+  }
+  return out
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 30)
+    .map(({ text, url }) => ({ text, url }));
 }
 
 /** Markdown from a converted page as a reader sees it: links as their words,

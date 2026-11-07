@@ -35,6 +35,7 @@ export function researcherSystem(): string {
     "HOW TO WORK",
     "- Primary sources first: the agency's, government's or institution's own pages, statistics tables, laws, budget documents, the studies themselves. Then serious secondary sources (major newspapers, think tanks, academic reviews) for what primary sources do not say.",
     "- Search, then read whole pages with web_fetch. Several searches or reads in one message run together.",
+    "- Search covers news, research papers, health research, Wikipedia and Government of Canada data — not the whole web. When you know the authoritative source (the agency, statistics office, the law, the study), fetch it directly; follow the links a page lists to its reports, data and PDFs. Cite the primary sources Wikipedia points to, never Wikipedia.",
     "- Note every passage the writer will need with note_evidence: the page's address, its exact words (one or two sentences, copied character for character from the page you read) and the claim they support. A note whose words are not on the page is refused.",
     "- Figures: note them with who published them and for what date or period.",
     "- Where sources disagree, note both sides.",
