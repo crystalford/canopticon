@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "../src/env";
 import { runTurn } from "../src/write/agent";
 import { memoryDrafts } from "../src/write/drafts";
-import { DEFAULT_ENGINE } from "../src/write/engines";
+// One model on its own (the default is the research team, tests/team.test.ts).
+const FLASH = "@cf/deepseek-ai/deepseek-v4.1-flash-1017";
 import {
   memoryNotes,
   placeNote,
@@ -186,7 +187,7 @@ describe("a research turn with notes and sections", () => {
     const events: Array<{ type: string; message?: string; text?: string }> = [];
     await runTurn({
       stream: null,
-      defaultEngine: DEFAULT_ENGINE,
+      defaultEngine: FLASH,
       env,
       store,
       sources,
@@ -257,7 +258,7 @@ describe("keeping a cheaper model to the workflow", () => {
     const d = await store.create("research");
     await runTurn({
       stream: null,
-      defaultEngine: DEFAULT_ENGINE,
+      defaultEngine: FLASH,
       env,
       store,
       sources: memorySources(),
@@ -302,7 +303,7 @@ describe("the gap checkpoint", () => {
     });
     await runTurn({
       stream: null,
-      defaultEngine: DEFAULT_ENGINE,
+      defaultEngine: FLASH,
       env,
       store,
       sources: memorySources(),
@@ -358,14 +359,19 @@ describe("citations that point at nothing", () => {
 });
 
 describe("the engine menu", () => {
-  it("offers DeepSeek V4 Pro and no longer GLM-5.3", async () => {
-    const { ENGINES, TRIAL_ENGINES, engine } = await import("../src/write/engines");
-    const ids = ENGINES.map((e) => e.id);
-    expect(ids).toContain("@cf/deepseek-ai/deepseek-v4-pro-0813");
-    expect(ids).not.toContain("@cf/zai-org/glm-5.3");
-    // A conversation frozen on GLM-5.3 keeps it.
-    expect(engine("@cf/zai-org/glm-5.3").id).toBe("@cf/zai-org/glm-5.3");
-    expect(TRIAL_ENGINES.some((e) => e.id === "@cf/zai-org/glm-5.3")).toBe(true);
+  it("is what the engine test passed: the research team, then Claude", async () => {
+    const { ENGINES, DEFAULT_ENGINE, engine } = await import("../src/write/engines");
+    expect(DEFAULT_ENGINE).toBe("team:flash");
+    expect(ENGINES.filter((e) => e.provider === "workers").map((e) => e.id)).toEqual([
+      "team:flash",
+    ]);
+    // Conversations frozen on an engine off the menu keep it.
+    for (const id of [
+      "@cf/zai-org/glm-5.3",
+      "@cf/deepseek-ai/deepseek-v4-pro-0813",
+      "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+    ])
+      expect(engine(id).id).toBe(id);
   });
 });
 
@@ -402,5 +408,36 @@ describe("figures not in any page read", () => {
     expect(describeFigures([{ figure: "41,000", sentence: "41,000 Islanders." }])).toContain(
       "FIGURES NOT FOUND in any page you read (1)",
     );
+  });
+});
+
+describe("a section with its own subheadings", () => {
+  it("is replaced whole when rewritten, and kept whole when the outline changes", async () => {
+    const { replacePart, skeleton } = await import("../src/write/notes");
+    const base = skeleton([
+      { heading: "Who adopted bans?", words: 600 },
+      { heading: "What changed?", words: 600 },
+    ]);
+    const first = replacePart(
+      base,
+      "1",
+      "Intro.\n\n### Ontario\n\nOntario text.\n\n### England\n\nEngland text.",
+    );
+    expect(first).toContain("#### Ontario");
+    const again = replacePart(first ?? "", "1", "New intro.\n\n### Ontario\n\nNew Ontario.");
+    expect(again).not.toContain("England text.");
+    expect(again?.split("Ontario").length).toBe(3); // heading + "New Ontario."
+    expect(again).toContain("### 2. What changed?");
+    // A revised outline keeps section 1 with all its subsections.
+    const revised = skeleton(
+      [
+        { heading: "Who adopted bans?", words: 600 },
+        { heading: "What changed?", words: 600 },
+        { heading: "How strong is it?", words: 600 },
+      ],
+      first ?? "",
+    );
+    expect(revised).toContain("England text.");
+    expect(revised).toContain("### 3. How strong is it?");
   });
 });

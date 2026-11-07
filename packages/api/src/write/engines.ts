@@ -52,24 +52,24 @@ export interface Engine {
 export const OPUS_PRICE = { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 8 };
 
 export const CLAUDE: EngineId = "claude";
-export const DEFAULT_ENGINE: EngineId = "@cf/deepseek-ai/deepseek-v4.1-flash-1017";
+export const DEFAULT_ENGINE: EngineId = "team:flash";
 
 export const ENGINES: Engine[] = [
   {
-    id: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
-    label: "DeepSeek V4.1 Flash",
-    note: "Workers AI · $0.30 in / $1.20 out per million tokens · about $0.20 a full report",
+    // The default, chosen by the engine test (ops/eval/2026-11-07-1920.md):
+    // the only engine to pass all four tasks, and the cheapest and fastest —
+    // $0.25–0.29 a full report in 14–23 minutes, 0 quotations not found.
+    // Each researcher keeps a short conversation, so it costs less than one
+    // model reading everything itself.
+    id: "team:flash",
+    label: "DeepSeek research team",
+    note: "Workers AI · V4.1 Flash researchers read every section at once, and Flash writes · about $0.30 a full report",
     price: { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0.3 },
     provider: "workers",
-  },
-  {
-    // Measured 2026-11-07 on one full-depth question: about the same depth and
-    // sourcing as V4.1 Flash, more careful with figures, four times the cost.
-    id: "@cf/deepseek-ai/deepseek-v4-pro-0813",
-    label: "DeepSeek V4 Pro",
-    note: "Workers AI · $1.32 in / $3.96 out · more careful with figures · about $0.75 a full report",
-    price: { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 1.32 },
-    provider: "workers",
+    team: {
+      reader: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+      writer: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+    },
   },
   {
     // Sonnet does the reading and writing at half Opus's rates and consults
@@ -102,8 +102,26 @@ export const ENGINES: Engine[] = [
  *  times. Prices from the Workers AI catalog (2026-11). */
 export const TRIAL_ENGINES: Engine[] = [
   {
+    // Off the menu 2026-11-07: the research team does the same reading
+    // faster and cheaper; alone it ran out of time on two of three reports.
+    id: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+    label: "DeepSeek V4.1 Flash",
+    note: "Workers AI · $0.30 in / $1.20 out per million tokens · retired from the menu",
+    price: { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0.3 },
+    provider: "workers",
+  },
+  {
+    // Off the menu 2026-11-07: careful with figures but slow, and Workers AI
+    // timed out on it three times running on a long article (engine test).
+    id: "@cf/deepseek-ai/deepseek-v4-pro-0813",
+    label: "DeepSeek V4 Pro",
+    note: "Workers AI · $1.32 in / $3.96 out · retired from the menu",
+    price: { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 1.32 },
+    provider: "workers",
+  },
+  {
     id: "team:deepseek",
-    label: "DeepSeek research team",
+    label: "DeepSeek research team, V4 Pro writing",
     note: "Workers AI · V4.1 Flash researchers read every section at once; V4 Pro writes · on trial",
     // The conversation's own calls are V4 Pro's; each researcher's are
     // counted at Flash's rates (runTeam).
@@ -112,19 +130,6 @@ export const TRIAL_ENGINES: Engine[] = [
     team: {
       reader: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
       writer: "@cf/deepseek-ai/deepseek-v4-pro-0813",
-    },
-  },
-  {
-    // The same team with Flash writing too: V4 Pro writes slowly (one test
-    // run spent its 25 minutes writing six sections).
-    id: "team:flash",
-    label: "DeepSeek Flash research team",
-    note: "Workers AI · V4.1 Flash researchers read every section at once, and Flash writes · on trial",
-    price: { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0.3 },
-    provider: "workers",
-    team: {
-      reader: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
-      writer: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
     },
   },
   {

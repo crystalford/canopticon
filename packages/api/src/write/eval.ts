@@ -53,7 +53,7 @@ export const EVAL_SET: EvalTask[] = [
  *  floor for a full-depth answer. Articles: the record's run 1,000–2,500
  *  words with ~18 quotations. */
 export const BAR = {
-  research: { words: 3000, quotations: 10, pages: 10, figuresNotInPages: 8 },
+  research: { words: 3000, quotations: 10, pages: 10, figuresNotInPages: 8, repeated: 0.05 },
   article: { words: 1200, quotations: 8 },
 };
 
@@ -66,6 +66,8 @@ export interface EvalResult {
   unwritten?: boolean;
   citations?: number;
   figuresNotInPages?: number;
+  /** Share of the text in eight-word runs that appear more than once. */
+  repeated?: number;
   pages?: number;
   /** Article: what Publish would refuse for (topic, quotes, closed sources). */
   publishProblems?: string[];
@@ -82,6 +84,10 @@ export function grade(r: EvalResult): { pass: boolean; misses: string[] } {
     if (r.notFound) m.push(`${r.notFound} quotations not found`);
     if (r.citations) m.push(`${r.citations} citation problems`);
     if ((r.pages ?? 0) < b.pages) m.push(`${r.pages ?? 0} pages read (bar ${b.pages})`);
+    if ((r.repeated ?? 0) > b.repeated)
+      m.push(
+        `${Math.round((r.repeated ?? 0) * 100)}% of the text repeats itself (bar ${b.repeated * 100}%)`,
+      );
     if ((r.figuresNotInPages ?? 0) > b.figuresNotInPages)
       m.push(`${r.figuresNotInPages} figures in no page read (bar ${b.figuresNotInPages})`);
   } else {
@@ -92,4 +98,28 @@ export function grade(r: EvalResult): { pass: boolean; misses: string[] } {
     for (const p of r.publishProblems ?? []) m.push(p);
   }
   return { pass: m.length === 0, misses: m };
+}
+
+/** The share of a report's words that sit in eight-word runs it has already
+ *  used: padding, or a section written twice. Live, a code bug left 21% of
+ *  one report repeated; a clean report is under 3%. Sources and headings
+ *  are not counted. */
+export function repeatedShare(body: string): number {
+  const end = body.indexOf("\n## Sources");
+  const words = (end < 0 ? body : body.slice(0, end))
+    .split("\n")
+    .filter((l) => !/^#{1,4} /.test(l))
+    .join(" ")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length < 16) return 0;
+  const seen = new Set<string>();
+  let again = 0;
+  for (let i = 0; i + 8 <= words.length; i++) {
+    const run = words.slice(i, i + 8).join(" ");
+    if (seen.has(run)) again++;
+    else seen.add(run);
+  }
+  return again / words.length;
 }

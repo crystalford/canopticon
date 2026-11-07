@@ -68,7 +68,7 @@ describe("the remembered engine", () => {
     expect(await defaultEngine(db(JSON.stringify({ engine: "claude-sonnet-advised" })), "u")).toBe(
       DEFAULT_ENGINE,
     );
-    const pro = "@cf/deepseek-ai/deepseek-v4-pro-0813";
+    const pro = "team:flash";
     expect(await defaultEngine(db(JSON.stringify({ engine: pro })), "u")).toBe(pro);
     const d = db(null);
     await setDefaultEngine(d, "u", CLAUDE);
