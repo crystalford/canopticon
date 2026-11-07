@@ -306,3 +306,61 @@ describe("a researcher Workers AI stops", () => {
     expect((await notes.list(d.id)).map((n) => n.section)).toEqual([1]);
   });
 });
+
+describe("a team with two reader models", () => {
+  it("gives its researchers each model in turn", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (url: string) =>
+          new Response(`<p>${`Page ${url} about housing starts in Toronto. `.repeat(20)}</p>`, {
+            headers: { "content-type": "text/html" },
+          }),
+      ),
+    );
+    const writer: unknown[] = [
+      reply(null, [
+        [
+          "o1",
+          "write_outline",
+          {
+            title: "S",
+            topic: "Housing",
+            sections: [
+              { heading: "How many?", words: 400 },
+              { heading: "Why?", words: 400 },
+            ],
+          },
+        ],
+      ]),
+      reply("Done."),
+    ];
+    const byResearcher = new Map<string, string>();
+    const env = {
+      LOG_LEVEL: "error",
+      AI: {
+        run: async (model: string, _i: unknown, opts?: { headers?: Record<string, string> }) => {
+          const who = /-(s\d)$/.exec(opts?.headers?.["x-session-affinity"] ?? "")?.[1];
+          if (!who) return writer.shift();
+          byResearcher.set(who, model);
+          return reply("Nothing found.");
+        },
+      },
+    } as unknown as Env;
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    await store.save(d.id, { meta: { ...d.meta, engine: "team:flash2" } });
+    await runTurn({
+      stream: null,
+      env,
+      store,
+      sources: memorySources(),
+      notes: memoryNotes(),
+      draftId: d.id,
+      text: "How many?",
+      emit: () => {},
+    });
+    expect(byResearcher.get("s1")).toBe("@cf/deepseek-ai/deepseek-v4.1-flash-1017");
+    expect(byResearcher.get("s2")).toBe("@cf/deepseek-ai/deepseek-v4-flash-0731");
+  });
+});

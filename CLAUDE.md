@@ -169,7 +169,19 @@
   writer is given every flag to fix before the summary; `meta.review` keeps
   them, and the workspace shows each with "changed" / "not changed" since
   (private, never published). Not yet on the engine-test bar: reported as a
-  column until a hand-checked sample says how far to trust a flag.
+  column until a hand-checked sample says how far to trust a flag. **Beside
+  the reviewers, the support check** (`write/support.ts`): every cited
+  sentence of the Details gets one calibrated yes/no from Cloudflare's Clef
+  decision model (`@cf/cloudflare/clef-flash`, ~$0.04/M input, ~160 ms a
+  call; answers `{type:"noul", noul: p}`) — "do the passages noted from the
+  sources it cites state it?" Live probe: 0.69 and 0.89 for two supported
+  sentences, 0.06 and 0.04 for two that added a claim. Below 0.2, and not
+  already flagged, it goes to the writer as unsupported. `engine-try`
+  reports the distribution (and every sentence with `full=1`) for
+  validating it. `POST /v1/admin/ai-run {model, input}` makes one raw
+  Workers AI call, for learning a new model's shape live. **`team:flash2`**
+  (trial): researchers and reviewers alternate V4.1 Flash and V4 Flash 0731,
+  each with its own per-minute limit.
   Workers AI calls carry `x-session-affinity` per conversation — without it
   the cached prefix (≈94% of input, billed at ~2%) is not reused. Research on
   Workers AI gets 100 steps (Flash used all 60). Two of six models cited their
