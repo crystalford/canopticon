@@ -1643,7 +1643,9 @@ app.get("/spend", async (c) => {
 app.get("/engine-try", async (c) => {
   const { runTurn } = await import("../write/agent.ts");
   const { memoryDrafts } = await import("../write/drafts.ts");
-  const { memorySources, checkReport } = await import("../write/research.ts");
+  const { memorySources, checkReport, citationProblems, figureProblems } = await import(
+    "../write/research.ts"
+  );
   const { memoryNotes } = await import("../write/notes.ts");
   const { DEFAULT_ENGINE, isWorkersAi, engine } = await import("../write/engines.ts");
   const model = c.req.query("model") ?? DEFAULT_ENGINE;
@@ -1739,6 +1741,8 @@ app.get("/engine-try", async (c) => {
             words: body.split(/\s+/).filter(Boolean).length,
             quotations: check.total,
             not_found: check.failed.map((f) => f.text.slice(0, 160)),
+            citations: citationProblems(body),
+            figures_not_in_pages: figureProblems(body, pages),
             unwritten: unwritten(body),
             ...(full ? { body } : { start: body.slice(0, 2500) }),
           },

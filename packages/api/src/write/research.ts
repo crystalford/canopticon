@@ -422,6 +422,59 @@ export function citationProblems(body: string): string[] {
   return out;
 }
 
+/** Digits as a page prints them, with the thousands separators (comma,
+ *  space, no-break and thin space) taken out: "288,150" and "288 150" are
+ *  both "288150". */
+function digitsOf(text: string): string {
+  return text.replace(/(?<=\d)[,\u00a0\u202f ](?=\d{3}(?!\d))/g, "");
+}
+
+/** The figures in a report that appear in no page read: a number of three or
+ *  more digits, or with a decimal point, looked for in every kept page with
+ *  separators ignored. Years, citation numbers and section numbers are not
+ *  figures. A figure not found may be the model's own arithmetic (which the
+ *  sentence should then say) or a number it did not read anywhere; either
+ *  way the writer is told, with the sentence it is in. Advisory: a page can
+ *  say "$1,900 million" where the report says "$1.9 billion". */
+export function figureProblems(
+  body: string,
+  pages: ResearchSource[],
+): Array<{ figure: string; sentence: string }> {
+  const end = body.indexOf("\n## Sources");
+  const text = (end < 0 ? body : body.slice(0, end))
+    .replace(/\[[\d,\s–-]+\]/g, " ")
+    .replace(/^#{2,3} \d+\. /gm, "");
+  if (!pages.length) return [];
+  const haystack = pages.map((p) => digitsOf(p.text)).join("\n");
+  const seen = new Set<string>();
+  const out: Array<{ figure: string; sentence: string }> = [];
+  const sentences = text.split(/(?<=[.!?;])\s+|\n+/);
+  for (const sentence of sentences) {
+    for (const m of sentence.matchAll(
+      /(?<![\w.])\d{1,3}(?:[,\u00a0\u202f ]\d{3})+(?:\.\d+)?(?![\d])|(?<![\w.,])\d+\.\d+(?![\d])|(?<![\w.,])\d{3,}(?![\d,])/g,
+    )) {
+      const raw = m[0];
+      const figure = digitsOf(raw);
+      if (/^(19|20)\d{2}$/.test(figure)) continue;
+      if (seen.has(figure)) continue;
+      seen.add(figure);
+      const escaped = figure.replace(/\./g, "\\.");
+      if (new RegExp(`(?<![\\d.])${escaped}(?![\\d])`).test(haystack)) continue;
+      out.push({ figure: raw, sentence: sentence.trim().slice(0, 160) });
+    }
+  }
+  return out;
+}
+
+/** The figure check as the writer reads it. */
+export function describeFigures(f: Array<{ figure: string; sentence: string }>): string {
+  if (!f.length) return "";
+  return `\nFIGURES NOT FOUND in any page you read (${f.length}). Check each: cite the page it comes from, say in the sentence that it is your own calculation and from what, or remove it:\n${f
+    .slice(0, 12)
+    .map((x) => `- ${x.figure} — "${x.sentence}"`)
+    .join("\n")}${f.length > 12 ? `\n…and ${f.length - 12} more.` : ""}`;
+}
+
 /** Why a report cannot go to Admin yet; empty when it can. */
 export function reportProblems(
   d: { meta: { title?: string; topic?: string }; body: string },

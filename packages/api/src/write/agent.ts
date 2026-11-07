@@ -63,8 +63,10 @@ import {
   WEB_TOOLS,
   checkReport,
   citationProblems,
+  describeFigures,
   describeReportCheck,
   fetchedPages,
+  figureProblems,
 } from "./research";
 import {
   listSources,
@@ -653,8 +655,10 @@ async function runTool(
       const { r, line } = await checkFor(t, body);
       t.emit({ type: "draft", check: r });
       const cites = t.kind === "research" ? citationProblems(body) : [];
+      const figures =
+        t.kind === "research" ? describeFigures(figureProblems(body, await keptPages(t))) : "";
       return {
-        text: `Saved. ${line}${cites.length ? `\nCITATIONS TO FIX: ${cites.join(" ")}` : ""}`,
+        text: `Saved. ${line}${cites.length ? `\nCITATIONS TO FIX: ${cites.join(" ")}` : ""}${figures}`,
       };
     }
     case "write_report": {
@@ -798,8 +802,9 @@ async function runTool(
       t.emit({ type: "draft", check: r });
       const left = unwritten(body);
       const cites = citationProblems(body);
+      const figures = describeFigures(figureProblems(body, await keptPages(t)));
       return {
-        text: `Saved. ${left.length ? `Still to write: ${left.join("; ")}.` : "Every part is written."} ${line}${cites.length ? `\nCITATIONS TO FIX (with edit_draft): ${cites.join(" ")}` : ""}`,
+        text: `Saved. ${left.length ? `Still to write: ${left.join("; ")}.` : "Every part is written."} ${line}${cites.length ? `\nCITATIONS TO FIX (with edit_draft): ${cites.join(" ")}` : ""}${figures}`,
       };
     }
     // The web on Workers AI: our own tools (Claude's are Anthropic's server
@@ -1133,6 +1138,20 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     // Live: with the outline and notes checkpoints, DeepSeek took 45 notes
     // from 9 pages for a 600-word report and never wrote; so notes and steps
     // count here as well as pages.
+    // Live, V4.1 Flash wrote "no government publishes usage figures" where
+    // two provinces had (V4 Pro found both): a gap is looked for before it is
+    // written down as one. Said once, when the Details are done and the
+    // summary is not.
+    if (
+      outlined &&
+      sections > 0 &&
+      blank === 0 &&
+      body.slice(0, body.indexOf("\n## Details")).includes("_(to write)_")
+    )
+      say(
+        "gaps",
+        "Before the summary: re-read the question. Wherever a section says something is not published, unknown or unavailable, make one or two targeted searches for it first — the agency's or province's own news releases, annual or quarterly reports, legislature answers, statistics tables — and note what you find. A gap is a finding only after you have looked for it.",
+      );
     if (outlined && !written && (web.reads >= 16 || noted >= 15 || step >= 12))
       say(
         "write",
