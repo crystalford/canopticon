@@ -1645,64 +1645,111 @@ app.get("/engine-try", async (c) => {
   const { memoryDrafts } = await import("../write/drafts.ts");
   const { memorySources, checkReport } = await import("../write/research.ts");
   const { memoryNotes } = await import("../write/notes.ts");
-  const { DEFAULT_ENGINE, isWorkersAi } = await import("../write/engines.ts");
+  const { DEFAULT_ENGINE, isWorkersAi, engine } = await import("../write/engines.ts");
   const model = c.req.query("model") ?? DEFAULT_ENGINE;
-  if (!isWorkersAi(model)) return c.json({ error: "Not a Workers AI engine." }, 400);
+  // Claude is billed per token on the operator's account: only when asked.
+  const known = engine(model).id === model;
+  if (!known) return c.json({ error: "Not an engine." }, 400);
+  if (!isWorkersAi(model) && c.req.query("claude") !== "1")
+    return c.json({ error: "A Claude engine needs &claude=1 (it is billed)." }, 400);
   const q =
     c.req.query("q") ??
     "How many housing units were started in the City of Toronto in the first half of 2026, and how does that compare with the previous decade?";
+  const full = c.req.query("full") === "1";
+  // Follow-ups, as Chris would send them: "keep going" while parts are unwritten.
+  const follow = Math.min(3, Math.max(0, Number(c.req.query("follow")) || 0));
   const store = memoryDrafts();
   const sources = memorySources();
+  const notes = memoryNotes();
   const d = await store.create("research");
   const events: Array<Record<string, unknown>> = [];
   const t0 = Date.now();
-  // A research turn can outlast the probe's wait: answer at the deadline
-  // with what has happened so far (each event stamped with its second).
-  const deadline = Math.min(280, Math.max(20, Number(c.req.query("deadline")) || 240)) * 1000;
-  const turn = runTurn({
-    stream: null,
-    defaultEngine: model,
-    env: c.env,
-    store,
-    sources,
-    notes: memoryNotes(),
-    draftId: d.id,
-    text: q,
-    maxSteps: Math.min(30, Math.max(2, Number(c.req.query("steps")) || 14)),
-    emit: (e) => {
-      const x = e as Record<string, unknown>;
-      events.push({
-        s: Math.round((Date.now() - t0) / 1000),
-        ...x,
-        ...(typeof x.text === "string" ? { text: x.text.slice(0, 300) } : {}),
+  const deadline = Math.min(1500, Math.max(20, Number(c.req.query("deadline")) || 240)) * 1000;
+  const maxSteps = Math.min(60, Math.max(2, Number(c.req.query("steps")) || 14));
+  const emit = (e: unknown) => {
+    const x = e as Record<string, unknown>;
+    // Claude's text arrives in small pieces: keep the rest, not those.
+    if (x.type === "text" && !isWorkersAi(model)) return;
+    const { check: _check, ...rest } = x;
+    events.push({
+      s: Math.round((Date.now() - t0) / 1000),
+      ...rest,
+      ...(typeof x.text === "string" ? { text: x.text.slice(0, 300) } : {}),
+    });
+  };
+  const unwritten = (body: string) =>
+    body.trim().length < 400 || /^#{2,3} [^\n]+\n+_\(to write\)_/m.test(body);
+  const work = (async () => {
+    let text = q;
+    let turns = 0;
+    for (;;) {
+      turns++;
+      await runTurn({
+        stream: null,
+        defaultEngine: model,
+        env: c.env,
+        store,
+        sources,
+        notes,
+        draftId: d.id,
+        text,
+        maxSteps,
+        emit,
       });
-    },
-  });
-  const finished = await Promise.race([
-    turn.then(() => true),
-    new Promise<boolean>((r) => setTimeout(() => r(false), deadline)),
-  ]);
-  const done = await store.get(d.id);
-  const pages = await sources.texts(d.id);
-  const body = done?.body ?? "";
-  const check = checkReport(body, pages);
-  return c.json({
-    model,
-    finished,
-    seconds: Math.round((Date.now() - t0) / 1000),
-    dollars: Math.round((done?.usage.cents ?? 0) * 100) / 10000,
-    usage: done?.usage,
-    pages_read: pages.map((p) => ({ url: p.url, chars: p.text.length })),
-    report: {
-      title: done?.meta.title,
-      topic: done?.meta.topic,
-      words: body.split(/\s+/).filter(Boolean).length,
-      quotations: check.total,
-      not_found: check.failed.map((f) => f.text.slice(0, 160)),
-      start: body.slice(0, 2500),
-    },
-    events,
-  });
+      const now = await store.get(d.id);
+      if (turns > follow || !unwritten(now?.body ?? "")) return turns;
+      text = "Keep going: write the parts still unwritten.";
+    }
+  })();
+  // The answer is streamed: a space every fifteen seconds keeps the
+  // connection open through a long turn (JSON allows leading whitespace).
+  const { readable, writable } = new TransformStream();
+  const out = writable.getWriter();
+  const enc = new TextEncoder();
+  const beat = setInterval(() => out.write(enc.encode(" ")).catch(() => {}), 15_000);
+  const answer = (async () => {
+    const turns = await Promise.race([
+      work.catch((e) => {
+        events.push({ s: Math.round((Date.now() - t0) / 1000), error: String(e).slice(0, 300) });
+        return -1;
+      }),
+      new Promise<number>((r) => setTimeout(() => r(0), deadline)),
+    ]);
+    const done = await store.get(d.id);
+    const pages = await sources.texts(d.id);
+    const body = done?.body ?? "";
+    const check = checkReport(body, pages);
+    const kept = await notes.list(d.id);
+    clearInterval(beat);
+    await out.write(
+      enc.encode(
+        JSON.stringify({
+          model,
+          q,
+          finished: turns > 0,
+          turns,
+          seconds: Math.round((Date.now() - t0) / 1000),
+          dollars: Math.round((done?.usage.cents ?? 0) * 100) / 10000,
+          usage: done?.usage,
+          pages_read: pages.map((p) => ({ url: p.url, chars: p.text.length })),
+          notes: kept.length,
+          report: {
+            title: done?.meta.title,
+            topic: done?.meta.topic,
+            words: body.split(/\s+/).filter(Boolean).length,
+            quotations: check.total,
+            not_found: check.failed.map((f) => f.text.slice(0, 160)),
+            unwritten: unwritten(body),
+            ...(full ? { body } : { start: body.slice(0, 2500) }),
+          },
+          events,
+        }),
+      ),
+    );
+    await out.close();
+  })();
+  c.executionCtx.waitUntil(answer);
+  return new Response(readable, { headers: { "content-type": "application/json" } });
 });
 
 /** How the workspace's conversations actually behaved, from their stored

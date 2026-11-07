@@ -87,11 +87,48 @@ export const ENGINES: Engine[] = [
   },
 ];
 
+/** Models on trial: not offered in the workspace, reachable only through the
+ *  test probe (/v1/admin/engine-try) so they can be compared with the
+ *  offered ones on the same question before any is offered. Prices from the
+ *  Workers AI catalog (2026-11). */
+export const TRIAL_ENGINES: Engine[] = [
+  {
+    id: "@cf/deepseek-ai/deepseek-v4-pro-0813",
+    label: "DeepSeek V4 Pro",
+    note: "Workers AI · $1.32 in / $3.96 out · on trial",
+    price: { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 1.32 },
+    provider: "workers",
+  },
+  {
+    id: "@cf/moonshotai/kimi-k2.7-code",
+    label: "Kimi K2.7",
+    note: "Workers AI · $0.95 in / $4 out · on trial",
+    price: { input: 0.95, output: 4, cacheRead: 0.19, cacheWrite: 0.95 },
+    provider: "workers",
+  },
+  {
+    id: "@cf/zai-org/glm-5.3-flash",
+    label: "GLM-5.3 Flash",
+    note: "Workers AI · $0.15 in / $0.50 out · on trial",
+    price: { input: 0.15, output: 0.5, cacheRead: 0.03, cacheWrite: 0.15 },
+    provider: "workers",
+  },
+  {
+    id: "@cf/qwen/qwen3.8-27b",
+    label: "Qwen 3.8 27B",
+    note: "Workers AI · $0.45 in / $3.20 out · on trial",
+    price: { input: 0.45, output: 3.2, cacheRead: 0.05, cacheWrite: 0.45 },
+    provider: "workers",
+  },
+];
+
+const ALL_ENGINES = [...ENGINES, ...TRIAL_ENGINES];
+
 export const engine = (id: EngineId | undefined | null): Engine =>
-  ENGINES.find((e) => e.id === id) ?? (ENGINES.find((e) => e.id === DEFAULT_ENGINE) as Engine);
+  ALL_ENGINES.find((e) => e.id === id) ?? (ENGINES.find((e) => e.id === DEFAULT_ENGINE) as Engine);
 
 export const isWorkersAi = (id: EngineId | undefined | null): boolean =>
-  !!id && ENGINES.some((e) => e.id === id && e.provider === "workers");
+  !!id && ALL_ENGINES.some((e) => e.id === id && e.provider === "workers");
 
 /** The advisor tool for an engine that has one (Anthropic's beta
  *  advisor-tool-2026-03-01). Each call's output is capped at 2,048 tokens

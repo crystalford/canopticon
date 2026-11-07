@@ -457,3 +457,14 @@ describe("the audit's fixes", () => {
     expect(last?.content).toContain("You have read this page already");
   });
 });
+
+describe("trial engines", () => {
+  it("run through the test probe but are not offered", async () => {
+    const { TRIAL_ENGINES, ENGINES, engine, isWorkersAi } = await import("../src/write/engines");
+    for (const t of TRIAL_ENGINES) {
+      expect(engine(t.id).id).toBe(t.id);
+      expect(isWorkersAi(t.id)).toBe(true);
+      expect(ENGINES.some((e) => e.id === t.id)).toBe(false);
+    }
+  });
+});
