@@ -1141,6 +1141,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
           frame.tools,
           history,
           notesMode(frame.tools) ? 300_000 : undefined,
+          o.draftId,
         );
       } catch (err) {
         emit({

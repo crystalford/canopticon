@@ -45,6 +45,11 @@ on:
         required: false
         default: "30"
         type: string
+      out:
+        description: "Optional name for the answer file (ops/probe/<out>.json), so runs at once do not collide"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -52,7 +57,7 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -65,6 +70,7 @@ jobs:
           PROBE_METHOD: ${{ github.event.inputs.method }}
           PROBE_MAX_TIME: ${{ github.event.inputs.max_time }}
           PROBE_BODY: ${{ github.event.inputs.body }}
+          PROBE_OUT: ${{ github.event.inputs.out }}
         run: |
           set -euo pipefail
           BASE="https://canopticon.com"
@@ -106,19 +112,31 @@ jobs:
             --arg run "${GITHUB_RUN_ID}" \
             --rawfile payload "${RUNNER_TEMP}/probe-body.txt" \
             '{requested_at:$ts, run_id:$run, method:$method, path:$path, status:($status|tonumber? // $status), body:$payload}' \
-            > ops/probe/response.json
+            > "${RUNNER_TEMP}/response.json"
+          NAME="response"
+          if [ -n "${PROBE_OUT}" ]; then NAME="$(printf '%s' "${PROBE_OUT}" | tr -cd 'a-z0-9-')"; fi
+          cp "${RUNNER_TEMP}/response.json" "ops/probe/${NAME:-response}.json"
+          echo "file=ops/probe/${NAME:-response}.json" >> "${GITHUB_OUTPUT}"
 
           echo "← status ${STATUS}"
 
       - name: Commit response
+        env:
+          FILE: ${{ steps.call.outputs.file }}
         run: |
           set -euo pipefail
           git config user.name "canopticon-probe[bot]"
           git config user.email "probe@users.noreply.github.com"
-          git add ops/probe/response.json
+          git add "${FILE}"
           if git diff --cached --quiet; then
-            echo "No change in response.json"
-          else
-            git commit -m "probe: ${{ github.event.inputs.method }} ${{ github.event.inputs.path }} [skip ci]"
-            git push
+            echo "No change in ${FILE}"
+            exit 0
           fi
+          git commit -m "probe: ${{ github.event.inputs.method }} ${{ github.event.inputs.path }} [skip ci]"
+          # Several probes may finish at once: take theirs and try again.
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            sleep $((i * 3))
+            git pull --rebase -X theirs
+          done
+          exit 1
