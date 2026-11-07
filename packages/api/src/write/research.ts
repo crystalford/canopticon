@@ -156,6 +156,9 @@ export interface ResearchSource {
   retrievedAt: string | null;
   kind: "text" | "pdf";
   text: string;
+  /** The page's most useful links, when it was just read (not kept: the
+   *  kept text is what quotations are checked against). */
+  links?: Array<{ text: string; url: string }>;
 }
 
 /** The pages in one reply's content, as text. */
@@ -530,3 +533,15 @@ Chris gives you a claim. Your job is not to survey a topic but to find out wheth
 4. Weigh, do not count. Several sources repeating one origin count once; a primary measurement outweighs commentary on it; a study's design matters more than its headline.
 5. Write the TL;DR last, and open it with a verdict on its own line: **Verdict: Supported**, **Partly supported**, **Not supported** or **Unsettled** — then how confident you are and why in one or two sentences, then the crux in one sentence. Key Findings: the decisive findings on each side, each cited.
 6. Title: "Testing: " and the thesis in a few words.`;
+
+/** For the Workers AI engines, whose web_search is the free source finder
+ *  (finder.ts): what it covers, and how to reach the rest. Appended to the
+ *  research instructions in their frames. */
+export const FREE_SEARCH_HOW = `
+
+YOUR SEARCH, AND THE REST OF THE WEB
+web_search asks free collections, not the whole web: the world's news from the last three months, research papers and reports (Crossref), health research (Europe PMC), Wikipedia, and Government of Canada data. Each result says which. Reach everything else as a librarian would:
+- When you know the authoritative source — the agency, statistics office, regulator, the law itself, the study, the organisation's own report — fetch its page directly with web_fetch. You do not need a search result to read a page.
+- A page you read lists its links: follow them to the reports, data tables and PDFs behind it. A site's /sitemap.xml lists its pages.
+- Wikipedia is a map, not a source: fetch the references it cites and cite those, never Wikipedia itself.
+- If a search finds little, change the words, search for the publisher or the document's name, or go to the source directly.`;

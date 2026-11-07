@@ -263,39 +263,26 @@ describe("a page as the model reads it", () => {
 });
 
 describe("searching the web", () => {
-  it("asks Cloudflare's Web Search, and nothing else", async () => {
+  it("uses Cloudflare's Web Search when it is set up and answers", async () => {
     const { webSearch } = await import("../src/write/engines");
     const outside = vi.fn(async () => new Response("{}"));
     vi.stubGlobal("fetch", outside);
     const asked: unknown[] = [];
-    const env = (websearch: (i: unknown) => Promise<unknown>, gateway = "canopticon-search") =>
-      ({ SEARCH_GATEWAY_ID: gateway, AI: { websearch } }) as unknown as Env;
-    const hits = await webSearch(
-      env(async (i) => {
-        asked.push(i);
-        return {
-          result: { items: [{ title: "C&amp;D", url: "https://c.example", snippet: "s" }] },
-        };
-      }),
-      "rents",
-    );
+    const env = {
+      SEARCH_GATEWAY_ID: "canopticon-search",
+      AI: {
+        websearch: async (i: unknown) => {
+          asked.push(i);
+          return {
+            result: { items: [{ title: "C&amp;D", url: "https://c.example", snippet: "s" }] },
+          };
+        },
+      },
+    } as unknown as Env;
+    const hits = await webSearch(env, "rents");
     expect(hits).toEqual([{ title: "C&D", url: "https://c.example", description: "s" }]);
     expect(asked[0]).toMatchObject({ query: "rents", gatewayId: "canopticon-search" });
-    // A failure is said, never passed to a third party.
-    await expect(
-      webSearch(
-        env(async () => {
-          throw new Error("Please configure AI Gateway");
-        }),
-        "rents",
-      ),
-    ).rejects.toThrow(/Cloudflare's Web Search: Please configure AI Gateway/);
-    await expect(
-      webSearch(
-        env(async () => ({}), ""),
-        "rents",
-      ),
-    ).rejects.toThrow(/Web search is not set up/);
+    // The free finder (tests/finder.test.ts) is not asked when it answers.
     expect(outside).not.toHaveBeenCalled();
   });
 });

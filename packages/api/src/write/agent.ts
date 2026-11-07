@@ -58,6 +58,7 @@ import {
   runReadTool,
 } from "./read";
 import {
+  FREE_SEARCH_HOW,
   READ_LIMIT,
   RESEARCH_HOW,
   type ResearchSource,
@@ -259,7 +260,7 @@ const newFrame = (kind: DraftKind = "article", eng: EngineId = CLAUDE, mode?: st
   const workers = isWorkersAi(eng);
   const f: Frame =
     kind === "research"
-      ? { system: researchSystemPrompt(mode), tools: researchTools(workers) }
+      ? { system: researchSystemPrompt(mode, workers), tools: researchTools(workers) }
       : kind === "read"
         ? { system: READ_HOW, tools: readTools() }
         : { system: systemPrompt(), tools: TOOLS };
@@ -296,8 +297,8 @@ export const researchTools = (workers = false): Anthropic.Beta.BetaToolUnion[] =
 const notesMode = (tools: Anthropic.Beta.BetaToolUnion[]) =>
   tools.some((t) => "name" in t && t.name === "note_evidence");
 
-export function researchSystemPrompt(mode?: string): string {
-  return `${RESEARCH_HOW}${mode === "thesis" ? THESIS_HOW : ""}
+export function researchSystemPrompt(mode?: string, workers = false): string {
+  return `${RESEARCH_HOW}${workers ? FREE_SEARCH_HOW : ""}${mode === "thesis" ? THESIS_HOW : ""}
 
 TOPICS: the report's topic is exactly one of: ${topics().join("; ")}.`;
 }
@@ -912,12 +913,19 @@ async function runTool(
       }
       const slice = page.text.slice(offset, offset + PAGE_CHARS);
       const more = offset + PAGE_CHARS < page.text.length;
+      // Links worth following, from a page just read (search covers news,
+      // papers, encyclopedias and government data, not the whole web: the
+      // rest is reached by following links, as a researcher browses).
+      const links =
+        offset === 0 && page.links?.length
+          ? `\n\nLINKS ON THIS PAGE (read any with web_fetch):\n${page.links.map((l) => `- ${l.text} — ${l.url}`).join("\n")}`
+          : "";
       return {
         text: `${again ? "(You have read this page already; here it is again from what was kept.)\n" : ""}${page.title ?? url}\n${url}\n\n${slice}${
           more
             ? `\n\n[${page.text.length.toLocaleString("en")} characters in all; read on with offset ${offset + PAGE_CHARS}]`
             : ""
-        }`,
+        }${links}`,
       };
     }
     default:
