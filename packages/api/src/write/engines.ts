@@ -13,7 +13,7 @@
 // Workers AI models take, and converts each reply back. The web is reached
 // with our own tools here (Anthropic's server tools are Claude-only):
 // web_search through Cloudflare's Web Search (an AI Gateway named in
-// SEARCH_GATEWAY_ID), else Brave (BRAVE_SEARCH_API_KEY); web_fetch through a plain fetch, converted
+// SEARCH_GATEWAY_ID; Cloudflare only, no Brave); web_fetch through a plain fetch, converted
 // to Markdown by env.AI.toMarkdown. Every page read is kept in
 // research_sources, so a report's quotations are checked against it.
 //
@@ -254,20 +254,19 @@ export interface SearchHit {
 /** Cloudflare's Web Search first (billed on the Cloudflare account, no key),
  *  Brave when that is not set up or fails. */
 export async function webSearch(env: Env, query: string): Promise<SearchHit[]> {
+  // Cloudflare only, billed to the Cloudflare account. Brave is gone
+  // (2026-11-07): the gateway had never been created, so every search had
+  // fallen through to Brave and run up its bill.
   const ai = env.AI as unknown as { websearch?: (i: Record<string, unknown>) => Promise<unknown> };
-  let cloudflareError: string | null = null;
-  if (env.SEARCH_GATEWAY_ID && ai.websearch) {
-    try {
-      return await cloudflareSearch(ai.websearch, env, query);
-    } catch (err) {
-      cloudflareError = (err as Error).message;
-      if (!env.BRAVE_SEARCH_API_KEY) throw new Error(`Cloudflare's Web Search: ${cloudflareError}`);
-    }
+  if (!env.SEARCH_GATEWAY_ID || !ai.websearch)
+    throw new Error(
+      "Web search is not set up: the AI Gateway named in SEARCH_GATEWAY_ID has to exist (run the “Create the search gateway” workflow, or Cloudflare dashboard → AI → AI Gateway).",
+    );
+  try {
+    return await cloudflareSearch(ai.websearch, env, query);
+  } catch (err) {
+    throw new Error(`Cloudflare's Web Search: ${(err as Error).message}`);
   }
-  if (env.BRAVE_SEARCH_API_KEY) return braveSearch(env.BRAVE_SEARCH_API_KEY, query);
-  throw new Error(
-    "No web search is set up: create the AI Gateway named in SEARCH_GATEWAY_ID (Cloudflare dashboard → AI → AI Gateway), or add BRAVE_SEARCH_API_KEY.",
-  );
 }
 
 /** Cloudflare's Web Search (beta since 2026-10-02, through an AI Gateway).
@@ -300,27 +299,6 @@ export async function cloudflareSearch(
       ).slice(0, 400),
     }))
     .filter((i) => i.url);
-}
-
-async function braveSearch(key: string, query: string): Promise<SearchHit[]> {
-  const res = await fetch(
-    `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=8`,
-    {
-      headers: { Accept: "application/json", "X-Subscription-Token": key },
-      signal: AbortSignal.timeout(20_000),
-    },
-  );
-  if (!res.ok) throw new Error(`the search service answered ${res.status}`);
-  const json = (await res.json()) as {
-    web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
-  };
-  return (json.web?.results ?? [])
-    .map((r) => ({
-      title: entities((r.title ?? "").replace(/<[^>]+>/g, "")),
-      url: r.url ?? "",
-      description: entities((r.description ?? "").replace(/<[^>]+>/g, "")),
-    }))
-    .filter((r) => r.url);
 }
 
 interface ToMarkdownAi {

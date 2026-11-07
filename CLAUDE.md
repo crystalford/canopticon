@@ -186,9 +186,13 @@
   OpenAI chat format (`toChat`/`toFunctions`) and the reply back (`fromChat`).
   The web is our own tools there: `web_search` through Cloudflare's Web
   Search (`env.AI.websearch`, beta, billed on the Cloudflare account) via the
-  gateway named in `SEARCH_GATEWAY_ID` (wrangler.toml, "canopticon-search";
-  created once in the dashboard), falling back to Brave
-  (`BRAVE_SEARCH_API_KEY`, set live). Never `AI_GATEWAY_ID` for this: that
+  gateway named in `SEARCH_GATEWAY_ID` (wrangler.toml, "canopticon-search").
+  **Cloudflare only — no Brave, no third-party bills (2026-11-07):** the
+  gateway had never been created, so every search had fallen through to
+  Brave until its credits ran out. Brave is gone from the code (workspace,
+  the retired crawler, answer-lead) and its keys are deleted from the Worker
+  on deploy; the deploy creates the gateway when it is missing
+  (`deploy-api.yml`, "Make sure the search gateway exists"). Never `AI_GATEWAY_ID` for this: that
   also moves the processing pipeline onto Claude (`preferredProvider`);
   `web_fetch` through `fetch` + `env.AI.toMarkdown`, 40,000 characters at a
   time with an offset, every page kept in `research_sources`. Measured spend
