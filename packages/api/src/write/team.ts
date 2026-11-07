@@ -89,6 +89,9 @@ export function teamReport(
 
 // Eight: live, twelve-step reviewers took up to eight minutes of a report.
 export const REVIEWER_STEPS = 8;
+/** Web allowance the reviewers get on top of the message's. */
+export const REVIEW_SEARCHES = 25;
+export const REVIEW_READS = 40;
 
 export const REVIEW_KINDS = ["unsupported", "overstated", "counter", "missing"] as const;
 export type ReviewKind = (typeof REVIEW_KINDS)[number];
