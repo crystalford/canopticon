@@ -955,12 +955,24 @@ async function runTeam(o: {
   const queue = [...o.need];
   const done: Array<{ n: number; heading: string; notes: number; pages: number; said: string }> =
     [];
+  const retried = new Set<number>();
   const worker = async () => {
     for (let s = queue.shift(); s; s = queue.shift()) {
       const r = await runResearcher({ ...o, ctx: shared, section: s }).catch((e: Error) => ({
         said: `Stopped: ${e.message.slice(0, 200)}`,
         pages: new Set<string>(),
+        failed: true,
       }));
+      // A researcher Workers AI stopped gets one more go, at the back.
+      if ("failed" in r && !retried.has(s.n)) {
+        retried.add(s.n);
+        ctx.emit({
+          type: "activity",
+          text: `§${s.n} stopped (${r.said.slice(9, 90)}); trying again`,
+        });
+        queue.push(s);
+        continue;
+      }
       const notes = shared.notes
         ? (await shared.notes.list(ctx.draftId)).filter((x) => x.section === s.n).length
         : 0;
@@ -1089,7 +1101,10 @@ async function runReview(o: {
         (n) => n.section === s.n || cited.has(numbers.get(n.url) ?? -1),
       );
       const r = await runReviewer({ ...o, ctx: shared, section: s, notes: mine }).catch(
-        (e: Error) => ({ flags: [] as ReviewFlag[], dropped: 0, said: e.message }),
+        (e: Error) => {
+          ctx.emit({ type: "activity", text: `§${s.n} review stopped: ${e.message.slice(0, 90)}` });
+          return { flags: [] as ReviewFlag[], dropped: 0, said: e.message };
+        },
       );
       flags.push(...r.flags);
       dropped += r.dropped;

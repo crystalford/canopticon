@@ -240,3 +240,69 @@ describe("the reviewers", () => {
     expect(fixed).toContain("1 changed since");
   });
 });
+
+describe("a researcher Workers AI stops", () => {
+  it("is tried once more, and the stop is said in the chat", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (url: string) =>
+          new Response(`<p>${`Page ${url} about housing starts in Toronto. `.repeat(20)}</p>`, {
+            headers: { "content-type": "text/html" },
+          }),
+      ),
+    );
+    const writer: unknown[] = [
+      reply(null, [
+        [
+          "o1",
+          "write_outline",
+          { title: "S", topic: "Housing", sections: [{ heading: "How many?", words: 400 }] },
+        ],
+      ]),
+      reply("Done."),
+    ];
+    let failed = false;
+    const s1 = [
+      reply(null, [["f1", "web_fetch", { url: "https://p1.example" }]]),
+      reply(null, [
+        [
+          "n1",
+          "note_evidence",
+          { url: "https://p1.example", quote: "about housing starts in Toronto", claim: "C" },
+        ],
+      ]),
+      reply("Done."),
+    ];
+    const env = {
+      LOG_LEVEL: "error",
+      AI: {
+        run: async (_m: string, _i: unknown, opts?: { headers?: Record<string, string> }) => {
+          if (!/-s1$/.test(opts?.headers?.["x-session-affinity"] ?? "")) return writer.shift();
+          if (!failed) {
+            failed = true;
+            throw new Error("5000: internal error");
+          }
+          return s1.shift();
+        },
+      },
+    } as unknown as Env;
+    const store = memoryDrafts();
+    const notes = memoryNotes();
+    const d = await store.create("research");
+    await store.save(d.id, { meta: { ...d.meta, engine: "team:flash" } });
+    const events: Array<{ type: string; text?: string }> = [];
+    await runTurn({
+      stream: null,
+      env,
+      store,
+      sources: memorySources(),
+      notes,
+      draftId: d.id,
+      text: "How many?",
+      emit: (e) => events.push(e as never),
+    });
+    expect(events.some((e) => /§1 stopped .*trying again/.test(e.text ?? ""))).toBe(true);
+    expect((await notes.list(d.id)).map((n) => n.section)).toEqual([1]);
+  });
+});
