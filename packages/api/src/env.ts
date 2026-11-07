@@ -75,14 +75,9 @@ export interface Env {
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
 
-  // Brave Search API key — optional. Powers record-building on click
-  // (spec v2.5 Part 23): when the logged-in operator clicks a thin Record,
-  // the worker calls Brave Search for the subject name, fetches the found
-  // pages, and runs the same extraction pipeline over them. Without this
-  // key, the "Expand this Record" affordance is visible but inert (shows
-  // a "key not configured" notice). Set with `wrangler secret put
-  // BRAVE_SEARCH_API_KEY`.
-  BRAVE_SEARCH_API_KEY?: string;
+  // Brave Search is gone (2026-11-07): web search is Cloudflare's, through
+  // SEARCH_GATEWAY_ID. A BRAVE_SEARCH_API_KEY secret left on the Worker is read
+  // by nothing.
   // The AI Gateway that Cloudflare's Web Search runs through (the workspace's
   // web_search on Workers AI). Its own setting, apart from AI_GATEWAY_ID:
   // that one also moves the processing pipeline onto Claude. Named in

@@ -388,7 +388,7 @@ export function figureQuery(lead: Pick<Lead, "seed" | "detail">): string {
 
 async function defaultBank(env: Env, userId: string, query: string): Promise<string[]> {
   const report = await expandRecord(env, userId, query);
-  if (!report.configured) throw new Error("web search is not configured (BRAVE_SEARCH_API_KEY)");
+  if (!report.configured) throw new Error("web search is not configured (SEARCH_GATEWAY_ID)");
   return report.banked_source_ids.slice(0, MAX_WEB_SOURCES);
 }
 

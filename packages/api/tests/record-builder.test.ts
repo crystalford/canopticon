@@ -60,12 +60,21 @@ function makeDb(opts: { browserRenderingWhitelisted?: boolean } = {}): {
   };
 }
 
-describe("expandRecord — without BRAVE_SEARCH_API_KEY", () => {
+/** Cloudflare's Web Search, answering with these addresses (Brave is gone). */
+const cfSearch = (urls: string[] | Error) => ({
+  SEARCH_GATEWAY_ID: "canopticon-search",
+  AI: {
+    websearch: async () => {
+      if (urls instanceof Error) throw urls;
+      return { items: urls.map((url) => ({ title: "Result", url, snippet: "" })) };
+    },
+  },
+});
+
+describe("expandRecord — without the search gateway", () => {
   it("emits started + skipped events; reports configured=false", async () => {
     const { db, events } = makeDb();
-    const env = { DB: db, BRAVE_SEARCH_API_KEY: undefined } as unknown as Parameters<
-      typeof expandRecord
-    >[0];
+    const env = { DB: db } as unknown as Parameters<typeof expandRecord>[0];
     const report = await expandRecord(env, "u1", "Mark Carney");
     expect(report.configured).toBe(false);
     expect(report.sources_found).toBe(0);
@@ -76,40 +85,25 @@ describe("expandRecord — without BRAVE_SEARCH_API_KEY", () => {
   });
 });
 
-describe("expandRecord — with BRAVE_SEARCH_API_KEY", () => {
-  it("hits Brave Search, emits source_fetching per result, fails fetch on each (no per-URL stub)", async () => {
+describe("expandRecord — with Cloudflare's Web Search", () => {
+  it("searches, emits source_fetching per result, fails fetch on each (no per-URL stub)", async () => {
     const { db, events } = makeDb();
-    // Stub global fetch: Brave Search returns 3 results; the per-source
+    // Cloudflare's search returns 3 results; the per-source
     // fetches afterward fail (no body) so the loop emits source_failed and
     // moves on. We assert the EVENT TYPES match the v2.6 record-builder
     // pipeline shape, not that any source got banked (that needs an HTML
     // stub the test doesn't currently provide).
-    let calls = 0;
     const original = globalThis.fetch;
     globalThis.fetch = (async () => {
-      calls++;
-      if (calls === 1) {
-        return new Response(
-          JSON.stringify({
-            web: {
-              results: [
-                { title: "A", url: "https://a.example", description: "" },
-                { title: "B", url: "https://b.example", description: "" },
-                { title: "C", url: "https://c.example", description: "" },
-              ],
-            },
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
-      }
       // Per-source fetches: simulate a 500 so the source loop catches and
       // emits source_failed.
       return new Response("nope", { status: 500 });
     }) as unknown as typeof fetch;
     try {
-      const env = { DB: db, BRAVE_SEARCH_API_KEY: "fake-key" } as unknown as Parameters<
-        typeof expandRecord
-      >[0];
+      const env = {
+        DB: db,
+        ...cfSearch(["https://a.example", "https://b.example", "https://c.example"]),
+      } as unknown as Parameters<typeof expandRecord>[0];
       const report = await expandRecord(env, "u1", "Mark Carney");
       expect(report.configured).toBe(true);
       expect(report.sources_found).toBe(3);
@@ -134,7 +128,7 @@ describe("expandRecord — with BRAVE_SEARCH_API_KEY", () => {
     globalThis.fetch = (async () =>
       new Response("nope", { status: 500 })) as unknown as typeof fetch;
     try {
-      const env = { DB: db, BRAVE_SEARCH_API_KEY: "fake-key" } as unknown as Parameters<
+      const env = { DB: db, ...cfSearch(new Error("Invalid gateway")) } as unknown as Parameters<
         typeof expandRecord
       >[0];
       const report = await expandRecord(env, "u1", "Mark Carney");
@@ -152,20 +146,9 @@ describe("expandRecord — Browser Rendering fetch-fallback", () => {
   it("banks a source via the fallback when the plain fetch 403s and the cost gate approves", async () => {
     const { db, events } = makeDb({ browserRenderingWhitelisted: true });
     const article = `<html><head><title>WEF Article</title></head><body><p>${"Rendered content only a headless browser could fetch. ".repeat(20)}</p></body></html>`;
-    let calls = 0;
     const original = globalThis.fetch;
     globalThis.fetch = (async (input: RequestInfo | URL) => {
-      calls++;
       const url = typeof input === "string" ? input : (input as URL).toString();
-      if (calls === 1) {
-        // Brave Search — one result.
-        return new Response(
-          JSON.stringify({
-            web: { results: [{ title: "WEF", url: "https://weforum.org/x", description: "" }] },
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
-      }
       if (url.includes("browser-rendering")) {
         return new Response(JSON.stringify({ success: true, result: article }), { status: 200 });
       }
@@ -175,7 +158,7 @@ describe("expandRecord — Browser Rendering fetch-fallback", () => {
     try {
       const env = {
         DB: db,
-        BRAVE_SEARCH_API_KEY: "fake-key",
+        ...cfSearch(["https://weforum.org/x"]),
         CLOUDFLARE_ACCOUNT_ID: "acct",
         CLOUDFLARE_API_TOKEN: "token",
       } as unknown as Parameters<typeof expandRecord>[0];
@@ -192,24 +175,14 @@ describe("expandRecord — Browser Rendering fetch-fallback", () => {
 
   it("falls through to the original failure when the cost gate is not whitelisted", async () => {
     const { db, events } = makeDb({ browserRenderingWhitelisted: false });
-    let calls = 0;
     const original = globalThis.fetch;
     globalThis.fetch = (async () => {
-      calls++;
-      if (calls === 1) {
-        return new Response(
-          JSON.stringify({
-            web: { results: [{ title: "WEF", url: "https://weforum.org/x", description: "" }] },
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
-      }
       return new Response("forbidden", { status: 403 });
     }) as unknown as typeof fetch;
     try {
       const env = {
         DB: db,
-        BRAVE_SEARCH_API_KEY: "fake-key",
+        ...cfSearch(["https://weforum.org/x"]),
         CLOUDFLARE_ACCOUNT_ID: "acct",
         CLOUDFLARE_API_TOKEN: "token",
       } as unknown as Parameters<typeof expandRecord>[0];

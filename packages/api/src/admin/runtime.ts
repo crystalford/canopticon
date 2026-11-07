@@ -1479,7 +1479,7 @@ app.get("/models", async (c) => {
   const out: Record<string, unknown> = {
     websearch_binding: typeof ai.websearch,
     ai_gateway_id_set: !!c.env.AI_GATEWAY_ID,
-    brave_search_key_set: !!c.env.BRAVE_SEARCH_API_KEY,
+    search_gateway_id: c.env.SEARCH_GATEWAY_ID ?? null,
   };
   try {
     const list = (await ai.models?.({ task: "Text Generation", per_page: 300 })) ?? [];

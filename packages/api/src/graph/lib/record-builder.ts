@@ -29,7 +29,7 @@
 // workspace and the expanding banner can surface progress.
 //
 // Modes:
-//   - Live: BRAVE_SEARCH_API_KEY set → real searches, real fetches.
+//   - Live: SEARCH_GATEWAY_ID set → Cloudflare's Web Search, real fetches.
 //   - Stub: key absent → emits an event saying the key isn't configured and
 //     no-ops. The affordance is visible; the action is wired; the secret
 //     is the missing piece.
@@ -38,9 +38,9 @@ import { approvePaidOperation } from "../../cost/approve";
 import type { Env } from "../../env";
 import { all, insertOne, one } from "../../lib/d1";
 import { TIMEOUTS, fetchWithTimeout } from "../../lib/timeout";
+import { webSearch } from "../../write/engines";
 import { BROWSER_RENDERING_PER_PAGE_CENTS, callBrowserRendering } from "../tools/web_research";
 
-const BRAVE_SEARCH_ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
 const MAX_SOURCES_PER_EXPAND = 6;
 const SEARCH_POOL_SIZE = 15; // requested from Brave, before the low-yield filter below
 export const MIN_TEXT_CHARS = 400; // reject pages that didn't yield real article text
@@ -149,7 +149,7 @@ export async function expandRecord(
 ): Promise<ExpandReport> {
   const report: ExpandReport = {
     subject: subjectLabel,
-    configured: !!env.BRAVE_SEARCH_API_KEY,
+    configured: !!env.SEARCH_GATEWAY_ID,
     sources_found: 0,
     sources_fetched: 0,
     sources_banked: 0,
@@ -162,17 +162,18 @@ export async function expandRecord(
 
   await emit(env, userId, "record.expand.started", { subject: subjectLabel });
 
-  if (!env.BRAVE_SEARCH_API_KEY) {
+  if (!env.SEARCH_GATEWAY_ID) {
     await emit(env, userId, "record.expand.skipped", {
       subject: subjectLabel,
-      reason: "BRAVE_SEARCH_API_KEY not configured",
+      reason: "SEARCH_GATEWAY_ID not configured",
     });
     return report;
   }
 
-  let searchResults: BraveResult[];
+  let searchResults: SearchResult[];
   try {
-    searchResults = await braveSearch(env.BRAVE_SEARCH_API_KEY, subjectLabel, SEARCH_POOL_SIZE);
+    // Cloudflare's Web Search (write/engines.ts); Brave is gone.
+    searchResults = (await webSearch(env, subjectLabel)).slice(0, SEARCH_POOL_SIZE);
   } catch (err) {
     report.errors.push(`search failed: ${(err as Error).message}`);
     await emit(env, userId, "record.expand.failed", {
@@ -343,7 +344,7 @@ export async function getExpandStatus(
     return {
       terminal: true,
       warn: true,
-      line: `Expansion skipped — ${reason}. Set BRAVE_SEARCH_API_KEY to enable web record-building.`,
+      line: `Expansion skipped — ${reason}. Create the search gateway (SEARCH_GATEWAY_ID) to enable web record-building.`,
       factsAdded: 0,
     };
   }
@@ -400,28 +401,10 @@ function field(payload: string, key: string): string | null {
   }
 }
 
-interface BraveResult {
+interface SearchResult {
   title: string;
   url: string;
   description: string;
-}
-
-async function braveSearch(apiKey: string, query: string, count = 6): Promise<BraveResult[]> {
-  const url = `${BRAVE_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&count=${count}`;
-  const res = await fetchWithTimeout(
-    url,
-    { headers: { Accept: "application/json", "X-Subscription-Token": apiKey } },
-    TIMEOUTS.WEB_FETCH_MS,
-    `brave-search[${query}]`,
-  );
-  if (!res.ok) throw new Error(`brave search ${res.status}`);
-  const json = (await res.json()) as {
-    web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
-  };
-  const items = json.web?.results ?? [];
-  return items
-    .map((i) => ({ title: i.title ?? "", url: i.url ?? "", description: i.description ?? "" }))
-    .filter((i) => i.url);
 }
 
 interface Fetched {

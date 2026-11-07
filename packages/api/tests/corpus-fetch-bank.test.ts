@@ -66,25 +66,16 @@ const html = (title: string, body: string) =>
     headers: { "content-type": "text/html" },
   });
 
-const braveResults = (urls: string[]) =>
-  new Response(
-    JSON.stringify({
-      web: { results: urls.map((url) => ({ title: `Result ${url}`, url, description: "" })) },
-    }),
-    { status: 200, headers: { "content-type": "application/json" } },
-  );
+/** The addresses Cloudflare's Web Search answers with: the stubbed pages. */
+let searched: string[] = [];
 
-/** Brave first, then a per-URL page table; anything else (the fallback
- *  chain: r.jina.ai, archive.org) gets a 500 so it yields nothing. */
+/** A per-URL page table; anything else (the fallback chain: r.jina.ai,
+ *  archive.org) gets a 500 so it yields nothing. */
 function stubFetch(pages: Record<string, Response>) {
   const original = globalThis.fetch;
-  let first = true;
+  searched = Object.keys(pages);
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : (input as URL).toString();
-    if (first) {
-      first = false;
-      return braveResults(Object.keys(pages));
-    }
     const page = pages[url];
     return page ? page.clone() : new Response("nope", { status: 500 });
   }) as unknown as typeof fetch;
@@ -94,7 +85,15 @@ function stubFetch(pages: Record<string, Response>) {
 }
 
 const env = (db: D1Database) =>
-  ({ DB: db, BRAVE_SEARCH_API_KEY: "fake-key" }) as unknown as Parameters<typeof expandRecord>[0];
+  ({
+    DB: db,
+    SEARCH_GATEWAY_ID: "canopticon-search",
+    AI: {
+      websearch: async () => ({
+        items: searched.map((url) => ({ title: `Result ${url}`, url, snippet: "" })),
+      }),
+    },
+  }) as unknown as Parameters<typeof expandRecord>[0];
 
 describe("expandRecord banks sources only", () => {
   it("writes one sources row, no pieces row and no digest job for a real article", async () => {

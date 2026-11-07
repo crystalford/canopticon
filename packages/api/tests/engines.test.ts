@@ -124,24 +124,7 @@ describe("a research turn on Workers AI", () => {
       "<html><body><h1>Rent study</h1><p>The survey of 1,200 households found that rents fell by 4.1 percent in the first year after the ban.</p><p>Other factors also mattered, and the authors say so at length in the discussion that follows this paragraph of the study.</p></body></html>";
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (url: string) =>
-        String(url).includes("api.search.brave.com")
-          ? new Response(
-              JSON.stringify({
-                web: {
-                  results: [
-                    {
-                      title: "Rent study",
-                      url: "https://a.example/page",
-                      description: "A <b>study</b>",
-                    },
-                  ],
-                },
-              }),
-              { headers: { "content-type": "application/json" } },
-            )
-          : new Response(page, { headers: { "content-type": "text/html" } }),
-      ),
+      vi.fn(async () => new Response(page, { headers: { "content-type": "text/html" } })),
     );
     const topic = articleTopics()[0] ?? "Housing";
     const body = `## TL;DR\nThe study says "rents fell by 4.1 percent in the first year after the ban" [1].\n\n## Sources\n1. [Rent study](https://a.example/page)`;
@@ -170,8 +153,11 @@ describe("a research turn on Workers AI", () => {
     const env = {
       LOG_LEVEL: "error",
       DB: stubDb(),
-      BRAVE_SEARCH_API_KEY: "test",
+      SEARCH_GATEWAY_ID: "canopticon-search",
       AI: {
+        websearch: async () => ({
+          items: [{ title: "Rent study", url: "https://a.example/page", snippet: "Rents fell." }],
+        }),
         run: async (model: string, input: Record<string, unknown>, opts?: unknown) => {
           calls.push({ model, input: structuredClone(input), opts });
           return script.shift();
@@ -277,24 +263,13 @@ describe("a page as the model reads it", () => {
 });
 
 describe("searching the web", () => {
-  it("asks Cloudflare's Web Search first, and Brave only when it fails", async () => {
+  it("asks Cloudflare's Web Search, and nothing else", async () => {
     const { webSearch } = await import("../src/write/engines");
-    const brave = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            web: { results: [{ title: "B", url: "https://b.example", description: "" }] },
-          }),
-        ),
-    );
-    vi.stubGlobal("fetch", brave);
+    const outside = vi.fn(async () => new Response("{}"));
+    vi.stubGlobal("fetch", outside);
     const asked: unknown[] = [];
-    const env = (websearch: (i: unknown) => Promise<unknown>) =>
-      ({
-        SEARCH_GATEWAY_ID: "canopticon-search",
-        BRAVE_SEARCH_API_KEY: "k",
-        AI: { websearch },
-      }) as unknown as Env;
+    const env = (websearch: (i: unknown) => Promise<unknown>, gateway = "canopticon-search") =>
+      ({ SEARCH_GATEWAY_ID: gateway, AI: { websearch } }) as unknown as Env;
     const hits = await webSearch(
       env(async (i) => {
         asked.push(i);
@@ -306,14 +281,22 @@ describe("searching the web", () => {
     );
     expect(hits).toEqual([{ title: "C&D", url: "https://c.example", description: "s" }]);
     expect(asked[0]).toMatchObject({ query: "rents", gatewayId: "canopticon-search" });
-    expect(brave).not.toHaveBeenCalled();
-    const fallback = await webSearch(
-      env(async () => {
-        throw new Error("Invalid gateway ID");
-      }),
-      "rents",
-    );
-    expect(fallback.map((h) => h.url)).toEqual(["https://b.example"]);
+    // A failure is said, never passed to a third party.
+    await expect(
+      webSearch(
+        env(async () => {
+          throw new Error("Please configure AI Gateway");
+        }),
+        "rents",
+      ),
+    ).rejects.toThrow(/Cloudflare's Web Search: Please configure AI Gateway/);
+    await expect(
+      webSearch(
+        env(async () => ({}), ""),
+        "rents",
+      ),
+    ).rejects.toThrow(/Web search is not set up/);
+    expect(outside).not.toHaveBeenCalled();
   });
 });
 

@@ -101,17 +101,35 @@ jobs:
           fi
           set -e
 
+      # --- The AI Gateway Cloudflare's Web Search runs through --------
+      # SEARCH_GATEWAY_ID in wrangler.toml names it; until 2026-11-07 it had
+      # never been created, so every search fell through to Brave. Created
+      # here when missing; a token without AI Gateway permission only logs
+      # why, and the deploy carries on.
+      - name: Make sure the search gateway exists
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          GW="$(grep -E '^SEARCH_GATEWAY_ID' packages/api/wrangler.toml | sed -E 's/.*"([^"]+)".*/\1/')"
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai-gateway/gateways"
+          AUTH=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json")
+          if curl -sS -f "${AUTH[@]}" "${API}/${GW}" > /dev/null; then
+            echo "Gateway ${GW} exists."
+          else
+            curl -sS "${AUTH[@]}" -X POST "${API}" \
+              -d "{\"id\":\"${GW}\",\"cache_invalidate_on_update\":false,\"cache_ttl\":0,\"collect_logs\":true,\"rate_limiting_interval\":0,\"rate_limiting_limit\":0,\"rate_limiting_technique\":\"fixed\"}" \
+              | jq '{success, errors, id: .result.id}'
+          fi
+
       # --- Worker secrets --------------------------------------------
       - name: Push Worker secrets
         working-directory: packages/api
         run: |
           echo "${{ secrets.ANTHROPIC_API_KEY }}" | pnpm exec wrangler secret put ANTHROPIC_API_KEY
-          if [ -n "${{ secrets.BRAVE_SEARCH_API_KEY }}" ]; then
-            echo "${{ secrets.BRAVE_SEARCH_API_KEY }}" | pnpm exec wrangler secret put BRAVE_SEARCH_API_KEY
-          fi
-          if [ -n "${{ secrets.BRAVE_ANSWERS_API_KEY }}" ]; then
-            echo "${{ secrets.BRAVE_ANSWERS_API_KEY }}" | pnpm exec wrangler secret put BRAVE_ANSWERS_API_KEY
-          fi
+          # Brave is gone (2026-11-07): web search is Cloudflare's only. Its
+          # keys are taken off the Worker so nothing can run up its bill.
+          pnpm exec wrangler secret delete BRAVE_SEARCH_API_KEY < /dev/null || true
+          pnpm exec wrangler secret delete BRAVE_ANSWERS_API_KEY < /dev/null || true
           if [ -n "${{ secrets.VIDEO_INTERNAL_TOKEN }}" ]; then
             echo "${{ secrets.VIDEO_INTERNAL_TOKEN }}" | pnpm exec wrangler secret put VIDEO_INTERNAL_TOKEN
           fi
