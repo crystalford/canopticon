@@ -89,6 +89,8 @@ import {
   REVIEWER_STEPS,
   REVIEWER_TOOLS,
   REVIEW_KINDS,
+  REVIEW_READS,
+  REVIEW_SEARCHES,
   type ReviewFlag,
   type ReviewKind,
   researcherBrief,
@@ -507,7 +509,13 @@ interface ToolContext {
   emit: Emit;
   toolUseId?: string;
   /** The web allowance spent this message (Workers AI's own web tools). */
-  web?: { searches: number; reads: number; capped: Set<string> };
+  web?: {
+    searches: number;
+    reads: number;
+    capped: Set<string>;
+    /** Allowance added this message on top of the limits (the reviewers'). */
+    extra?: { searches: number; reads: number };
+  };
   /** The research notes bank (notes.ts). */
   notes?: NoteStore | undefined;
   /** The draft's kept pages, loaded once a turn and added to as pages are
@@ -857,7 +865,7 @@ async function runTool(
     case "web_search": {
       const q = String((input as { query?: unknown } | null)?.query ?? "").trim();
       if (!q) return bad("Give a query.");
-      if (t.web && t.web.searches >= SEARCH_LIMIT)
+      if (t.web && t.web.searches >= SEARCH_LIMIT + (t.web.extra?.searches ?? 0))
         return bad("max_uses_exceeded: the web search allowance for this message is spent.");
       if (t.web) t.web.searches++;
       try {
@@ -882,7 +890,7 @@ async function runTool(
         (t.sources ? await t.sources.byUrl(t.draftId, url) : null);
       const again = !!page && offset === 0;
       if (!page) {
-        if (t.web && t.web.reads >= READ_LIMIT)
+        if (t.web && t.web.reads >= READ_LIMIT + (t.web.extra?.reads ?? 0))
           return bad("max_uses_exceeded: the page-reading allowance for this message is spent.");
         if (t.web) t.web.reads++;
         try {
@@ -1078,6 +1086,13 @@ async function runReview(o: {
   const notes = ctx.notes ? await ctx.notes.list(ctx.draftId) : [];
   const numbers = sourceNumbers(notes);
   await keptPages(ctx);
+  // The reviewers' own allowance: live, the researchers and writer had used
+  // all 80 page reads, and five reviewers could look nothing up.
+  if (ctx.web)
+    ctx.web.extra = {
+      searches: (ctx.web.extra?.searches ?? 0) + REVIEW_SEARCHES,
+      reads: (ctx.web.extra?.reads ?? 0) + REVIEW_READS,
+    };
   const { team: _t, review: _r, ...rest } = ctx;
   const shared: ToolContext = {
     ...rest,
