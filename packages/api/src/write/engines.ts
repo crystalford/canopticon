@@ -42,6 +42,10 @@ export interface Engine {
   /** Anthropic: a stronger model the conversation consults for planning
    *  (the advisor tool), billed at its own rates for those calls only. */
   advisor?: string;
+  /** Workers AI research team (agent.ts runTeam): once the report is laid
+   *  out, one `reader` per section searches, reads and notes at the same
+   *  time; `writer` runs the conversation and writes from the notes. */
+  team?: { reader: EngineId; writer: EngineId };
 }
 
 /** Claude Opus 5.5's rates, also what an Opus advisor's calls cost. */
@@ -97,6 +101,19 @@ export const ENGINES: Engine[] = [
  *  words; GLM-5.3 Flash $0.28 and unfinished; Qwen 3.8 timed out three
  *  times. Prices from the Workers AI catalog (2026-11). */
 export const TRIAL_ENGINES: Engine[] = [
+  {
+    id: "team:deepseek",
+    label: "DeepSeek research team",
+    note: "Workers AI · V4.1 Flash researchers read every section at once; V4 Pro writes · on trial",
+    // The conversation's own calls are V4 Pro's; each researcher's are
+    // counted at Flash's rates (runTeam).
+    price: { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 1.32 },
+    provider: "workers",
+    team: {
+      reader: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+      writer: "@cf/deepseek-ai/deepseek-v4-pro-0813",
+    },
+  },
   {
     // Retired from the menu 2026-11-07: $3.17 for the report V4.1 Flash wrote
     // for $0.18. Conversations already on it keep running on it.
@@ -641,4 +658,10 @@ export function draftEngine(
     }
   }
   return d.meta.engine ?? fallback;
+}
+
+/** The Workers AI model a conversation's own calls go to: a team's writer,
+ *  else the engine itself. */
+export function workersModel(id: EngineId): string {
+  return engine(id).team?.writer ?? id;
 }

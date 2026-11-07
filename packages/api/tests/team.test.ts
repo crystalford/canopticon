@@ -1,0 +1,134 @@
+// The research team: after the outline, one researcher per section reads and
+// notes at once on the reader model; the writer writes from the notes.
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Env } from "../src/env";
+import { runTurn } from "../src/write/agent";
+import { memoryDrafts } from "../src/write/drafts";
+import { engine } from "../src/write/engines";
+import { memoryNotes } from "../src/write/notes";
+import { memorySources } from "../src/write/research";
+
+afterEach(() => vi.unstubAllGlobals());
+
+const reply = (content: string | null, calls: Array<[string, string, unknown]> = []) => ({
+  choices: [
+    {
+      message: {
+        role: "assistant",
+        content,
+        ...(calls.length
+          ? {
+              tool_calls: calls.map(([id, name, args]) => ({
+                id,
+                type: "function",
+                function: { name, arguments: JSON.stringify(args) },
+              })),
+            }
+          : {}),
+      },
+      finish_reason: calls.length ? "tool_calls" : "stop",
+    },
+  ],
+  usage: { prompt_tokens: 1000, completion_tokens: 100 },
+});
+
+describe("the research team", () => {
+  it("researches every section at once and hands the writer the notes", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (url: string) =>
+          new Response(`<p>${`Page ${url} about housing starts in Toronto. `.repeat(20)}</p>`, {
+            headers: { "content-type": "text/html" },
+          }),
+      ),
+    );
+    const team = engine("team:deepseek").team;
+    if (!team) throw new Error("no team engine");
+    const writer: unknown[] = [
+      reply(null, [
+        [
+          "o1",
+          "write_outline",
+          {
+            title: "Starts",
+            topic: "Housing",
+            sections: [
+              { heading: "How many?", words: 400 },
+              { heading: "Why?", words: 400 },
+            ],
+          },
+        ],
+      ]),
+      reply("Done for now."),
+    ];
+    const researcher = (n: number) => [
+      reply(null, [[`f${n}`, "web_fetch", { url: `https://p${n}.example` }]]),
+      reply(null, [
+        [
+          `n${n}`,
+          "note_evidence",
+          {
+            url: `https://p${n}.example`,
+            quote: "about housing starts in Toronto",
+            claim: `Claim ${n}`,
+            section: 99,
+          },
+        ],
+      ]),
+      reply(`Found section ${n}'s evidence.\nCould not find a 2026 figure.`),
+    ];
+    const scripts: Record<string, unknown[]> = { s1: researcher(1), s2: researcher(2) };
+    const models: string[] = [];
+    const env = {
+      LOG_LEVEL: "error",
+      AI: {
+        run: async (model: string, _i: unknown, opts?: { headers?: Record<string, string> }) => {
+          models.push(model);
+          const session = opts?.headers?.["x-session-affinity"] ?? "";
+          const who = /-s(\d)$/.exec(session)?.[1];
+          return who ? scripts[`s${who}`]?.shift() : writer.shift();
+        },
+      },
+    } as unknown as Env;
+    const store = memoryDrafts();
+    const notes = memoryNotes();
+    const d = await store.create("research");
+    await store.save(d.id, { meta: { ...d.meta, engine: "team:deepseek" } });
+    const events: Array<{ type: string; text?: string }> = [];
+    await runTurn({
+      stream: null,
+      env,
+      store,
+      sources: memorySources(),
+      notes,
+      draftId: d.id,
+      text: "How many homes were started?",
+      emit: (e) => events.push(e as never),
+    });
+
+    // The writer's calls went to V4 Pro, the researchers' to Flash.
+    expect(models.filter((m) => m === team.writer)).toHaveLength(2);
+    expect(models.filter((m) => m === team.reader)).toHaveLength(6);
+    // Each researcher's note is filed under its own section, whatever it said.
+    const kept = await notes.list(d.id);
+    expect(kept.map((n) => [n.section, n.claim]).sort()).toEqual([
+      [1, "Claim 1"],
+      [2, "Claim 2"],
+    ]);
+    // The writer was told what each found and could not find.
+    const all = JSON.stringify(await store.messages(d.id));
+    expect(all).toContain("The researchers have finished");
+    expect(all).toContain("Could not find a 2026 figure");
+    expect(events.some((e) => e.text?.startsWith("§1 Read:"))).toBe(true);
+    // Every call is counted: two at Pro's rates, six at Flash's.
+    const saved = await store.get(d.id);
+    const pro = engine(team.writer).price;
+    const flash = engine(team.reader).price;
+    const cents =
+      ((2 * (1000 * pro.input + 100 * pro.output) + 6 * (1000 * flash.input + 100 * flash.output)) /
+        1e6) *
+      100;
+    expect(saved?.usage.cents).toBeCloseTo(cents, 6);
+  });
+});

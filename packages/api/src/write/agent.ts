@@ -29,6 +29,7 @@ import {
   isWorkersAi,
   readPage,
   webSearch,
+  workersModel,
   workersStep,
 } from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
@@ -78,6 +79,15 @@ import {
   sourceTexts,
 } from "./sources";
 import { storedKey } from "./stored-key";
+import {
+  ENOUGH_NOTES,
+  MAX_RESEARCHERS,
+  RESEARCHER_STEPS,
+  RESEARCHER_TOOLS,
+  researcherBrief,
+  researcherSystem,
+  teamReport,
+} from "./team";
 
 export const WRITE_MODEL = "claude-opus-5-5";
 
@@ -493,6 +503,11 @@ interface ToolContext {
   /** The draft's kept pages, loaded once a turn and added to as pages are
    *  read: every write's quotation check used to reload them all from D1. */
   kept?: { list: ResearchSource[] | null };
+  /** A research team's engine: researchers for the sections named (team.ts). */
+  team?: (
+    need: Array<{ n: number; heading: string }>,
+    all: Array<{ n: number; heading: string }>,
+  ) => Promise<string>;
 }
 
 async function keptPages(t: ToolContext): Promise<ResearchSource[]> {
@@ -737,8 +752,17 @@ async function runTool(
       const { r, line } = await checkFor(t, body);
       t.emit({ type: "draft", check: r });
       const total = sections.reduce((n, s) => n + s.words, 0);
+      const saved = `Outline saved: ${sections.length} sections, about ${total.toLocaleString("en")} words of Details.`;
+      // A research team reads for every section still short of notes, at once.
+      if (t.team) {
+        const all = sections.map((s, k) => ({ n: k + 1, heading: s.heading }));
+        const need = all.filter(
+          (s) => notes.filter((x) => x.section === s.n).length < ENOUGH_NOTES,
+        );
+        if (need.length) return { text: `${saved}\n\n${await t.team(need, all)}` };
+      }
       return {
-        text: `Outline saved: ${sections.length} sections, about ${total.toLocaleString("en")} words of Details. Note evidence as you read (note_evidence, with the section number); write each section with write_section once its notes are in, the summary and closing last. ${line}`,
+        text: `${saved} Note evidence as you read (note_evidence, with the section number); write each section with write_section once its notes are in, the summary and closing last. ${line}`,
       };
     }
     case "note_evidence": {
@@ -867,6 +891,142 @@ async function runTool(
     default:
       return bad(`No tool called ${name}.`);
   }
+}
+
+// ---- the research team (team.ts) --------------------------------------------
+
+/** Notes added one at a time: researchers note at once, and a note's number
+ *  is the draft's next one. */
+function oneAtATime(n: NoteStore): NoteStore {
+  let chain: Promise<unknown> = Promise.resolve();
+  return {
+    add(draftId, note) {
+      const next = chain.then(() => n.add(draftId, note));
+      chain = next.catch(() => {});
+      return next;
+    },
+    list: (draftId) => n.list(draftId),
+  };
+}
+
+async function runTeam(o: {
+  ctx: ToolContext;
+  reader: EngineId;
+  question: string;
+  need: Array<{ n: number; heading: string }>;
+  all: Array<{ n: number; heading: string }>;
+  tools: Anthropic.Beta.BetaToolUnion[];
+  onStep: (m: Anthropic.Beta.BetaMessage) => Promise<void>;
+}): Promise<string> {
+  const { ctx } = o;
+  // Loaded once before anyone reads, so every researcher shares one list.
+  await keptPages(ctx);
+  // Researchers never start researchers.
+  const { team: _team, ...rest } = ctx;
+  const shared: ToolContext = {
+    ...rest,
+    ...(ctx.notes ? { notes: oneAtATime(ctx.notes) } : {}),
+  };
+  ctx.emit({
+    type: "activity",
+    text: `${o.need.length} researchers started: ${o.need.map((s) => `§${s.n}`).join(", ")}`,
+  });
+  const queue = [...o.need];
+  const done: Array<{ n: number; heading: string; notes: number; pages: number; said: string }> =
+    [];
+  const worker = async () => {
+    for (let s = queue.shift(); s; s = queue.shift()) {
+      const r = await runResearcher({ ...o, ctx: shared, section: s }).catch((e: Error) => ({
+        said: `Stopped: ${e.message.slice(0, 200)}`,
+        pages: new Set<string>(),
+      }));
+      const notes = shared.notes
+        ? (await shared.notes.list(ctx.draftId)).filter((x) => x.section === s.n).length
+        : 0;
+      done.push({ n: s.n, heading: s.heading, notes, pages: r.pages.size, said: r.said });
+      ctx.emit({ type: "activity", text: `§${s.n} researched: ${notes} notes` });
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(MAX_RESEARCHERS, queue.length) }, worker));
+  return teamReport(done.sort((a, b) => a.n - b.n));
+}
+
+async function runResearcher(o: {
+  ctx: ToolContext;
+  reader: EngineId;
+  question: string;
+  all: Array<{ n: number; heading: string }>;
+  section: { n: number; heading: string };
+  tools: Anthropic.Beta.BetaToolUnion[];
+  onStep: (m: Anthropic.Beta.BetaMessage) => Promise<void>;
+}): Promise<{ said: string; pages: Set<string> }> {
+  const { ctx, section } = o;
+  const history: Message[] = [
+    { role: "user", content: researcherBrief(o.question, o.all, section) },
+  ];
+  const pages = new Set<string>();
+  let said = "";
+  for (let step = 0; step < RESEARCHER_STEPS; step++) {
+    const m = await workersStep(
+      ctx.env,
+      o.reader,
+      researcherSystem(),
+      o.tools,
+      history,
+      200_000,
+      `${ctx.draftId}-s${section.n}`,
+    );
+    await o.onStep(m);
+    const assistant: Message = { role: "assistant", content: m.content as Message["content"] };
+    history.push(assistant);
+    const uses = toolUses(assistant.content);
+    said = m.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { text: string }).text)
+      .join(" ")
+      .trim();
+    if (!uses.length || m.stop_reason === "max_tokens") break;
+    const results = await Promise.all(
+      uses.map(async (u) => {
+        // Only reading and noting; every note goes under this section.
+        const allowed = RESEARCHER_TOOLS.has(u.name);
+        const input =
+          u.name === "note_evidence"
+            ? { ...(u.input as Record<string, unknown>), section: section.n }
+            : u.input;
+        const r = allowed
+          ? await runTool(u.name, input, { ...ctx, toolUseId: u.id }).catch((e: Error) => ({
+              text: `Failed: ${e.message}`,
+              error: true,
+            }))
+          : { text: `A researcher cannot use ${u.name}.`, error: true };
+        if (u.name === "web_fetch" && !r.error)
+          pages.add(String((u.input as { url?: unknown }).url ?? ""));
+        if (u.name !== "list_notes")
+          ctx.emit({ type: "activity", text: `§${section.n} ${activityLabel(u.name, u.input)}` });
+        return {
+          type: "tool_result" as const,
+          tool_use_id: u.id,
+          content: r.text,
+          ...(r.error ? { is_error: true } : {}),
+        };
+      }),
+    );
+    const last = step === RESEARCHER_STEPS - 2;
+    history.push({
+      role: "user",
+      content: last
+        ? [
+            ...results,
+            {
+              type: "text" as const,
+              text: "One step left: note anything else the writer will need, then stop and reply with your two lines.",
+            },
+          ]
+        : results,
+    } as Message);
+  }
+  return { said, pages };
 }
 
 // ---- the turn ---------------------------------------------------------------
@@ -1095,6 +1255,33 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     draftId,
     emit,
   };
+  // A research team (team.ts): the closure write_outline calls.
+  const crew = engineOf(engineId).team;
+  if (crew && workers && draft.kind === "research" && notesMode(frame.tools)) {
+    const firstText = history.find((m) => m.role === "user" && typeof m.content === "string")
+      ?.content as string | undefined;
+    // A revised outline does not send researchers back to a section they
+    // have already covered this message.
+    const covered = new Set<string>();
+    ctx.team = async (need, all) => {
+      const fresh = need.filter((s) => !covered.has(s.heading.toLowerCase()));
+      if (!fresh.length)
+        return "Those sections were researched earlier in this message; write them from their notes (list_notes with a section number).";
+      for (const s of fresh) covered.add(s.heading.toLowerCase());
+      return runTeam({
+        ctx,
+        reader: crew.reader,
+        question: firstText ?? o.text,
+        need: fresh,
+        all,
+        tools: frame.tools.filter((t) => RESEARCHER_TOOLS.has((t as { name: string }).name)),
+        onStep: async (m) => {
+          usage = addUsage(usage, m, engineOf(crew.reader).price);
+          await store.save(draftId, { usage });
+        },
+      });
+    };
+  }
   const usageBefore = usage.cents;
   // A step on Workers AI costs about a cent: research there gets more of them
   // (live, V4.1 Flash used all 60 before writing its summary).
@@ -1169,7 +1356,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
         // With notes kept, pages can leave the model's view much sooner.
         message = await workersStep(
           env,
-          engineId,
+          workersModel(engineId),
           frame.system,
           frame.tools,
           history,
