@@ -1655,7 +1655,7 @@ app.get("/engine-try", async (c) => {
   if (!isWorkersAi(model) && c.req.query("claude") !== "1")
     return c.json({ error: "A Claude engine needs &claude=1 (it is billed)." }, 400);
   // ?eval=N runs task N of the engine test (write/eval.ts) and grades it.
-  const { EVAL_SET, grade } = await import("../write/eval.ts");
+  const { EVAL_SET, grade, repeatedShare } = await import("../write/eval.ts");
   const task = c.req.query("eval") != null ? EVAL_SET[Number(c.req.query("eval"))] : undefined;
   if (c.req.query("eval") != null && !task) return c.json({ error: "No such task." }, 400);
   const kind = task?.kind ?? (c.req.query("kind") === "article" ? "article" : "research");
@@ -1755,6 +1755,7 @@ app.get("/engine-try", async (c) => {
       unwritten: kind === "research" ? unwritten(body) : body.trim().length < 400,
       citations: cites.length,
       figuresNotInPages: figures.length,
+      repeated: kind === "research" ? repeatedShare(body) : 0,
       pages: pages.length,
       publishProblems: publish,
     });
@@ -1782,6 +1783,7 @@ app.get("/engine-try", async (c) => {
             not_found: check.failed.map((f) => f.text.slice(0, 160)),
             citations: cites,
             figures_not_in_pages: figures,
+            repeated: Math.round(repeatedShare(body) * 1000) / 1000,
             publish_problems: publish,
             unwritten: unwritten(body),
             ...(full ? { body } : { start: body.slice(0, 2500) }),

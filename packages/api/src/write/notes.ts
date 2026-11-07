@@ -127,7 +127,7 @@ export function skeleton(sections: OutlineSection[], before = ""): string {
     const at = before.indexOf(`\n${heading}\n`);
     if (at < 0) return null;
     const rest = before.slice(at + heading.length + 2);
-    const end = rest.search(/\n#{2,3} /);
+    const end = rest.search(SECTION_END);
     const text = (end < 0 ? rest : rest.slice(0, end)).trim();
     return text && !text.startsWith(TO_WRITE.slice(0, 4)) ? text : null;
   };
@@ -184,10 +184,18 @@ export function replacePart(body: string, part: string, text: string): string | 
   if (!m) return null;
   const from = m.index + m[0].length;
   const rest = body.slice(from);
-  const next = rest.search(/\n#{2,3} /);
+  // A section runs to the next numbered section (or ## part), not to the
+  // next heading: live, a section written with its own ### subheadings was
+  // rewritten, only its first part was replaced, and the old subsections
+  // stayed — 32 paragraphs repeated in one 15,000-word report.
+  const next = rest.search(SECTION_END);
   const to = next < 0 ? body.length : from + next;
-  return `${body.slice(0, from)}\n${clean.replace(/^### [^\n]*\n/, "")}\n${body.slice(to)}`;
+  const own = clean.replace(/^### \d+\. [^\n]*\n/, "").replace(/^### (?!\d+\. )/gm, "#### ");
+  return `${body.slice(0, from)}\n${own}\n${body.slice(to)}`;
 }
+
+/** Where a Details section ends: the next numbered section or ## part. */
+const SECTION_END = /\n(### \d+\. |## )/;
 
 /** The body with its Sources list rebuilt from the notes. */
 export function withSources(body: string, notes: Note[], pages: ResearchSource[]): string {

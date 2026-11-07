@@ -117,7 +117,18 @@
   Anthropic credit, so Claude runs only when chosen for that conversation)
   and frozen in the
   frame at the first turn (`frame.engine`; absent = Claude; a conversation
-  with messages but no frame stays Claude). Workers AI engines:
+  with messages but no frame stays Claude). **The default and the only
+  Cloudflare engine on the menu is `team:flash`, the research team with
+  V4.1 Flash reading and writing** — chosen by the second engine test
+  (`ops/eval/2026-11-07-1920.md`): the only engine to pass all four tasks,
+  $0.25–0.29 a full report in 14–23 minutes, 0 quotations not found. Flash
+  alone ran out of time on two reports; V4 Pro was slow and Workers AI timed
+  out on it three times running; both are off the menu (frozen
+  conversations keep them). The same test caught a code bug: a rewritten
+  section with its own `###` subheadings replaced only its first part (21%
+  of one report repeated) — a section now runs to the next numbered
+  section, its own subheadings become `####`, and repetition is on the bar
+  (`repeatedShare`, ≤5%). Earlier engines:
   `@cf/deepseek-ai/deepseek-v4.1-flash-1017` (default, $0.30/$1.20 per M) and
   `@cf/deepseek-ai/deepseek-v4-pro-0813` ($1.32/$3.96). **Chosen by a
   head-to-head on 2026-11-07** (`/v1/admin/engine-try`, one full-depth

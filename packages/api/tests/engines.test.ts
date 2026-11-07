@@ -19,6 +19,9 @@ import {
 import { articleTopics } from "../src/write/publish";
 import { memorySources } from "../src/write/research";
 
+// One model on its own (the default is the research team).
+const FLASH = "@cf/deepseek-ai/deepseek-v4.1-flash-1017";
+
 function stubDb(): D1Database {
   const stmt = {
     bind: () => stmt,
@@ -182,7 +185,7 @@ describe("a research turn on Workers AI", () => {
     const events: Array<{ type: string; text?: string; message?: string }> = [];
     await runTurn({
       stream: null,
-      defaultEngine: DEFAULT_ENGINE,
+      defaultEngine: FLASH,
       env,
       store,
       sources,
@@ -193,7 +196,7 @@ describe("a research turn on Workers AI", () => {
 
     expect(events.filter((e) => e.type === "error")).toEqual([]);
     expect(calls).toHaveLength(4);
-    expect(calls[0]?.model).toBe(DEFAULT_ENGINE);
+    expect(calls[0]?.model).toBe(FLASH);
     // Every step of one conversation goes to the instance holding its cache.
     expect(calls.map((c) => c.opts)).toEqual(
       calls.map(() => ({ headers: { "x-session-affinity": `ses_${d.id}` } })),
@@ -217,8 +220,8 @@ describe("a research turn on Workers AI", () => {
     ).filter((m) => m.role === "tool");
     expect(toolMessages.at(-1)?.content).toContain("all found word for word");
     const saved = await store.get(d.id);
-    expect(saved?.meta).toMatchObject({ title: "Rent bans", engine: DEFAULT_ENGINE });
-    expect(draftEngine(saved as never, CLAUDE)).toBe(DEFAULT_ENGINE);
+    expect(saved?.meta).toMatchObject({ title: "Rent bans", engine: FLASH });
+    expect(draftEngine(saved as never, CLAUDE)).toBe(FLASH);
     // 4 calls × (1000 in, 200 out) at $0.30 / $1.20 per million: 0.216 cents.
     expect(saved?.usage.cents).toBeCloseTo(0.216, 3);
     expect(events).toEqual(
