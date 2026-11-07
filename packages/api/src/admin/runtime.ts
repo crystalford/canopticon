@@ -1654,7 +1654,13 @@ app.get("/engine-try", async (c) => {
   if (!known) return c.json({ error: "Not an engine." }, 400);
   if (!isWorkersAi(model) && c.req.query("claude") !== "1")
     return c.json({ error: "A Claude engine needs &claude=1 (it is billed)." }, 400);
+  // ?eval=N runs task N of the engine test (write/eval.ts) and grades it.
+  const { EVAL_SET, grade } = await import("../write/eval.ts");
+  const task = c.req.query("eval") != null ? EVAL_SET[Number(c.req.query("eval"))] : undefined;
+  if (c.req.query("eval") != null && !task) return c.json({ error: "No such task." }, 400);
+  const kind = task?.kind ?? (c.req.query("kind") === "article" ? "article" : "research");
   const q =
+    task?.text ??
     c.req.query("q") ??
     "How many housing units were started in the City of Toronto in the first half of 2026, and how does that compare with the previous decade?";
   const full = c.req.query("full") === "1";
@@ -1663,11 +1669,11 @@ app.get("/engine-try", async (c) => {
   const store = memoryDrafts();
   const sources = memorySources();
   const notes = memoryNotes();
-  const d = await store.create("research");
+  const d = await store.create(kind);
   const events: Array<Record<string, unknown>> = [];
   const t0 = Date.now();
   const deadline = Math.min(1500, Math.max(20, Number(c.req.query("deadline")) || 240)) * 1000;
-  const maxSteps = Math.min(60, Math.max(2, Number(c.req.query("steps")) || 14));
+  const maxSteps = Math.min(100, Math.max(2, Number(c.req.query("steps")) || 14));
   const emit = (e: unknown) => {
     const x = e as Record<string, unknown>;
     // Claude's text arrives in small pieces: keep the rest, not those.
@@ -1720,13 +1726,46 @@ app.get("/engine-try", async (c) => {
     const done = await store.get(d.id);
     const pages = await sources.texts(d.id);
     const body = done?.body ?? "";
-    const check = checkReport(body, pages);
+    let check = checkReport(body, pages);
+    let publish: string[] = [];
+    if (kind === "article" && done) {
+      // An article quotes the record: checked as Publish checks it.
+      const { checkQuotes, draftQuotes } = await import("../write/check.ts");
+      const { sourceTexts } = await import("../write/sources.ts");
+      const { publishProblems } = await import("../write/publish.ts");
+      check = checkQuotes(
+        body,
+        await sourceTexts(
+          c.env,
+          draftQuotes(body).map((x) => x.doc),
+        ),
+      );
+      publish = await publishProblems(c.env, c.get("user_id"), done).catch((e) => [String(e)]);
+    }
     const kept = await notes.list(d.id);
+    const words = body.split(/\s+/).filter(Boolean).length;
+    const figures = kind === "research" ? figureProblems(body, pages) : [];
+    const cites = kind === "research" ? citationProblems(body) : [];
+    const graded = grade({
+      kind,
+      finished: turns > 0,
+      words,
+      quotations: check.total,
+      notFound: check.failed.length,
+      unwritten: kind === "research" ? unwritten(body) : body.trim().length < 400,
+      citations: cites.length,
+      figuresNotInPages: figures.length,
+      pages: pages.length,
+      publishProblems: publish,
+    });
     clearInterval(beat);
     await out.write(
       enc.encode(
         JSON.stringify({
           model,
+          ...(task ? { eval: Number(c.req.query("eval")), label: task.label } : {}),
+          kind,
+          grade: graded,
           q,
           finished: turns > 0,
           turns,
@@ -1738,11 +1777,12 @@ app.get("/engine-try", async (c) => {
           report: {
             title: done?.meta.title,
             topic: done?.meta.topic,
-            words: body.split(/\s+/).filter(Boolean).length,
+            words,
             quotations: check.total,
             not_found: check.failed.map((f) => f.text.slice(0, 160)),
-            citations: citationProblems(body),
-            figures_not_in_pages: figureProblems(body, pages),
+            citations: cites,
+            figures_not_in_pages: figures,
+            publish_problems: publish,
             unwritten: unwritten(body),
             ...(full ? { body } : { start: body.slice(0, 2500) }),
           },

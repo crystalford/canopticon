@@ -112,7 +112,10 @@
   `body_md` or `frame`.
 - **Engines: Claude or Workers AI** (`write/engines.ts`, 2026-11-04). Every
   conversation runs on one engine, chosen beside New article / New research
-  (remembered as the default in `users.preferences.engine`) and frozen in the
+  (remembered as the default in `users.preferences.engine` — **only a
+  Cloudflare engine is ever remembered**: the operator has no regular
+  Anthropic credit, so Claude runs only when chosen for that conversation)
+  and frozen in the
   frame at the first turn (`frame.engine`; absent = Claude; a conversation
   with messages but no frame stays Claude). Workers AI engines:
   `@cf/deepseek-ai/deepseek-v4.1-flash-1017` (default, $0.30/$1.20 per M) and
@@ -122,6 +125,14 @@
   V4 Pro 6,982 words, 39/39, $0.75, more careful with figures; GLM-5.3
   $3.17 for the same (retired to `TRIAL_ENGINES`, where a conversation frozen
   on it still resolves); Kimi K2.7, GLM-5.3 Flash and Qwen 3.8 fell short.
+  **The engine test decides, not impression:** `write/eval.ts` holds the
+  tasks (three research questions of different kinds and one article) and
+  the bar in numbers; the "Engine test" workflow
+  (`.github/workflows/engine-test.yml`, by hand only) runs every named model
+  on every task through `engine-try?eval=N`, grades each and writes
+  `ops/eval/latest.md` naming the cheapest model that passed everything. A
+  new Workers AI model goes in `TRIAL_ENGINES`, through the test, and into
+  the menu only if it passes.
   Workers AI calls carry `x-session-affinity` per conversation — without it
   the cached prefix (≈94% of input, billed at ~2%) is not reused. Research on
   Workers AI gets 100 steps (Flash used all 60). Two of six models cited their
