@@ -39,6 +39,18 @@ export interface DraftMeta {
   /** Research: what the reviewers flagged once every section was written
    *  (team.ts). Private: shown in the workspace, never published. */
   review?: Array<{ section: number; kind: string; sentence: string; why: string; url?: string }>;
+  /** Research: how many cited sources stand on their own (independence.ts),
+   *  measured when the reviewers ran. */
+  sources?: {
+    cited: number;
+    independent: number;
+    echoes: Array<{
+      why: "wording" | "publisher";
+      sources: number[];
+      runs: number;
+      sample: string;
+    }>;
+  };
 }
 
 export interface Usage {

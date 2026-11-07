@@ -1750,6 +1750,10 @@ app.get("/engine-try", async (c) => {
     const { supportCheck } = await import("../write/support.ts");
     const support =
       kind === "research" ? await supportCheck(c.env, body, kept).catch(() => []) : [];
+    const { echoGroups, independentCount } = await import("../write/independence.ts");
+    const { sourceNumbers } = await import("../write/notes.ts");
+    const numbers = sourceNumbers(kept);
+    const echoes = kind === "research" ? echoGroups(pages, numbers) : [];
     const words = body.split(/\s+/).filter(Boolean).length;
     const figures = kind === "research" ? figureProblems(body, pages) : [];
     const cites = kind === "research" ? citationProblems(body) : [];
@@ -1799,6 +1803,11 @@ app.get("/engine-try", async (c) => {
               changed: !body.replace(/\s+/g, " ").includes(f.sentence.replace(/\s+/g, " ").trim()),
             })),
             publish_problems: publish,
+            independence: {
+              cited: numbers.size,
+              independent: independentCount(echoes, numbers.size),
+              groups: echoes,
+            },
             support: {
               checked: support.length,
               below_20: support.filter((x) => x.p < 0.2).length,
