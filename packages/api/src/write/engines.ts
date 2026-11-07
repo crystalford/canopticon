@@ -591,12 +591,19 @@ export async function workersStep(
   tools: Anthropic.Beta.BetaToolUnion[],
   history: Message[],
   clearAt?: number,
+  session?: string,
 ): Promise<Anthropic.Beta.BetaMessage> {
-  const ai = env.AI as unknown as { run: (m: string, i: unknown) => Promise<unknown> };
+  const ai = env.AI as unknown as {
+    run: (m: string, i: unknown, o?: unknown) => Promise<unknown>;
+  };
   const input = { messages: toChat(system, history, clearAt), tools: toFunctions(tools) };
+  // Workers AI reuses a cached prefix only on the instance that holds it:
+  // one conversation, one instance (x-session-affinity). Without it nearly
+  // every step was billed as fresh input.
+  const opts = session ? { headers: { "x-session-affinity": `ses_${session}` } } : undefined;
   let reply: unknown;
   try {
-    reply = await ai.run(model, { ...input, max_tokens: MAX_OUT });
+    reply = await ai.run(model, { ...input, max_tokens: MAX_OUT }, opts);
   } catch (err) {
     // Only an output allowance the model will not take is retried with less;
     // a conversation too long for the model is not (it would fail again).
@@ -605,7 +612,7 @@ export async function workersStep(
       /context|prompt is too long/i.test(String(err))
     )
       throw err;
-    reply = await ai.run(model, { ...input, max_tokens: 8192 });
+    reply = await ai.run(model, { ...input, max_tokens: 8192 }, opts);
   }
   return fromChat(reply as ChatReply, model);
 }

@@ -163,14 +163,14 @@ describe("a research turn on Workers AI", () => {
       ),
       reply({ content: "The report is on the right." }),
     ];
-    const calls: Array<{ model: string; input: Record<string, unknown> }> = [];
+    const calls: Array<{ model: string; input: Record<string, unknown>; opts?: unknown }> = [];
     const env = {
       LOG_LEVEL: "error",
       DB: stubDb(),
       BRAVE_SEARCH_API_KEY: "test",
       AI: {
-        run: async (model: string, input: Record<string, unknown>) => {
-          calls.push({ model, input: structuredClone(input) });
+        run: async (model: string, input: Record<string, unknown>, opts?: unknown) => {
+          calls.push({ model, input: structuredClone(input), opts });
           return script.shift();
         },
         toMarkdown: async () => [{ format: "error", error: "unsupported in tests" }],
@@ -194,6 +194,10 @@ describe("a research turn on Workers AI", () => {
     expect(events.filter((e) => e.type === "error")).toEqual([]);
     expect(calls).toHaveLength(4);
     expect(calls[0]?.model).toBe(DEFAULT_ENGINE);
+    // Every step of one conversation goes to the instance holding its cache.
+    expect(calls.map((c) => c.opts)).toEqual(
+      calls.map(() => ({ headers: { "x-session-affinity": `ses_${d.id}` } })),
+    );
     const fnNames = (calls[0]?.input.tools as Array<{ function: { name: string } }>).map(
       (t) => t.function.name,
     );
