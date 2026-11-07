@@ -18,6 +18,8 @@ export type EvalKind = "research" | "article";
 
 export interface EvalTask {
   kind: EvalKind;
+  /** A research task in thesis mode (research.ts THESIS_HOW). */
+  mode?: "thesis";
   /** What it tests, in a few words. */
   label: string;
   /** The first message, as Chris would send it. */
@@ -47,6 +49,12 @@ export const EVAL_SET: EvalTask[] = [
     // rightly declined to write a third (engine test, 2026-11-07).
     text: "Write an article from the record's research on algorithmic rent-setting software in Canada: what it does, what the record found about its use and its effects on rents, and what remains unproven. Argue from what the documents show, quoting them.",
   },
+  {
+    kind: "research",
+    mode: "thesis",
+    label: "thesis test",
+    text: "Raising provincial minimum wages in Canada since 2017 has reduced employment among young workers.",
+  },
 ];
 
 /** The bar. Research: the record's median is ~4,500 words; 3,000 is the
@@ -69,6 +77,8 @@ export interface EvalResult {
   /** Share of the text in eight-word runs that appear more than once. */
   repeated?: number;
   pages?: number;
+  /** Thesis: whether the TL;DR opens with a verdict line. */
+  verdict?: boolean;
   /** Article: what Publish would refuse for (topic, quotes, closed sources). */
   publishProblems?: string[];
 }
@@ -84,6 +94,7 @@ export function grade(r: EvalResult): { pass: boolean; misses: string[] } {
     if (r.notFound) m.push(`${r.notFound} quotations not found`);
     if (r.citations) m.push(`${r.citations} citation problems`);
     if ((r.pages ?? 0) < b.pages) m.push(`${r.pages ?? 0} pages read (bar ${b.pages})`);
+    if (r.verdict === false) m.push("no verdict line");
     if ((r.repeated ?? 0) > b.repeated)
       m.push(
         `${Math.round((r.repeated ?? 0) * 100)}% of the text repeats itself (bar ${b.repeated * 100}%)`,
@@ -122,4 +133,10 @@ export function repeatedShare(body: string): number {
     else seen.add(run);
   }
   return again / words.length;
+}
+
+/** A thesis report's verdict, from the line that opens its TL;DR. */
+export function verdictOf(body: string): string | null {
+  const m = /\*\*Verdict:\s*(Supported|Partly supported|Not supported|Unsettled)\b/i.exec(body);
+  return m ? (m[1] ?? null) : null;
 }

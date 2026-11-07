@@ -305,6 +305,19 @@
   past 300k tokens; the kept pages remain. **This replaces the old research
   engine (`graph/lib/deep-research.ts`, `/op/research`), which is retired
   once the new one has produced real reports.**
+- **Test a thesis** (2026-11-08; "Test a thesis" beside New research): a
+  research conversation with `meta.mode = "thesis"`, whose frame adds
+  `THESIS_HOW` (`write/research.ts`) to the research instructions — frozen
+  like the rest. The claim is sharpened into one testable sentence; the
+  outline is fixed: the thesis stated precisely, the strongest case for,
+  the strongest case against (with alternative explanations), the crux,
+  and what would change the conclusion — so the team's parallel researchers
+  argue opposite sides by design, and the reviewers and support check
+  test both. The TL;DR opens with **Verdict: Supported / Partly supported /
+  Not supported / Unsettled**, confidence and the crux; sources are weighed
+  for independence, not counted. Everything else is research: notes, every
+  check, Save to Admin. The engine test's fifth task is a thesis
+  (`verdictOf`; no verdict line fails the bar).
 - **Read it** (`docs/read-it.md`; `write/read.ts`, `site/pages/read.ts`,
   `operator/routes/read.ts`): a button on Admin's upload cards and on the
   signed-in document page. It opens a read draft (kind `read`) whose first

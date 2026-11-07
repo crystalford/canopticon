@@ -39,7 +39,7 @@ export function renderWriteList(
     ? drafts
         .map(
           (d) =>
-            `<a class="ws-row" href="/admin/write/${esc(d.id)}"><span class="ws-row-t">${d.kind === "research" ? '<span class="pill">Research</span> ' : d.kind === "read" ? '<span class="pill">Read</span> ' : ""}${esc(d.meta.title || (d.kind === "research" ? "Untitled research" : "Untitled draft"))}</span>${d.meta.dek ? `<span class="ws-row-d">${esc(d.meta.dek)}</span>` : ""}<span class="ws-row-m">${esc(when(d.updatedAt))} · ${esc(engine(d.meta.engine ?? CLAUDE).label)} · ${esc(dollars(d.usage.cents))}</span></a>`,
+            `<a class="ws-row" href="/admin/write/${esc(d.id)}"><span class="ws-row-t">${d.kind === "research" ? `<span class="pill">${d.meta.mode === "thesis" ? "Thesis" : "Research"}</span> ` : d.kind === "read" ? '<span class="pill">Read</span> ' : ""}${esc(d.meta.title || (d.kind === "research" ? (d.meta.mode === "thesis" ? "Untitled thesis test" : "Untitled research") : "Untitled draft"))}</span>${d.meta.dek ? `<span class="ws-row-d">${esc(d.meta.dek)}</span>` : ""}<span class="ws-row-m">${esc(when(d.updatedAt))} · ${esc(engine(d.meta.engine ?? CLAUDE).label)} · ${esc(dollars(d.usage.cents))}</span></a>`,
         )
         .join("")
     : '<div class="d-clear">No drafts yet.</div>';
@@ -49,7 +49,7 @@ export function renderWriteList(
     path: "/admin/write",
     signedIn: true,
     noindex: true,
-    body: `<div class="d-head"><h1 class="d-h1">Write and research</h1>${opts.route ? `<span class="ws-route">${ROUTE_LABEL[opts.route]}</span>` : ""}<span class="d-links"><a href="/admin" class="ulink">Back to Admin</a></span></div>${opts.hasKey || isWorkersAi(chosen) ? "" : NO_KEY}<form method="post" action="/op/write/new" class="ws-new">${choice}<button type="submit" name="kind" value="article" class="btn tall">New article</button><button type="submit" name="kind" value="research" class="btn tall">New research</button></form><p class="ws-eng-note">The choice stays with each conversation. Claude reads and writes best; the Workers AI models run the same checks for much less.</p><div class="ws-list">${rows}</div>`,
+    body: `<div class="d-head"><h1 class="d-h1">Write and research</h1>${opts.route ? `<span class="ws-route">${ROUTE_LABEL[opts.route]}</span>` : ""}<span class="d-links"><a href="/admin" class="ulink">Back to Admin</a></span></div>${opts.hasKey || isWorkersAi(chosen) ? "" : NO_KEY}<form method="post" action="/op/write/new" class="ws-new">${choice}<button type="submit" name="kind" value="article" class="btn tall">New article</button><button type="submit" name="kind" value="research" class="btn tall">New research</button><button type="submit" name="kind" value="thesis" class="btn tall" title="Give a claim: the case for, the case against, the crux, and a verdict">Test a thesis</button></form><p class="ws-eng-note">The choice stays with each conversation. Claude reads and writes best; the Workers AI models run the same checks for much less.</p><div class="ws-list">${rows}</div>`,
   });
 }
 
@@ -127,6 +127,7 @@ export function renderWorkspace(
   },
 ): string {
   const research = d.kind === "research";
+  const thesis = research && d.meta.mode === "thesis";
   const read = d.kind === "read" ? opts.read : undefined;
   const pub = research
     ? {
@@ -204,20 +205,22 @@ export function renderWorkspace(
     ? items.map((i) => item(i, opts.cards)).join("")
     : read
       ? `<div class="ws-hello">Claude reads the whole document once and lays out what is in it on the right: figures, findings, questions, possible articles. Every card is checked word for word against the document; what fails is dropped and counted. Keep or dismiss each one. You can ask about the document here after.</div>`
-      : research
-        ? `<div class="ws-hello">Ask a question about the world, and say why you are asking and what you have already decided. Claude checks the record, searches the web, reads the sources in full, and writes the report on the right. Every quotation is checked against the pages it read. When it is right, Save to Admin, and publish it there.</div>`
-        : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
+      : thesis
+        ? `<div class="ws-hello">State a claim you want tested — yours, or one you have read. The research team builds the strongest case for it and the strongest case against, finds the crux the disagreement turns on, says what would change the conclusion, and gives a verdict with how sure it is. Every quotation is checked against the pages it read, and reviewers check both sides.</div>`
+        : research
+          ? `<div class="ws-hello">Ask a question about the world, and say why you are asking and what you have already decided. Claude checks the record, searches the web, reads the sources in full, and writes the report on the right. Every quotation is checked against the pages it read. When it is right, Save to Admin, and publish it there.</div>`
+          : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
   const body = `<div class="ws" data-ws="${esc(d.id)}" data-ws-kind="${esc(d.kind)}"${opts.autostart ? ` data-ws-autostart="${esc(opts.autostart)}"` : ""}>
 <div class="ws-tabs" role="tablist" aria-label="Show" data-ws-tabs hidden><button type="button" role="tab" data-ws-tab="chat" aria-selected="true">Chat</button><button type="button" role="tab" data-ws-tab="page" aria-selected="false">${read ? "What it found" : "The page"}</button></div>
 <section class="ws-chat" aria-label="Conversation">
-<div class="ws-head"><a href="/admin/write" class="ulink">Drafts</a><span class="ws-eng-tag" title="${esc(engine(opts.engine ?? CLAUDE).note)}">${esc(engine(opts.engine ?? CLAUDE).label)}</span><span class="ws-title" data-ws-title>${esc(d.meta.title || (research ? "Untitled research" : "Untitled draft"))}</span></div>
+<div class="ws-head"><a href="/admin/write" class="ulink">Drafts</a><span class="ws-eng-tag" title="${esc(engine(opts.engine ?? CLAUDE).note)}">${esc(engine(opts.engine ?? CLAUDE).label)}</span><span class="ws-title" data-ws-title>${esc(d.meta.title || (thesis ? "Untitled thesis test" : research ? "Untitled research" : "Untitled draft"))}</span></div>
 ${opts.hasKey ? "" : NO_KEY}
 <div class="ws-log" data-ws-log>${log}</div>
 <form class="ws-form" method="post" action="/op/write/${esc(d.id)}/turn" data-ws-form>
 <div class="ws-flag" data-ws-flag hidden><span class="ws-flag-l">Flagged</span><span class="ws-flag-t" data-ws-flag-text></span><button type="button" class="ws-flag-x" data-ws-flag-clear aria-label="Remove the flag">×</button></div>
 <div class="ws-files" data-ws-files hidden></div>
 <label for="ws-text" class="vh">Message</label>
-<textarea id="ws-text" name="text" rows="3" placeholder="${read ? "Ask about the document, or what Claude found" : research ? "What should Claude find out, or change?" : "What should Claude write or change?"}"${opts.hasKey ? "" : " disabled"}></textarea>
+<textarea id="ws-text" name="text" rows="3" placeholder="${read ? "Ask about the document, or what Claude found" : thesis ? "The claim to test, e.g. “Banning short-term rentals lowers rents”" : research ? "What should Claude find out, or change?" : "What should Claude write or change?"}"${opts.hasKey ? "" : " disabled"}></textarea>
 <div class="ws-actions"><span class="ws-left"><label class="ws-attach">Add files<input type="file" multiple accept=".md,.txt,.pdf,.docx" data-ws-file hidden></label><span class="ws-cost" data-ws-cost title="${isWorkersAi(opts.engine) ? "Workers AI, billed to Cloudflare" : opts.route ? esc(ROUTE_LABEL[opts.route]) : ""} · estimated, at the list price">${esc(dollars(d.usage.cents))} so far</span></span><button type="submit" class="btn"${opts.hasKey ? "" : " disabled"}>Send</button></div>
 </form>
 </section>

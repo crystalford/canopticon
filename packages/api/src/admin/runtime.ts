@@ -1655,7 +1655,7 @@ app.get("/engine-try", async (c) => {
   if (!isWorkersAi(model) && c.req.query("claude") !== "1")
     return c.json({ error: "A Claude engine needs &claude=1 (it is billed)." }, 400);
   // ?eval=N runs task N of the engine test (write/eval.ts) and grades it.
-  const { EVAL_SET, grade, repeatedShare } = await import("../write/eval.ts");
+  const { EVAL_SET, grade, repeatedShare, verdictOf } = await import("../write/eval.ts");
   const task = c.req.query("eval") != null ? EVAL_SET[Number(c.req.query("eval"))] : undefined;
   if (c.req.query("eval") != null && !task) return c.json({ error: "No such task." }, 400);
   const kind = task?.kind ?? (c.req.query("kind") === "article" ? "article" : "research");
@@ -1669,7 +1669,10 @@ app.get("/engine-try", async (c) => {
   const store = memoryDrafts();
   const sources = memorySources();
   const notes = memoryNotes();
-  const d = await store.create(kind);
+  const created = await store.create(kind);
+  const mode = task?.mode ?? (c.req.query("mode") === "thesis" ? "thesis" : undefined);
+  if (mode) await store.save(created.id, { meta: { ...created.meta, mode } });
+  const d = created;
   const events: Array<Record<string, unknown>> = [];
   const t0 = Date.now();
   const deadline = Math.min(1500, Math.max(20, Number(c.req.query("deadline")) || 240)) * 1000;
@@ -1760,6 +1763,7 @@ app.get("/engine-try", async (c) => {
       citations: cites.length,
       figuresNotInPages: figures.length,
       repeated: kind === "research" ? repeatedShare(body) : 0,
+      ...(mode === "thesis" ? { verdict: verdictOf(body) !== null } : {}),
       pages: pages.length,
       publishProblems: publish,
     });
@@ -1770,6 +1774,7 @@ app.get("/engine-try", async (c) => {
           model,
           ...(task ? { eval: Number(c.req.query("eval")), label: task.label } : {}),
           kind,
+          ...(mode ? { mode, verdict: verdictOf(body) } : {}),
           grade: graded,
           q,
           finished: turns > 0,
