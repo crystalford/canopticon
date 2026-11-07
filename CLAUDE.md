@@ -178,7 +178,14 @@
   sentences, 0.06 and 0.04 for two that added a claim. Below 0.2, and not
   already flagged, it goes to the writer as unsupported. `engine-try`
   reports the distribution (and every sentence with `full=1`) for
-  validating it. `POST /v1/admin/ai-run {model, input}` makes one raw
+  validating it. **The independence check** (`write/independence.ts`, no
+  model): when the reviewers run, the cited pages are compared for long runs
+  of identical wording (twelve-word runs, six or more shared, across
+  different sites — copies, or one origin) and grouped by publisher (several
+  pages from one site); the writer is told which sources to count once,
+  `meta.sources` keeps "N cited · about M independent" with the groups, the
+  workspace shows them, and `engine-try` reports them. The record's own
+  warning, mechanised. `POST /v1/admin/ai-run {model, input}` makes one raw
   Workers AI call, for learning a new model's shape live. **`team:flash2`**
   (trial): researchers and reviewers alternate V4.1 Flash and V4 Flash 0731,
   each with its own per-minute limit.

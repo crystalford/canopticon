@@ -33,6 +33,7 @@ import {
   workersStep,
 } from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
+import { describeEchoes, echoGroups, independentCount } from "./independence";
 import {
   NOTES_TOOLS,
   type NoteStore,
@@ -1159,9 +1160,22 @@ async function runReview(o: {
       text: `Support check: ${support.length} cited sentences, ${support.filter((x) => x.p < UNSUPPORTED_BELOW).length} probably unsupported`,
     });
   flags.sort((a, b) => a.section - b.section);
+  // Which cited sources are really one (independence.ts): no model.
+  const echoes = echoGroups(await keptPages(ctx), numbers);
   const now = await ctx.store.get(ctx.draftId);
-  if (now) await ctx.store.save(ctx.draftId, { meta: { ...now.meta, review: flags } });
-  return reviewReport(flags, dropped);
+  if (now)
+    await ctx.store.save(ctx.draftId, {
+      meta: {
+        ...now.meta,
+        review: flags,
+        sources: {
+          cited: numbers.size,
+          independent: independentCount(echoes, numbers.size),
+          echoes,
+        },
+      },
+    });
+  return reviewReport(flags, dropped) + describeEchoes(echoes, numbers.size);
 }
 
 async function runReviewer(o: {

@@ -163,6 +163,20 @@ export function renderWorkspace(
           : ""
       }</details>`
     : "";
+  // Independence (independence.ts): which cited sources are really one.
+  const src = research ? d.meta.sources : undefined;
+  const independence = src?.echoes.length
+    ? `<details class="ws-why ws-review"><summary>Sources: ${src.cited} cited · about ${src.independent} independent</summary><ul>${src.echoes
+        .map(
+          (g) =>
+            `<li>${g.sources.map((k) => `[${k}]`).join(" ")} — ${
+              g.why === "publisher"
+                ? `all from ${esc(g.sample)}`
+                : `share ${g.runs} long passages word for word: “${esc(g.sample)}”`
+            }</li>`,
+        )
+        .join("")}</ul></details>`
+    : "";
   const why = pub.problems.length
     ? `<details class="ws-why"><summary>${research ? "Not ready for Admin" : "Not ready to publish"}</summary><ul>${pub.problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></details>`
     : "";
@@ -225,7 +239,7 @@ ${opts.hasKey ? "" : NO_KEY}
 </form>
 </section>
 <section class="ws-page" aria-label="The page">
-<div class="ws-state" data-ws-state><div class="ws-bar"><span data-ws-check>${read ? `<span class="ws-check">${read.receipt}</span>` : checkLine(check)}</span><span class="ws-pub">${read ? "" : `<a class="ulink" href="/admin/write/${esc(d.id)}/article.md">Download .md</a>`}${pubbar}</span></div>${read ? "" : why}${reviewed}</div>${flash}
+<div class="ws-state" data-ws-state><div class="ws-bar"><span data-ws-check>${read ? `<span class="ws-check">${read.receipt}</span>` : checkLine(check)}</span><span class="ws-pub">${read ? "" : `<a class="ulink" href="/admin/write/${esc(d.id)}/article.md">Download .md</a>`}${pubbar}</span></div>${read ? "" : why}${reviewed}${independence}</div>${flash}
 <iframe class="ws-frame" src="/admin/write/${esc(d.id)}/preview" title="The article as it will be published" data-ws-preview></iframe>
 </section>
 </div>`;
