@@ -163,14 +163,16 @@ export async function defaultEngine(db: D1Database, userId: string): Promise<Eng
     .catch(() => null);
   try {
     const id = (JSON.parse(row?.preferences || "{}") as { engine?: string }).engine;
-    return id && ENGINES.some((e) => e.id === id) ? id : DEFAULT_ENGINE;
+    // Only a Cloudflare engine is ever the default: Claude is billed to
+    // Anthropic credits, so it runs only when chosen for that conversation.
+    return id && ENGINES.some((e) => e.id === id && e.provider === "workers") ? id : DEFAULT_ENGINE;
   } catch {
     return DEFAULT_ENGINE;
   }
 }
 
 export async function setDefaultEngine(db: D1Database, userId: string, id: EngineId) {
-  if (!ENGINES.some((e) => e.id === id)) return;
+  if (!ENGINES.some((e) => e.id === id && e.provider === "workers")) return;
   await db
     .prepare(
       "UPDATE users SET preferences = json_set(COALESCE(preferences, '{}'), '$.engine', ?) WHERE id = ?",

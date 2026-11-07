@@ -1,0 +1,139 @@
+name: Engine test
+
+# Which model runs the workspace, decided by one fixed test rather than by
+# impression (packages/api/src/write/eval.ts holds the tasks and the bar).
+# Every model named is given every task on the live site, in memory (nothing
+# is saved to the record), each result is graded against the bar, and the
+# report names the cheapest model that passes every task.
+#
+# Run by hand only (rule 4: nothing runs unattended). A full run of two
+# models costs about $2–4 of Workers AI and takes up to ~30 minutes.
+# Claude engines are billed to Anthropic and need include_claude.
+
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "Comma-separated engine ids"
+        required: true
+        default: "@cf/deepseek-ai/deepseek-v4.1-flash-1017,@cf/deepseek-ai/deepseek-v4-pro-0813"
+        type: string
+      tasks:
+        description: "Comma-separated task numbers from eval.ts (0-3)"
+        required: true
+        default: "0,1,2,3"
+        type: string
+      include_claude:
+        description: "Allow Claude engines (billed to Anthropic)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        env:
+          MODELS: ${{ github.event.inputs.models }}
+          TASKS: ${{ github.event.inputs.tasks }}
+        run: |
+          set -euo pipefail
+          jq -cn --arg m "$MODELS" --arg t "$TASKS" '
+            {include: [ ($m | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))[] as $model
+                      | ($t | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))[] as $task
+                      | {model: $model, task: $task} ]}' > m.json
+          echo "matrix=$(cat m.json)" >> "$GITHUB_OUTPUT"
+
+  run:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Run one task on one model
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          MODEL: ${{ matrix.model }}
+          TASK: ${{ matrix.task }}
+          CLAUDE: ${{ github.event.inputs.include_claude == 'true' && '&claude=1' || '' }}
+        run: |
+          set -uo pipefail
+          ENC="$(jq -rn --arg m "$MODEL" '$m|@uri')"
+          URL="https://canopticon.com/v1/admin/engine-try?model=${ENC}&eval=${TASK}&steps=100&deadline=1500&follow=2&full=1${CLAUDE}"
+          NAME="$(printf '%s-%s' "$MODEL" "$TASK" | tr -c 'a-zA-Z0-9-' '-')"
+          curl -sS -m 1600 \
+            -H "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}" \
+            -H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}" \
+            "$URL" > raw.json || true
+          if ! jq -e .grade raw.json > /dev/null 2>&1; then
+            jq -n --arg m "$MODEL" --arg t "$TASK" --rawfile b raw.json \
+              '{model:$m, eval:($t|tonumber), failed_to_run:true, body:($b|.[0:2000]), grade:{pass:false, misses:["did not run"]}}' > raw.json
+          fi
+          mkdir -p out && cp raw.json "out/${NAME}.json"
+          echo "NAME=${NAME}" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: out/
+
+  report:
+    needs: run
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: results
+          merge-multiple: true
+      - name: Write the verdict
+        run: |
+          set -euo pipefail
+          mkdir -p ops/eval
+          STAMP="$(date -u +%Y-%m-%d-%H%M)"
+          jq -s '.' results/*.json > "ops/eval/${STAMP}.json"
+          {
+            echo "# Engine test — ${STAMP} UTC"
+            echo
+            echo "Tasks and bar: packages/api/src/write/eval.ts. Cost is Workers AI (or Anthropic) as metered by the workspace."
+            echo
+            echo "| Model | Task | Pass | Words | Quotes (not found) | Pages | Figures not in pages | Cost | Minutes | Misses |"
+            echo "|---|---|---|---|---|---|---|---|---|---|"
+            jq -r '.[] | "| \(.model|sub("@cf/";"")) | \(.eval) \(.label // "") | \(if .grade.pass then "✅" else "❌" end) | \(.report.words // 0) | \(.report.quotations // 0) (\(.report.not_found // [] | length)) | \(.pages_read // [] | length) | \(.report.figures_not_in_pages // [] | length) | $\(.dollars // 0) | \(((.seconds // 0) / 60) | floor) | \(.grade.misses | join("; ")) |"' "ops/eval/${STAMP}.json"
+            echo
+            echo "## Verdict"
+            echo
+            jq -r '
+              group_by(.model)
+              | map({model: .[0].model, pass: all(.grade.pass), dollars: (map(.dollars // 0) | add), n: length})
+              | sort_by(.dollars)
+              | (map(select(.pass)) | if length > 0 then "Cheapest model that passed every task: **\(.[0].model)** ($\(.[0].dollars * 100 | round / 100) for \(.[0].n) tasks)." else "No model passed every task." end),
+                "",
+                (.[] | "- \(.model): \(if .pass then "passed all" else "failed at least one" end), $\(.dollars * 100 | round / 100) total")
+            ' "ops/eval/${STAMP}.json"
+          } > "ops/eval/${STAMP}.md"
+          cp "ops/eval/${STAMP}.md" ops/eval/latest.md
+          cat ops/eval/latest.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit the report
+        run: |
+          set -euo pipefail
+          git config user.name "canopticon-probe[bot]"
+          git config user.email "probe@users.noreply.github.com"
+          git add ops/eval
+          git commit -m "engine test: report [skip ci]" || exit 0
+          for i in 1 2 3 4 5 6; do
+            if git push; then exit 0; fi
+            sleep $((i * 3))
+            git pull --rebase -X theirs
+          done
+          git push
