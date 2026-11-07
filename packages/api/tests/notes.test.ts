@@ -272,6 +272,50 @@ describe("keeping a cheaper model to the workflow", () => {
   });
 });
 
+describe("the gap checkpoint", () => {
+  it("asks for a look before the summary, once, when every section is written", async () => {
+    const call = (id: string) => ({
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              { id, type: "function", function: { name: "list_notes", arguments: "{}" } },
+            ],
+          },
+          finish_reason: "tool_calls",
+        },
+      ],
+      usage: { prompt_tokens: 100, completion_tokens: 10 },
+    });
+    const script = [
+      call("a"),
+      call("b"),
+      { choices: [{ message: { content: "Stopping." }, finish_reason: "stop" }] },
+    ];
+    const env = { LOG_LEVEL: "error", AI: { run: async () => script.shift() } } as unknown as Env;
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    await store.save(d.id, {
+      body: "## TL;DR\n\n_(to write)_\n\n## Details\n\n### 1. Uptake\n\nNo province publishes usage.\n\n## Sources\n",
+    });
+    await runTurn({
+      stream: null,
+      defaultEngine: DEFAULT_ENGINE,
+      env,
+      store,
+      sources: memorySources(),
+      notes: memoryNotes(),
+      draftId: d.id,
+      text: "Go on.",
+      emit: () => {},
+    });
+    const all = JSON.stringify(await store.messages(d.id));
+    expect(all.split("A gap is a finding only after you have looked for it").length - 1).toBe(1);
+  });
+});
+
 describe("citations that point at nothing", () => {
   it("names numbers past the Sources list and sources cited in words", async () => {
     const { citationProblems } = await import("../src/write/research");
@@ -322,5 +366,41 @@ describe("the engine menu", () => {
     // A conversation frozen on GLM-5.3 keeps it.
     expect(engine("@cf/zai-org/glm-5.3").id).toBe("@cf/zai-org/glm-5.3");
     expect(TRIAL_ENGINES.some((e) => e.id === "@cf/zai-org/glm-5.3")).toBe(true);
+  });
+});
+
+describe("figures not in any page read", () => {
+  const pages = [
+    {
+      url: "https://a.example",
+      title: "A",
+      text: "Manitoba reported 288,150 prescriptions. The PBO put it at $1.9 billion over five years, from 2024 to 2029. About 5 000 users.",
+    },
+  ] as never;
+
+  it("finds figures with separators ignored and flags the rest", async () => {
+    const { figureProblems } = await import("../src/write/research");
+    const body = [
+      "## Details",
+      "### 1. Uptake",
+      "Manitoba reported 288 150 prescriptions [1]. PEI had 5,000 users [1].",
+      "The PBO said $1.9 billion [1] in 2024. Summed, that is $930 million.",
+      "Section 3 of the Act; 41,000 Islanders were eligible.",
+      "",
+      "## Sources",
+      "",
+      "1. [A](https://a.example)",
+    ].join("\n");
+    const f = figureProblems(body, pages);
+    expect(f.map((x) => x.figure)).toEqual(["930", "41,000"]);
+    expect(f[1]?.sentence).toContain("Islanders");
+  });
+
+  it("is said to the writer with the sentence", async () => {
+    const { describeFigures } = await import("../src/write/research");
+    expect(describeFigures([])).toBe("");
+    expect(describeFigures([{ figure: "41,000", sentence: "41,000 Islanders." }])).toContain(
+      "FIGURES NOT FOUND in any page you read (1)",
+    );
   });
 });

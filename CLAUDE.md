@@ -127,7 +127,13 @@
   Workers AI gets 100 steps (Flash used all 60). Two of six models cited their
   note numbers as source numbers: `list_notes` now leads with "cite as [n]"
   and every write reports citations past the Sources list
-  (`citationProblems`, also a Save problem). Same loop, instructions, tools and checks: the
+  (`citationProblems`, also a Save problem). Every research write also lists
+  **figures found in no page read** (`figureProblems`: three-plus digits or a
+  decimal, separators ignored, years skipped — advisory, since a page may
+  say "$1,900 million" for "$1.9 billion"), and a **gap checkpoint** (once,
+  when the Details are written and the summary is not) asks for targeted
+  searches before anything is written down as unpublished — live, Flash
+  called uptake figures unpublished that two provinces had published. Same loop, instructions, tools and checks: the
   stored conversation stays Anthropic-shaped; `workersStep` converts it to the
   OpenAI chat format (`toChat`/`toFunctions`) and the reply back (`fromChat`).
   The web is our own tools there: `web_search` through Cloudflare's Web
