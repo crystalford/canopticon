@@ -285,7 +285,7 @@ export function describeNotes(notes: Note[], section?: number): string {
   return shown
     .map(
       (n) =>
-        `#${n.n} [${numbers.get(n.url)}]${n.section ? ` (section ${n.section})` : ""} ${n.claim}\n  "${n.quote}"\n  ${n.url}`,
+        `cite as [${numbers.get(n.url)}]${n.section ? ` · section ${n.section}` : ""} · note ${n.n}: ${n.claim}\n  "${n.quote}"\n  ${n.url}`,
     )
     .join("\n");
 }

@@ -62,6 +62,7 @@ import {
   type SourceStore,
   WEB_TOOLS,
   checkReport,
+  citationProblems,
   describeReportCheck,
   fetchedPages,
 } from "./research";
@@ -88,6 +89,7 @@ const MAX_STEPS = 24;
 /** Research searches and reads many pages before it writes; a thorough one
  *  must not stop halfway through its sources. */
 const RESEARCH_STEPS = 60;
+const WORKERS_RESEARCH_STEPS = 100;
 /** A read notes a card per call; even batched, a long document needs more. */
 const READ_STEPS = 80;
 
@@ -650,7 +652,10 @@ async function runTool(
       await t.store.save(t.draftId, { body });
       const { r, line } = await checkFor(t, body);
       t.emit({ type: "draft", check: r });
-      return { text: `Saved. ${line}` };
+      const cites = t.kind === "research" ? citationProblems(body) : [];
+      return {
+        text: `Saved. ${line}${cites.length ? `\nCITATIONS TO FIX: ${cites.join(" ")}` : ""}`,
+      };
     }
     case "write_report": {
       const p = ReportInput.safeParse(input);
@@ -792,8 +797,9 @@ async function runTool(
       const { r, line } = await checkFor(t, body);
       t.emit({ type: "draft", check: r });
       const left = unwritten(body);
+      const cites = citationProblems(body);
       return {
-        text: `Saved. ${left.length ? `Still to write: ${left.join("; ")}.` : "Every part is written."} ${line}`,
+        text: `Saved. ${left.length ? `Still to write: ${left.join("; ")}.` : "Every part is written."} ${line}${cites.length ? `\nCITATIONS TO FIX (with edit_draft): ${cites.join(" ")}` : ""}`,
       };
     }
     // The web on Workers AI: our own tools (Claude's are Anthropic's server
@@ -1085,9 +1091,17 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     emit,
   };
   const usageBefore = usage.cents;
+  // A step on Workers AI costs about a cent: research there gets more of them
+  // (live, V4.1 Flash used all 60 before writing its summary).
   const steps =
     o.maxSteps ??
-    (draft.kind === "read" ? READ_STEPS : draft.kind === "research" ? RESEARCH_STEPS : MAX_STEPS);
+    (draft.kind === "read"
+      ? READ_STEPS
+      : draft.kind === "research"
+        ? workers
+          ? WORKERS_RESEARCH_STEPS
+          : RESEARCH_STEPS
+        : MAX_STEPS);
   // Whether the model finished on its own, rather than hitting the step limit.
   let ended = false;
   // The research workflow's checkpoints, each said once a message.

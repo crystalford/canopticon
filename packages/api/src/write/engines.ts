@@ -54,15 +54,17 @@ export const ENGINES: Engine[] = [
   {
     id: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
     label: "DeepSeek V4.1 Flash",
-    note: "Workers AI · $0.30 in / $1.20 out per million tokens · about a fifteenth of Claude",
+    note: "Workers AI · $0.30 in / $1.20 out per million tokens · about $0.20 a full report",
     price: { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0.3 },
     provider: "workers",
   },
   {
-    id: "@cf/zai-org/glm-5.3",
-    label: "GLM-5.3",
-    note: "Workers AI · $1.40 in / $4.40 out · stronger writing, about a quarter of Claude",
-    price: { input: 1.4, output: 4.4, cacheRead: 0.26, cacheWrite: 1.4 },
+    // Measured 2026-11-07 on one full-depth question: about the same depth and
+    // sourcing as V4.1 Flash, more careful with figures, four times the cost.
+    id: "@cf/deepseek-ai/deepseek-v4-pro-0813",
+    label: "DeepSeek V4 Pro",
+    note: "Workers AI · $1.32 in / $3.96 out · more careful with figures · about $0.75 a full report",
+    price: { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 1.32 },
     provider: "workers",
   },
   {
@@ -87,16 +89,21 @@ export const ENGINES: Engine[] = [
   },
 ];
 
-/** Models on trial: not offered in the workspace, reachable only through the
- *  test probe (/v1/admin/engine-try) so they can be compared with the
- *  offered ones on the same question before any is offered. Prices from the
- *  Workers AI catalog (2026-11). */
+/** Models not offered in the workspace: on trial, or retired (a conversation
+ *  frozen on one keeps running on it). Reachable through the test probe
+ *  (/v1/admin/engine-try) to compare with the offered ones on the same
+ *  question. Measured 2026-11-07 on one full-depth question: Kimi K2.7 $1.08
+ *  for a thinner report that missed published figures and cited sources in
+ *  words; GLM-5.3 Flash $0.28 and unfinished; Qwen 3.8 timed out three
+ *  times. Prices from the Workers AI catalog (2026-11). */
 export const TRIAL_ENGINES: Engine[] = [
   {
-    id: "@cf/deepseek-ai/deepseek-v4-pro-0813",
-    label: "DeepSeek V4 Pro",
-    note: "Workers AI · $1.32 in / $3.96 out · on trial",
-    price: { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 1.32 },
+    // Retired from the menu 2026-11-07: $3.17 for the report V4.1 Flash wrote
+    // for $0.18. Conversations already on it keep running on it.
+    id: "@cf/zai-org/glm-5.3",
+    label: "GLM-5.3",
+    note: "Workers AI · $1.40 in / $4.40 out · retired",
+    price: { input: 1.4, output: 4.4, cacheRead: 0.26, cacheWrite: 1.4 },
     provider: "workers",
   },
   {

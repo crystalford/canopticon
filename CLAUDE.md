@@ -116,8 +116,18 @@
   frame at the first turn (`frame.engine`; absent = Claude; a conversation
   with messages but no frame stays Claude). Workers AI engines:
   `@cf/deepseek-ai/deepseek-v4.1-flash-1017` (default, $0.30/$1.20 per M) and
-  `@cf/zai-org/glm-5.3` ($1.40/$4.40) — both tool-calling-tested live through
-  `/v1/admin/models?try=`. Same loop, instructions, tools and checks: the
+  `@cf/deepseek-ai/deepseek-v4-pro-0813` ($1.32/$3.96). **Chosen by a
+  head-to-head on 2026-11-07** (`/v1/admin/engine-try`, one full-depth
+  question, 60 steps): V4.1 Flash 9,513 words, 45/45 quotations found, $0.18;
+  V4 Pro 6,982 words, 39/39, $0.75, more careful with figures; GLM-5.3
+  $3.17 for the same (retired to `TRIAL_ENGINES`, where a conversation frozen
+  on it still resolves); Kimi K2.7, GLM-5.3 Flash and Qwen 3.8 fell short.
+  Workers AI calls carry `x-session-affinity` per conversation — without it
+  the cached prefix (≈94% of input, billed at ~2%) is not reused. Research on
+  Workers AI gets 100 steps (Flash used all 60). Two of six models cited their
+  note numbers as source numbers: `list_notes` now leads with "cite as [n]"
+  and every write reports citations past the Sources list
+  (`citationProblems`, also a Save problem). Same loop, instructions, tools and checks: the
   stored conversation stays Anthropic-shaped; `workersStep` converts it to the
   OpenAI chat format (`toChat`/`toFunctions`) and the reply back (`fromChat`).
   The web is our own tools there: `web_search` through Cloudflare's Web
