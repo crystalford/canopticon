@@ -1803,6 +1803,28 @@ app.get("/engine-try", async (c) => {
   return new Response(readable, { headers: { "content-type": "application/json" } });
 });
 
+/** One Workers AI call, raw: POST {model, input} → what came back (or the
+ *  error, which for a model with a schema says what it expected). For
+ *  learning a new model's shape from the live site, which the sandbox cannot
+ *  reach. Cloudflare-hosted models only (@cf/…, the regular bill). */
+app.post("/ai-run", async (c) => {
+  const b = (await c.req.json().catch(() => ({}))) as { model?: unknown; input?: unknown };
+  const model = String(b.model ?? "");
+  if (!/^@cf\//.test(model)) return c.json({ error: "Give model (@cf/…) and input." }, 400);
+  const ai = c.env.AI as unknown as { run: (m: string, i: unknown) => Promise<unknown> };
+  const t0 = Date.now();
+  try {
+    const result = await ai.run(model, b.input ?? {});
+    const text = JSON.stringify(result);
+    return c.json({
+      ms: Date.now() - t0,
+      result: text.length > 20_000 ? `${text.slice(0, 20_000)}…` : result,
+    });
+  } catch (err) {
+    return c.json({ ms: Date.now() - t0, error: String(err).slice(0, 4000) });
+  }
+});
+
 /** How the workspace's conversations actually behaved, from their stored
  *  messages: model calls per message, tools used and how much each returned,
  *  pages fetched more than once, whole-report rewrites against passage edits,
