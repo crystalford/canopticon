@@ -132,3 +132,111 @@ describe("the research team", () => {
     expect(saved?.usage.cents).toBeCloseTo(cents, 6);
   });
 });
+
+describe("the reviewers", () => {
+  it("read every section once it is written, keep only flags on real sentences, and show them", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (url: string) =>
+          new Response(`<p>${`Page ${url} about housing starts in Toronto. `.repeat(20)}</p>`, {
+            headers: { "content-type": "text/html" },
+          }),
+      ),
+    );
+    const one = "Starts rose ten per cent in 2025 because of the rebate [1].";
+    const writer: unknown[] = [
+      reply(null, [
+        [
+          "o1",
+          "write_outline",
+          {
+            title: "Starts",
+            topic: "Housing",
+            sections: [
+              { heading: "How many?", words: 400 },
+              { heading: "Why?", words: 400 },
+            ],
+          },
+        ],
+      ]),
+      reply(null, [["w1", "write_section", { part: "1", text: `${one} More text here.` }]]),
+      reply(null, [
+        ["w2", "write_section", { part: "2", text: "The second section, written [2]." }],
+      ]),
+      reply("Fixing next."),
+    ];
+    const researcher = (n: number) => [
+      reply(null, [[`f${n}`, "web_fetch", { url: `https://p${n}.example` }]]),
+      reply(null, [
+        [
+          `n${n}`,
+          "note_evidence",
+          {
+            url: `https://p${n}.example`,
+            quote: "about housing starts in Toronto",
+            claim: `C${n}`,
+          },
+        ],
+      ]),
+      reply("Done."),
+    ];
+    const scripts: Record<string, unknown[]> = {
+      s1: researcher(1),
+      s2: researcher(2),
+      r1: [
+        reply(null, [
+          ["g1", "flag", { sentence: one, kind: "overstated", why: "The page shows no cause." }],
+          [
+            "g2",
+            "flag",
+            { sentence: "A sentence the section never had.", kind: "unsupported", why: "x" },
+          ],
+        ]),
+        reply("One flag."),
+      ],
+      r2: [reply("Nothing wrong.")],
+    };
+    const env = {
+      LOG_LEVEL: "error",
+      AI: {
+        run: async (_m: string, _i: unknown, opts?: { headers?: Record<string, string> }) => {
+          const who = /-([sr]\d)$/.exec(opts?.headers?.["x-session-affinity"] ?? "")?.[1];
+          return who ? scripts[who]?.shift() : writer.shift();
+        },
+      },
+    } as unknown as Env;
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    await store.save(d.id, { meta: { ...d.meta, engine: "team:flash" } });
+    await runTurn({
+      stream: null,
+      env,
+      store,
+      sources: memorySources(),
+      notes: memoryNotes(),
+      draftId: d.id,
+      text: "How many homes were started?",
+      emit: () => {},
+    });
+    const saved = await store.get(d.id);
+    expect(saved?.meta.review).toEqual([
+      { section: 1, kind: "overstated", sentence: one, why: "The page shows no cause." },
+    ]);
+    const all = JSON.stringify(await store.messages(d.id));
+    expect(all).toContain("The reviewers flagged 1 point");
+    expect(all).toContain("1 refused");
+    // Chris sees the flag, and that the sentence has not changed yet.
+    const { renderWorkspace } = await import("../src/site/pages/write");
+    const html = renderWorkspace(saved as never, [], { total: 0, failed: [] }, { hasKey: true });
+    expect(html).toContain("Reviewers: 1 flagged · 0 changed since");
+    expect(html).toContain("Says more than its source");
+    const fixed = renderWorkspace(
+      { ...(saved as object), body: (saved?.body ?? "").replace(one, "Starts rose [1].") } as never,
+      [],
+      { total: 0, failed: [] },
+      { hasKey: true },
+    );
+    expect(fixed).toContain("1 changed since");
+  });
+});

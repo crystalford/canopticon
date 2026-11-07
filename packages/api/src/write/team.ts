@@ -75,3 +75,105 @@ export function teamReport(
     "Now write each section from its notes with write_section, citing as each note says. Search further yourself only for a gap you can name, and note what you find.",
   ].join("\n");
 }
+
+// ---- the reviewers ------------------------------------------------------------
+//
+// Code proves every quotation is on a page read and every citation names a
+// listed source. It cannot tell whether a sentence says what its source says,
+// or whether the strongest evidence against it was looked for. Once every
+// section is written, one reviewer per section reads it against its notes,
+// searches for counter-evidence, and flags what it finds; the writer fixes
+// each before the summary, and Chris sees each flag and whether it was fixed.
+// A flag must quote a sentence that is in the section, word for word, or it
+// is dropped (the record's rule for every span a model hands back).
+
+export const REVIEWER_STEPS = 12;
+
+export const REVIEW_KINDS = ["unsupported", "overstated", "counter", "missing"] as const;
+export type ReviewKind = (typeof REVIEW_KINDS)[number];
+
+export const KIND_WORDS: Record<ReviewKind, string> = {
+  unsupported: "Not supported by its source",
+  overstated: "Says more than its source",
+  counter: "Evidence against it",
+  missing: "Missing",
+};
+
+export interface ReviewFlag {
+  section: number;
+  kind: ReviewKind;
+  /** The sentence flagged, as it stood in the section (word for word). */
+  sentence: string;
+  why: string;
+  /** Counter-evidence: the page it is on (also noted). */
+  url?: string;
+}
+
+/** The reviewer's one writing tool: a flag. */
+export const FLAG_TOOL = {
+  name: "flag",
+  description:
+    "Flag one problem in your section. sentence: copied word for word from the section. kind: unsupported (the cited source does not say it), overstated (it says more than the source: certainty, scope, cause, a figure rounded up), counter (you found evidence against it — note that evidence with note_evidence first and give its address), or missing (an important finding or side the section leaves out; quote the sentence it belongs after). why: one or two sentences.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      sentence: { type: "string" },
+      kind: { type: "string", enum: [...REVIEW_KINDS] },
+      why: { type: "string" },
+      url: { type: "string", description: "counter: the page the evidence is on" },
+    },
+    required: ["sentence", "kind", "why"],
+  },
+};
+
+export const REVIEWER_TOOLS = new Set(["web_search", "web_fetch", "note_evidence", "flag"]);
+
+export function reviewerSystem(): string {
+  return [
+    "You are a reviewer for Canopticon, a public research record. One section of a research report has been written from notes; each note is a passage copied word for word from a page that was read. Your job is to find what is wrong with the section before it is published. You do not rewrite it — the writer does that from your flags.",
+    "",
+    "CHECK, IN THIS ORDER",
+    "1. Every sentence that cites a source [n]: does a note from that source say it? Flag `unsupported` if no note does, `overstated` if the sentence claims more than the note (more certainty, a wider scope, a cause where the source shows a correlation, a figure rounded in its favour).",
+    "2. The section's main conclusions: search for the strongest evidence against them — official data that disagrees, a study with the opposite result, a serious critic. Read it, note it with note_evidence, and flag `counter` with its address.",
+    "3. Flag `missing` for an important finding or side the section leaves out (one or two at most).",
+    "",
+    "RULES",
+    "- Quote the sentence you flag word for word from the section; a flag whose sentence is not in the section is dropped.",
+    "- Flag only real problems. A section with nothing wrong gets no flags — say so.",
+    "- At most eight flags.",
+    "",
+    "When you are done, stop calling tools and reply in one line: how many flags, and the most important.",
+  ].join("\n");
+}
+
+export function reviewerBrief(
+  question: string,
+  section: { n: number; heading: string; text: string },
+  notes: string,
+): string {
+  return [
+    `The question the report answers: ${question}`,
+    "",
+    `Section ${section.n}: ${section.heading}`,
+    "",
+    section.text,
+    "",
+    "THE NOTES IT WAS WRITTEN FROM (cite as [n] gives the source number used in the section):",
+    notes,
+  ].join("\n");
+}
+
+/** What the writer is told when the reviewers are done. */
+export function reviewReport(flags: ReviewFlag[], dropped: number): string {
+  if (!flags.length)
+    return `The reviewers read every section against its notes and looked for counter-evidence: nothing to fix${dropped ? ` (${dropped} refused: the sentence quoted was not in the section)` : ""}. Write the summary and the closing.`;
+  return [
+    `The reviewers flagged ${flags.length} ${flags.length === 1 ? "point" : "points"}${dropped ? ` (${dropped} refused: the sentence quoted was not in the section)` : ""}. Fix each before the summary — with edit_draft (several at once with also): correct or cut an unsupported or overstated sentence, weigh counter-evidence in the text and cite its note, add what is missing. If a flag is wrong, leave the sentence and say why under Open questions.`,
+    ...flags.map(
+      (f, i) =>
+        `${i + 1}. §${f.section} ${KIND_WORDS[f.kind]}: "${f.sentence.slice(0, 300)}" — ${f.why}${f.url ? ` (${f.url})` : ""}`,
+    ),
+    "",
+    "Then write the summary and the closing.",
+  ].join("\n");
+}

@@ -14,7 +14,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { Env } from "../env";
 import { essayContract, problems, researchDoc, terms } from "../site/content/store";
-import { type CheckResult, checkQuotes, describeCheck, draftQuotes } from "./check";
+import { type CheckResult, checkQuotes, describeCheck, draftQuotes, verbatimNormal } from "./check";
 import type { Draft, DraftKind, DraftMeta, DraftStore, Message, Usage } from "./drafts";
 import { NO_USAGE } from "./drafts";
 import {
@@ -40,6 +40,7 @@ import {
   describeNotes,
   placeNote,
   replacePart,
+  sectionsOf,
   skeleton,
   sourceNumbers,
   unwritten,
@@ -81,11 +82,20 @@ import {
 import { storedKey } from "./stored-key";
 import {
   ENOUGH_NOTES,
+  FLAG_TOOL,
   MAX_RESEARCHERS,
   RESEARCHER_STEPS,
   RESEARCHER_TOOLS,
+  REVIEWER_STEPS,
+  REVIEWER_TOOLS,
+  REVIEW_KINDS,
+  type ReviewFlag,
+  type ReviewKind,
   researcherBrief,
   researcherSystem,
+  reviewReport,
+  reviewerBrief,
+  reviewerSystem,
   teamReport,
 } from "./team";
 
@@ -508,6 +518,9 @@ interface ToolContext {
     need: Array<{ n: number; heading: string }>,
     all: Array<{ n: number; heading: string }>,
   ) => Promise<string>;
+  /** A research team's reviewers, once every section is written (team.ts);
+   *  null when they have already reviewed this report. */
+  review?: () => Promise<string | null>;
 }
 
 async function keptPages(t: ToolContext): Promise<ResearchSource[]> {
@@ -827,6 +840,14 @@ async function runTool(
       const left = unwritten(body);
       const cites = citationProblems(body);
       const figures = describeFigures(figureProblems(body, await keptPages(t)));
+      // Every Details section written: the reviewers read them now, once.
+      if (t.review && !left.some((h) => /^\d+\. /.test(h))) {
+        const said = await t.review();
+        if (said)
+          return {
+            text: `Saved. ${line}${cites.length ? `\nCITATIONS TO FIX (with edit_draft): ${cites.join(" ")}` : ""}${figures}\n\n${said}`,
+          };
+      }
       return {
         text: `Saved. ${left.length ? `Still to write: ${left.join("; ")}.` : "Every part is written."} ${line}${cites.length ? `\nCITATIONS TO FIX (with edit_draft): ${cites.join(" ")}` : ""}${figures}`,
       };
@@ -1027,6 +1048,155 @@ async function runResearcher(o: {
     } as Message);
   }
   return { said, pages };
+}
+
+const flatten = (x: string) => verbatimNormal(x).replace(/\s+/g, " ").trim();
+
+async function runReview(o: {
+  ctx: ToolContext;
+  reader: EngineId;
+  question: string;
+  tools: Anthropic.Beta.BetaToolUnion[];
+  onStep: (m: Anthropic.Beta.BetaMessage) => Promise<void>;
+}): Promise<string> {
+  const { ctx } = o;
+  const d = await ctx.store.get(ctx.draftId);
+  const body = d?.body ?? "";
+  const sections = sectionsOf(body).filter((s) => s.text);
+  const notes = ctx.notes ? await ctx.notes.list(ctx.draftId) : [];
+  const numbers = sourceNumbers(notes);
+  await keptPages(ctx);
+  const { team: _t, review: _r, ...rest } = ctx;
+  const shared: ToolContext = {
+    ...rest,
+    ...(ctx.notes ? { notes: oneAtATime(ctx.notes) } : {}),
+  };
+  ctx.emit({
+    type: "activity",
+    text: `${sections.length} reviewers started: ${sections.map((s) => `§${s.n}`).join(", ")}`,
+  });
+  const flags: ReviewFlag[] = [];
+  let dropped = 0;
+  const queue = [...sections];
+  const worker = async () => {
+    for (let s = queue.shift(); s; s = queue.shift()) {
+      // Its own notes, and every note from a source the section cites.
+      const cited = new Set(
+        [...s.text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])).filter(Boolean),
+      );
+      const mine = describeNotes(
+        notes,
+        (n) => n.section === s.n || cited.has(numbers.get(n.url) ?? -1),
+      );
+      const r = await runReviewer({ ...o, ctx: shared, section: s, notes: mine }).catch(
+        (e: Error) => ({ flags: [] as ReviewFlag[], dropped: 0, said: e.message }),
+      );
+      flags.push(...r.flags);
+      dropped += r.dropped;
+      ctx.emit({
+        type: "activity",
+        text: `§${s.n} reviewed: ${r.flags.length} ${r.flags.length === 1 ? "flag" : "flags"}`,
+      });
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(MAX_RESEARCHERS, queue.length) }, worker));
+  flags.sort((a, b) => a.section - b.section);
+  const now = await ctx.store.get(ctx.draftId);
+  if (now) await ctx.store.save(ctx.draftId, { meta: { ...now.meta, review: flags } });
+  return reviewReport(flags, dropped);
+}
+
+async function runReviewer(o: {
+  ctx: ToolContext;
+  reader: EngineId;
+  question: string;
+  section: { n: number; heading: string; text: string };
+  notes: string;
+  tools: Anthropic.Beta.BetaToolUnion[];
+  onStep: (m: Anthropic.Beta.BetaMessage) => Promise<void>;
+}): Promise<{ flags: ReviewFlag[]; dropped: number; said: string }> {
+  const { ctx, section } = o;
+  const history: Message[] = [
+    { role: "user", content: reviewerBrief(o.question, section, o.notes) },
+  ];
+  const flags: ReviewFlag[] = [];
+  let dropped = 0;
+  let said = "";
+  const text = flatten(section.text);
+  for (let step = 0; step < REVIEWER_STEPS; step++) {
+    const m = await workersStep(
+      ctx.env,
+      o.reader,
+      reviewerSystem(),
+      o.tools,
+      history,
+      200_000,
+      `${ctx.draftId}-r${section.n}`,
+    );
+    await o.onStep(m);
+    const assistant: Message = { role: "assistant", content: m.content as Message["content"] };
+    history.push(assistant);
+    const uses = toolUses(assistant.content);
+    said = m.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { text: string }).text)
+      .join(" ")
+      .trim();
+    if (!uses.length || m.stop_reason === "max_tokens") break;
+    const results = await Promise.all(
+      uses.map(async (u) => {
+        let r: { text: string; error?: boolean };
+        if (u.name === "flag") {
+          const i = (u.input ?? {}) as Record<string, unknown>;
+          const sentence = String(i.sentence ?? "").trim();
+          const kind = String(i.kind ?? "") as ReviewKind;
+          const why = String(i.why ?? "").trim();
+          if (!REVIEW_KINDS.includes(kind) || !why)
+            r = { text: "Give the sentence, a kind and why.", error: true };
+          else if (flags.length >= 8) r = { text: "Eight flags is the most.", error: true };
+          else if (sentence.length < 20 || !text.includes(flatten(sentence))) {
+            dropped++;
+            r = {
+              text: "Not flagged: that sentence is not in the section word for word. Copy it exactly.",
+              error: true,
+            };
+          } else {
+            const url = String(i.url ?? "").trim();
+            flags.push({
+              section: section.n,
+              kind,
+              sentence,
+              why,
+              ...(/^https?:\/\//.test(url) ? { url } : {}),
+            });
+            r = { text: "Flagged." };
+          }
+        } else if (REVIEWER_TOOLS.has(u.name)) {
+          const input =
+            u.name === "note_evidence"
+              ? { ...(u.input as Record<string, unknown>), section: section.n }
+              : u.input;
+          r = await runTool(u.name, input, { ...ctx, toolUseId: u.id }).catch((e: Error) => ({
+            text: `Failed: ${e.message}`,
+            error: true,
+          }));
+          if (u.name !== "note_evidence")
+            ctx.emit({
+              type: "activity",
+              text: `§${section.n} review: ${activityLabel(u.name, u.input)}`,
+            });
+        } else r = { text: `A reviewer cannot use ${u.name}.`, error: true };
+        return {
+          type: "tool_result" as const,
+          tool_use_id: u.id,
+          content: r.text,
+          ...(r.error ? { is_error: true } : {}),
+        };
+      }),
+    );
+    history.push({ role: "user", content: results } as Message);
+  }
+  return { flags, dropped, said };
 }
 
 // ---- the turn ---------------------------------------------------------------
@@ -1275,6 +1445,25 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
         need: fresh,
         all,
         tools: frame.tools.filter((t) => RESEARCHER_TOOLS.has((t as { name: string }).name)),
+        onStep: async (m) => {
+          usage = addUsage(usage, m, engineOf(crew.reader).price);
+          await store.save(draftId, { usage });
+        },
+      });
+    };
+    let reviewing = false;
+    ctx.review = async () => {
+      const now = await store.get(draftId);
+      if (reviewing || !now || now.meta.review) return null;
+      reviewing = true;
+      return runReview({
+        ctx,
+        reader: crew.reader,
+        question: firstText ?? o.text,
+        tools: [
+          ...frame.tools.filter((t) => REVIEWER_TOOLS.has((t as { name: string }).name)),
+          FLAG_TOOL as unknown as Anthropic.Beta.BetaToolUnion,
+        ],
         onStep: async (m) => {
           usage = addUsage(usage, m, engineOf(crew.reader).price);
           await store.save(draftId, { usage });

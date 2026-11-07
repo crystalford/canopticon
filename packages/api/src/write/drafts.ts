@@ -33,6 +33,9 @@ export interface DraftMeta {
   /** The engine chosen when the conversation was started (before its first
    *  turn freezes it into the frame): "claude" or a Workers AI model id. */
   engine?: string;
+  /** Research: what the reviewers flagged once every section was written
+   *  (team.ts). Private: shown in the workspace, never published. */
+  review?: Array<{ section: number; kind: string; sentence: string; why: string; url?: string }>;
 }
 
 export interface Usage {
