@@ -1784,6 +1784,11 @@ app.get("/engine-try", async (c) => {
             citations: cites,
             figures_not_in_pages: figures,
             repeated: Math.round(repeatedShare(body) * 1000) / 1000,
+            // The reviewers' flags, and how many sentences changed after.
+            review: (done?.meta.review ?? []).map((f) => ({
+              ...f,
+              changed: !body.replace(/\s+/g, " ").includes(f.sentence.replace(/\s+/g, " ").trim()),
+            })),
             publish_problems: publish,
             unwritten: unwritten(body),
             ...(full ? { body } : { start: body.slice(0, 2500) }),

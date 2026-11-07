@@ -110,9 +110,9 @@ jobs:
             echo
             echo "Tasks and bar: packages/api/src/write/eval.ts. Cost is Workers AI (or Anthropic) as metered by the workspace."
             echo
-            echo "| Model | Task | Pass | Words | Quotes (not found) | Pages | Figures not in pages | Cost | Minutes | Misses |"
-            echo "|---|---|---|---|---|---|---|---|---|---|"
-            jq -r '.[] | "| \(.model|sub("@cf/";"")) | \(.eval) \(.label // "") | \(if .grade.pass then "✅" else "❌" end) | \(.report.words // 0) | \(.report.quotations // 0) (\(.report.not_found // [] | length)) | \(.pages_read // [] | length) | \(.report.figures_not_in_pages // [] | length) | $\(.dollars // 0) | \(((.seconds // 0) / 60) | floor) | \(.grade.misses | join("; ")) |"' "ops/eval/${STAMP}.json"
+            echo "| Model | Task | Pass | Words | Quotes (not found) | Pages | Figures not in pages | Reviewer flags (changed) | Cost | Minutes | Misses |"
+            echo "|---|---|---|---|---|---|---|---|---|---|---|"
+            jq -r '.[] | "| \(.model|sub("@cf/";"")) | \(.eval) \(.label // "") | \(if .grade.pass then "✅" else "❌" end) | \(.report.words // 0) | \(.report.quotations // 0) (\(.report.not_found // [] | length)) | \(.pages_read // [] | length) | \(.report.figures_not_in_pages // [] | length) | \(.report.review // [] | length) (\(.report.review // [] | map(select(.changed)) | length)) | $\(.dollars // 0) | \(((.seconds // 0) / 60) | floor) | \(.grade.misses | join("; ")) |"' "ops/eval/${STAMP}.json"
             echo
             echo "## Verdict"
             echo

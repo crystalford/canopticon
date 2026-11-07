@@ -197,6 +197,23 @@ export function replacePart(body: string, part: string, text: string): string | 
 /** Where a Details section ends: the next numbered section or ## part. */
 const SECTION_END = /\n(### \d+\. |## )/;
 
+/** The Details sections as written: number, heading and text (without the
+ *  heading). A section still to write has empty text. */
+export function sectionsOf(body: string): Array<{ n: number; heading: string; text: string }> {
+  const out: Array<{ n: number; heading: string; text: string }> = [];
+  for (const m of body.matchAll(/\n### (\d+)\. ([^\n]*)\n/g)) {
+    const from = (m.index ?? 0) + m[0].length;
+    const next = body.slice(from).search(SECTION_END);
+    const text = body.slice(from, next < 0 ? body.length : from + next).trim();
+    out.push({
+      n: Number(m[1]),
+      heading: (m[2] ?? "").trim(),
+      text: text.startsWith(TO_WRITE) ? "" : text,
+    });
+  }
+  return out;
+}
+
 /** The body with its Sources list rebuilt from the notes. */
 export function withSources(body: string, notes: Note[], pages: ResearchSource[]): string {
   const numbers = sourceNumbers(notes);
@@ -286,9 +303,14 @@ export const WRITE_SECTION_TOOL: Anthropic.Beta.BetaToolUnion = {
 
 export const NOTES_TOOLS = [OUTLINE_TOOL, NOTE_EVIDENCE_TOOL, LIST_NOTES_TOOL, WRITE_SECTION_TOOL];
 
-export function describeNotes(notes: Note[], section?: number): string {
+export function describeNotes(notes: Note[], section?: number | ((n: Note) => boolean)): string {
   const numbers = sourceNumbers(notes);
-  const shown = section ? notes.filter((n) => n.section === section) : notes;
+  const shown =
+    typeof section === "function"
+      ? notes.filter(section)
+      : section
+        ? notes.filter((n) => n.section === section)
+        : notes;
   if (!shown.length) return section ? `No notes for section ${section} yet.` : "No notes yet.";
   return shown
     .map(

@@ -9,6 +9,7 @@ import type { Draft, DraftKind } from "../../write/drafts";
 import { CLAUDE, ENGINES, type EngineId, engine, isWorkersAi } from "../../write/engines";
 import { type Entry, entryRoute } from "../../write/entries";
 import type { LiveVersion } from "../../write/publish";
+import { KIND_WORDS } from "../../write/team";
 import { esc, shell } from "../layout";
 
 const SHORT_DATE = new Intl.DateTimeFormat("en-CA", { day: "numeric", month: "short" });
@@ -136,6 +137,31 @@ export function renderWorkspace(
     : (opts.publish ?? { problems: ["Nothing is written yet."], live: null, changed: true });
   const isLive = d.status === "published" && !!pub.live;
   const ready = !pub.problems.length;
+  // The reviewers' flags (team.ts): private, with whether each sentence has
+  // changed since — the writer's fix, or Chris's.
+  const flat = (x: string) => x.replace(/\s+/g, " ").trim();
+  const flags = research ? (d.meta.review ?? []) : [];
+  const changed = (s: string) => !flat(d.body).includes(flat(s));
+  const reviewed = d.meta.review
+    ? `<details class="ws-why ws-review"${flags.some((f) => !changed(f.sentence)) ? " open" : ""}><summary>Reviewers: ${
+        flags.length
+          ? `${flags.length} flagged · ${flags.filter((f) => changed(f.sentence)).length} changed since`
+          : "nothing flagged"
+      }</summary>${
+        flags.length
+          ? `<ul>${flags
+              .map(
+                (f) =>
+                  `<li><strong>§${f.section} ${esc(KIND_WORDS[f.kind as keyof typeof KIND_WORDS] ?? f.kind)}</strong> “${esc(f.sentence.slice(0, 240))}” — ${esc(f.why)}${
+                    f.url
+                      ? ` <a class="ulink" href="${esc(f.url)}" target="_blank" rel="noopener">source</a>`
+                      : ""
+                  } <span class="ws-uptodate">${changed(f.sentence) ? "changed" : "not changed"}</span></li>`,
+              )
+              .join("")}</ul>`
+          : ""
+      }</details>`
+    : "";
   const why = pub.problems.length
     ? `<details class="ws-why"><summary>${research ? "Not ready for Admin" : "Not ready to publish"}</summary><ul>${pub.problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></details>`
     : "";
@@ -196,7 +222,7 @@ ${opts.hasKey ? "" : NO_KEY}
 </form>
 </section>
 <section class="ws-page" aria-label="The page">
-<div class="ws-state" data-ws-state><div class="ws-bar"><span data-ws-check>${read ? `<span class="ws-check">${read.receipt}</span>` : checkLine(check)}</span><span class="ws-pub">${read ? "" : `<a class="ulink" href="/admin/write/${esc(d.id)}/article.md">Download .md</a>`}${pubbar}</span></div>${read ? "" : why}</div>${flash}
+<div class="ws-state" data-ws-state><div class="ws-bar"><span data-ws-check>${read ? `<span class="ws-check">${read.receipt}</span>` : checkLine(check)}</span><span class="ws-pub">${read ? "" : `<a class="ulink" href="/admin/write/${esc(d.id)}/article.md">Download .md</a>`}${pubbar}</span></div>${read ? "" : why}${reviewed}</div>${flash}
 <iframe class="ws-frame" src="/admin/write/${esc(d.id)}/preview" title="The article as it will be published" data-ws-preview></iframe>
 </section>
 </div>`;
