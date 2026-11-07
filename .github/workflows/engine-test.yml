@@ -45,8 +45,8 @@ jobs:
         run: |
           set -euo pipefail
           jq -cn --arg m "$MODELS" --arg t "$TASKS" '
-            {include: [ ($m | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))[] as $model
-                      | ($t | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))[] as $task
+            {include: [ ($t | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))[] as $task
+                      | ($m | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))[] as $model
                       | {model: $model, task: $task} ]}' > m.json
           echo "matrix=$(cat m.json)" >> "$GITHUB_OUTPUT"
 
@@ -56,7 +56,10 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      max-parallel: 8
+      # Task by task, so one model is rarely running more than two at once:
+      # Workers AI limits requests per minute per model (live, four Flash
+      # runs at once hit it).
+      max-parallel: 6
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     steps:
       - name: Run one task on one model
