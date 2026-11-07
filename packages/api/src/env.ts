@@ -90,6 +90,9 @@ export interface Env {
   SEARCH_GATEWAY_ID?: string;
   // Which of Cloudflare's search partners to ask; empty means its default.
   SEARCH_PROVIDER?: string;
+  // "1" lets the retired cron handler run; anything else and a scheduled
+  // tick does nothing (rule 4: nothing runs unattended).
+  CRON_ENABLED?: string;
 
   // The video Worker's URL (video.canopticon.com) — where "Produce video
   // essay" POSTs a signed reading's content, and where the public /videos
