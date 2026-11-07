@@ -500,13 +500,56 @@ describe("Workers AI's limits", () => {
     } as unknown as Env;
     const m = await workersStep(env, "@cf/x/y", "sys", [], [{ role: "user", content: "Hi" }]);
     expect(m.content).toMatchObject([{ type: "text", text: "Fine." }]);
-    expect(waits).toEqual([RETRY_WAITS[0], RETRY_WAITS[1]]);
+    // Each wait is the step's, plus up to five seconds so retries spread out.
+    expect(waits).toHaveLength(2);
+    waits.forEach((w, i) => {
+      expect(w).toBeGreaterThanOrEqual(RETRY_WAITS[i] ?? 0);
+      expect(w).toBeLessThan((RETRY_WAITS[i] ?? 0) + 5_000);
+    });
 
     calls = -100;
     await expect(
       workersStep(env, "@cf/x/y", "sys", [], [{ role: "user", content: "Hi" }]),
     ).rejects.toThrow(/3021/);
     expect(waits).toHaveLength(2 + RETRY_WAITS.length);
+    setSleep((ms) => new Promise((r) => setTimeout(r, ms)));
+  });
+});
+
+describe("the per-model gate", () => {
+  it("lets a few requests run at once, and fewer after Workers AI says too many", async () => {
+    const { workersStep, setSleep, gate } = await import("../src/write/engines");
+    setSleep(async () => {});
+    let now = 0;
+    let most = 0;
+    let first = true;
+    const env = {
+      AI: {
+        run: async () => {
+          now++;
+          most = Math.max(most, now);
+          await new Promise((r) => setTimeout(r, 5));
+          now--;
+          if (first) {
+            first = false;
+            throw new Error("3021: rate limiting: inference request per min rate reached");
+          }
+          return {
+            choices: [{ message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+            usage: { prompt_tokens: 1, completion_tokens: 1 },
+          };
+        },
+      },
+    } as unknown as Env;
+    const model = "@cf/test/gate";
+    const before = gate(model).limit;
+    await Promise.all(
+      Array.from({ length: 12 }, () =>
+        workersStep(env, model, "s", [], [{ role: "user", content: "Hi" }]),
+      ),
+    );
+    expect(most).toBeLessThanOrEqual(before);
+    expect(gate(model).active).toBe(0);
     setSleep((ms) => new Promise((r) => setTimeout(r, ms)));
   });
 });

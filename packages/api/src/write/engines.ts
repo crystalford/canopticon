@@ -629,8 +629,51 @@ const MAX_OUT = 32_768;
 
 /** One step on a Workers AI model: the conversation in, one reply out. */
 /** Waits before asking again after Workers AI's per-minute limit (3021). */
-export const RETRY_WAITS = [10_000, 20_000, 30_000, 45_000];
+export const RETRY_WAITS = [10_000, 20_000, 30_000, 45_000, 60_000, 60_000];
 let sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** How many requests to one model run at once, per isolate (one turn's
+ *  researchers, reviewers and writer share it). Halved when Workers AI says
+ *  the per-minute limit is reached, widened by one after every four answers,
+ *  between 1 and GATE_MAX. Live, six Flash researchers at once hit the limit,
+ *  ran out of retries after ~105 s, and about half of every team's
+ *  researchers stopped with no notes. */
+export const GATE_MAX = 6;
+const START = 3;
+class Gate {
+  limit = START;
+  active = 0;
+  private ok = 0;
+  private waiting: Array<() => void> = [];
+  async enter() {
+    while (this.active >= this.limit) await new Promise<void>((r) => this.waiting.push(r));
+    this.active++;
+  }
+  leave() {
+    this.active--;
+    this.wake();
+  }
+  busy() {
+    this.limit = Math.max(1, Math.floor(this.limit / 2));
+    this.ok = 0;
+  }
+  fine() {
+    if (++this.ok >= 4 && this.limit < GATE_MAX) {
+      this.limit++;
+      this.ok = 0;
+      this.wake();
+    }
+  }
+  private wake() {
+    for (const w of this.waiting.splice(0)) w();
+  }
+}
+const gates = new Map<string, Gate>();
+export function gate(model: string): Gate {
+  let g = gates.get(model);
+  if (!g) gates.set(model, (g = new Gate()));
+  return g;
+}
 /** Tests: no real waiting. */
 export function setSleep(f: (ms: number) => Promise<void>) {
   sleep = f;
@@ -657,16 +700,25 @@ export async function workersStep(
   // Cloudflare's per-minute request limit (3021) and its request timeout
   // (3046) pass: wait and ask again. Live, four runs at once on V4.1 Flash
   // hit the limit and ended their turns with the report half written.
+  const g = gate(model);
   const once = async (max: number) => {
     for (let attempt = 0; ; attempt++) {
+      let wait = 0;
+      await g.enter();
       try {
-        return await ai.run(model, { ...input, max_tokens: max }, opts);
+        const r = await ai.run(model, { ...input, max_tokens: max }, opts);
+        g.fine();
+        return r;
       } catch (err) {
         const busy = /\b3021\b|rate limit/i.test(String(err));
         const slow = /\b3046\b|request timeout/i.test(String(err));
+        if (busy) g.busy();
         if (!(busy && attempt < RETRY_WAITS.length) && !(slow && attempt < 1)) throw err;
-        await sleep(busy ? (RETRY_WAITS[attempt] ?? 30_000) : 2_000);
+        wait = busy ? (RETRY_WAITS[attempt] ?? 60_000) + Math.random() * 5_000 : 2_000;
+      } finally {
+        g.leave();
       }
+      await sleep(wait);
     }
   };
   try {

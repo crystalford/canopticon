@@ -154,7 +154,13 @@
   lead is told what each found and could not find, then writes from the
   notes. Researchers cannot write or start researchers; a revised outline
   does not re-send them in the same message. Their calls are counted at
-  Flash's rates. **Then the reviewers** (`runReview`, once per conversation,
+  Flash's rates. **Every Workers AI request goes through a per-model gate**
+  (`gate()` in `engines.ts`: 3 at once to start, halved on 3021, widened by
+  one per four answers, max 6; retries 10–60 s with jitter, six times):
+  live, about half of every team's researchers had died on the per-minute
+  limit after ~105 s with no notes, and the writer silently redid their
+  research. A stopped researcher is re-queued once and the stop is said in
+  the chat. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a

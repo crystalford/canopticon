@@ -87,7 +87,8 @@ export function teamReport(
 // A flag must quote a sentence that is in the section, word for word, or it
 // is dropped (the record's rule for every span a model hands back).
 
-export const REVIEWER_STEPS = 12;
+// Eight: live, twelve-step reviewers took up to eight minutes of a report.
+export const REVIEWER_STEPS = 8;
 
 export const REVIEW_KINDS = ["unsupported", "overstated", "counter", "missing"] as const;
 export type ReviewKind = (typeof REVIEW_KINDS)[number];
