@@ -1831,6 +1831,33 @@ app.get("/engine-try", async (c) => {
   return new Response(readable, { headers: { "content-type": "application/json" } });
 });
 
+/** The free source finder, source by source, live: what each returned for
+ *  a question, or why it failed. ?q=…&all=1 asks every source, not just the
+ *  ones the question routes to. */
+app.get("/finder", async (c) => {
+  const { askSources, ALL_SOURCES, waybackCopy } = await import("../write/finder.ts");
+  const q = c.req.query("q") ?? "Canada pharmacare drug coverage";
+  const t0 = Date.now();
+  const lists = await askSources(
+    q,
+    c.req.query("all") === "1" ? Object.keys(ALL_SOURCES) : undefined,
+  );
+  const wayback = c.req.query("wayback")
+    ? await waybackCopy(String(c.req.query("wayback"))).catch((e) => ({ error: String(e) }))
+    : undefined;
+  return c.json({
+    q,
+    ms: Date.now() - t0,
+    sources: lists.map((l) => ({
+      name: l.name,
+      found: l.found.length,
+      error: l.error,
+      first: l.found[0],
+    })),
+    ...(wayback !== undefined ? { wayback } : {}),
+  });
+});
+
 /** One Workers AI call, raw: POST {model, input} → what came back (or the
  *  error, which for a model with a schema says what it expected). For
  *  learning a new model's shape from the live site, which the sandbox cannot

@@ -1,17 +1,17 @@
-# Engine test — 2026-11-08-0240 UTC
+# Engine test — 2026-11-08-0337 UTC
 
 Tasks and bar: packages/api/src/write/eval.ts. Cost is Workers AI (or Anthropic) as metered by the workspace.
 
 | Model | Task | Pass | Words | Quotes (not found) | Pages | Figures not in pages | Reviewer flags (changed) | Cost | Minutes | Misses |
 |---|---|---|---|---|---|---|---|---|---|---|
-| team:flash | 0 policy, numbers | ❌ | 6366 | 40 (8) | 49 | 0 | 2 (2) | $0.5573 | 25 | parts left unwritten; 8 quotations not found; 1 citation problems |
-| team:flash | 1 evidence, studies | ❌ | 1703 | 0 (0) | 49 | 0 | 0 (0) | $0.3817 | 23 | 1703 words (bar 3000); 0 quotations (bar 10) |
-| team:flash | 2 ideas, scholarship | ❌ | 7064 | 44 (0) | 41 | 0 | 1 (1) | $0.4771 | 25 | parts left unwritten |
-| team:flash | 3 article from the record | ✅ | 2269 | 45 (0) | 0 | 0 | 0 (0) | $0.06 | 4 |  |
-| team:flash | 4 thesis test | ❌ | 5733 | 7 (0) | 42 | 1 | 1 (0) | $0.6308 | 25 | parts left unwritten; 7 quotations (bar 10); no verdict line |
+| team:flash | 0 policy, numbers | ✅ | 6063 | 30 (0) | 41 | 0 | 1 (1) | $0.3939 | 22 |  |
+| team:flash | 1 evidence, studies | ✅ | 7554 | 29 (0) | 41 | 0 | 1 (0) | $0.575 | 21 |  |
+| team:flash | 2 ideas, scholarship | ✅ | 8079 | 11 (0) | 53 | 0 | 0 (0) | $0.4765 | 19 |  |
+| team:flash | 3 article from the record | ✅ | 2883 | 60 (0) | 0 | 0 | 0 (0) | $0.0574 | 3 |  |
+| team:flash | 4 thesis test | ✅ | 8156 | 37 (0) | 53 | 0 | 9 (9) | $0.5469 | 24 |  |
 
 ## Verdict
 
-No model passed every task.
+Cheapest model that passed every task: **team:flash** ($2.05 for 5 tasks).
 
-- team:flash: failed at least one, $2.11 total
+- team:flash: passed all, $2.05 total
