@@ -26,8 +26,10 @@ import {
   PAGE_CHARS,
   SEARCH_TOOL,
   advisorTool,
+  dollarsOf,
   engine as engineOf,
   isWorkersAi,
+  messageCapCents,
   readPage,
   webSearch,
   workersModel,
@@ -1612,8 +1614,14 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
   const startedAt = new Date().toISOString();
   let stopSeen = false;
   let stopLooked = 0;
+  // The spending cap: one message never costs more than this, whatever the
+  // model does. A message that reaches it stops like Stop, keeping all.
+  const centsAtStart = usage.cents;
+  const cap = messageCapCents(engineId);
+  let capped = false;
   ctx.stop = async () => {
-    if (stopSeen) return true;
+    if (usage.cents - centsAtStart >= cap) capped = true;
+    if (capped || stopSeen) return true;
     if (Date.now() - stopLooked < 4000) return false;
     stopLooked = Date.now();
     const at = (await store.get(draftId).catch(() => null))?.meta.stopAt;
@@ -1766,7 +1774,9 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       stopped = true;
       emit({
         type: "activity",
-        text: "Stopped, as you asked. Everything written and noted so far is kept; reply to carry on.",
+        text: capped
+          ? `Stopped at the spending cap: this message reached ${dollarsOf(cap)}. Everything written and noted so far is kept; reply “keep going” to carry on with a fresh cap.`
+          : "Stopped, as you asked. Everything written and noted so far is kept; reply to carry on.",
       });
       break;
     }
@@ -2140,6 +2150,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
             }
           : {}),
         ...(stopped ? { stopped: true } : {}),
+        ...(capped ? { capped: true } : {}),
         ...(cut ? { cut: true } : {}),
       };
     }

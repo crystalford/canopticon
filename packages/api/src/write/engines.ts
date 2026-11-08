@@ -199,6 +199,16 @@ export const engine = (id: EngineId | undefined | null): Engine =>
 export const isWorkersAi = (id: EngineId | undefined | null): boolean =>
   !!id && ALL_ENGINES.some((e) => e.id === id && e.provider === "workers");
 
+/** The most one message may cost, in cents. A full report on the research
+ *  team costs $0.40–0.60 (engine test, 2026-11-08; Cloudflare's own bill
+ *  matched the meter to the dollar), so $1.50 is about three reports' worth:
+ *  room for a long one, never a runaway. Claude reports cost $2–7, so $8. */
+export const WORKERS_MESSAGE_CAP_CENTS = 150;
+export const CLAUDE_MESSAGE_CAP_CENTS = 800;
+export const messageCapCents = (id: EngineId | undefined | null): number =>
+  isWorkersAi(id) ? WORKERS_MESSAGE_CAP_CENTS : CLAUDE_MESSAGE_CAP_CENTS;
+export const dollarsOf = (cents: number): string => `$${(cents / 100).toFixed(2)}`;
+
 /** The advisor tool for an engine that has one (Anthropic's beta
  *  advisor-tool-2026-03-01). Each call's output is capped at 2,048 tokens
  *  (Anthropic measured about a seventh of the uncapped length with no loss),
