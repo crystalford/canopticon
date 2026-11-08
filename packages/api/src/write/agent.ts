@@ -33,6 +33,7 @@ import {
   workersStep,
 } from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
+import { isSearchEnginePage } from "./finder";
 import { describeEchoes, echoGroups, independentCount } from "./independence";
 import {
   NOTES_TOOLS,
@@ -887,6 +888,13 @@ async function runTool(
       const url = String(i.url ?? "").trim();
       const offset = Math.max(0, Math.floor(Number(i.offset) || 0));
       if (!/^https?:\/\//i.test(url)) return bad("Give a full address, https://…");
+      // Search engines' result pages are not read: querying them by machine
+      // breaks their terms. Live (2026-11-08), with the free finder thin,
+      // the model fetched DuckDuckGo, Bing and Brave result pages directly.
+      if (isSearchEnginePage(url))
+        return bad(
+          "Search engines' result pages are not read here (their terms forbid automated searching). Use web_search, or fetch the source you are looking for directly — its agency, publisher or the document itself.",
+        );
       // A page already read is served from what was kept: no second fetch,
       // no allowance spent, no duplicate row.
       let page: ResearchSource | null =

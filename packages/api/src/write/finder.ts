@@ -160,3 +160,27 @@ export async function findSources(q: string): Promise<Found[]> {
     }
   return out;
 }
+
+/** A search engine's result page (or the engine itself): not fetched, since
+ *  querying them by machine breaks their terms. Scholarly and data APIs that
+ *  invite automated use (Crossref, Europe PMC, OpenAlex, Semantic Scholar's
+ *  API) are not search engines in this sense. */
+export function isSearchEnginePage(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  const h = u.hostname.toLowerCase().replace(/^www\./, "");
+  if (
+    /(^|\.)(duckduckgo\.com|bing\.com|search\.brave\.com|search\.yahoo\.com|yandex\.[a-z.]+|baidu\.com|startpage\.com|ecosia\.org|search\.marginalia\.nu|mojeek\.com|qwant\.com|searx\.[a-z.]+)$/.test(
+      h,
+    )
+  )
+    return true;
+  // Google's search and its scholar search; its other pages are fine.
+  if (/(^|\.)google\.[a-z.]+$/.test(h))
+    return /^\/(search|scholar)\b/.test(u.pathname) || h.startsWith("scholar.");
+  return false;
+}

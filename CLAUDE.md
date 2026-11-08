@@ -218,7 +218,13 @@
   returned with a fresh read but never kept — the kept text is what
   quotations are checked against), cite Wikipedia's references, not
   Wikipedia. Cloudflare's Web Search needs prepaid AI Gateway credits
-  (with auto top-up) — optional.
+  (with auto top-up) — optional. **Measured on free sources only**
+  (`ops/eval/2026-11-08-*.md`): all five tasks passed — 7,000–8,500-word
+  reports, every quotation found, the thesis "Partly supported", $0.38–0.53
+  a report. In that run the model also fetched DuckDuckGo, Bing and Brave
+  result pages directly when search was thin; `web_fetch` now refuses
+  search engines' result pages (`isSearchEnginePage`), since automated
+  querying breaks their terms.
   **Cloudflare only — no Brave, no third-party bills (2026-11-07):** the
   gateway had never been created, so every search had fallen through to
   Brave until its credits ran out. Brave is gone from the code (workspace,

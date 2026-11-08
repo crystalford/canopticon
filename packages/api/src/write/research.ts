@@ -544,4 +544,5 @@ web_search asks free collections, not the whole web: the world's news from the l
 - When you know the authoritative source — the agency, statistics office, regulator, the law itself, the study, the organisation's own report — fetch its page directly with web_fetch. You do not need a search result to read a page.
 - A page you read lists its links: follow them to the reports, data tables and PDFs behind it. A site's /sitemap.xml lists its pages.
 - Wikipedia is a map, not a source: fetch the references it cites and cite those, never Wikipedia itself.
-- If a search finds little, change the words, search for the publisher or the document's name, or go to the source directly.`;
+- If a search finds little, change the words, search for the publisher or the document's name, or go to the source directly.
+- Search engines' own result pages (Google, Bing, DuckDuckGo and the like) cannot be read: their terms forbid automated searching.`;
