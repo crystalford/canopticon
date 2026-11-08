@@ -182,6 +182,17 @@ app.get("/admin", async (c) => {
     : { waiting: [], failed: [], kept: [], published: [] };
   // What each document's read found, on its card.
   const reads = userId ? await d1Reads(c.env, userId).latestAll() : new Map();
+  // The desk: conversations in progress (the list never reads their text),
+  // the composer's engine, and this month's spend at list prices.
+  const drafts = userId
+    ? await d1Drafts(c.env, userId)
+        .list()
+        .catch(() => [])
+    : [];
+  const month = new Date().toISOString().slice(0, 7);
+  const monthCents = drafts
+    .filter((d) => d.createdAt.startsWith(month))
+    .reduce((n, d) => n + (d.usage.cents ?? 0), 0);
   return html(
     renderAdmin(
       model,
@@ -195,6 +206,12 @@ app.get("/admin", async (c) => {
         claude: !!claudeRoute(c.env),
       },
       reads,
+      {
+        drafts,
+        engine: userId ? await defaultEngine(c.env.DB, userId) : DEFAULT_ENGINE,
+        monthCents,
+        decided: c.req.query("decided") === "1",
+      },
     ),
   );
 });

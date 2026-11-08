@@ -5,6 +5,7 @@
 // run to the end before the redirect back.
 
 import { OWN_UPLOADS_SQL } from "../../admin/runtime";
+import type { Env } from "../../env";
 import { purgeTypedGraphForPiece } from "../../graph/lib/digestion-typed";
 import { one, run } from "../../lib/d1";
 import { resolveOperatorId } from "../../public/data";
@@ -15,6 +16,7 @@ import { slugify } from "../../write/article";
 import { d1Drafts } from "../../write/drafts";
 import { DEFAULT_ENGINE, ENGINES, defaultEngine, setDefaultEngine } from "../../write/engines";
 import { addEntry, d1Entries } from "../../write/entries";
+import { guessKind, isStartKind, matchTitle } from "../../write/kind";
 import { d1Notes } from "../../write/notes";
 import { announce, articleTopics, publishDraft, takeDown } from "../../write/publish";
 import { d1Reads } from "../../write/read";
@@ -26,7 +28,9 @@ import {
   reportFile,
   reportProblems,
 } from "../../write/research";
+import { listSources } from "../../write/sources";
 import { operatorApp } from "./app";
+import { startRead } from "./read";
 import { createAndExtract } from "./upload";
 
 const app = operatorApp();
@@ -35,19 +39,103 @@ app.post("/write/new", async (c) => {
   const userId = await resolveOperatorId(c.env.DB).catch(() => null);
   if (!userId) return c.redirect("/admin/write");
   const form = (await c.req.parseBody().catch(() => ({}))) as Record<string, unknown>;
-  const store = d1Drafts(c.env, userId);
-  // "Test a thesis" is a research conversation in thesis mode.
-  const thesis = form.kind === "thesis";
-  const created = await store.create(form.kind === "research" || thesis ? "research" : "article");
-  if (thesis) await store.save(created.id, { meta: { ...created.meta, mode: "thesis" } });
-  const d = thesis ? ((await store.get(created.id)) ?? created) : created;
-  // The engine chosen stays with the conversation, and becomes the default.
-  const chosen = String(form.engine ?? "");
-  if (ENGINES.some((e) => e.id === chosen)) {
-    await store.save(d.id, { meta: { ...d.meta, engine: chosen } });
-    await setDefaultEngine(c.env.DB, userId, chosen).catch(() => {});
-  }
+  const d = await newConversation(
+    c.env,
+    userId,
+    form.kind === "thesis" ? "thesis" : form.kind === "research" ? "research" : "article",
+    String(form.engine ?? ""),
+  );
   return c.redirect(`/admin/write/${d.id}`, 303);
+});
+
+/** A new conversation: "Test a thesis" is research in thesis mode. The engine
+ *  chosen stays with the conversation, and becomes the default. */
+async function newConversation(
+  env: Env,
+  userId: string,
+  kind: "article" | "research" | "thesis",
+  chosen: string,
+  seed?: string,
+) {
+  const store = d1Drafts(env, userId);
+  const created = await store.create(kind === "article" ? "article" : "research");
+  const engineOk = ENGINES.some((e) => e.id === chosen);
+  const meta = {
+    ...created.meta,
+    ...(kind === "thesis" ? { mode: "thesis" as const } : {}),
+    ...(engineOk ? { engine: chosen } : {}),
+    ...(seed ? { seed } : {}),
+  };
+  if (kind === "thesis" || engineOk || seed) await store.save(created.id, { meta });
+  if (engineOk) await setDefaultEngine(env.DB, userId, chosen).catch(() => {});
+  return { ...created, meta };
+}
+
+// Admin's composer: one box for everything. What was typed is an article, a
+// research question, a claim to test or a document to read (write/kind.ts —
+// guessed in the page as you type, or here when it ran no script); files
+// added with it are stored and held in Admin like any upload. The
+// conversation opens with the message waiting, and the page sends it once.
+app.post("/admin/start", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  const back = (error: string) => `/admin?error=${encodeURIComponent(error)}`;
+  if (!userId) return c.redirect(back("No operator user."), 303);
+  const form = await c.req.formData().catch(() => null);
+  const text = String(form?.get("text") ?? "")
+    .trim()
+    .slice(0, 20000);
+  const files = ((form?.getAll("file") ?? []) as unknown[]).filter(
+    (x): x is File => typeof x !== "string" && !!(x as File)?.size,
+  );
+  if (!text && !files.length) return c.redirect(back("Type what you want first."), 303);
+  const asked = form?.get("kind");
+  const kind = isStartKind(asked)
+    ? asked
+    : guessKind(
+        text,
+        files.map((f) => f.name),
+      );
+  const chosen = String(form?.get("engine") ?? "");
+  const added: Array<{ id: string; title: string; duplicate: boolean }> = [];
+  for (const f of files.slice(0, 10)) {
+    if (/\.zip$/i.test(f.name))
+      return c.redirect(back("Add the files themselves, not a zip."), 303);
+    try {
+      const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size, {
+        hold: true,
+      });
+      added.push({ id: p.slug, title: p.title, duplicate: !!p.duplicate });
+    } catch (err) {
+      return c.redirect(back(`${f.name}: ${(err as Error).message}`), 303);
+    }
+  }
+  if (added.length) invalidateUploads();
+  if (kind === "read") {
+    const doc = added[0]?.id ?? matchTitle(text, await listSources(c.env))?.id;
+    if (!doc)
+      return c.redirect(
+        back("Which document? Add the file, or give its title exactly as it is in the record."),
+        303,
+      );
+    const to = await startRead(
+      c.env,
+      userId,
+      doc,
+      ENGINES.some((e) => e.id === chosen) ? chosen : undefined,
+    );
+    return c.redirect(
+      to ??
+        back(
+          "That document is held private, so Claude does not read it. Publish it, or read another.",
+        ),
+      303,
+    );
+  }
+  const named = added.length
+    ? `I've added these to the record (waiting in Admin):\n${added.map((a) => `- ${a.title} (id: ${a.id})`).join("\n")}\n\n`
+    : "";
+  const d = await newConversation(c.env, userId, kind, chosen, `${named}${text || "Read them."}`);
+  return c.redirect(`/admin/write/${d.id}?start=1`, 303);
 });
 
 app.post("/write/:id/turn", async (c) => {

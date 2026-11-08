@@ -252,6 +252,66 @@ export const SITE_JS = `(function () {
     });
   }
 
+  // ---- Admin's composer: say which kind it will start, before it starts ------
+  // The rules come from the server (write/kind.ts), so the page and the
+  // route guess alike. A kind picked with "make it" sticks until the box is
+  // cleared; without this script the route guesses.
+  var cmp = d.querySelector("[data-cmp]");
+  if (cmp) {
+    var rules = [];
+    try {
+      rules = JSON.parse(cmp.getAttribute("data-kinds") || "[]").map(function (r) { return [r[0], new RegExp(r[1], r[2])]; });
+    } catch (err) { rules = []; }
+    var cText = cmp.querySelector("[data-cmp-text]");
+    var cGuess = cmp.querySelector("[data-cmp-guess]");
+    var cKind = cmp.querySelector("[data-cmp-kind]");
+    var cWhat = cmp.querySelector("[data-cmp-what]");
+    var cInput = cmp.querySelector("[data-cmp-kind-input]");
+    var cFile = cmp.querySelector("[data-cmp-file]");
+    var cFiles = cmp.querySelector("[data-cmp-files]");
+    var makes = Array.prototype.slice.call(cmp.querySelectorAll("[data-cmp-make]"));
+    var picked = "";
+    var guess = function () {
+      var t = cText.value;
+      for (var i = 0; i < rules.length; i++) if (rules[i][1].test(t)) return rules[i][0];
+      if (!t.trim() && cFile && cFile.files && cFile.files.length) return "read";
+      return "research";
+    };
+    var show = function () {
+      var hasFiles = cFile && cFile.files && cFile.files.length;
+      if (!cText.value.trim() && !hasFiles) { picked = ""; cGuess.hidden = true; cInput.value = ""; return; }
+      var k = picked || guess();
+      cInput.value = k;
+      makes.forEach(function (b) {
+        var me = b.getAttribute("data-cmp-make") === k;
+        b.hidden = me;
+        if (me) { cKind.textContent = b.getAttribute("data-name"); cWhat.textContent = "Claude " + b.getAttribute("data-what"); }
+      });
+      cGuess.hidden = false;
+    };
+    makes.forEach(function (b) {
+      b.addEventListener("click", function () { picked = b.getAttribute("data-cmp-make"); show(); cText.focus(); });
+    });
+    cText.addEventListener("input", show);
+    if (cFile) cFile.addEventListener("change", function () {
+      cFiles.innerHTML = "";
+      Array.prototype.forEach.call(cFile.files || [], function (f) {
+        var el = d.createElement("span"); el.className = "cmp-file"; el.textContent = f.name; cFiles.appendChild(el);
+      });
+      cFiles.hidden = !(cFile.files && cFile.files.length);
+      show();
+    });
+  }
+
+  // ---- ⋯ menus close on Escape or a click elsewhere ---------------------------
+  d.addEventListener("click", function (e) {
+    d.querySelectorAll("details.more[open]").forEach(function (m) { if (!m.contains(e.target)) m.removeAttribute("open"); });
+  });
+  d.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    d.querySelectorAll("details.more[open]").forEach(function (m) { m.removeAttribute("open"); var s = m.querySelector("summary"); if (s) s.focus(); });
+  });
+
   // ---- mark useful (this browser only) ------------------------------------------
   var KEY = "canopticon.useful";
   var useful = [];

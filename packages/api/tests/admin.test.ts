@@ -10,7 +10,9 @@ import { buildSessionCookie, signSession } from "../src/auth/session";
 import app from "../src/index";
 import { sortUpload } from "../src/lib/sort-upload";
 import type { AdminModel, AdminPiece } from "../src/site/admin-data";
-import { renderAdmin } from "../src/site/pages/admin";
+import { draftRow, renderAdmin } from "../src/site/pages/admin";
+import type { Draft } from "../src/write/drafts";
+import type { ReadBadge } from "../src/write/read";
 
 const SECRET = "test-secret-for-admin";
 
@@ -145,8 +147,8 @@ describe("the Admin page", () => {
     expect(html).toContain("scan.pdf");
   });
 
-  it("offers Undo on what was decided this week", () => {
-    const html = renderAdmin({
+  it("offers Undo on what was decided this week, behind Show decided", () => {
+    const model = {
       ...empty,
       published: [
         piece({
@@ -156,9 +158,30 @@ describe("the Admin page", () => {
         }),
       ],
       kept: [piece({ id: "p2", adminStatus: "private" })],
-    });
-    expect(html).toContain('action="/op/admin/p1/unpublish"');
-    expect(html).toContain('action="/op/admin/p2/undo"');
+    };
+    // Off: decided cards drop out of the list, and the toggle counts them.
+    const off = renderAdmin(model);
+    expect(off).not.toContain('action="/op/admin/p1/unpublish"');
+    expect(off).toMatch(
+      /aria-pressed="false"><span class="sw"[^>]*><\/span>Show decided<span class="n">2</,
+    );
+    expect(off).toContain('name="decided" value="1"');
+    // On: they come back, each with Undo.
+    const on = renderAdmin(model, {}, new Map(), { drafts: [], decided: true });
+    expect(on).toContain('aria-pressed="true"');
+    expect(on).toContain('action="/op/admin/p1/unpublish"');
+    expect(on).toContain('action="/op/admin/p2/undo"');
+  });
+
+  it("gives each waiting card one primary action and a ⋯ menu", () => {
+    const html = renderAdmin({ ...empty, waiting: [piece()] });
+    const cardHtml = html.slice(html.indexOf('class="d-card"'));
+    expect(cardHtml).toContain('<button type="submit" class="btn primary">Publish</button>');
+    expect(cardHtml).toMatch(/<details class="more"><summary aria-label="More actions"/);
+    // Read as and topic still go with Publish, tucked into a disclosure.
+    expect(cardHtml).toMatch(
+      /<details class="d-change">[\s\S]*name="sorted_as"[\s\S]*name="topic"/,
+    );
   });
 
   it("says plainly when nothing is waiting", () => {
@@ -287,5 +310,112 @@ describe("Admin's buttons", () => {
     expect(calls.find((c) => /FROM pieces\s+WHERE id = \?/.test(c.sql))?.sql).toContain(
       "feed-upload",
     );
+  });
+});
+
+describe("the desk's left column", () => {
+  const draft = (over: Partial<Draft> = {}): Draft =>
+    ({
+      id: "d1",
+      kind: "research",
+      body: "",
+      meta: { title: "Did the bans lower rents?" },
+      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cents: 120 },
+      status: "draft",
+      createdAt: "2026-11-08T10:00:00Z",
+      updatedAt: "2026-11-08T10:00:00Z",
+      ...over,
+    }) as Draft;
+
+  it("lists what is in progress with a status line, and leaves out what is finished", () => {
+    const html = renderAdmin(empty, {}, new Map(), {
+      drafts: [
+        draft(),
+        draft({ id: "d2", meta: { title: "Saved one", savedAs: "x" } }),
+        draft({
+          id: "d3",
+          kind: "article",
+          meta: { title: "Live one" },
+          status: "published",
+        }),
+        draft({
+          id: "d4",
+          meta: { title: "Untouched", mode: "thesis" },
+          usage: { cents: 0 } as Draft["usage"],
+        }),
+      ],
+    });
+    expect(html).toContain('href="/admin/write/d1"');
+    expect(html).toContain("Research · in progress · 8 Nov");
+    expect(html).toContain("Thesis · not started");
+    expect(html).not.toContain("Saved one");
+    expect(html).not.toContain("Live one");
+    expect(html).toMatch(/In progress <span>2<\/span>/);
+  });
+
+  it("says what a read found and what needs you", () => {
+    const row = draftRow(draft({ id: "r1", kind: "read", meta: { title: "Read: Whey" } }), {
+      kept: 27,
+      proposed: 3,
+      status: "read",
+      dropped: 1,
+    } as ReadBadge);
+    expect(row.title).toBe("Whey");
+    expect(row.status).toBe("Read · 27 kept · 3 need you · 1 dropped · 8 Nov");
+    expect(row.finished).toBe(false);
+  });
+
+  it("lists the projects, private to Admin", () => {
+    const html = renderAdmin(empty);
+    expect(html).toMatch(/Projects <span>\d+<\/span>/);
+    expect(html).toContain('href="/admin/projects/ancaster"');
+  });
+
+  it("has one composer that guesses the kind with the server's rules", () => {
+    const html = renderAdmin(empty, {}, new Map(), { drafts: [], engine: "team:flash" });
+    expect(html).toContain('action="/op/admin/start" enctype="multipart/form-data"');
+    expect(html).toContain('data-kinds="[[&quot;thesis&quot;');
+    for (const k of ["research", "article", "read", "thesis"])
+      expect(html).toContain(`data-cmp-make="${k}"`);
+    expect(html).toContain('<option value="team:flash" selected');
+  });
+
+  it("shows this month's spend when it is known", () => {
+    const html = renderAdmin(empty, { claude: true }, new Map(), { drafts: [], monthCents: 319 });
+    expect(html).toContain("$3.19 this month");
+    expect(html).toContain("Claude connected");
+  });
+});
+
+describe("the composer's route", () => {
+  const post = async (fields: Record<string, string>) => {
+    const { db, calls } = makeDb();
+    const body = new FormData();
+    for (const [k, v] of Object.entries(fields)) body.set(k, v);
+    const res = await app.fetch(
+      await signedIn("/op/admin/start", { method: "POST", body }),
+      envWith(db),
+    );
+    return { res, calls, to: res.headers.get("location") ?? "" };
+  };
+
+  it("asks for something when nothing was typed", async () => {
+    const { res, to } = await post({ text: "  " });
+    expect(res.status).toBe(303);
+    expect(decodeURIComponent(to)).toContain("Type what you want first.");
+  });
+
+  it("starts a research conversation with the message waiting", async () => {
+    const { to, calls } = await post({ text: "Did the bans lower rents?", engine: "team:flash" });
+    expect(to).toMatch(/^\/admin\/write\/[^?]+\?start=1$/);
+    const saved = calls.find(
+      (c) => /UPDATE drafts/i.test(c.sql) && JSON.stringify(c.args).includes("seed"),
+    );
+    expect(JSON.stringify(saved?.args)).toContain("Did the bans lower rents?");
+  });
+
+  it("a read of a title it cannot find asks which document", async () => {
+    const { to } = await post({ text: "Read Nothing By This Name Exists" });
+    expect(decodeURIComponent(to)).toContain("Which document?");
   });
 });
