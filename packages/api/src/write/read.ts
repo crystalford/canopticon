@@ -238,10 +238,13 @@ export interface ReadStore {
   /** Every document's shown read with its kept cards, for the site overlay. */
   shownAll(): Promise<ShownRead[]>;
   /** The latest read of every document, with how many cards are kept, for Admin. */
-  latestAll(): Promise<Map<string, ReadRow & { kept: number }>>;
+  latestAll(): Promise<Map<string, ReadBadge>>;
   /** Replace a card's structured fields (a pitch records the draft it started). */
   setData(id: string, data: Record<string, unknown>): Promise<void>;
 }
+
+/** A read with its counts, for Admin: kept, and proposed (what needs you). */
+export type ReadBadge = ReadRow & { kept: number; proposed?: number };
 
 export interface ShownRead {
   read: ReadRow;
@@ -494,15 +497,18 @@ export function d1Reads(env: Env, userId: string): ReadStore {
       }));
     },
     async latestAll() {
-      const rows = await all<ReadDbRow & { kept: number }>(
+      type Counted = ReadDbRow & { kept: number; proposed: number };
+      const rows = await all<Counted>(
         db,
-        `SELECT r.*, (SELECT COUNT(*) FROM derivations d WHERE d.read_id = r.id AND d.status = 'kept') AS kept
+        `SELECT r.*, (SELECT COUNT(*) FROM derivations d WHERE d.read_id = r.id AND d.status = 'kept') AS kept,
+                (SELECT COUNT(*) FROM derivations d WHERE d.read_id = r.id AND d.status = 'proposed') AS proposed
            FROM reads r WHERE r.user_id = ? ORDER BY r.started_at DESC`,
         [userId],
-      ).catch(() => [] as Array<ReadDbRow & { kept: number }>);
-      const out = new Map<string, ReadRow & { kept: number }>();
+      ).catch(() => [] as Counted[]);
+      const out = new Map<string, ReadBadge>();
       for (const r of rows)
-        if (!out.has(r.doc_id)) out.set(r.doc_id, { ...readFrom(r), kept: r.kept ?? 0 });
+        if (!out.has(r.doc_id))
+          out.set(r.doc_id, { ...readFrom(r), kept: r.kept ?? 0, proposed: r.proposed ?? 0 });
       return out;
     },
     async setData(id, data) {
@@ -618,14 +624,12 @@ export function memoryReads(): ReadStore & {
       return out;
     },
     async latestAll() {
-      const out = new Map<string, ReadRow & { kept: number }>();
+      const out = new Map<string, ReadBadge>();
+      const count = (id: string, status: string) =>
+        [...cards.values()].filter((c) => c.readId === id && c.status === status).length;
       for (const r of [...rows.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt)))
         if (!out.has(r.docId))
-          out.set(r.docId, {
-            ...r,
-            kept: [...cards.values()].filter((c) => c.readId === r.id && c.status === "kept")
-              .length,
-          });
+          out.set(r.docId, { ...r, kept: count(r.id, "kept"), proposed: count(r.id, "proposed") });
       return out;
     },
     async setData(id: string, data: Record<string, unknown>) {

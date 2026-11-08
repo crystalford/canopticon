@@ -5,6 +5,7 @@
 // watches (rule 4). Cards are kept or dismissed here; dismissed is forever.
 // Cloudflare Access gates /op at the edge.
 
+import type { Env } from "../../env";
 import { resolveOperatorId } from "../../public/data";
 import { invalidateUploads } from "../../site/uploads";
 import { d1Drafts } from "../../write/drafts";
@@ -16,15 +17,25 @@ import { operatorApp } from "./app";
 const app = operatorApp();
 
 app.post("/read/:docId", async (c) => {
-  const docId = c.req.param("docId");
   const userId = await resolveOperatorId(c.env.DB).catch(() => null);
   if (!userId) return c.redirect("/admin", 303);
-  const text = await sourceText(c.env, docId);
+  return c.redirect((await startRead(c.env, userId, c.req.param("docId"))) ?? "/admin", 303);
+});
+
+/** Open a read of a document: where to go, or null when it may not be read.
+ *  Shared by Read it and Admin's composer. */
+export async function startRead(
+  env: Env,
+  userId: string,
+  docId: string,
+  engineId?: string,
+): Promise<string | null> {
+  const text = await sourceText(env, docId);
   // Only what the workspace may read: public research, the author's own
   // published or waiting uploads — never a held or personal document.
-  if (text == null) return c.redirect("/admin", 303);
-  const reads = d1Reads(c.env, userId);
-  const drafts = d1Drafts(c.env, userId);
+  if (text == null) return null;
+  const reads = d1Reads(env, userId);
+  const drafts = d1Drafts(env, userId);
   // One read per document: pressing again opens the one there is.
   const last = await reads.latest(docId);
   if (last?.draftId && (await drafts.get(last.draftId).catch(() => null))) {
@@ -32,14 +43,19 @@ app.post("/read/:docId", async (c) => {
     // starts again when pressed; one that ran opens as it is.
     const fresh =
       last.status === "reading" && !(await drafts.messages(last.draftId).catch(() => [])).length;
-    return c.redirect(`/admin/write/${last.draftId}${fresh ? "?start=1" : ""}`, 303);
+    return `/admin/write/${last.draftId}${fresh ? "?start=1" : ""}`;
   }
 
-  const title = (await sourceTitles(c.env, [docId])).get(docId) ?? docId;
+  const title = (await sourceTitles(env, [docId])).get(docId) ?? docId;
   const draft = await drafts.create("read");
   const read = await reads.start(docId, draft.id, text.length);
   await drafts.save(draft.id, {
-    meta: { title: `Read: ${title}`, based_on: [docId], readId: read.id },
+    meta: {
+      title: `Read: ${title}`,
+      based_on: [docId],
+      readId: read.id,
+      ...(engineId ? { engine: engineId } : {}),
+    },
   });
 
   // What the file's structure already says, taken first and free. The
@@ -65,8 +81,8 @@ app.post("/read/:docId", async (c) => {
     found++;
   }
   if (found) await reads.update(read.id, { verified: found });
-  return c.redirect(`/admin/write/${draft.id}?start=1`, 303);
-});
+  return `/admin/write/${draft.id}?start=1`;
+}
 
 app.post("/read/card/:id/:act{keep|dismiss}", async (c) => {
   const userId = await resolveOperatorId(c.env.DB).catch(() => null);

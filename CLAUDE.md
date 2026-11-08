@@ -53,8 +53,26 @@
 - **Email** waits on a mailing address (CASL): `lib/email.ts` sends nothing
   without both `RESEND_API_KEY` and `MAILING_ADDRESS`.
 - **Admin** is `/admin` (`site/pages/admin.ts`, actions in
-  `operator/routes/admin.ts` under `/op/admin/*`): Add something, Waiting for
-  you, Decided this week. The old operator console — processing, leads,
+  `operator/routes/admin.ts` under `/op/admin/*`), **the desk of design
+  handoff v3** (2026-11-08): on the left, **In progress** (conversations not
+  yet live / saved / shown, each a status dot and one status line built from
+  the drafts list — never a draft's text — `draftRow`), **Projects**, and
+  **one composer** (`POST /op/admin/start`) that starts anything: Claude
+  guesses whether it is an article, research, a claim to test or a document
+  to read (`write/kind.ts`: plain rules, shown above the box before it
+  starts, `make it [kind]` chips to switch; the same rules go to the page as
+  `data-kinds`, and the route guesses with them when no script ran). Files
+  added there are stored and held like any upload; a read finds its document
+  from the file or the exact-enough title (`matchTitle`), else asks which.
+  On the right, **Waiting for you**: one primary action per card and a ⋯
+  menu (Review · Read it · Keep private · Remove); Read as and topic sit in
+  a "Change how it is read" disclosure inside the Publish form; decided
+  cards come back with the **Show decided** toggle (`?decided=1`). The head
+  line says what waits, whether Claude is connected and this month's spend
+  (conversations started this month, list prices). **One control system**
+  in `site/styles.ts`: `.btn` Secondary, `.primary` tonal blue, `.sm`,
+  `.warn`, `.ghost`, `.chipb`, `.attach`, `.toggle`, `.more` (`.d-btn` is
+  the same control). The old operator console — processing, leads,
   research, the export — is `/admin/workbench`. Published Admin uploads join
   every public list through `site/uploads.ts` → `setUploadedRows()`.
 - **The workspace** is `/admin/write` (`src/write/`, `site/pages/write.ts`,
