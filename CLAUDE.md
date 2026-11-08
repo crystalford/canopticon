@@ -239,7 +239,20 @@
   written with its own `## ` heading made the closing cut there, and four
   written sections vanished from a report that said it was complete. A
   section's own `#`/`##`/unnumbered `###` headings now become `####`, and
-  the closing is placed only after the last numbered section.
+  the closing is placed only after the last numbered section. **Fourth free
+  run, with that fix: all five passed** (`ops/eval/2026-11-08-0337.md`,
+  6,100–8,200 words, every quotation found, the thesis "Unsettled",
+  $0.39–0.58, 19–24 minutes, no search-engine pages). **More sources,
+  routed** (`route` in `finder.ts`, no model): every search asks a core
+  (GDELT, Crossref, Semantic Scholar, DOAJ open-access journals, Wikipedia)
+  plus the specialists the question's words call for — Europe PMC (health),
+  Open Canada (Canada), World Bank documents (economy, development), arXiv
+  (computing, AI, science), the US Federal Register (US rules), the
+  Internet Archive and Open Library (books, ideas); none claimed → Canada
+  data and books. A page gone, moved or refusing us is read from the
+  Wayback Machine's copy (`waybackCopy`) and kept and cited at the
+  archive's address. `/v1/admin/finder?q=…&all=1` asks each source live
+  and reports what it returned or why it failed.
   **Cloudflare only — no Brave, no third-party bills (2026-11-07):** the
   gateway had never been created, so every search had fallen through to
   Brave until its credits ran out. Brave is gone from the code (workspace,

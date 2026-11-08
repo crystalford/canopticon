@@ -21,6 +21,12 @@
 //   Semantic Scholar — papers across every field (api.semanticscholar.org)
 //   Internet Archive — books and older texts, many readable whole
 //   Open Library  — books: what exists, by whom, when
+//   DOAJ          — open-access journal articles, readable in full
+//   arXiv         — preprints (computing, AI, physics, maths, economics)
+//   World Bank    — reports and working papers
+//   US Federal Register — rules, proposed rules, notices
+// The core is asked every time; the rest when the question is theirs
+// (route). The Wayback Machine supplies a page that has gone or moved.
 
 export interface Found {
   title: string;
@@ -220,32 +226,233 @@ export async function openLibrary(q: string): Promise<Found[]> {
     }));
 }
 
-/** Every free source at once; each that fails or times out is left out. The
- *  lists are dealt in turn so no one source fills the page. The keyword
- *  sources get the query as keywords; the paper indexes take it whole. */
+/** Preprints in physics, maths, computing, AI, economics and more (arxiv.org).
+ *  Atom XML, read with a few patterns. */
+export async function arxiv(q: string): Promise<Found[]> {
+  const res = await fetch(
+    `https://export.arxiv.org/api/query?search_query=${encodeURIComponent(`all:${q}`)}&max_results=4`,
+    { headers: { "user-agent": UA }, signal: AbortSignal.timeout(TIMEOUT) },
+  );
+  if (!res.ok) throw new Error(`arxiv answered ${res.status}`);
+  const xml = await res.text();
+  return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)]
+    .map((m) => {
+      const e = m[1] ?? "";
+      const pick = (tag: string) =>
+        new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`).exec(e)?.[1] ?? "";
+      return {
+        title: clip(pick("title"), 200),
+        url: clip(pick("id"), 200).replace(/^http:/, "https:"),
+        description: `[preprint · arXiv · ${pick("published").slice(0, 4)}] ${clip(pick("summary"), 200)}`,
+      };
+    })
+    .filter((r) => r.url.startsWith("https://arxiv.org/"));
+}
+
+/** Open-access journal articles, readable in full (doaj.org). */
+export async function doaj(q: string): Promise<Found[]> {
+  const j = (await getJson(
+    `https://doaj.org/api/search/articles/${encodeURIComponent(q)}?pageSize=4`,
+  )) as {
+    results?: Array<{
+      bibjson?: {
+        title?: string;
+        year?: string;
+        journal?: { title?: string };
+        link?: Array<{ type?: string; url?: string }>;
+      };
+    }>;
+  };
+  return (j.results ?? [])
+    .map((r) => {
+      const b = r.bibjson ?? {};
+      const link = b.link?.find((l) => l.type === "fulltext")?.url ?? b.link?.[0]?.url ?? "";
+      return {
+        title: clip(b.title, 200),
+        url: link,
+        description: `[open-access paper · ${clip(b.journal?.title, 80)} · ${b.year ?? ""}]`,
+      };
+    })
+    .filter((r) => r.url && r.title);
+}
+
+/** World Bank reports and working papers (documents.worldbank.org). */
+export async function worldBank(q: string): Promise<Found[]> {
+  const j = (await getJson(
+    `https://search.worldbank.org/api/v2/wds?format=json&qterm=${encodeURIComponent(q)}&rows=4&fl=docdt,display_title,pdfurl,url,docty`,
+  )) as {
+    documents?: Record<
+      string,
+      { display_title?: string; docdt?: string; pdfurl?: string; url?: string; docty?: string }
+    >;
+  };
+  return Object.values(j.documents ?? {})
+    .filter((d) => d && typeof d === "object" && d.display_title && (d.pdfurl || d.url))
+    .map((d) => ({
+      title: clip(d.display_title, 200),
+      url: String(d.pdfurl || d.url),
+      description: `[World Bank ${clip(d.docty, 40) || "document"} · ${String(d.docdt ?? "").slice(0, 10)}]`,
+    }));
+}
+
+/** US federal rules, proposed rules and notices (federalregister.gov). */
+export async function federalRegister(q: string): Promise<Found[]> {
+  const j = (await getJson(
+    `https://www.federalregister.gov/api/v1/documents.json?conditions%5Bterm%5D=${encodeURIComponent(q)}&per_page=4&order=relevance`,
+  )) as {
+    results?: Array<{
+      title?: string;
+      html_url?: string;
+      publication_date?: string;
+      type?: string;
+      abstract?: string;
+    }>;
+  };
+  return (j.results ?? [])
+    .filter((r) => r.html_url)
+    .map((r) => ({
+      title: clip(r.title, 200),
+      url: String(r.html_url),
+      description: `[US Federal Register · ${r.type ?? ""} · ${r.publication_date ?? ""}] ${clip(r.abstract, 200)}`,
+    }));
+}
+
+type Source = (q: string) => Promise<Found[]>;
+
+/** Which specialist sources a question calls for, by its words — no model.
+ *  The core (news, papers, open-access journals, Wikipedia) is always asked;
+ *  each added source makes a search slower and noisier, so the rest are
+ *  asked only when the question is theirs. */
+export function route(q: string): Array<[string, Source]> {
+  const t = q.toLowerCase();
+  const out: Array<[string, Source]> = [];
+  const when = (re: RegExp, name: string, f: Source) => {
+    if (re.test(t)) out.push([name, f]);
+  };
+  when(
+    /health|medic|drug|disease|patient|clinic|hospital|mental|cancer|vaccine|diabet|pharma|opioid|overdose|therapy|nutrition|epidemi/,
+    "europePmc",
+    europePmc,
+  );
+  when(
+    /canad|ontario|quebec|alberta|british columbia|manitoba|saskatchewan|nova scotia|brunswick|newfoundland|prince edward|yukon|nunavut|northwest territories|toronto|montreal|vancouver|ottawa|hamilton|federal|provinc|statcan|statistics canada/,
+    "openCanada",
+    openCanada,
+  );
+  when(
+    /econom|poverty|inequal|development|trade|tariff|gdp|inflation|labou?r|employment|wage|income|debt|finance|bank|climate|carbon|emission|global|countr/,
+    "worldBank",
+    worldBank,
+  );
+  when(
+    /artificial intelligence|\bai\b|machine learning|model|algorithm|comput|software|physics|math|quantum|neural|network|data|statistic|crypto/,
+    "arxiv",
+    arxiv,
+  );
+  when(
+    /\bus\b|united states|american|federal register|fda|epa|ftc|sec\b|rule|regulat|agency|congress/,
+    "federalRegister",
+    federalRegister,
+  );
+  when(
+    /book|history|historian|theor|philosoph|author|literat|media|mcluhan|culture|art|religio|novel|essay|scholar/,
+    "internetArchive",
+    internetArchive,
+  );
+  when(
+    /book|author|novel|biograph|history|theor|philosoph|literat|media|mcluhan/,
+    "openLibrary",
+    openLibrary,
+  );
+  // A question no specialist claims still looks at government data and books.
+  if (!out.length)
+    out.push(
+      ["openCanada", openCanada],
+      ["internetArchive", internetArchive],
+      ["openLibrary", openLibrary],
+    );
+  return out;
+}
+
+const CORE: Array<[string, Source]> = [
+  ["gdelt", gdelt],
+  ["crossref", crossref],
+  ["semanticScholar", semanticScholar],
+  ["doaj", doaj],
+  ["wikipedia", wikipedia],
+];
+
+/** Every source the question calls for, at once; each that fails or times
+ *  out is left out. The lists are dealt in turn so no one source fills the
+ *  page. The keyword sources get the query as keywords; Crossref takes it
+ *  whole. */
 export async function findSources(q: string): Promise<Found[]> {
-  const k = keywords(q) || q;
-  const lists = await Promise.all([
-    gdelt(k).catch(() => []),
-    crossref(q).catch(() => []),
-    semanticScholar(k).catch(() => []),
-    wikipedia(k).catch(() => []),
-    europePmc(k).catch(() => []),
-    openCanada(k).catch(() => []),
-    internetArchive(k).catch(() => []),
-    openLibrary(k).catch(() => []),
-  ]);
+  const lists = await askSources(q);
   const out: Found[] = [];
   const seen = new Set<string>();
-  for (let i = 0; out.length < 16 && lists.some((l) => l[i]); i++)
+  for (let i = 0; out.length < 16 && lists.some((l) => l.found[i]); i++)
     for (const l of lists) {
-      const r = l[i];
+      const r = l.found[i];
       if (r && !seen.has(r.url)) {
         seen.add(r.url);
         out.push(r);
       }
     }
   return out;
+}
+
+/** Each source asked for a question, with what it found or why it failed
+ *  (for findSources, and for checking every source live). */
+export async function askSources(
+  q: string,
+  only?: string[],
+): Promise<Array<{ name: string; found: Found[]; error?: string }>> {
+  const k = keywords(q) || q;
+  const chosen = [...CORE, ...route(q)].filter(([n]) => !only || only.includes(n));
+  return Promise.all(
+    chosen.map(async ([name, f]) => {
+      try {
+        return { name, found: await f(name === "crossref" ? q : k) };
+      } catch (e) {
+        return { name, found: [], error: String((e as Error).message ?? e).slice(0, 200) };
+      }
+    }),
+  );
+}
+
+/** Every source by name, for checking them live. */
+export const ALL_SOURCES: Record<string, Source> = {
+  gdelt,
+  crossref,
+  semanticScholar,
+  doaj,
+  wikipedia,
+  europePmc,
+  openCanada,
+  worldBank,
+  arxiv,
+  federalRegister,
+  internetArchive,
+  openLibrary,
+};
+
+/** The Wayback Machine's latest copy of a page, if it has one: read when the
+ *  page itself is gone, moved or refuses us (archive.org/wayback). */
+export async function waybackCopy(url: string): Promise<{ url: string; date: string } | null> {
+  const j = (await getJson(
+    `https://archive.org/wayback/available?url=${encodeURIComponent(url)}`,
+  ).catch(() => null)) as {
+    archived_snapshots?: {
+      closest?: { available?: boolean; url?: string; timestamp?: string; status?: string };
+    };
+  } | null;
+  const c = j?.archived_snapshots?.closest;
+  if (!c?.available || !c.url || (c.status && c.status !== "200")) return null;
+  const ts = String(c.timestamp ?? "");
+  return {
+    url: c.url.replace(/^http:/, "https:"),
+    date: ts.length >= 8 ? `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}` : "",
+  };
 }
 
 /** A search engine's result page (or the engine itself): not fetched, since

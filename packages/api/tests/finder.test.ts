@@ -66,7 +66,7 @@ function stubSources(fail: string[] = []) {
 describe("the free source finder", () => {
   it("asks every source at once and labels what each result is", async () => {
     stubSources();
-    const r = await findSources("pharmacare");
+    const r = await findSources("Canada pharmacare drug coverage");
     expect(r.map((x) => x.url)).toEqual([
       "https://news.example/a",
       "https://doi.org/10.1/x",
@@ -80,7 +80,7 @@ describe("the free source finder", () => {
 
   it("leaves out a source that answers with something other than JSON", async () => {
     stubSources(["api.gdeltproject.org"]);
-    const r = await findSources("pharmacare");
+    const r = await findSources("Canada pharmacare drug coverage");
     expect(r.some((x) => x.url.includes("news.example"))).toBe(false);
     expect(r).toHaveLength(4);
   });
@@ -97,13 +97,13 @@ describe("the free source finder", () => {
         },
       },
     } as unknown as Env;
-    const first = await webSearch(env, "pharmacare");
+    const first = await webSearch(env, "Canada pharmacare drug coverage");
     expect(first[0]?.url).toBe("https://news.example/a");
-    await webSearch(env, "pharmacare again");
+    await webSearch(env, "Canada pharmacare drug coverage again");
     // After a "cannot bill", the paid search is not asked again for a while.
     expect(paid).toBe(1);
     // No gateway at all: straight to the free finder.
-    const none = await webSearch({ AI: {} } as unknown as Env, "pharmacare");
+    const none = await webSearch({ AI: {} } as unknown as Env, "Canada pharmacare drug coverage");
     expect(none).toHaveLength(5);
   });
 });
@@ -170,17 +170,35 @@ describe("queries for the keyword sources", () => {
       }),
     );
     await findSources('"tetrad" McLuhan');
+    // The core, and the book sources a question about McLuhan calls for.
     expect(asked.sort()).toEqual(
       [
         "api.crossref.org",
         "api.gdeltproject.org",
         "api.semanticscholar.org",
         "archive.org",
+        "doaj.org",
         "en.wikipedia.org",
-        "open.canada.ca",
         "openlibrary.org",
-        "www.ebi.ac.uk",
       ].sort(),
     );
+  });
+});
+
+describe("routing a question to its sources", () => {
+  it("adds the specialists a question calls for, and books and government data otherwise", async () => {
+    const { route } = await import("../src/write/finder");
+    const names = (q: string) => route(q).map(([n]) => n);
+    expect(names("opioid overdose deaths in Hamilton")).toEqual(["europePmc", "openCanada"]);
+    expect(names("FDA rule on drug pricing in the United States")).toEqual(
+      expect.arrayContaining(["europePmc", "federalRegister"]),
+    );
+    expect(names("machine learning model evaluation")).toContain("arxiv");
+    expect(names("global poverty and inequality")).toContain("worldBank");
+    expect(names("why people keep scrolling")).toEqual([
+      "openCanada",
+      "internetArchive",
+      "openLibrary",
+    ]);
   });
 });

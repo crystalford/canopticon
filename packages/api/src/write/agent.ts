@@ -33,7 +33,7 @@ import {
   workersStep,
 } from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
-import { isSearchEnginePage } from "./finder";
+import { isSearchEnginePage, waybackCopy } from "./finder";
 import { describeEchoes, echoGroups, independentCount } from "./independence";
 import {
   NOTES_TOOLS,
@@ -916,14 +916,32 @@ async function runTool(
         if (t.web && t.web.reads >= readLimit(t) + (t.web.extra?.reads ?? 0))
           return bad("max_uses_exceeded: the page-reading allowance for this message is spent.");
         if (t.web) t.web.reads++;
+        let failed = "";
         try {
           page = await readPage(t.env, url);
         } catch (e) {
-          return bad(`Could not read it: ${(e as Error).message}`);
+          failed = (e as Error).message;
+        }
+        // A page gone, moved or refusing us: the Wayback Machine's copy is
+        // read instead, kept and cited at the archive's address.
+        let archived: { url: string; date: string } | null = null;
+        if (!page && !/web\.archive\.org/.test(url)) {
+          archived = await waybackCopy(url).catch(() => null);
+          if (archived) page = await readPage(t.env, archived.url).catch(() => null);
         }
         if (!page)
-          return bad("Nothing readable came back (an empty page, a login wall, or a bot check).");
-        page = { ...page, url };
+          return bad(
+            failed
+              ? `Could not read it: ${failed}${archived === null ? " (and the Internet Archive has no copy)" : ""}`
+              : "Nothing readable came back (an empty page, a login wall, or a bot check).",
+          );
+        page = archived
+          ? {
+              ...page,
+              url: archived.url,
+              title: `${page.title ?? url} (Internet Archive copy${archived.date ? `, ${archived.date}` : ""})`,
+            }
+          : { ...page, url };
         if (t.sources && (await t.sources.add(t.draftId, [page])))
           return bad(
             "The page was read but could not be kept, so quotations from it would fail the check. Read another source for this.",
@@ -940,7 +958,7 @@ async function runTool(
           ? `\n\nLINKS ON THIS PAGE (read any with web_fetch):\n${page.links.map((l) => `- ${l.text} — ${l.url}`).join("\n")}`
           : "";
       return {
-        text: `${again ? "(You have read this page already; here it is again from what was kept.)\n" : ""}${page.title ?? url}\n${url}\n\n${slice}${
+        text: `${again ? "(You have read this page already; here it is again from what was kept.)\n" : ""}${page.title ?? url}\n${page.url}\n\n${slice}${
           more
             ? `\n\n[${page.text.length.toLocaleString("en")} characters in all; read on with offset ${offset + PAGE_CHARS}]`
             : ""
