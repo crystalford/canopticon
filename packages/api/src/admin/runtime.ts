@@ -1838,9 +1838,10 @@ app.get("/finder", async (c) => {
   const { askSources, ALL_SOURCES, waybackCopy } = await import("../write/finder.ts");
   const q = c.req.query("q") ?? "Canada pharmacare drug coverage";
   const t0 = Date.now();
+  const only = c.req.query("only")?.split(",").filter(Boolean);
   const lists = await askSources(
     q,
-    c.req.query("all") === "1" ? Object.keys(ALL_SOURCES) : undefined,
+    only?.length ? only : c.req.query("all") === "1" ? Object.keys(ALL_SOURCES) : undefined,
   );
   const wayback = c.req.query("wayback")
     ? await waybackCopy(String(c.req.query("wayback"))).catch((e) => ({ error: String(e) }))
