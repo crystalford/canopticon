@@ -49,6 +49,7 @@ import {
   unwritten,
   withSources,
 } from "./notes";
+import { type Progress, type TurnSummary, stageOf, wordCount } from "./progress";
 import { articleTopics } from "./publish";
 import {
   type Derivation,
@@ -133,7 +134,9 @@ export type WriteEvent =
   | { type: "proposal"; entry: Entry; html?: string }
   | { type: "card"; card: Derivation; label: string }
   | { type: "error"; message: string }
-  | { type: "done"; usage: Usage };
+  /** Where a research turn stands (progress.ts): stages and true counts. */
+  | { type: "progress"; p: Progress }
+  | { type: "done"; usage: Usage; summary?: TurnSummary };
 
 export type Emit = (e: WriteEvent) => void;
 
@@ -541,6 +544,16 @@ interface ToolContext {
   /** A research team's reviewers, once every section is written (team.ts);
    *  null when they have already reviewed this report. */
   review?: () => Promise<string | null>;
+  /** Who is at work and how many notes there are, for the progress line;
+   *  `send` says it again (progress.ts). */
+  progress?: {
+    researchers: { working: number; done: number };
+    reviewers: { working: number; done: number };
+    notes: number;
+    send: () => void;
+  };
+  /** Whether Chris pressed Stop since this turn began. */
+  stop?: () => Promise<boolean>;
 }
 
 /** The web allowance per message. On Workers AI search and page reads are
@@ -832,6 +845,10 @@ async function runTool(
         Number.isInteger(Number(i.section)) && Number(i.section) > 0 ? Number(i.section) : null;
       const note = await t.notes.add(t.draftId, { url: placed.url, quote, claim, section });
       const k = sourceNumbers(await t.notes.list(t.draftId)).get(note.url);
+      if (t.progress) {
+        t.progress.notes++;
+        t.progress.send();
+      }
       return { text: `Noted #${note.n}. Cite it as [${k}].` };
     }
     case "list_notes": {
@@ -1037,6 +1054,11 @@ async function runTeam(o: {
   const worker = async () => {
     for (let s = queue.shift(); s; s = queue.shift()) {
       const reader = o.readers[(s.n - 1) % o.readers.length] ?? (o.readers[0] as EngineId);
+      const p = ctx.progress;
+      if (p) {
+        p.researchers.working++;
+        p.send();
+      }
       const r = await runResearcher({ ...o, reader, ctx: shared, section: s }).catch(
         (e: Error) => ({
           said: `Stopped: ${e.message.slice(0, 200)}`,
@@ -1044,8 +1066,10 @@ async function runTeam(o: {
           failed: true,
         }),
       );
-      // A researcher Workers AI stopped gets one more go, at the back.
-      if ("failed" in r && !retried.has(s.n)) {
+      if (p) p.researchers.working--;
+      // A researcher Workers AI stopped gets one more go, at the back —
+      // unless Chris pressed Stop.
+      if ("failed" in r && !retried.has(s.n) && !(await ctx.stop?.())) {
         retried.add(s.n);
         ctx.emit({
           type: "activity",
@@ -1059,6 +1083,10 @@ async function runTeam(o: {
         : 0;
       done.push({ n: s.n, heading: s.heading, notes, pages: r.pages.size, said: r.said });
       ctx.emit({ type: "activity", text: `§${s.n} researched: ${notes} notes` });
+      if (p) {
+        p.researchers.done++;
+        p.send();
+      }
     }
   };
   await Promise.all(Array.from({ length: Math.min(MAX_RESEARCHERS, queue.length) }, worker));
@@ -1081,6 +1109,8 @@ async function runResearcher(o: {
   const pages = new Set<string>();
   let said = "";
   for (let step = 0; step < RESEARCHER_STEPS; step++) {
+    if (step && (await ctx.stop?.())) break;
+    if (step) ctx.progress?.send();
     const m = await workersStep(
       ctx.env,
       o.reader,
@@ -1189,12 +1219,22 @@ async function runReview(o: {
         (n) => n.section === s.n || cited.has(numbers.get(n.url) ?? -1),
       );
       const reader = o.readers[(s.n - 1) % o.readers.length] ?? (o.readers[0] as EngineId);
+      const p = ctx.progress;
+      if (p) {
+        p.reviewers.working++;
+        p.send();
+      }
       const r = await runReviewer({ ...o, reader, ctx: shared, section: s, notes: mine }).catch(
         (e: Error) => {
           ctx.emit({ type: "activity", text: `§${s.n} review stopped: ${e.message.slice(0, 90)}` });
           return { flags: [] as ReviewFlag[], dropped: 0, said: e.message };
         },
       );
+      if (p) {
+        p.reviewers.working--;
+        p.reviewers.done++;
+        p.send();
+      }
       flags.push(...r.flags);
       dropped += r.dropped;
       ctx.emit({
@@ -1261,6 +1301,7 @@ async function runReviewer(o: {
   let said = "";
   const text = flatten(section.text);
   for (let step = 0; step < REVIEWER_STEPS; step++) {
+    if (step && (await ctx.stop?.())) break;
     const m = await workersStep(
       ctx.env,
       o.reader,
@@ -1565,6 +1606,48 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     draftId,
     emit,
   };
+  // Stop: Chris presses it, the route marks the draft, and every loop here
+  // (the writer's, each researcher's, each reviewer's) ends at its next step.
+  // Looked up at most every few seconds; once seen, it stays seen.
+  const startedAt = new Date().toISOString();
+  let stopSeen = false;
+  let stopLooked = 0;
+  ctx.stop = async () => {
+    if (stopSeen) return true;
+    if (Date.now() - stopLooked < 4000) return false;
+    stopLooked = Date.now();
+    const at = (await store.get(draftId).catch(() => null))?.meta.stopAt;
+    stopSeen = !!at && at >= startedAt;
+    return stopSeen;
+  };
+  // Where a research turn stands, for the page (progress.ts).
+  let lastBody = draft.body;
+  if (draft.kind === "research") {
+    const tracker = {
+      researchers: { working: 0, done: 0 },
+      reviewers: { working: 0, done: 0 },
+      notes: o.notes ? (await o.notes.list(draftId).catch(() => [])).length : 0,
+      send: () => {
+        const st = stageOf(lastBody, {
+          researchers: tracker.researchers.working,
+          reviewers: tracker.reviewers.working,
+        });
+        emit({
+          type: "progress",
+          p: {
+            ...st,
+            researchers: { ...tracker.researchers },
+            reviewers: { ...tracker.reviewers },
+            notes: tracker.notes,
+            pages: web.reads,
+            searches: web.searches,
+          },
+        });
+      },
+    };
+    ctx.progress = tracker;
+    tracker.send();
+  }
   // A research team (team.ts): the closure write_outline calls.
   const crew = engineOf(engineId).team;
   if (crew && workers && draft.kind === "research" && notesMode(frame.tools)) {
@@ -1625,6 +1708,8 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
         : MAX_STEPS);
   // Whether the model finished on its own, rather than hitting the step limit.
   let ended = false;
+  let stopped = false;
+  let cut = false;
   // The research workflow's checkpoints, each said once a message.
   const nudges = async (step: number): Promise<string[]> => {
     const out: string[] = [];
@@ -1677,6 +1762,14 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
   };
 
   for (let step = 0; step < steps; step++) {
+    if (step && (await ctx.stop())) {
+      stopped = true;
+      emit({
+        type: "activity",
+        text: "Stopped, as you asked. Everything written and noted so far is kept; reply to carry on.",
+      });
+      break;
+    }
     let message: Anthropic.Beta.BetaMessage;
     if (workers) {
       // An open model on Workers AI: the whole reply at once, then the same
@@ -2001,11 +2094,17 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     };
     await store.append(draftId, [reply]);
     history.push(reply);
-    if (step === steps - 1)
+    if (ctx.progress) {
+      lastBody = (await store.get(draftId).catch(() => null))?.body ?? lastBody;
+      ctx.progress.send();
+    }
+    if (step === steps - 1) {
+      cut = true;
       emit({
         type: "error",
         message: "This turn took too many steps and stopped. Say how to continue.",
       });
+    }
   }
 
   if (draft.kind === "research" && (web.searches || web.reads))
@@ -2023,7 +2122,29 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     const r = await o.reads.get(id);
     if (r && ended && r.charsRead > 0) await o.reads.finish(id, WRITE_MODEL);
   }
-  emit({ type: "done", usage });
+  // What the turn ended with, for the card at the end of the chat.
+  let summary: TurnSummary | undefined;
+  if (draft.kind !== "read") {
+    const end = await store.get(draftId).catch(() => null);
+    if (end?.body.trim()) {
+      const st = stageOf(end.body, { researchers: 0, reviewers: 0 });
+      summary = {
+        words: wordCount(end.body),
+        ...(draft.kind === "research"
+          ? {
+              sections: st.sections,
+              flags: end.meta.review?.length ?? 0,
+              ...(end.meta.sources
+                ? { cited: end.meta.sources.cited, independent: end.meta.sources.independent }
+                : {}),
+            }
+          : {}),
+        ...(stopped ? { stopped: true } : {}),
+        ...(cut ? { cut: true } : {}),
+      };
+    }
+  }
+  emit({ type: "done", usage, ...(summary ? { summary } : {}) });
 }
 
 // ---- the conversation as the page shows it ------------------------------------

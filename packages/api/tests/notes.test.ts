@@ -10,11 +10,13 @@ import {
   memoryNotes,
   placeNote,
   replacePart,
+  sectionsOf,
   skeleton,
   sourceNumbers,
   unwritten,
   withSources,
 } from "../src/write/notes";
+import type { Progress, TurnSummary } from "../src/write/progress";
 import { articleTopics } from "../src/write/publish";
 import { memorySources, reportProblems } from "../src/write/research";
 
@@ -208,6 +210,18 @@ describe("a research turn with notes and sections", () => {
     expect(saved?.body).toContain("(https://cmhc.example/report)");
     expect(unwritten(saved?.body ?? "")).toEqual([]);
     expect(reportProblems(saved as never, { total: 1, failed: [] }, articleTopics())).toEqual([]);
+    // The page was told where it stood at each step, in true counts …
+    const prog = events.filter((e) => e.type === "progress") as unknown as Array<{
+      p: Progress;
+    }>;
+    expect(prog.length).toBeGreaterThan(2);
+    expect(prog[0]?.p.stage).toBe("plan");
+    expect(prog.some((e) => e.p.stage === "write")).toBe(true);
+    expect(prog.at(-1)?.p).toMatchObject({ stage: "summary", notes: 1 });
+    // … and what it ended with.
+    const done = events.find((e) => e.type === "done") as unknown as { summary?: TurnSummary };
+    expect(done.summary?.words).toBeGreaterThan(5);
+    expect(done.summary?.sections).toBe(saved ? sectionsOf(saved.body).length : -1);
   });
 });
 

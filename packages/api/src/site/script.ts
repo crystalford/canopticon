@@ -407,7 +407,7 @@ export const SITE_JS = `(function () {
       });
     }
     var restate = function () {
-      fetch(location.pathname, { headers: { accept: "text/html" } }).then(function (res) {
+      return fetch(location.pathname, { headers: { accept: "text/html" } }).then(function (res) {
         return res.ok ? res.text() : null;
       }).then(function (html) {
         if (!html) return;
@@ -417,7 +417,10 @@ export const SITE_JS = `(function () {
           if (now && fresh) now.innerHTML = fresh.innerHTML;
         });
         wsCheck = ws.querySelector("[data-ws-check]");
-        if (doc.title) d.title = doc.title;
+        if (doc.title) {
+          baseTitle = doc.title;
+          if (!running) d.title = (/^✓ /.test(d.title) ? "✓ " : "") + baseTitle;
+        }
       }).catch(function () {});
     };
     var refresh = function () {
@@ -505,6 +508,123 @@ export const SITE_JS = `(function () {
     chat.addEventListener("dragleave", function () { chat.classList.remove("drop"); });
     chat.addEventListener("drop", function (e) { e.preventDefault(); chat.classList.remove("drop"); addFiles(e.dataTransfer.files); });
 
+    // ---- steps: runs of activity lines fold into one line with counts ------
+    var stepCounts = function (texts) {
+      var c = { s: 0, r: 0, n: 0, w: 0 };
+      texts.forEach(function (t) {
+        t = t.replace(/^§\\d+ /, "");
+        if (/^Searched/.test(t)) c.s++;
+        else if (/^Read: /.test(t)) c.r++;
+        else if (/^Noted/.test(t)) c.n++;
+        else if (/^Wrote|^Revised/.test(t)) c.w++;
+      });
+      var bits = [];
+      if (c.s) bits.push("searched " + c.s);
+      if (c.r) bits.push("read " + c.r + (c.r === 1 ? " page" : " pages"));
+      if (c.n) bits.push("noted " + c.n);
+      if (c.w) bits.push("wrote " + c.w);
+      var s = texts.length + " steps" + (bits.length ? " · " + bits.join(" · ") : "");
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    };
+    var act = function (text, before) {
+      var last = before ? before.previousElementSibling : wsLog.lastElementChild;
+      var g = last && last.classList && last.classList.contains("ws-steps") ? last : null;
+      if (!g) {
+        g = d.createElement("details"); g.className = "ws-steps";
+        var sm = d.createElement("summary"); g.appendChild(sm);
+        var box = d.createElement("div"); box.className = "ws-steps-l"; g.appendChild(box);
+        wsLog.insertBefore(g, before || null);
+      }
+      var el = d.createElement("div"); el.className = "ws-act"; el.textContent = text;
+      g.lastElementChild.appendChild(el);
+      var all = [].map.call(g.lastElementChild.children, function (x) { return x.textContent; });
+      g.firstElementChild.innerHTML = "";
+      g.firstElementChild.appendChild(d.createTextNode(all.length === 1 ? all[0] : stepCounts(all)));
+      var pill = d.createElement("span"); pill.className = "ws-steps-p"; pill.textContent = "Steps ▾";
+      if (all.length > 1) g.firstElementChild.appendChild(pill);
+      wsLog.scrollTop = wsLog.scrollHeight;
+    };
+
+    // ---- while Claude works: stages, true counts, time, Stop ---------------------
+    var prog = ws.querySelector("[data-ws-prog]");
+    var baseTitle = d.title;
+    var running = false;
+    var guard = function (e) { if (running) { e.preventDefault(); e.returnValue = ""; } };
+    addEventListener("beforeunload", guard);
+    addEventListener("focus", function () { if (!running && /^✓ /.test(d.title)) d.title = baseTitle; });
+    var mmss = function (ms) { var t = Math.floor(ms / 1000); return Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2); };
+    var progStart = function () {
+      running = true;
+      prog.hidden = false;
+      prog.querySelector("[data-ws-stages]").hidden = true;
+      prog.querySelector("[data-ws-counts]").textContent = "Starting…";
+      var stopB = prog.querySelector("[data-ws-stop]");
+      stopB.disabled = false; stopB.lastChild.textContent = " Stop";
+      var notify = prog.querySelector("[data-ws-notify]");
+      notify.hidden = !("Notification" in window) || Notification.permission !== "default";
+      var t0 = Date.now(), clock = prog.querySelector("[data-ws-clock]");
+      clock.textContent = "0:00";
+      prog.timer = setInterval(function () { clock.textContent = mmss(Date.now() - t0); }, 1000);
+      prog.t0 = t0;
+      d.title = "(working) " + baseTitle;
+    };
+    var progShow = function (p) {
+      var st = prog.querySelector("[data-ws-stages]"); st.hidden = false;
+      var order = ["plan", "research", "write", "review", "summary"], at = order.indexOf(p.stage);
+      [].forEach.call(st.children, function (li, i) { li.className = i < at ? "done" : i === at ? "now" : ""; });
+      var bits = [];
+      if (p.sections) bits.push(p.written + " of " + p.sections + " sections written");
+      if (p.researchers.working) bits.push(p.researchers.working + (p.researchers.working === 1 ? " researcher" : " researchers") + " working");
+      if (p.reviewers.working) bits.push(p.reviewers.working + (p.reviewers.working === 1 ? " reviewer" : " reviewers") + " reading");
+      bits.push(p.notes + (p.notes === 1 ? " note" : " notes"));
+      bits.push(p.pages + (p.pages === 1 ? " page read" : " pages read"));
+      prog.querySelector("[data-ws-counts]").textContent = bits.join(" · ");
+      d.title = "(" + (p.sections ? p.written + "/" + p.sections : order[at]) + ") " + baseTitle;
+    };
+    var progEnd = function () {
+      running = false;
+      clearInterval(prog.timer);
+      prog.hidden = true;
+      return Date.now() - (prog.t0 || Date.now());
+    };
+    if (prog) {
+      prog.querySelector("[data-ws-stop]").addEventListener("click", function () {
+        var b = this; b.disabled = true; b.lastChild.textContent = " Stopping…";
+        fetch(wsForm.action.slice(0, -"/turn".length) + "/stop", { method: "POST", headers: { accept: "application/json" } })
+          .catch(function () { b.disabled = false; b.lastChild.textContent = " Stop"; });
+      });
+      prog.querySelector("[data-ws-notify]").addEventListener("click", function () {
+        var b = this;
+        Notification.requestPermission().then(function () { b.hidden = true; });
+      });
+    }
+    // The card at the end: what the turn ended with, and what to do next.
+    var lastCheck = null;
+    var finishCard = function (sum, ms, usage) {
+      if (!sum) return null;
+      var head = sum.stopped ? "Stopped after " + mmss(ms) : sum.cut ? "Ran out of steps after " + mmss(ms) : "Finished in " + mmss(ms);
+      var bits = [sum.words.toLocaleString() + " words"];
+      if (sum.sections) bits.push(sum.sections + " sections");
+      if (lastCheck && lastCheck.total) bits.push(lastCheck.total + " quotations" + (lastCheck.failed.length ? ", " + lastCheck.failed.length + " not word for word" : ", all found"));
+      if (sum.cited) bits.push(sum.cited + " sources" + (sum.independent != null ? ", about " + sum.independent + " independent" : ""));
+      if (sum.flags != null && sum.cited) bits.push(sum.flags + (sum.flags === 1 ? " reviewer flag" : " reviewer flags"));
+      if (usage) bits.push("$" + (usage.cents / 100).toFixed(2) + " in all");
+      var c = d.createElement("div"); c.className = "ws-done" + (sum.stopped || sum.cut ? " partial" : "");
+      var h = d.createElement("div"); h.className = "ws-done-h"; h.textContent = (sum.stopped || sum.cut ? "" : "✓ ") + head; c.appendChild(h);
+      var n = d.createElement("div"); n.className = "ws-done-n"; n.textContent = bits.join(" · "); c.appendChild(n);
+      var a = d.createElement("div"); a.className = "ws-done-a"; c.appendChild(a);
+      wsLog.appendChild(c); wsLog.scrollTop = wsLog.scrollHeight;
+      return a;
+    };
+    var fillActions = function (row) {
+      if (!row) return;
+      // The same buttons as the top bar, with the same gates (drawn by the server).
+      [].forEach.call(ws.querySelectorAll(".ws-top .ws-pub form"), function (f) {
+        var b = f.querySelector("button");
+        if (b && !b.disabled) row.appendChild(f.cloneNode(true));
+      });
+    };
+
     wsForm.addEventListener("submit", function (e) {
       if (!window.fetch || !window.TextDecoder) return;
       e.preventDefault();
@@ -522,15 +642,20 @@ export const SITE_JS = `(function () {
       wsText.value = ""; setFlag(""); wsSend.disabled = true; wsText.disabled = true;
       var reply = null, finished = false, wrote = false;
       var status = line("ws-act live", "Working… keep this tab open until Claude finishes.");
+      var ended = null, endUsage = null;
+      if (prog) progStart();
       var handle = function (ev) {
         if (ev.type === "text") {
           if (!reply) { reply = line("ws-msg claude", ""); wsLog.insertBefore(status, null); }
           reply.textContent += ev.text;
           wsLog.scrollTop = wsLog.scrollHeight;
         } else if (ev.type === "activity") {
-          var a = line("ws-act", ev.text); reply = null; wsLog.insertBefore(status, null); void a;
+          act(ev.text, status); reply = null;
+        } else if (ev.type === "progress") {
+          if (prog) progShow(ev.p);
         } else if (ev.type === "draft") {
           var c = ev.check, n = c.failed.length;
+          lastCheck = c;
           wsCheck.innerHTML = !c.total ? '<span class="ws-check">No quotations yet</span>'
             : n ? '<span class="ws-check bad">' + c.total + " quotations · " + n + " not word for word</span>"
             : '<span class="ws-check ok">' + c.total + " quotations · all word for word</span>";
@@ -538,7 +663,7 @@ export const SITE_JS = `(function () {
         } else if (ev.type === "update") {
           line("ws-upd", ev.text); reply = null; wsLog.insertBefore(status, null);
         } else if (ev.type === "card") {
-          line("ws-act", ev.label); reply = null; wsLog.insertBefore(status, null);
+          act(ev.label, status); reply = null;
           soon();
         } else if (ev.type === "proposal" && ev.html) {
           var box = d.createElement("div"); box.innerHTML = ev.html;
@@ -548,6 +673,7 @@ export const SITE_JS = `(function () {
           line("ws-act bad", ev.message);
         } else if (ev.type === "done") {
           if (ev.usage && wsCost) wsCost.textContent = "$" + (ev.usage.cents / 100).toFixed(2) + " so far";
+          ended = ev.summary || null; endUsage = ev.usage || null;
           if (ws.getAttribute("data-ws-kind") === "read") finished = true;
         }
       };
@@ -579,11 +705,17 @@ export const SITE_JS = `(function () {
       }).then(function () {
         status.remove(); wsSend.disabled = false; wsText.disabled = false; wsText.focus();
         if (tips) syncTips();
+        var ms = prog ? progEnd() : 0;
+        d.title = (ended && !ended.stopped && !ended.cut ? "✓ " : "") + baseTitle;
+        var row = finishCard(ended, ms, endUsage);
+        if (ended && ms > 120000 && "Notification" in window && Notification.permission === "granted" && d.hidden) {
+          try { new Notification(ended.stopped ? "Stopped" : "Claude has finished", { body: baseTitle }); } catch (err) {}
+        }
         // A read's receipt and its Show button live outside the frame: reload all.
         if (finished) location.reload();
         // The bar (title, pages read, what keeps it from Publish or Admin,
         // the buttons) was drawn when the page opened: redraw it from the server.
-        else if (wrote) restate();
+        else if (wrote) restate().then(function () { fillActions(row); });
       });
     });
     // Read it lands here with the first message waiting: send it once.

@@ -84,6 +84,20 @@
   the chat on the left with `↳` suggestions above an empty box; the page on
   the right under its future address. `[data-ws-state]` wraps the whole top
   and is redrawn after every write.
+  **While Claude works** (2026-11-08, `write/progress.ts`): a research turn
+  emits `progress` events — the stage (Plan · Research · Write · Review ·
+  Summary, from the body and who is at work), sections written of laid out,
+  researchers and reviewers working, notes, pages read — true counts, no
+  percentage; the page shows them above the composer with a clock and
+  "usually 15–25 min" (the engine test's times, team engines only), puts
+  "(3/6)" in the tab title and "✓" when done, warns before the tab closes
+  mid-turn, and can notify. **Stop** (`POST /op/write/:id/stop`) sets
+  `meta.stopAt`; the writer, every researcher and every reviewer end at
+  their next step (checked at most every 4 s) and everything written and
+  noted is kept. Runs of steps fold into one line with counts and
+  "Steps ▾" (`logHtml`, and live in `site.js`). `done` carries a summary
+  (`TurnSummary`: words, sections, flags, sources) drawn as a finish card
+  with the top bar's enabled actions cloned in.
 - **The workspace** is `/admin/write` (`src/write/`, `site/pages/write.ts`,
   actions in `operator/routes/write.ts`): a chat with Claude beside the real
   article page, the way Claude Design works. Claude (Opus 5.5, through

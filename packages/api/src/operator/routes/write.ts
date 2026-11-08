@@ -138,6 +138,20 @@ app.post("/admin/start", async (c) => {
   return c.redirect(`/admin/write/${d.id}?start=1`, 303);
 });
 
+// Stop: marks the draft; the running turn (and its researchers and
+// reviewers) ends at its next step, keeping everything written and noted.
+app.post("/write/:id/stop", async (c) => {
+  const id = c.req.param("id");
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  const store = userId ? d1Drafts(c.env, userId) : null;
+  const d = store ? await store.get(id).catch(() => null) : null;
+  if (!store || !d) return c.json({ ok: false }, 404);
+  await store.save(id, { meta: { ...d.meta, stopAt: new Date().toISOString() } });
+  return (c.req.header("accept") ?? "").includes("application/json")
+    ? c.json({ ok: true })
+    : c.redirect(`/admin/write/${id}`, 303);
+});
+
 app.post("/write/:id/turn", async (c) => {
   const id = c.req.param("id");
   const back = `/admin/write/${id}`;

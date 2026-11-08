@@ -10,6 +10,8 @@ import { all, one, run } from "../lib/d1";
 export type DraftKind = "article" | "research" | "read";
 
 export interface DraftMeta {
+  /** When Stop was last pressed: a turn begun before it ends at its next step. */
+  stopAt?: string;
   title?: string;
   dek?: string;
   topic?: string;
