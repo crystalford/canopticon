@@ -37,10 +37,10 @@ export interface Found {
 const UA = "CanopticonResearch/1.0 (+https://canopticon.com/about)";
 const TIMEOUT = 10_000;
 
-async function getJson(url: string): Promise<unknown> {
+async function getJson(url: string, timeout = TIMEOUT): Promise<unknown> {
   const res = await fetch(url, {
     headers: { "user-agent": UA, accept: "application/json" },
-    signal: AbortSignal.timeout(TIMEOUT),
+    signal: AbortSignal.timeout(timeout),
   });
   if (!res.ok) throw new Error(`${new URL(url).hostname} answered ${res.status}`);
   // GDELT answers a too-frequent caller with plain text, not JSON.
@@ -57,6 +57,8 @@ const clip = (s: unknown, n = 300) =>
 export async function gdelt(q: string): Promise<Found[]> {
   const j = (await getJson(
     `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(`${q} sourcelang:english`)}&mode=artlist&maxrecords=8&format=json&sort=hybridrel`,
+    // Live, GDELT took longer than ten seconds twice running.
+    20_000,
   )) as { articles?: Array<{ url?: string; title?: string; domain?: string; seendate?: string }> };
   return (j.articles ?? [])
     .filter((a) => a.url)
