@@ -59,6 +59,7 @@ import {
   runReadTool,
 } from "./read";
 import {
+  DEEPEN_HOW,
   FREE_SEARCH_HOW,
   READ_LIMIT,
   RESEARCH_HOW,
@@ -299,7 +300,7 @@ const notesMode = (tools: Anthropic.Beta.BetaToolUnion[]) =>
   tools.some((t) => "name" in t && t.name === "note_evidence");
 
 export function researchSystemPrompt(mode?: string, workers = false): string {
-  return `${RESEARCH_HOW}${workers ? FREE_SEARCH_HOW : ""}${mode === "thesis" ? THESIS_HOW : ""}
+  return `${RESEARCH_HOW}${workers ? FREE_SEARCH_HOW : ""}${mode === "thesis" ? THESIS_HOW : ""}${mode === "deepen" ? DEEPEN_HOW : ""}
 
 TOPICS: the report's topic is exactly one of: ${topics().join("; ")}.`;
 }

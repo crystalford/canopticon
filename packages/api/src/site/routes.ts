@@ -290,6 +290,8 @@ app.get("/admin/write/:id", async (c, next) => {
           update: !!d.meta.savedAs && !!d.meta.savedTitle && d.meta.savedTitle === d.meta.title,
         },
         flash: { error: c.req.query("error"), done: c.req.query("done") },
+        // Deepen opened it: the page sends the loose ends once.
+        autostart: c.req.query("start") === "1" && !items.length ? d.meta.seed : undefined,
       }),
     );
   }

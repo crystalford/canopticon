@@ -408,7 +408,12 @@ export async function askSources(
   only?: string[],
 ): Promise<Array<{ name: string; found: Found[]; error?: string }>> {
   const k = keywords(q) || q;
-  const chosen = [...CORE, ...route(q)].filter(([n]) => !only || only.includes(n));
+  // Named sources are asked whether or not the question routes to them.
+  const chosen: Array<[string, Source]> = only
+    ? only.flatMap((n) =>
+        ALL_SOURCES[n] ? [[n, ALL_SOURCES[n] as Source] as [string, Source]] : [],
+      )
+    : [...CORE, ...route(q)];
   return Promise.all(
     chosen.map(async ([name, f]) => {
       try {

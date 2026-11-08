@@ -372,6 +372,19 @@
   for independence, not counted. Everything else is research: notes, every
   check, Save to Admin. The engine test's fifth task is a thesis
   (`verdictOf`; no verdict line fails the bar).
+- **Deepen** (2026-11-08; "Deepen (free)" and "Deepen with Claude" on any
+  written report): `POST /op/write/:id/deepen?with=free|claude` opens a new
+  research conversation (`meta.mode = "deepen"`, `deepenFrom`) on the
+  research team or on Sonnet advised by Opus, with the report, its notes
+  (in order, so source numbers hold) and every kept page copied in —
+  nothing fetched twice, every quotation still checks. Its first message
+  (`deepenBrief`, sent once) is the loose ends found in code: the report's
+  open questions, the reviewers' and support check's flags, and sources that
+  echo one origin. `DEEPEN_HOW`: choose the three to six that matter, research
+  them, revise in place (keep what is sound; a thesis keeps its verdict line
+  unless the evidence changes it), and say in the chat what was added,
+  corrected, overturned and still open. Cheap first draft, paid polish only
+  where it counts.
 - **Read it** (`docs/read-it.md`; `write/read.ts`, `site/pages/read.ts`,
   `operator/routes/read.ts`): a button on Admin's upload cards and on the
   signed-in document page. It opens a read draft (kind `read`) whose first
