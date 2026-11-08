@@ -405,6 +405,8 @@ export function renderAdmin(
     signedIn: true,
     waiting: open,
     mainClass: "desk-main",
-    body: `${top}<div class="desk">${side(desk, reads)}${pane}</div>`,
+    // On a phone, the two halves are tabs (the page's script); without it
+    // they stack.
+    body: `${top}<div class="desk-tabs" role="tablist" aria-label="Show" data-desk-tabs hidden><button type="button" role="tab" data-desk-tab="side" aria-selected="true">Your work</button><button type="button" role="tab" data-desk-tab="queue" aria-selected="false">Waiting <span class="q-count${open ? "" : " clear"}">${open}</span></button></div><div class="desk" data-desk>${side(desk, reads)}${pane}</div>`,
   });
 }

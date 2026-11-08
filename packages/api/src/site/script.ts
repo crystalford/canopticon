@@ -303,6 +303,26 @@ export const SITE_JS = `(function () {
     });
   }
 
+  // ---- Admin on a phone: your work and the queue are two tabs ---------------
+  var dTabs = d.querySelector("[data-desk-tabs]");
+  var desk = d.querySelector("[data-desk]");
+  if (dTabs && desk) {
+    var dView = function (v) {
+      desk.setAttribute("data-view", v);
+      [].forEach.call(dTabs.querySelectorAll("[data-desk-tab]"), function (b) {
+        b.setAttribute("aria-selected", b.getAttribute("data-desk-tab") === v ? "true" : "false");
+      });
+    };
+    dTabs.hidden = false;
+    desk.classList.add("tabbed");
+    // Back from an action on the queue (a flash, Show decided): open on it.
+    dView(/[?&](uploaded|ingested|dedup|done|error|decided)=/.test(location.search) ? "queue" : "side");
+    dTabs.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-desk-tab]");
+      if (b) dView(b.getAttribute("data-desk-tab"));
+    });
+  }
+
   // ---- ⋯ menus close on Escape or a click elsewhere ---------------------------
   d.addEventListener("click", function (e) {
     d.querySelectorAll("details.more[open]").forEach(function (m) { if (!m.contains(e.target)) m.removeAttribute("open"); });
@@ -422,6 +442,29 @@ export const SITE_JS = `(function () {
     });
     ws.querySelector("[data-ws-flag-clear]").addEventListener("click", function () { setFlag(""); });
     wsLog.scrollTop = wsLog.scrollHeight;
+    // "Ask Claude to fix it" in the not-ready bar goes through the chat, live.
+    // The bar is redrawn after each turn, so the listener sits on the page.
+    ws.addEventListener("submit", function (e) {
+      var f = e.target.closest ? e.target.closest("[data-ws-ask]") : null;
+      if (!f || wsSend.disabled) return;
+      e.preventDefault();
+      var t = f.querySelector('input[name="text"]');
+      wsText.value = t ? t.value : "";
+      wsForm.requestSubmit();
+    });
+    // Suggestions: two lines above an empty box; a click fills it.
+    var tips = ws.querySelector("[data-ws-tips]");
+    var syncTips = function () { if (tips) tips.hidden = !!wsText.value.trim() || wsText.disabled; };
+    if (tips) {
+      tips.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-ws-tip]");
+        if (!b) return;
+        wsText.value = b.textContent.replace(/^\\s*↳\\s*/, "").trim();
+        syncTips(); wsText.focus();
+      });
+      wsText.addEventListener("input", syncTips);
+      syncTips();
+    }
     wsText.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); wsForm.requestSubmit(); }
     });
@@ -535,6 +578,7 @@ export const SITE_JS = `(function () {
         line("ws-act bad", "The connection dropped. What was done is saved; reload to see it.");
       }).then(function () {
         status.remove(); wsSend.disabled = false; wsText.disabled = false; wsText.focus();
+        if (tips) syncTips();
         // A read's receipt and its Show button live outside the frame: reload all.
         if (finished) location.reload();
         // The bar (title, pages read, what keeps it from Publish or Admin,

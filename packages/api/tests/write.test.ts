@@ -943,6 +943,43 @@ describe("research: what was read is kept and checked", () => {
   });
 });
 
+describe("the workspace, design v3", () => {
+  it("says what keeps a report from Admin in one bar, with one button that asks Claude to fix it", async () => {
+    const { renderWorkspace } = await import("../src/site/pages/write");
+    const d = memoryDrafts();
+    const draft = await d.create("research");
+    const html = renderWorkspace(
+      { ...draft, body: "x".repeat(500) },
+      [],
+      { total: 2, failed: [] },
+      {
+        hasKey: true,
+        research: {
+          problems: ["2 quotations are not found in the pages read.", "No topic."],
+          pages: 1,
+        },
+      },
+    );
+    expect(html).toContain(
+      '<strong>Not ready for Admin:</strong> <span class="ws-warn-t">2 quotations are not found in the pages read.</span>',
+    );
+    expect(html).toContain("<summary>1 more</summary>");
+    expect(html).toMatch(
+      /data-ws-ask><input type="hidden" name="text" value="Fix what keeps this from Admin:\n- 2 quotations/,
+    );
+    expect(html).toContain('href="/admin" class="ws-back" aria-label="Back to Admin"');
+    expect(html).toContain("as the document page it will become");
+    expect(html).toContain("data-ws-tip");
+  });
+
+  it("shows no bar on a new conversation with nothing written", async () => {
+    const { renderWorkspace } = await import("../src/site/pages/write");
+    const draft = await memoryDrafts().create("article");
+    const html = renderWorkspace(draft, [], { total: 0, failed: [] }, { hasKey: true });
+    expect(html).not.toContain('class="ws-warn"');
+  });
+});
+
 describe("research: the web allowance", () => {
   it("is 80 searches and 80 reads, and a limit reached is said once in the chat", async () => {
     const store = memoryDrafts();

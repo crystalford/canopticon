@@ -74,7 +74,16 @@
   `.warn`, `.ghost`, `.chipb`, `.attach`, `.toggle`, `.more` (`.d-btn` is
   the same control). The old operator console — processing, leads,
   research, the export — is `/admin/workbench`. Published Admin uploads join
-  every public list through `site/uploads.ts` → `setUploadedRows()`.
+  every public list through `site/uploads.ts` → `setUploadedRows()`. On a
+  phone the desk's two halves are tabs (Your work · Waiting).
+  **Each conversation page is the same desk** (v3): a top bar (‹ back to
+  Admin, the title, kind · quotation check · engine · cost, the actions);
+  an orange **Not ready** bar with the first reason, the rest behind "more",
+  and **Ask Claude to fix it** (a form to `/turn`; the page sends it through
+  the live chat, `data-ws-ask`); the reviewers and sources as quiet bars;
+  the chat on the left with `↳` suggestions above an empty box; the page on
+  the right under its future address. `[data-ws-state]` wraps the whole top
+  and is redrawn after every write.
 - **The workspace** is `/admin/write` (`src/write/`, `site/pages/write.ts`,
   actions in `operator/routes/write.ts`): a chat with Claude beside the real
   article page, the way Claude Design works. Claude (Opus 5.5, through

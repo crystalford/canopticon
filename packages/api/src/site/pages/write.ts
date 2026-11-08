@@ -4,6 +4,7 @@
 // into the chat. For the author only.
 
 import type { ChatItem } from "../../write/agent";
+import { slugify } from "../../write/article";
 import type { CheckResult } from "../../write/check";
 import type { Draft, DraftKind } from "../../write/drafts";
 import { CLAUDE, ENGINES, type EngineId, engine, isWorkersAi } from "../../write/engines";
@@ -49,7 +50,7 @@ export function renderWriteList(
     path: "/admin/write",
     signedIn: true,
     noindex: true,
-    body: `<div class="d-head"><h1 class="d-h1">Write and research</h1>${opts.route ? `<span class="ws-route">${ROUTE_LABEL[opts.route]}</span>` : ""}<span class="d-links"><a href="/admin" class="ulink">Back to Admin</a></span></div>${opts.hasKey || isWorkersAi(chosen) ? "" : NO_KEY}<form method="post" action="/op/write/new" class="ws-new">${choice}<button type="submit" name="kind" value="article" class="btn tall">New article</button><button type="submit" name="kind" value="research" class="btn tall">New research</button><button type="submit" name="kind" value="thesis" class="btn tall" title="Give a claim: the case for, the case against, the crux, and a verdict">Test a thesis</button></form><p class="ws-eng-note">The choice stays with each conversation. Claude reads and writes best; the Workers AI models run the same checks for much less.</p><div class="ws-list">${rows}</div>`,
+    body: `<div class="d-head"><h1 class="d-h1">Write and research</h1>${opts.route ? `<span class="ws-route">${ROUTE_LABEL[opts.route]}</span>` : ""}<span class="d-links"><a href="/admin" class="btn sm"><span class="g" aria-hidden="true">‹</span> Back to Admin</a></span></div>${opts.hasKey || isWorkersAi(chosen) ? "" : NO_KEY}<form method="post" action="/op/write/new" class="ws-new">${choice}<button type="submit" name="kind" value="article" class="btn tall">New article</button><button type="submit" name="kind" value="research" class="btn tall">New research</button><button type="submit" name="kind" value="thesis" class="btn tall" title="Give a claim: the case for, the case against, the crux, and a verdict">Test a thesis</button></form><p class="ws-eng-note">The choice stays with each conversation. Claude reads and writes best; the Workers AI models run the same checks for much less.</p><div class="ws-list">${rows}</div>`,
   });
 }
 
@@ -144,7 +145,7 @@ export function renderWorkspace(
   const flags = research ? (d.meta.review ?? []) : [];
   const changed = (s: string) => !flat(d.body).includes(flat(s));
   const reviewed = d.meta.review
-    ? `<details class="ws-why ws-review"${flags.some((f) => !changed(f.sentence)) ? " open" : ""}><summary>Reviewers: ${
+    ? `<details class="ws-note"${flags.some((f) => !changed(f.sentence)) ? " open" : ""}><summary>Reviewers: ${
         flags.length
           ? `${flags.length} flagged · ${flags.filter((f) => changed(f.sentence)).length} changed since`
           : "nothing flagged"
@@ -166,7 +167,7 @@ export function renderWorkspace(
   // Independence (independence.ts): which cited sources are really one.
   const src = research ? d.meta.sources : undefined;
   const independence = src?.echoes.length
-    ? `<details class="ws-why ws-review"><summary>Sources: ${src.cited} cited · about ${src.independent} independent</summary><ul>${src.echoes
+    ? `<details class="ws-note"><summary>Sources: ${src.cited} cited · about ${src.independent} independent</summary><ul>${src.echoes
         .map(
           (g) =>
             `<li>${g.sources.map((k) => `[${k}]`).join(" ")} — ${
@@ -177,16 +178,27 @@ export function renderWorkspace(
         )
         .join("")}</ul></details>`
     : "";
-  const why = pub.problems.length
-    ? `<details class="ws-why"><summary>${research ? "Not ready for Admin" : "Not ready to publish"}</summary><ul>${pub.problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></details>`
-    : "";
+  // Why it cannot go to Admin or publish: the first reason in the bar, the
+  // rest behind "more", and one button that asks Claude to fix them. A new
+  // conversation with nothing written yet gets no bar.
+  const fixable = pub.problems.filter((p) => p !== "Nothing is written yet.");
+  const why = fixable.length
+    ? `<div class="ws-warn" role="status"><strong>${research ? "Not ready for Admin:" : "Not ready to publish:"}</strong> <span class="ws-warn-t">${esc(fixable[0] ?? "")}</span>${
+        fixable.length > 1
+          ? `<details class="ws-warn-more"><summary>${fixable.length - 1} more</summary><ul>${fixable
+              .slice(1)
+              .map((p) => `<li>${esc(p)}</li>`)
+              .join("")}</ul></details>`
+          : ""
+      }<form method="post" action="/op/write/${esc(d.id)}/turn" class="ws-pubform" data-ws-ask><input type="hidden" name="text" value="${esc(`Fix what keeps this from ${research ? "Admin" : "publishing"}:\n${fixable.map((p) => `- ${p}`).join("\n")}`)}"><button type="submit" class="btn warn">Ask Claude to fix it</button></form></div>`
+    : pub.problems.length
+      ? `<span class="vh">${research ? "Not ready for Admin" : "Not ready to publish"}: nothing is written yet.</span>`
+      : "";
   const action = (label: string, path: string, cls = "btn sm", disabled = false) =>
     `<form method="post" action="/op/write/${esc(d.id)}/${path}" class="ws-pubform"><button type="submit" class="${cls}"${disabled ? " disabled" : ""}>${label}</button></form>`;
   const rs = opts.research;
   const savebar = `<span class="ws-uptodate">${rs?.pages ?? 0} ${rs?.pages === 1 ? "page" : "pages"} read</span>${
-    rs?.savedAs
-      ? '<a class="ws-live" href="/admin" target="_blank" rel="noopener">In Admin</a>'
-      : ""
+    rs?.savedAs ? '<a class="btn sm" href="/admin">In Admin</a>' : ""
   }${action(rs?.update ? "Update in Admin" : "Save to Admin", "save", "btn sm primary", !ready)}${
     rs?.savedAs ? action("Write an article from this", "article") : ""
   }${
@@ -198,7 +210,7 @@ export function renderWorkspace(
   const readAction = (label: string, act: string, cls = "btn sm") =>
     `<form method="post" action="/op/read/${esc(read?.readId ?? "")}/${act}" class="ws-pubform"><button type="submit" class="${cls}">${label}</button></form>`;
   const pubbar = read
-    ? `<a class="ws-live" href="/p/${esc(read.docId)}${read.shown ? "?fresh=1" : ""}" target="_blank" rel="noopener">${read.shown ? "On the page" : "The document"}</a>${
+    ? `<a class="btn sm" href="/p/${esc(read.docId)}${read.shown ? "?fresh=1" : ""}" target="_blank" rel="noopener">${read.shown ? "On the page" : "The document"}</a>${
         read.shown
           ? readAction("Take it off", "hide")
           : readAction("Show on the page", "show", "btn sm primary")
@@ -206,7 +218,7 @@ export function renderWorkspace(
     : research
       ? savebar
       : isLive && pub.live
-        ? `<a class="ws-live" href="/articles/${esc(pub.live.slug)}" target="_blank" rel="noopener">Live · version ${pub.live.version}</a>${
+        ? `<span class="ws-live">Live · version ${pub.live.version}</span>${
             pub.changed
               ? action("Update the live article", "publish", "btn sm primary", !ready)
               : '<span class="ws-uptodate">Up to date</span>'
@@ -231,24 +243,75 @@ export function renderWorkspace(
           : research
             ? `<div class="ws-hello">Ask a question about the world, and say why you are asking and what you have already decided. Claude checks the record, searches the web, reads the sources in full, and writes the report on the right. Every quotation is checked against the pages it read. When it is right, Save to Admin, and publish it there.</div>`
             : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
+  const kindWord = read
+    ? "Read"
+    : thesis
+      ? "Thesis"
+      : research && d.meta.mode === "deepen"
+        ? "Deepen"
+        : research
+          ? "Research"
+          : "Article";
+  const eng = engine(opts.engine ?? CLAUDE);
+  const title =
+    d.meta.title ||
+    (thesis ? "Untitled thesis test" : research ? "Untitled research" : "Untitled draft");
+  // Where it will live: the address bar over the page.
+  const address = read
+    ? `/p/${read.docId}`
+    : research
+      ? `/p/${slugify(d.meta.title || "untitled-research")}`
+      : `/articles/${isLive && pub.live ? pub.live.slug : slugify(d.meta.title || "untitled")}`;
+  const onSite = read ? read.shown : isLive;
+  const pathBar = `<div class="ws-path"><code>${esc(address)}</code><span>${
+    read
+      ? "what Claude found — kept cards go on the page"
+      : research
+        ? "as the document page it will become"
+        : "as the article will read"
+  }</span><span class="ws-path-r">${
+    onSite
+      ? `<a class="btn sm" href="${esc(address)}?fresh=1" target="_blank" rel="noopener">Open on the site <span class="g" aria-hidden="true">↗</span></a>`
+      : "not on the site yet"
+  }</span></div>`;
+  const download = read
+    ? ""
+    : `<a class="btn sm" href="/admin/write/${esc(d.id)}/article.md"><span class="g g-dl" aria-hidden="true">↓</span>Download .md</a>`;
+  const top = `<div class="ws-state" data-ws-state><div class="ws-top"><a href="/admin" class="ws-back" aria-label="Back to Admin" title="Back to Admin">‹</a><div class="ws-titles"><div class="ws-title" data-ws-title>${esc(read ? title.replace(/^Read: /, "") : title)}</div><div class="ws-line"><strong>${kindWord}</strong><span aria-hidden="true">·</span><span data-ws-check>${read ? `<span class="ws-check">${read.receipt}</span>` : checkLine(check)}</span><span aria-hidden="true">·</span><span title="${esc(eng.note)}">${esc(eng.label)}</span>${read ? "" : `<span aria-hidden="true">·</span><span>${esc(dollars(d.usage.cents))}</span>`}</div></div><div class="ws-pub">${download}${pubbar}</div></div>${read ? "" : why}${reviewed}${independence}</div>`;
+  const tips = read
+    ? ["Which figures does the argument rest on?", "What does it say against its own case?"]
+    : thesis
+      ? ["What would change the verdict?", "Find the strongest study against the claim"]
+      : research
+        ? ["Add the strongest counter-evidence", "Look for figures published since"]
+        : ["Quote the record more where the argument rests", "Tighten the opening"];
+  const suggest = `<div class="ws-tips" data-ws-tips hidden>${tips
+    .map(
+      (t) =>
+        `<button type="button" class="ws-tip" data-ws-tip><span aria-hidden="true">↳</span> ${esc(t)}</button>`,
+    )
+    .join("")}</div>`;
   const body = `<div class="ws" data-ws="${esc(d.id)}" data-ws-kind="${esc(d.kind)}"${opts.autostart ? ` data-ws-autostart="${esc(opts.autostart)}"` : ""}>
+${top}${flash}
 <div class="ws-tabs" role="tablist" aria-label="Show" data-ws-tabs hidden><button type="button" role="tab" data-ws-tab="chat" aria-selected="true">Chat</button><button type="button" role="tab" data-ws-tab="page" aria-selected="false">${read ? "What it found" : "The page"}</button></div>
+<div class="ws-panes">
 <section class="ws-chat" aria-label="Conversation">
-<div class="ws-head"><a href="/admin/write" class="ulink">Drafts</a><span class="ws-eng-tag" title="${esc(engine(opts.engine ?? CLAUDE).note)}">${esc(engine(opts.engine ?? CLAUDE).label)}</span><span class="ws-title" data-ws-title>${esc(d.meta.title || (thesis ? "Untitled thesis test" : research ? "Untitled research" : "Untitled draft"))}</span></div>
 ${opts.hasKey ? "" : NO_KEY}
 <div class="ws-log" data-ws-log>${log}</div>
 <form class="ws-form" method="post" action="/op/write/${esc(d.id)}/turn" data-ws-form>
+${suggest}
 <div class="ws-flag" data-ws-flag hidden><span class="ws-flag-l">Flagged</span><span class="ws-flag-t" data-ws-flag-text></span><button type="button" class="ws-flag-x" data-ws-flag-clear aria-label="Remove the flag">×</button></div>
 <div class="ws-files" data-ws-files hidden></div>
 <label for="ws-text" class="vh">Message</label>
 <textarea id="ws-text" name="text" rows="3" placeholder="${read ? "Ask about the document, or what Claude found" : thesis ? "The claim to test, e.g. “Banning short-term rentals lowers rents”" : research ? "What should Claude find out, or change?" : "What should Claude write or change?"}"${opts.hasKey ? "" : " disabled"}></textarea>
-<div class="ws-actions"><span class="ws-left"><label class="ws-attach">Add files<input type="file" multiple accept=".md,.txt,.pdf,.docx" data-ws-file hidden></label><span class="ws-cost" data-ws-cost title="${isWorkersAi(opts.engine) ? "Workers AI, billed to Cloudflare" : opts.route ? esc(ROUTE_LABEL[opts.route]) : ""} · estimated, at the list price">${esc(dollars(d.usage.cents))} so far</span></span><button type="submit" class="btn"${opts.hasKey ? "" : " disabled"}>Send</button></div>
+<div class="ws-actions"><label class="attach"><span class="plus" aria-hidden="true">+</span>Add files<input type="file" multiple accept=".md,.txt,.pdf,.docx" data-ws-file hidden></label><span class="ws-cost" data-ws-cost title="${isWorkersAi(opts.engine) ? "Workers AI, billed to Cloudflare" : opts.route ? esc(ROUTE_LABEL[opts.route]) : ""} · estimated, at the list price">${esc(dollars(d.usage.cents))} so far</span><button type="submit" class="btn primary"${opts.hasKey ? "" : " disabled"}>Send</button></div>
 </form>
 </section>
 <section class="ws-page" aria-label="The page">
-<div class="ws-state" data-ws-state><div class="ws-bar"><span data-ws-check>${read ? `<span class="ws-check">${read.receipt}</span>` : checkLine(check)}</span><span class="ws-pub">${read ? "" : `<a class="ulink" href="/admin/write/${esc(d.id)}/article.md">Download .md</a>`}${pubbar}</span></div>${read ? "" : why}${reviewed}${independence}</div>${flash}
-<iframe class="ws-frame" src="/admin/write/${esc(d.id)}/preview" title="The article as it will be published" data-ws-preview></iframe>
+${pathBar}
+<div class="ws-sheet"><iframe class="ws-frame" src="/admin/write/${esc(d.id)}/preview" title="The article as it will be published" data-ws-preview></iframe></div>
 </section>
+</div>
 </div>`;
   return shell({
     title: d.meta.title ? (read ? d.meta.title : `Write: ${d.meta.title}`) : "Write",
