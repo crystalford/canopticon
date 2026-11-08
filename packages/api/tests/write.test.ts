@@ -335,7 +335,6 @@ describe("the workspace is for the author only", () => {
     const res = await app.fetch(new Request("http://test/admin/write"), env);
     expect(res.status).toBe(401);
   });
-
   it("says plainly when Claude is not connected", async () => {
     const res = await app.fetch(
       new Request("http://test/op/write/x/turn", {

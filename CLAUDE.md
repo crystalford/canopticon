@@ -54,10 +54,13 @@
   without both `RESEND_API_KEY` and `MAILING_ADDRESS`.
 - **Admin** is `/admin` (`site/pages/admin.ts`, actions in
   `operator/routes/admin.ts` under `/op/admin/*`), **the desk of design
-  handoff v3** (2026-11-08): on the left, **In progress** (conversations not
-  yet live / saved / shown, each a status dot and one status line built from
-  the drafts list — never a draft's text — `draftRow`), **Projects**, and
-  **one composer** (`POST /op/admin/start`) that starts anything: Claude
+  handoff v3** (2026-11-08): on the left, **Your work** — one list of the
+  conversations Claude has worked on (a status dot and one status line built
+  from the drafts list — never a draft's text — `draftRow`), newest first,
+  older ones and finished ones (live / saved / shown) folded in place under
+  "N older" and "Done"; a conversation opened and never used is not listed.
+  No projects on the desk and no second list page (`/admin/write` redirects
+  to `/admin`) — two places to look, not four. Then **one composer** (`POST /op/admin/start`) that starts anything: Claude
   guesses whether it is an article, research, a claim to test or a document
   to read (`write/kind.ts`: plain rules, shown above the box before it
   starts, `make it [kind]` chips to switch; the same rules go to the page as

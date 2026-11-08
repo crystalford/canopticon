@@ -780,6 +780,12 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .desk-row-s.done { color: var(--green-ink); }
 .desk-row-s.proj { color: var(--amber-ink); }
 .desk-none { font-size: 14px; color: var(--muted); }
+.desk-more { margin-top: 8px; }
+.desk-more > summary { display: inline-flex; align-items: center; gap: 4px; padding: 4px 0; font-size: 13px; font-weight: 500; color: var(--ink-2); cursor: pointer; list-style: none; }
+.desk-more > summary::-webkit-details-marker { display: none; }
+.desk-more > summary::after { content: "▾"; font-size: 11px; color: var(--muted); }
+.desk-more[open] > summary::after { content: "▴"; }
+.desk-more > summary:hover { color: var(--cobalt); }
 .cmp { flex: none; margin: 0 12px 12px 16px; padding: 12px 12px 10px 16px; border: 1px solid var(--rule); border-radius: 14px; background: var(--card); display: flex; flex-direction: column; gap: 8px; }
 .cmp:focus-within { border-color: var(--cobalt); }
 .cmp textarea { display: block; width: 100%; min-height: 64px; resize: none; border: 0; padding: 4px 0; background: transparent; font: inherit; font-size: 15px; line-height: 1.5; color: var(--ink); }

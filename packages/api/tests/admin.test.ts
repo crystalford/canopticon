@@ -327,7 +327,7 @@ describe("the desk's left column", () => {
       ...over,
     }) as Draft;
 
-  it("lists what is in progress with a status line, and leaves out what is finished", () => {
+  it("keeps one list: under way first, finished folded into Done, unused left out", () => {
     const html = renderAdmin(empty, {}, new Map(), {
       drafts: [
         draft(),
@@ -347,10 +347,16 @@ describe("the desk's left column", () => {
     });
     expect(html).toContain('href="/admin/write/d1"');
     expect(html).toContain("Research · in progress · 8 Nov");
-    expect(html).toContain("Thesis · not started");
-    expect(html).not.toContain("Saved one");
-    expect(html).not.toContain("Live one");
-    expect(html).toMatch(/In progress <span>2<\/span>/);
+    // Opened and never used: it leads nowhere, so it is not listed.
+    expect(html).not.toContain("Untouched");
+    expect(html).toMatch(/Your work <span>1<\/span>/);
+    // Finished work is one click away, in place.
+    expect(html).toMatch(
+      /<details class="desk-more"><summary>Done · 2<\/summary>[\s\S]*Saved one[\s\S]*Live one/,
+    );
+    // No second list page, no projects on the desk.
+    expect(html).not.toContain('href="/admin/write"');
+    expect(html).not.toContain("Projects");
   });
 
   it("says what a read found and what needs you", () => {
@@ -365,10 +371,11 @@ describe("the desk's left column", () => {
     expect(row.finished).toBe(false);
   });
 
-  it("lists the projects, private to Admin", () => {
-    const html = renderAdmin(empty);
-    expect(html).toMatch(/Projects <span>\d+<\/span>/);
-    expect(html).toContain('href="/admin/projects/ancaster"');
+  it("keeps the conversations in one place: the old list page is Admin", async () => {
+    const { db } = makeDb();
+    const res = await app.fetch(await signedIn("/admin/write"), envWith(db));
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/admin");
   });
 
   it("has one composer that guesses the kind with the server's rules", () => {

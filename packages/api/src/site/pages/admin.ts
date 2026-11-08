@@ -17,7 +17,7 @@ import { DEFAULT_ENGINE, ENGINES, type EngineId } from "../../write/engines";
 import { KIND_NAME, KIND_WHAT, START_KINDS, kindRulesJson } from "../../write/kind";
 import type { ReadBadge } from "../../write/read";
 import type { AdminModel, AdminPiece } from "../admin-data";
-import { heldResearch, libraryItems, terms } from "../content/store";
+import { heldResearch, terms } from "../content/store";
 import { hubTopics } from "../data";
 import { esc, shell } from "../layout";
 import { kindColours, shortDate } from "../theme";
@@ -308,46 +308,29 @@ function rowHtml(r: Row): string {
 }
 
 const SHOWN = 8;
-const DAY = 24 * 60 * 60 * 1000;
 
 function side(desk: DeskModel, reads: Map<string, ReadBadge>): string {
   const byDraft = new Map(
     [...reads.values()].filter((r) => r.draftId).map((r) => [r.draftId as string, r]),
   );
+  // One list: what Claude has worked on, newest first. A conversation
+  // opened and never used is not shown at all (it leads nowhere); what is
+  // finished folds into "Done" below, in place — no second page.
   const rows = [...desk.drafts]
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    // A conversation opened and never used is not "in progress" after a
-    // day; it stays under All.
-    .filter((d) => d.usage.cents || Date.now() - Date.parse(d.updatedAt) < DAY)
-    .map((d) => draftRow(d, byDraft.get(d.id)))
-    .filter((r) => !r.finished);
-  const projects = libraryItems({ signedIn: true }).filter((r) => r.kind === "Project");
-  const group = (label: string, n: number, body: string, more = "") =>
-    `<section class="desk-group" aria-label="${esc(label)}"><h2 class="desk-gh">${esc(label)} <span>${n}</span>${more}</h2>${body}</section>`;
-  const inProgress = group(
-    "In progress",
-    rows.length,
-    rows.length
-      ? rows.slice(0, SHOWN).map(rowHtml).join("")
-      : '<div class="desk-none">Nothing in progress. Start something below.</div>',
-    `<a href="/admin/write" class="btn sm">All${desk.drafts.length ? ` ${desk.drafts.length}` : ""}</a>`,
-  );
-  const proj = projects.length
-    ? group(
-        "Projects",
-        projects.length,
-        projects
-          .map((p) =>
-            rowHtml({
-              href: p.route,
-              title: p.title,
-              status: [p.stat, p.dateLabel].filter(Boolean).join(" · "),
-              tone: "proj",
-            }),
-          )
-          .join(""),
-      )
-    : "";
+    .filter((d) => d.usage.cents > 0 || (byDraft.get(d.id)?.kept ?? 0) > 0)
+    .map((d) => draftRow(d, byDraft.get(d.id)));
+  const open = rows.filter((r) => !r.finished);
+  const done = rows.filter((r) => r.finished);
+  const fold = (label: string, list: Row[]) =>
+    list.length
+      ? `<details class="desk-more"><summary>${esc(label)}</summary>${list.map(rowHtml).join("")}</details>`
+      : "";
+  const work = `<section class="desk-group" aria-label="Your work"><h2 class="desk-gh">Your work <span>${open.length}</span></h2>${
+    open.length
+      ? open.slice(0, SHOWN).map(rowHtml).join("")
+      : '<div class="desk-none">Nothing under way. Type below to start.</div>'
+  }${fold(`${open.length - SHOWN} older`, open.slice(SHOWN))}${fold(`Done · ${done.length}`, done)}</section>`;
   const chosen = desk.engine ?? DEFAULT_ENGINE;
   const engines = ENGINES.map(
     (e) =>
@@ -358,7 +341,7 @@ function side(desk: DeskModel, reads: Map<string, ReadBadge>): string {
       `<button type="button" class="chipb" data-cmp-make="${k}" data-name="${esc(KIND_NAME[k])}" data-what="${esc(KIND_WHAT[k])}">${esc(KIND_NAME[k])}</button>`,
   ).join("");
   const composer = `<form class="cmp" method="post" action="/op/admin/start" enctype="multipart/form-data" data-cmp data-kinds="${esc(kindRulesJson())}"><div class="cmp-guess" data-cmp-guess hidden aria-live="polite"><span class="cmp-kind" data-cmp-kind></span><span data-cmp-what></span><span class="cmp-alt">make it ${others}</span></div><input type="hidden" name="kind" value="" data-cmp-kind-input><div class="cmp-files" data-cmp-files hidden></div><label for="cmp-text" class="vh">What to start</label><textarea id="cmp-text" name="text" rows="3" placeholder="Write about…, a question to research, or a document to read" data-cmp-text></textarea><div class="cmp-bar"><label class="attach"><span class="plus" aria-hidden="true">+</span>Add files<input type="file" name="file" multiple accept=".md,.txt,.pdf,.docx" hidden data-cmp-file></label><label class="cmp-eng" title="Which models do the work. Only a Cloudflare engine is remembered."><span class="vh">Runs on</span><select name="engine">${engines}</select></label><button type="submit" class="btn primary">Send</button></div></form>`;
-  return `<aside class="desk-side" aria-label="Your work"><div class="desk-scroll"><p class="desk-help">Type below. Claude works out whether it is an <strong>article</strong>, a <strong>research question</strong>, a <strong>claim to test</strong> or <strong>a document to read</strong>, and says which before it starts.</p>${inProgress}${proj}</div>${composer}</aside>`;
+  return `<aside class="desk-side" aria-label="Your work"><div class="desk-scroll"><p class="desk-help">Type below. Claude works out whether it is an <strong>article</strong>, a <strong>research question</strong>, a <strong>claim to test</strong> or <strong>a document to read</strong>, and says which before it starts.</p>${work}</div>${composer}</aside>`;
 }
 
 export function renderAdmin(
