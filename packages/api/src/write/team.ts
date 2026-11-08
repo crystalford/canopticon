@@ -21,6 +21,7 @@ export const ENOUGH_NOTES = 4;
 /** The tools a researcher may use: reading and noting, never writing. */
 export const RESEARCHER_TOOLS = new Set([
   "web_search",
+  "news_search",
   "web_fetch",
   "note_evidence",
   "list_notes",
@@ -133,7 +134,13 @@ export const FLAG_TOOL = {
   },
 };
 
-export const REVIEWER_TOOLS = new Set(["web_search", "web_fetch", "note_evidence", "flag"]);
+export const REVIEWER_TOOLS = new Set([
+  "web_search",
+  "news_search",
+  "web_fetch",
+  "note_evidence",
+  "flag",
+]);
 
 export function reviewerSystem(): string {
   return [

@@ -57,8 +57,8 @@ const clip = (s: unknown, n = 300) =>
 export async function gdelt(q: string): Promise<Found[]> {
   const j = (await getJson(
     `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(`${q} sourcelang:english`)}&mode=artlist&maxrecords=8&format=json&sort=hybridrel`,
-    // Live, GDELT took longer than ten seconds twice running.
-    20_000,
+    // Live, GDELT took 11-19 seconds a query.
+    30_000,
   )) as { articles?: Array<{ url?: string; title?: string; domain?: string; seendate?: string }> };
   return (j.articles ?? [])
     .filter((a) => a.url)
@@ -376,8 +376,9 @@ export function route(q: string): Array<[string, Source]> {
   return out;
 }
 
+// GDELT is not in the core: it is news_search (agent.ts), asked only when a
+// question needs recent events, because it takes ~19 s against ~2 s.
 const CORE: Array<[string, Source]> = [
-  ["gdelt", gdelt],
   ["crossref", crossref],
   ["semanticScholar", semanticScholar],
   ["doaj", doaj],
@@ -484,4 +485,10 @@ export function isSearchEnginePage(url: string): boolean {
   if (/(^|\.)google\.[a-z.]+$/.test(h))
     return /^\/(search|scholar)\b/.test(u.pathname) || h.startsWith("scholar.");
   return false;
+}
+
+/** News of the last three months, for news_search: GDELT, asked with the
+ *  query as keywords. */
+export async function newsSearch(q: string): Promise<Found[]> {
+  return gdelt(keywords(q) || q);
 }

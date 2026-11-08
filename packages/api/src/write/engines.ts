@@ -256,6 +256,20 @@ export const SEARCH_TOOL: Anthropic.Beta.BetaToolUnion = {
   },
 };
 
+/** News of the last three months (GDELT), apart from web_search because it
+ *  is slow: live, about nineteen seconds a query against two for the other
+ *  free sources, so asking it on every search added minutes to a report. */
+export const NEWS_TOOL: Anthropic.Beta.BetaToolUnion = {
+  name: "news_search",
+  description:
+    "Search the world's news from the last three months (articles from outlets everywhere, in English). Slow — about twenty seconds — so use it for recent events, announcements and reactions, not for background. Returns up to 8 articles: headline, address, outlet and date. Read the ones worth reading with web_fetch.",
+  input_schema: {
+    type: "object",
+    properties: { query: { type: "string", description: "Three to six keywords" } },
+    required: ["query"],
+  },
+};
+
 /** Characters of a page handed to the model per read; the rest by offset. */
 export const PAGE_CHARS = 40_000;
 
