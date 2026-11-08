@@ -6,6 +6,7 @@ import type { Env } from "../src/env";
 import { logHtml, stepsSummary } from "../src/site/pages/write";
 import { runTurn } from "../src/write/agent";
 import { memoryDrafts } from "../src/write/drafts";
+import { WORKERS_MESSAGE_CAP_CENTS } from "../src/write/engines";
 import { reportState, stageOf, wordCount } from "../src/write/progress";
 
 const BODY = `# Rent bans
@@ -135,5 +136,58 @@ describe("Stop", () => {
     expect(events.at(-1)?.type).toBe("done");
     // The conversation is kept, and the next message can carry on.
     expect((await store.messages(d.id)).length).toBeGreaterThan(2);
+  });
+
+  it("stops a message at the spending cap, whatever the model does", async () => {
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    let calls = 0;
+    const env = {
+      LOG_LEVEL: "error",
+      AI: {
+        // A runaway: every step asks for more, and each costs about $1.
+        run: async () => {
+          calls++;
+          return {
+            choices: [
+              {
+                message: {
+                  role: "assistant",
+                  content: null,
+                  tool_calls: [
+                    {
+                      id: `t${calls}`,
+                      type: "function",
+                      function: { name: "list_documents", arguments: "{}" },
+                    },
+                  ],
+                },
+                finish_reason: "tool_calls",
+              },
+            ],
+            usage: { prompt_tokens: 3_400_000, completion_tokens: 10 },
+          };
+        },
+      },
+    } as unknown as Env;
+    const events: Array<{ type: string; text?: string }> = [];
+    await runTurn({
+      stream: null,
+      defaultEngine: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+      env,
+      store,
+      draftId: d.id,
+      text: "Did the bans lower rents?",
+      maxSteps: 20,
+      emit: (e) => events.push(e as never),
+    });
+    // $1.02 after one step, $2.04 after two: the cap ($1.50) stops it there.
+    expect(calls).toBe(2);
+    expect(WORKERS_MESSAGE_CAP_CENTS).toBe(150);
+    expect(
+      events.some(
+        (e) => e.type === "activity" && /^Stopped at the spending cap/.test(e.text ?? ""),
+      ),
+    ).toBe(true);
   });
 });

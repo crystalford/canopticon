@@ -602,7 +602,7 @@ export const SITE_JS = `(function () {
     var lastCheck = null;
     var finishCard = function (sum, ms, usage) {
       if (!sum) return null;
-      var head = sum.stopped ? "Stopped after " + mmss(ms) : sum.cut ? "Ran out of steps after " + mmss(ms) : "Finished in " + mmss(ms);
+      var head = sum.capped ? "Stopped at the spending cap after " + mmss(ms) : sum.stopped ? "Stopped after " + mmss(ms) : sum.cut ? "Ran out of steps after " + mmss(ms) : "Finished in " + mmss(ms);
       var bits = [sum.words.toLocaleString() + " words"];
       if (sum.sections) bits.push(sum.sections + " sections");
       if (lastCheck && lastCheck.total) bits.push(lastCheck.total + " quotations" + (lastCheck.failed.length ? ", " + lastCheck.failed.length + " not word for word" : ", all found"));

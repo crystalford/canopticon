@@ -94,7 +94,11 @@
   mid-turn, and can notify. **Stop** (`POST /op/write/:id/stop`) sets
   `meta.stopAt`; the writer, every researcher and every reviewer end at
   their next step (checked at most every 4 s) and everything written and
-  noted is kept. Runs of steps fold into one line with counts and
+  noted is kept. **A spending cap stops a message the same way**
+  (`messageCapCents`: $1.50 on Workers AI — a report costs $0.40–0.60 —
+  and $8 on Claude); "keep going" carries on with a fresh cap. The meter is
+  trusted: Cloudflare billed $23.75 for the engine tests the meter put at
+  ~$24 (2026-11-08). Runs of steps fold into one line with counts and
   "Steps ▾" (`logHtml`, and live in `site.js`). `done` carries a summary
   (`TurnSummary`: words, sections, flags, sources) drawn as a finish card
   with the top bar's enabled actions cloned in.

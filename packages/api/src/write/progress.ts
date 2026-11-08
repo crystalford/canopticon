@@ -42,6 +42,8 @@ export interface TurnSummary {
   independent?: number;
   /** Stopped by Chris, not finished. */
   stopped?: boolean;
+  /** Stopped at the per-message spending cap (engines.ts). */
+  capped?: boolean;
   /** Ran out of steps. */
   cut?: boolean;
 }
