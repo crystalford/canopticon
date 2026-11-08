@@ -441,3 +441,25 @@ describe("a section with its own subheadings", () => {
     expect(revised).toContain("### 3. How strong is it?");
   });
 });
+
+describe("a section that carries its own ## heading", () => {
+  it("keeps it inside the section, and the closing never cuts the Details", async () => {
+    const { replacePart, skeleton, sectionsOf } = await import("../src/write/notes");
+    let body = skeleton([
+      { heading: "Who adopted bans?", words: 600 },
+      { heading: "What changed?", words: 600 },
+    ]);
+    body = replacePart(body, "1", "Intro.\n\n## Ontario\n\nOntario text.") ?? "";
+    body = replacePart(body, "2", "Second section text.") ?? "";
+    body =
+      replacePart(body, "closing", "## Beyond this question\n\nX.\n\n## Open questions\n\nY.") ??
+      "";
+    expect(body).toContain("#### Ontario");
+    expect(sectionsOf(body).map((s) => [s.n, s.text.length > 0])).toEqual([
+      [1, true],
+      [2, true],
+    ]);
+    expect(body).toContain("Second section text.");
+    expect(body.indexOf("## Beyond this question")).toBeGreaterThan(body.indexOf("Second section"));
+  });
+});

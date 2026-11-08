@@ -232,8 +232,14 @@
   quotation marks or operators, eight words) to the keyword sources, adds
   Semantic Scholar, the Internet Archive and Open Library (books, all free,
   keyless), the instructions say "short keywords, read early", and on
-  Workers AI the web allowance is 160 searches and 160 reads a message
-  (`WORKERS_WEB_LIMIT` — fetching is free there; Claude's stays 80).
+  Workers AI the web allowance is 100 searches and 100 reads a message
+  (`WORKERS_WEB_LIMIT` — fetching is free there; Claude's stays 80; 160
+  let the writer re-research until the report ran out of time). **Bug the
+  third free run caught** (`ops/eval/2026-11-08-0240.md`, 1 of 5): a section
+  written with its own `## ` heading made the closing cut there, and four
+  written sections vanished from a report that said it was complete. A
+  section's own `#`/`##`/unnumbered `###` headings now become `####`, and
+  the closing is placed only after the last numbered section.
   **Cloudflare only — no Brave, no third-party bills (2026-11-07):** the
   gateway had never been created, so every search had fallen through to
   Brave until its credits ran out. Brave is gone from the code (workspace,

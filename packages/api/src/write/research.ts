@@ -548,4 +548,4 @@ web_search asks free collections, not the whole web: the world's news from the l
 - Read early: after a search or two, fetch the best results and note what you will use. A list of results is not evidence.
 - If a search finds little, change the words, search for the publisher or the document's name, or go to the source directly.
 - Search engines' own result pages (Google, Bing, DuckDuckGo and the like) cannot be read: their terms forbid automated searching.
-- Searching and reading cost nothing here, so your allowance is 160 searches and 160 page reads a message, not 80.`;
+- Searching and reading cost nothing here, so your allowance is 100 searches and 100 page reads a message, not 80.`;

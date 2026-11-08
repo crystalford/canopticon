@@ -172,9 +172,14 @@ export function replacePart(body: string, part: string, text: string): string | 
     const details = body.indexOf("\n## Details");
     const sources = body.indexOf("\n## Sources");
     if (details < 0 || sources < 0) return null;
-    const mid = body.slice(details + 1, sources);
-    const m = /\n## (?!Details)/.exec(mid);
-    const cut = m ? details + 1 + m.index : sources;
+    // The closing starts at the first ## part after the LAST numbered
+    // section, never inside the Details: live (2026-11-08), a section that
+    // carried its own "## " heading made the closing cut there, and four
+    // written sections vanished from a report that said it was complete.
+    const lastSection = [...body.slice(0, sources).matchAll(/\n### \d+\. [^\n]*\n/g)].pop();
+    const after = lastSection ? (lastSection.index ?? 0) + lastSection[0].length : details + 1;
+    const m = /\n## (?!Details)/.exec(body.slice(after, sources));
+    const cut = m ? after + m.index : sources;
     return `${body.slice(0, cut)}\n\n${clean}\n${body.slice(sources)}`;
   }
   const n = Number(part);
@@ -190,7 +195,13 @@ export function replacePart(body: string, part: string, text: string): string | 
   // stayed — 32 paragraphs repeated in one 15,000-word report.
   const next = rest.search(SECTION_END);
   const to = next < 0 ? body.length : from + next;
-  const own = clean.replace(/^### \d+\. [^\n]*\n/, "").replace(/^### (?!\d+\. )/gm, "#### ");
+  // A section's own headings sit below it: "#", "##" and unnumbered "###"
+  // become "####", so nothing inside a section can end the Details or the
+  // section (a "## " inside one once cut four sections from a report).
+  const own = clean
+    .replace(/^### \d+\. [^\n]*\n/, "")
+    .replace(/^#{1,2} /gm, "#### ")
+    .replace(/^### (?!\d+\. )/gm, "#### ");
   return `${body.slice(0, from)}\n${own}\n${body.slice(to)}`;
 }
 
