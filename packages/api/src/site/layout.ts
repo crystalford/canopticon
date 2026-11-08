@@ -31,6 +31,10 @@ export interface ShellArgs {
   analyticsToken?: string | undefined;
   /** Extra class on <main> (e.g. "long" for the deeper bottom padding). */
   mainClass?: string;
+  /** A working page (Admin's desk, a conversation): the header runs the full
+   *  width, the page fills the window with its own scrolling panes, and
+   *  there is no footer. */
+  app?: boolean;
 }
 
 export function esc(s: string | number | null | undefined): string {
@@ -79,13 +83,13 @@ ${a.noindex ? '<meta name="robots" content="noindex,follow" />\n' : ""}<meta pro
 ${a.head ?? ""}
 <script defer src="/site.js?v=${siteStylesHash()}"></script>
 </head>
-<body>
+<body${a.app ? ' class="app"' : ""}>
 <a href="#main" class="skip">Skip to content</a>
 ${header(a)}
 <main id="main" class="main${a.mainClass ? ` ${a.mainClass}` : ""}">
 ${a.body}
 </main>
-${footer()}
+${a.app ? "" : footer()}
 ${beacon(a.analyticsToken)}</body>
 </html>`;
 }
@@ -98,7 +102,7 @@ function header(a: ShellArgs): string {
         waiting ? `<span class="admin-n" title="${waiting} things waiting">${waiting}</span>` : ""
       }</a>`
     : "";
-  return `<div class="hd"><header class="hd-in"><a href="/" class="wm">canopticon</a><nav aria-label="Primary" class="nav"><a href="/library"${cur("library")}>Library</a><a href="/about"${cur("about")}>About</a></nav><a href="/search" class="hd-search"${cur("search")}>Search <span aria-hidden="true" class="kbd">/</span></a>${admin}</header>${
+  return `<div class="hd${a.app ? " wide" : ""}"><header class="hd-in"><a href="/" class="wm">canopticon</a><nav aria-label="Primary" class="nav"><a href="/library"${cur("library")}>Library</a><a href="/about"${cur("about")}>About</a></nav><a href="/search" class="hd-search"${cur("search")}>Search</a>${admin}</header>${
     a.progress ? '<div class="rp"><div id="read-progress"></div></div>' : ""
   }</div>`;
 }

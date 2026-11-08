@@ -382,7 +382,11 @@ describe("the desk's left column", () => {
 
   it("shows this month's spend when it is known", () => {
     const html = renderAdmin(empty, { claude: true }, new Map(), { drafts: [], monthCents: 319 });
-    expect(html).toContain("$3.19 this month");
+    expect(html).toContain("$3.19 in conversations this month");
+    // A working page: full-width header, no footer.
+    expect(html).toContain('<body class="app">');
+    expect(html).toContain('<div class="hd wide">');
+    expect(html).not.toContain('<footer class="ft">');
     expect(html).toContain("Claude connected");
   });
 });

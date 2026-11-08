@@ -308,6 +308,7 @@ function rowHtml(r: Row): string {
 }
 
 const SHOWN = 8;
+const DAY = 24 * 60 * 60 * 1000;
 
 function side(desk: DeskModel, reads: Map<string, ReadBadge>): string {
   const byDraft = new Map(
@@ -315,6 +316,9 @@ function side(desk: DeskModel, reads: Map<string, ReadBadge>): string {
   );
   const rows = [...desk.drafts]
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    // A conversation opened and never used is not "in progress" after a
+    // day; it stays under All.
+    .filter((d) => d.usage.cents || Date.now() - Date.parse(d.updatedAt) < DAY)
     .map((d) => draftRow(d, byDraft.get(d.id)))
     .filter((r) => !r.finished);
   const projects = libraryItems({ signedIn: true }).filter((r) => r.kind === "Project");
@@ -381,7 +385,7 @@ export function renderAdmin(
 
   const top = `<div class="desk-top"><div><h1>Admin</h1><div class="desk-line"><strong>${open ? `${open} waiting` : "All clear"}</strong><span aria-hidden="true">·</span><a href="/admin/claude" class="${f.claude ? "on" : "off"}">${f.claude ? "Claude connected" : "Claude not connected"}</a>${
     desk.monthCents !== undefined
-      ? `<span aria-hidden="true">·</span><span title="Conversations started this month, estimated at list prices">${dollars(desk.monthCents)} this month</span>`
+      ? `<span aria-hidden="true">·</span><span title="Conversations started this month, estimated at list prices">${dollars(desk.monthCents)} in conversations this month</span>`
       : ""
   }</div></div><div class="desk-tools"><a href="/admin/workbench" class="btn sm" title="Processing, leads and the old research">Workbench</a></div></div>`;
 
@@ -405,6 +409,7 @@ export function renderAdmin(
     signedIn: true,
     waiting: open,
     mainClass: "desk-main",
+    app: true,
     // On a phone, the two halves are tabs (the page's script); without it
     // they stack.
     body: `${top}<div class="desk-tabs" role="tablist" aria-label="Show" data-desk-tabs hidden><button type="button" role="tab" data-desk-tab="side" aria-selected="true">Your work</button><button type="button" role="tab" data-desk-tab="queue" aria-selected="false">Waiting <span class="q-count${open ? "" : " clear"}">${open}</span></button></div><div class="desk" data-desk>${side(desk, reads)}${pane}</div>`,
