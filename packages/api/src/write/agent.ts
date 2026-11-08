@@ -541,8 +541,9 @@ interface ToolContext {
 
 /** The web allowance per message. On Workers AI search and page reads are
  *  free (the free source finder, our own fetch), and a research team of six
- *  spent 80 reads in ten minutes; on Claude each is billed, so it stays 80. */
-const WORKERS_WEB_LIMIT = 160;
+ *  spent 80 reads in ten minutes; 160 let the writer re-research until the
+ *  report ran out of time. On Claude each is billed, so it stays 80. */
+const WORKERS_WEB_LIMIT = 100;
 const searchLimit = (t: ToolContext) => (t.workers ? WORKERS_WEB_LIMIT : SEARCH_LIMIT);
 const readLimit = (t: ToolContext) => (t.workers ? WORKERS_WEB_LIMIT : READ_LIMIT);
 
