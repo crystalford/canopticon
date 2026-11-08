@@ -9,6 +9,7 @@ import type { CheckResult } from "../../write/check";
 import type { Draft, DraftKind } from "../../write/drafts";
 import { CLAUDE, ENGINES, type EngineId, engine, isWorkersAi } from "../../write/engines";
 import { type Entry, entryRoute } from "../../write/entries";
+import { STAGES } from "../../write/progress";
 import type { LiveVersion } from "../../write/publish";
 import { KIND_WORDS } from "../../write/team";
 import { esc, shell } from "../layout";
@@ -85,6 +86,52 @@ export function proposalCard(e: Entry, draftId: string, docTitle?: string): stri
       ? `<div class="ws-prop-fig"><strong>${esc(e.data.body)}</strong></div>`
       : `<label class="vh" for="t-${esc(e.id)}">Title</label><input id="t-${esc(e.id)}" class="ws-prop-t" name="title" value="${esc(e.data.title)}"><label class="vh" for="b-${esc(e.id)}">${e.kind === "concept" ? "Definition" : "The problem"}</label><textarea id="b-${esc(e.id)}" class="ws-prop-b" name="body" rows="4">${esc(e.data.body)}</textarea>`;
   return `<form class="ws-prop" id="entry-${esc(e.id)}" method="post" action="${base}/add">${head}${fields}${quote}<div class="ws-prop-a"><button type="submit" class="btn sm primary">Add to the record</button><button type="submit" class="btn sm" formaction="${base}/dismiss">Dismiss</button></div></form>`;
+}
+
+/** A run of steps as one line with counts, opened with Steps ▾ — the same
+ *  folding the page does live (site/script.ts). */
+export function stepsSummary(texts: string[]): string {
+  const c = { s: 0, r: 0, n: 0, w: 0 };
+  for (const raw of texts) {
+    const t = raw.replace(/^§\d+ /, "");
+    if (/^Searched/.test(t)) c.s++;
+    else if (/^Read: /.test(t)) c.r++;
+    else if (/^Noted/.test(t)) c.n++;
+    else if (/^Wrote|^Revised/.test(t)) c.w++;
+  }
+  const bits = [
+    ...(c.s ? [`searched ${c.s}`] : []),
+    ...(c.r ? [`read ${c.r} ${c.r === 1 ? "page" : "pages"}`] : []),
+    ...(c.n ? [`noted ${c.n}`] : []),
+    ...(c.w ? [`wrote ${c.w}`] : []),
+  ];
+  return `${texts.length} steps${bits.length ? ` · ${bits.join(" · ")}` : ""}`;
+}
+
+function steps(texts: string[]): string {
+  if (texts.length === 1) return `<div class="ws-act">${esc(texts[0] ?? "")}</div>`;
+  return `<details class="ws-steps"><summary>${esc(stepsSummary(texts))}<span class="ws-steps-p">Steps ▾</span></summary><div class="ws-steps-l">${texts
+    .map((t) => `<div class="ws-act">${esc(t)}</div>`)
+    .join("")}</div></details>`;
+}
+
+/** The conversation, with each run of steps folded into one line. */
+export function logHtml(items: ChatItem[], cards?: Map<string, string>): string {
+  const out: string[] = [];
+  let run: string[] = [];
+  const flush = () => {
+    if (run.length) out.push(steps(run));
+    run = [];
+  };
+  for (const i of items) {
+    if (i.who === "activity") run.push(i.text);
+    else {
+      flush();
+      out.push(item(i, cards));
+    }
+  }
+  flush();
+  return out.join("");
 }
 
 function item(i: ChatItem, cards?: Map<string, string>): string {
@@ -233,7 +280,7 @@ export function renderWorkspace(
         ? `<div class="ws-flash ok">${esc(f.done)}</div>`
         : "";
   const log = items.length
-    ? items.map((i) => item(i, opts.cards)).join("")
+    ? logHtml(items, opts.cards)
     : read
       ? `<div class="ws-hello">Claude reads the whole document once and lays out what is in it on the right: figures, findings, questions, possible articles. Every card is checked word for word against the document; what fails is dropped and counted. Keep or dismiss each one. You can ask about the document here after.</div>`
       : research && d.meta.mode === "deepen"
@@ -253,6 +300,10 @@ export function renderWorkspace(
           ? "Research"
           : "Article";
   const eng = engine(opts.engine ?? CLAUDE);
+  // How long a turn usually takes, where the engine test has measured it
+  // (ops/eval: the research team 19–25 minutes a report, an article 3).
+  const typical =
+    eng.team && research ? "usually 15–25 min" : eng.team && !read ? "usually a few minutes" : "";
   const title =
     d.meta.title ||
     (thesis ? "Untitled thesis test" : research ? "Untitled research" : "Untitled draft");
@@ -298,6 +349,7 @@ ${top}${flash}
 <section class="ws-chat" aria-label="Conversation">
 ${opts.hasKey ? "" : NO_KEY}
 <div class="ws-log" data-ws-log>${log}</div>
+<div class="ws-prog" data-ws-prog hidden aria-live="polite"><ol class="ws-stages" data-ws-stages hidden>${STAGES.map((st) => `<li>${st.label}</li>`).join("")}</ol><div class="ws-prog-l" data-ws-counts></div><div class="ws-prog-f"><span class="ws-clock" data-ws-clock>0:00</span>${typical ? `<span class="ws-typ">${typical}</span>` : ""}<button type="button" class="btn sm" data-ws-notify hidden>Tell me when it is done</button><button type="button" class="btn sm stop" data-ws-stop><span class="g-stop" aria-hidden="true"></span> Stop</button></div></div>
 <form class="ws-form" method="post" action="/op/write/${esc(d.id)}/turn" data-ws-form>
 ${suggest}
 <div class="ws-flag" data-ws-flag hidden><span class="ws-flag-l">Flagged</span><span class="ws-flag-t" data-ws-flag-text></span><button type="button" class="ws-flag-x" data-ws-flag-clear aria-label="Remove the flag">×</button></div>
