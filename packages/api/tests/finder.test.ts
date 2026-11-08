@@ -124,3 +124,27 @@ describe("a page's links", () => {
     ]);
   });
 });
+
+describe("search engines' result pages", () => {
+  it("are recognised and refused; scholarly APIs and ordinary pages are not", async () => {
+    const { isSearchEnginePage } = await import("../src/write/finder");
+    for (const u of [
+      "https://html.duckduckgo.com/html/?q=pharmacare",
+      "https://lite.duckduckgo.com/lite/?q=x",
+      "https://www.bing.com/search?q=x",
+      "https://search.brave.com/search?q=x",
+      "https://www.google.com/search?q=x",
+      "https://scholar.google.com/scholar?q=x",
+      "https://search.marginalia.nu/search?query=x",
+    ])
+      expect(isSearchEnginePage(u)).toBe(true);
+    for (const u of [
+      "https://api.crossref.org/works?query=x",
+      "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=x",
+      "https://www.canada.ca/en/health-canada.html",
+      "https://blog.google/technology/",
+      "https://en.wikipedia.org/wiki/Pharmacare",
+    ])
+      expect(isSearchEnginePage(u)).toBe(false);
+  });
+});
