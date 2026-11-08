@@ -540,9 +540,12 @@ Chris gives you a claim. Your job is not to survey a topic but to find out wheth
 export const FREE_SEARCH_HOW = `
 
 YOUR SEARCH, AND THE REST OF THE WEB
-web_search asks free collections, not the whole web: the world's news from the last three months, research papers and reports (Crossref), health research (Europe PMC), Wikipedia, and Government of Canada data. Each result says which. Reach everything else as a librarian would:
+web_search asks free collections, not the whole web: the world's news from the last three months, research papers and reports (Crossref, Semantic Scholar), health research (Europe PMC), books and older texts (Internet Archive, Open Library), Wikipedia, and Government of Canada data. Each result says which. Reach everything else as a librarian would:
 - When you know the authoritative source — the agency, statistics office, regulator, the law itself, the study, the organisation's own report — fetch its page directly with web_fetch. You do not need a search result to read a page.
 - A page you read lists its links: follow them to the reports, data tables and PDFs behind it. A site's /sitemap.xml lists its pages.
 - Wikipedia is a map, not a source: fetch the references it cites and cite those, never Wikipedia itself.
+- Search in short keywords — three to six words, no quotation marks or operators. Long, quoted queries find little here.
+- Read early: after a search or two, fetch the best results and note what you will use. A list of results is not evidence.
 - If a search finds little, change the words, search for the publisher or the document's name, or go to the source directly.
-- Search engines' own result pages (Google, Bing, DuckDuckGo and the like) cannot be read: their terms forbid automated searching.`;
+- Search engines' own result pages (Google, Bing, DuckDuckGo and the like) cannot be read: their terms forbid automated searching.
+- Searching and reading cost nothing here, so your allowance is 160 searches and 160 page reads a message, not 80.`;

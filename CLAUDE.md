@@ -224,7 +224,16 @@
   a report. In that run the model also fetched DuckDuckGo, Bing and Brave
   result pages directly when search was thin; `web_fetch` now refuses
   search engines' result pages (`isSearchEnginePage`), since automated
-  querying breaks their terms.
+  querying breaks their terms. **Second free run with that block**
+  (`ops/eval/2026-11-08-0138.md`): 3 of 5 passed — the McLuhan report fell
+  to 2,038 words and pharmacare ran out of time. Cause: researchers made
+  ~100 long, quoted searches per report that the keyword sources could not
+  match, and read little. So the finder now sends keywords (`keywords`: no
+  quotation marks or operators, eight words) to the keyword sources, adds
+  Semantic Scholar, the Internet Archive and Open Library (books, all free,
+  keyless), the instructions say "short keywords, read early", and on
+  Workers AI the web allowance is 160 searches and 160 reads a message
+  (`WORKERS_WEB_LIMIT` — fetching is free there; Claude's stays 80).
   **Cloudflare only — no Brave, no third-party bills (2026-11-07):** the
   gateway had never been created, so every search had fallen through to
   Brave until its credits ran out. Brave is gone from the code (workspace,

@@ -148,3 +148,39 @@ describe("search engines' result pages", () => {
       expect(isSearchEnginePage(u)).toBe(false);
   });
 });
+
+describe("queries for the keyword sources", () => {
+  it("lose quotation marks and operators and keep eight words", async () => {
+    const { keywords } = await import("../src/write/finder");
+    expect(keywords('"laws of media" McLuhan tetrad critique "procrustean" OR -blog')).toBe(
+      "laws of media McLuhan tetrad critique procrustean blog",
+    );
+    expect(keywords("one two three four five six seven eight nine ten")).toBe(
+      "one two three four five six seven eight",
+    );
+  });
+
+  it("asks the book and paper indexes too", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        asked.push(new URL(url).hostname);
+        return new Response("{}");
+      }),
+    );
+    await findSources('"tetrad" McLuhan');
+    expect(asked.sort()).toEqual(
+      [
+        "api.crossref.org",
+        "api.gdeltproject.org",
+        "api.semanticscholar.org",
+        "archive.org",
+        "en.wikipedia.org",
+        "open.canada.ca",
+        "openlibrary.org",
+        "www.ebi.ac.uk",
+      ].sort(),
+    );
+  });
+});

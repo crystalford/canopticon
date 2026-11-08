@@ -531,10 +531,20 @@ interface ToolContext {
     need: Array<{ n: number; heading: string }>,
     all: Array<{ n: number; heading: string }>,
   ) => Promise<string>;
+  /** Whether the conversation runs on Workers AI (its web tools are ours and
+   *  free, so its allowance is larger). */
+  workers?: boolean;
   /** A research team's reviewers, once every section is written (team.ts);
    *  null when they have already reviewed this report. */
   review?: () => Promise<string | null>;
 }
+
+/** The web allowance per message. On Workers AI search and page reads are
+ *  free (the free source finder, our own fetch), and a research team of six
+ *  spent 80 reads in ten minutes; on Claude each is billed, so it stays 80. */
+const WORKERS_WEB_LIMIT = 160;
+const searchLimit = (t: ToolContext) => (t.workers ? WORKERS_WEB_LIMIT : SEARCH_LIMIT);
+const readLimit = (t: ToolContext) => (t.workers ? WORKERS_WEB_LIMIT : READ_LIMIT);
 
 async function keptPages(t: ToolContext): Promise<ResearchSource[]> {
   if (!t.sources) return [];
@@ -870,7 +880,7 @@ async function runTool(
     case "web_search": {
       const q = String((input as { query?: unknown } | null)?.query ?? "").trim();
       if (!q) return bad("Give a query.");
-      if (t.web && t.web.searches >= SEARCH_LIMIT + (t.web.extra?.searches ?? 0))
+      if (t.web && t.web.searches >= searchLimit(t) + (t.web.extra?.searches ?? 0))
         return bad("max_uses_exceeded: the web search allowance for this message is spent.");
       if (t.web) t.web.searches++;
       try {
@@ -902,7 +912,7 @@ async function runTool(
         (t.sources ? await t.sources.byUrl(t.draftId, url) : null);
       const again = !!page && offset === 0;
       if (!page) {
-        if (t.web && t.web.reads >= READ_LIMIT + (t.web.extra?.reads ?? 0))
+        if (t.web && t.web.reads >= readLimit(t) + (t.web.extra?.reads ?? 0))
           return bad("max_uses_exceeded: the page-reading allowance for this message is spent.");
         if (t.web) t.web.reads++;
         try {
@@ -1502,6 +1512,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
   const web = { searches: 0, reads: 0, capped: new Set<string>() };
   const ctx: ToolContext = {
     web,
+    workers,
     kept: { list: null },
     env,
     store,

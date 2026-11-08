@@ -18,6 +18,9 @@
 //   Europe PMC    — biomedical and health literature (ebi.ac.uk)
 //   Wikipedia     — encyclopedia articles, whose references cite primary sources
 //   Open Canada   — Government of Canada datasets and publications (CKAN)
+//   Semantic Scholar — papers across every field (api.semanticscholar.org)
+//   Internet Archive — books and older texts, many readable whole
+//   Open Library  — books: what exists, by whom, when
 
 export interface Found {
   title: string;
@@ -142,15 +145,99 @@ export async function openCanada(q: string): Promise<Found[]> {
     }));
 }
 
+/** A query as the keyword sources want it: no quotation marks or operators,
+ *  the first eight words. Live, researchers wrote search-engine queries
+ *  ("…" phrases, ten-plus words) and GDELT, Wikipedia and the catalogues
+ *  matched little or nothing. */
+export function keywords(q: string): string {
+  return q
+    .replace(/["“”'‘’()]/g, " ")
+    .replace(/\b(AND|OR|NOT)\b/g, " ")
+    .replace(/(^|\s)[-+]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 8)
+    .join(" ");
+}
+
+export async function semanticScholar(q: string): Promise<Found[]> {
+  const j = (await getJson(
+    `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(q)}&limit=5&fields=title,url,year,venue,externalIds`,
+  )) as {
+    data?: Array<{
+      title?: string;
+      url?: string;
+      year?: number;
+      venue?: string;
+      externalIds?: { DOI?: string };
+    }>;
+  };
+  return (j.data ?? [])
+    .filter((p) => p.title && (p.externalIds?.DOI || p.url))
+    .map((p) => ({
+      title: clip(p.title, 200),
+      url: p.externalIds?.DOI ? `https://doi.org/${p.externalIds.DOI}` : String(p.url),
+      description: `[paper · ${clip(p.venue, 80) || "Semantic Scholar"} · ${p.year ?? ""}]`,
+    }));
+}
+
+/** Books and older texts, many readable in full (archive.org). */
+export async function internetArchive(q: string): Promise<Found[]> {
+  const j = (await getJson(
+    `https://archive.org/advancedsearch.php?q=${encodeURIComponent(q)}&fl[]=identifier&fl[]=title&fl[]=year&fl[]=mediatype&rows=4&output=json`,
+  )) as {
+    response?: {
+      docs?: Array<{ identifier?: string; title?: string; year?: string; mediatype?: string }>;
+    };
+  };
+  return (j.response?.docs ?? [])
+    .filter((d) => d.identifier && (d.mediatype === "texts" || !d.mediatype))
+    .map((d) => ({
+      title: clip(d.title, 200),
+      url: `https://archive.org/details/${d.identifier}`,
+      description: `[book or text · Internet Archive · ${d.year ?? ""}]`,
+    }));
+}
+
+/** Books: what exists, by whom, when (openlibrary.org). */
+export async function openLibrary(q: string): Promise<Found[]> {
+  const j = (await getJson(
+    `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=4&fields=key,title,author_name,first_publish_year`,
+  )) as {
+    docs?: Array<{
+      key?: string;
+      title?: string;
+      author_name?: string[];
+      first_publish_year?: number;
+    }>;
+  };
+  return (j.docs ?? [])
+    .filter((d) => d.key)
+    .map((d) => ({
+      title: clip(d.title, 200),
+      url: `https://openlibrary.org${d.key}`,
+      description: `[book · ${clip(d.author_name?.join(", "), 80)} · ${d.first_publish_year ?? ""}]`,
+    }));
+}
+
 /** Every free source at once; each that fails or times out is left out. The
- *  lists are dealt in turn so no one source fills the page. */
+ *  lists are dealt in turn so no one source fills the page. The keyword
+ *  sources get the query as keywords; the paper indexes take it whole. */
 export async function findSources(q: string): Promise<Found[]> {
-  const lists = await Promise.all(
-    [gdelt, crossref, wikipedia, europePmc, openCanada].map((f) => f(q).catch(() => [])),
-  );
+  const k = keywords(q) || q;
+  const lists = await Promise.all([
+    gdelt(k).catch(() => []),
+    crossref(q).catch(() => []),
+    semanticScholar(k).catch(() => []),
+    wikipedia(k).catch(() => []),
+    europePmc(k).catch(() => []),
+    openCanada(k).catch(() => []),
+    internetArchive(k).catch(() => []),
+    openLibrary(k).catch(() => []),
+  ]);
   const out: Found[] = [];
   const seen = new Set<string>();
-  for (let i = 0; out.length < 14 && lists.some((l) => l[i]); i++)
+  for (let i = 0; out.length < 16 && lists.some((l) => l[i]); i++)
     for (const l of lists) {
       const r = l[i];
       if (r && !seen.has(r.url)) {
