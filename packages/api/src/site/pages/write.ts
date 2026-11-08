@@ -189,6 +189,11 @@ export function renderWorkspace(
       : ""
   }${action(rs?.update ? "Update in Admin" : "Save to Admin", "save", "btn sm primary", !ready)}${
     rs?.savedAs ? action("Write an article from this", "article") : ""
+  }${
+    // Deepen: a second pass at the loose ends, free or with Claude.
+    d.body.trim().length >= 400
+      ? `${action("Deepen (free)", "deepen?with=free")}${action("Deepen with Claude", "deepen?with=claude")}`
+      : ""
   }`;
   const readAction = (label: string, act: string, cls = "btn sm") =>
     `<form method="post" action="/op/read/${esc(read?.readId ?? "")}/${act}" class="ws-pubform"><button type="submit" class="${cls}">${label}</button></form>`;
@@ -219,11 +224,13 @@ export function renderWorkspace(
     ? items.map((i) => item(i, opts.cards)).join("")
     : read
       ? `<div class="ws-hello">Claude reads the whole document once and lays out what is in it on the right: figures, findings, questions, possible articles. Every card is checked word for word against the document; what fails is dropped and counted. Keep or dismiss each one. You can ask about the document here after.</div>`
-      : thesis
-        ? `<div class="ws-hello">State a claim you want tested — yours, or one you have read. The research team builds the strongest case for it and the strongest case against, finds the crux the disagreement turns on, says what would change the conclusion, and gives a verdict with how sure it is. Every quotation is checked against the pages it read, and reviewers check both sides.</div>`
-        : research
-          ? `<div class="ws-hello">Ask a question about the world, and say why you are asking and what you have already decided. Claude checks the record, searches the web, reads the sources in full, and writes the report on the right. Every quotation is checked against the pages it read. When it is right, Save to Admin, and publish it there.</div>`
-          : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
+      : research && d.meta.mode === "deepen"
+        ? `<div class="ws-hello">A second pass over a finished report: its notes and every page it read are here. It pulls at the loose ends listed in the first message — open questions, flagged sentences, findings resting on one source — and revises the report in place.</div>`
+        : thesis
+          ? `<div class="ws-hello">State a claim you want tested — yours, or one you have read. The research team builds the strongest case for it and the strongest case against, finds the crux the disagreement turns on, says what would change the conclusion, and gives a verdict with how sure it is. Every quotation is checked against the pages it read, and reviewers check both sides.</div>`
+          : research
+            ? `<div class="ws-hello">Ask a question about the world, and say why you are asking and what you have already decided. Claude checks the record, searches the web, reads the sources in full, and writes the report on the right. Every quotation is checked against the pages it read. When it is right, Save to Admin, and publish it there.</div>`
+            : `<div class="ws-hello">Say what you want to write: a question, a document to start from, or an idea. Drop research reports here to add them. Claude reads the record, writes the article, and it appears on the right. Click any paragraph there to flag it.</div>`;
   const body = `<div class="ws" data-ws="${esc(d.id)}" data-ws-kind="${esc(d.kind)}"${opts.autostart ? ` data-ws-autostart="${esc(opts.autostart)}"` : ""}>
 <div class="ws-tabs" role="tablist" aria-label="Show" data-ws-tabs hidden><button type="button" role="tab" data-ws-tab="chat" aria-selected="true">Chat</button><button type="button" role="tab" data-ws-tab="page" aria-selected="false">${read ? "What it found" : "The page"}</button></div>
 <section class="ws-chat" aria-label="Conversation">

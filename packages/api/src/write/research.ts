@@ -549,3 +549,54 @@ web_search asks free collections, not the whole web: the world's news from the l
 - If a search finds little, change the words, search for the publisher or the document's name, or go to the source directly.
 - Search engines' own result pages (Google, Bing, DuckDuckGo and the like) cannot be read: their terms forbid automated searching.
 - Searching and reading cost nothing here, so your allowance is 100 searches and 100 page reads a message, not 80.`;
+
+/** Deepen: a second pass over a finished report (meta.mode "deepen"). The
+ *  report, its notes and its pages are copied into the new conversation; its
+ *  first message lists the loose ends found in code (deepenBrief). */
+export const DEEPEN_HOW = `
+
+THIS CONVERSATION DEEPENS A FINISHED REPORT
+The report on the page was researched and written in an earlier pass; its notes (list_notes) and every page it read are here too. Do not redo it. Pull at its loose ends:
+1. Read the report and the loose ends Chris's first message lists — the report's own open questions, sentences the reviewers flagged or the support check doubted, findings that rest on one source or on sources that echo one origin.
+2. Choose the three to six that matter most to the question, and add any important angle the first pass missed.
+3. Research each: search, read the primary sources in full, note what you use. Settle what can be settled; where the evidence still runs out, say so plainly.
+4. Revise in place: edit_draft for passages (several at once with also), write_section for a section that needs rewriting. Keep what is sound — this is a revision, not a new report. Update the TL;DR and Key Findings if what you found changes them; if the report tests a thesis, keep its verdict line and change the verdict only if the evidence does.
+5. End in the chat with what this pass changed: what was added, what was corrected, what was overturned, what is still open.`;
+
+/** The first message of a deepening pass: the loose ends, found in code. */
+export function deepenBrief(d: {
+  meta: {
+    title?: string;
+    review?: Array<{ section: number; kind: string; sentence: string; why: string }>;
+    sources?: {
+      cited: number;
+      independent: number;
+      echoes: Array<{ sources: number[]; why: string }>;
+    };
+  };
+  body: string;
+}): string {
+  const lines: string[] = [
+    `Deepen this report: "${d.meta.title ?? "the report"}". It is on the page with its notes and the pages it read. Pull at its loose ends — the most important first — and revise it in place.`,
+  ];
+  const open = /\n## Open questions\n([\s\S]*?)(?=\n## |$)/.exec(d.body)?.[1]?.trim();
+  if (open) lines.push("", "Its own open questions:", open.slice(0, 2500));
+  const flags = d.meta.review ?? [];
+  if (flags.length)
+    lines.push(
+      "",
+      "What the reviewers and the support check flagged:",
+      ...flags
+        .slice(0, 15)
+        .map((f) => `- §${f.section} ${f.kind}: "${f.sentence.slice(0, 200)}" — ${f.why}`),
+    );
+  const s = d.meta.sources;
+  if (s?.echoes.length)
+    lines.push(
+      "",
+      `Its sources: ${s.cited} cited, about ${s.independent} independent. These count as one each: ${s.echoes
+        .map((g) => g.sources.map((k) => `[${k}]`).join(" "))
+        .join("; ")}. Findings that rest only on one of these groups need an independent source.`,
+    );
+  return lines.join("\n");
+}

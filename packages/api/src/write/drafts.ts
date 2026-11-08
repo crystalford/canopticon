@@ -35,7 +35,11 @@ export interface DraftMeta {
   engine?: string;
   /** Research: "thesis" tests a claim (research.ts THESIS_HOW) rather than
    *  surveying a question. Frozen into the frame at the first turn. */
-  mode?: "thesis";
+  mode?: "thesis" | "deepen";
+  /** Deepen: the conversation whose report this one deepens. */
+  deepenFrom?: string;
+  /** The deepening conversations started from this one, by how they run. */
+  deepened?: string[];
   /** Research: what the reviewers flagged once every section was written
    *  (team.ts). Private: shown in the workspace, never published. */
   review?: Array<{ section: number; kind: string; sentence: string; why: string; url?: string }>;

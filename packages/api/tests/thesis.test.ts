@@ -19,7 +19,7 @@ const env = {
   },
 } as unknown as Env;
 
-async function frameOf(mode?: "thesis") {
+async function frameOf(mode?: "thesis" | "deepen") {
   const store = memoryDrafts();
   const d = await store.create("research");
   await store.save(d.id, {
@@ -53,5 +53,48 @@ describe("Test a thesis", () => {
     const html = renderWriteList([], { hasKey: false, engine: "team:flash" });
     expect(html).toContain('name="kind" value="thesis"');
     expect(html).toContain("Test a thesis");
+  });
+});
+
+describe("Deepen", () => {
+  it("lists the loose ends found in code: open questions, flags, echoing sources", async () => {
+    const { deepenBrief } = await import("../src/write/research");
+    const brief = deepenBrief({
+      meta: {
+        title: "Pharmacare",
+        review: [
+          { section: 2, kind: "unsupported", sentence: "BC was first.", why: "No note says so." },
+        ],
+        sources: { cited: 10, independent: 7, echoes: [{ why: "wording", sources: [3, 5] }] },
+      },
+      body: "## TL;DR\n\nX.\n\n## Open questions\n\n- How many people use it?\n\n## Sources\n\n1. [A](https://a)",
+    });
+    expect(brief).toContain('Deepen this report: "Pharmacare"');
+    expect(brief).toContain("- How many people use it?");
+    expect(brief).toContain('§2 unsupported: "BC was first."');
+    expect(brief).toContain("10 cited, about 7 independent");
+    expect(brief).toContain("[3] [5]");
+  });
+
+  it("freezes the deepen instructions into a deepen conversation", async () => {
+    const f = await frameOf("deepen");
+    expect(f.system).toContain("THIS CONVERSATION DEEPENS A FINISHED REPORT");
+    expect(f.system).not.toContain("TESTS A THESIS");
+  });
+
+  it("offers Deepen, free or with Claude, on a written report", async () => {
+    const { renderWorkspace } = await import("../src/site/pages/write");
+    const { memoryDrafts } = await import("../src/write/drafts");
+    const d = await memoryDrafts().create("research");
+    const html = renderWorkspace(
+      { ...d, body: "word ".repeat(200) } as never,
+      [],
+      { total: 0, failed: [] },
+      { hasKey: true, research: { problems: [], pages: 3 } },
+    );
+    expect(html).toContain("/deepen?with=free");
+    expect(html).toContain("Deepen with Claude");
+    const empty = renderWorkspace(d, [], { total: 0, failed: [] }, { hasKey: true });
+    expect(empty).not.toContain("/deepen?");
   });
 });

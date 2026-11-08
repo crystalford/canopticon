@@ -13,7 +13,7 @@ import { invalidateUploads } from "../../site/uploads";
 import { type WriteEvent, anthropicStream, runTurn } from "../../write/agent";
 import { slugify } from "../../write/article";
 import { d1Drafts } from "../../write/drafts";
-import { ENGINES, defaultEngine, setDefaultEngine } from "../../write/engines";
+import { DEFAULT_ENGINE, ENGINES, defaultEngine, setDefaultEngine } from "../../write/engines";
 import { addEntry, d1Entries } from "../../write/entries";
 import { d1Notes } from "../../write/notes";
 import { announce, articleTopics, publishDraft, takeDown } from "../../write/publish";
@@ -21,6 +21,7 @@ import { d1Reads } from "../../write/read";
 import {
   checkReport,
   d1Sources,
+  deepenBrief,
   reportBrief,
   reportFile,
   reportProblems,
@@ -306,6 +307,46 @@ app.post("/write/:id/article", async (c) => {
   await store.save(id, {
     meta: { ...d.meta, articleDraft: draft.id, articleFrom: d.meta.savedAs },
   });
+  return c.redirect(`/admin/write/${draft.id}?start=1`, 303);
+});
+
+// Deepen: a second pass over a finished report, free (the research team) or
+// with Claude (Sonnet, advised by Opus). The report, its notes and every page
+// it read are copied into a new conversation, so nothing is fetched twice and
+// every quotation still checks; its first message lists the loose ends.
+app.post("/write/:id/deepen", async (c) => {
+  const id = c.req.param("id");
+  const back = `/admin/write/${id}`;
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  if (!userId) return c.redirect(back, 303);
+  const store = d1Drafts(c.env, userId);
+  const d = await store.get(id);
+  if (!d || d.kind !== "research" || d.body.trim().length < 400)
+    return c.redirect(
+      `${back}?error=${encodeURIComponent("There is no finished report here to deepen yet.")}`,
+      303,
+    );
+  const engine = c.req.query("with") === "claude" ? "claude-sonnet-advised" : DEFAULT_ENGINE;
+  const draft = await store.create("research");
+  await store.save(draft.id, {
+    meta: {
+      ...(d.meta.title ? { title: d.meta.title } : {}),
+      ...(d.meta.topic ? { topic: d.meta.topic } : {}),
+      engine,
+      mode: "deepen",
+      deepenFrom: id,
+      seed: deepenBrief(d),
+    },
+    body: d.body,
+  });
+  // The notes, in their order (their numbers and the source numbers follow).
+  const notes = d1Notes(c.env, userId);
+  for (const n of await notes.list(id))
+    await notes.add(draft.id, { url: n.url, quote: n.quote, claim: n.claim, section: n.section });
+  // The pages read, read and written in batches (never one query for all).
+  const sources = d1Sources(c.env, userId);
+  await sources.add(draft.id, await sources.texts(id));
+  await store.save(id, { meta: { ...d.meta, deepened: [...(d.meta.deepened ?? []), draft.id] } });
   return c.redirect(`/admin/write/${draft.id}?start=1`, 303);
 });
 
