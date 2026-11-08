@@ -21,6 +21,7 @@ import {
   CLAUDE,
   type EngineId,
   FETCH_TOOL,
+  NEWS_TOOL,
   OPUS_PRICE,
   PAGE_CHARS,
   SEARCH_TOOL,
@@ -33,7 +34,7 @@ import {
   workersStep,
 } from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
-import { isSearchEnginePage, waybackCopy } from "./finder";
+import { isSearchEnginePage, newsSearch, waybackCopy } from "./finder";
 import { describeEchoes, echoGroups, independentCount } from "./independence";
 import {
   NOTES_TOOLS,
@@ -289,7 +290,7 @@ export const researchTools = (workers = false): Anthropic.Beta.BetaToolUnion[] =
   byName("list_documents"),
   byName("search_documents"),
   byName("read_document"),
-  ...(workers ? [SEARCH_TOOL, FETCH_TOOL] : WEB_TOOLS),
+  ...(workers ? [SEARCH_TOOL, NEWS_TOOL, FETCH_TOOL] : WEB_TOOLS),
   // Outline first, note while reading, write section by section (notes.ts).
   ...NOTES_TOOLS,
   byName("edit_draft"),
@@ -476,6 +477,8 @@ export function activityLabel(name: string, input: unknown): string {
       return "Revised a passage";
     case "web_search":
       return `Searched the web: ${String(i.query ?? "")}`;
+    case "news_search":
+      return `Searched the news: ${String(i.query ?? "")}`;
     case "web_fetch":
       return `Read: ${String(i.url ?? "")}`;
     case "write_report":
@@ -893,6 +896,22 @@ async function runTool(
         };
       } catch (e) {
         return bad(`The search failed: ${(e as Error).message}`);
+      }
+    }
+    case "news_search": {
+      const q = String((input as { query?: unknown } | null)?.query ?? "").trim();
+      if (!q) return bad("Give a query.");
+      if (t.web && t.web.searches >= searchLimit(t) + (t.web.extra?.searches ?? 0))
+        return bad("max_uses_exceeded: the web search allowance for this message is spent.");
+      if (t.web) t.web.searches++;
+      try {
+        const hits = await newsSearch(q);
+        if (!hits.length) return { text: "No news found in the last three months." };
+        return {
+          text: hits.map((h, i) => `${i + 1}. ${h.title}\n${h.url}\n${h.description}`).join("\n\n"),
+        };
+      } catch (e) {
+        return bad(`The news search failed: ${(e as Error).message}`);
       }
     }
     case "web_fetch": {
@@ -1908,6 +1927,7 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       "search_documents",
       "read_document",
       "web_search",
+      "news_search",
       "web_fetch",
     ]);
     const early =

@@ -540,7 +540,7 @@ Chris gives you a claim. Your job is not to survey a topic but to find out wheth
 export const FREE_SEARCH_HOW = `
 
 YOUR SEARCH, AND THE REST OF THE WEB
-web_search asks free collections, not the whole web: the world's news from the last three months, research papers and reports (Crossref, Semantic Scholar, open-access journals), and — when the question calls for them — health research, Government of Canada data, World Bank reports, arXiv preprints, the US Federal Register, and books and older texts. Each result says which. A page that has gone or moved is read from the Internet Archive's copy, and cited there. Reach everything else as a librarian would:
+web_search asks free collections, not the whole web: research papers and reports (Crossref, Semantic Scholar, open-access journals), Wikipedia, and — when the question calls for them — health research, Government of Canada data, World Bank reports, arXiv preprints, the US Federal Register, and books and older texts. Each result says which. news_search asks the world's news of the last three months; it is slow (about twenty seconds), so use it for recent events, announcements and reactions. A page that has gone or moved is read from the Internet Archive's copy, and cited there. Reach everything else as a librarian would:
 - When you know the authoritative source — the agency, statistics office, regulator, the law itself, the study, the organisation's own report — fetch its page directly with web_fetch. You do not need a search result to read a page.
 - A page you read lists its links: follow them to the reports, data tables and PDFs behind it. A site's /sitemap.xml lists its pages.
 - Wikipedia is a map, not a source: fetch the references it cites and cite those, never Wikipedia itself.

@@ -251,8 +251,13 @@
   Internet Archive and Open Library (books, ideas); none claimed → Canada
   data and books. A page gone, moved or refusing us is read from the
   Wayback Machine's copy (`waybackCopy`) and kept and cited at the
-  archive's address. `/v1/admin/finder?q=…&all=1` asks each source live
-  and reports what it returned or why it failed.
+  archive's address. `/v1/admin/finder?q=…&all=1` (or `&only=a,b`) asks
+  each source live and reports what it returned or why it failed — live
+  2026-11-08, all answered except Semantic Scholar (429 on its shared
+  keyless pool) and GDELT, which takes ~19 s against ~2 s for the rest. So
+  **news is its own tool**, `news_search` (`NEWS_TOOL`, GDELT, 30 s),
+  called for recent events only; `web_search` no longer waits for it.
+  (Frames frozen before this keep `web_search` without news.)
   **Cloudflare only — no Brave, no third-party bills (2026-11-07):** the
   gateway had never been created, so every search had fallen through to
   Brave until its credits ran out. Brave is gone from the code (workspace,

@@ -64,25 +64,31 @@ function stubSources(fail: string[] = []) {
 }
 
 describe("the free source finder", () => {
-  it("asks every source at once and labels what each result is", async () => {
+  it("asks the core and the routed sources at once and labels what each result is", async () => {
     stubSources();
     const r = await findSources("Canada pharmacare drug coverage");
     expect(r.map((x) => x.url)).toEqual([
-      "https://news.example/a",
       "https://doi.org/10.1/x",
       "https://en.wikipedia.org/wiki/Pharmacare_Act",
       "https://doi.org/10.2/y",
       "https://open.canada.ca/data/en/dataset/drug-data",
     ]);
-    expect(r[0]?.description).toContain("[news · news.example · 20261002]");
-    expect(r[2]?.description).toContain("follow its references");
+    expect(r[1]?.description).toContain("follow its references");
   });
 
   it("leaves out a source that answers with something other than JSON", async () => {
-    stubSources(["api.gdeltproject.org"]);
+    stubSources(["api.crossref.org"]);
     const r = await findSources("Canada pharmacare drug coverage");
-    expect(r.some((x) => x.url.includes("news.example"))).toBe(false);
-    expect(r).toHaveLength(4);
+    expect(r.some((x) => x.url.includes("10.1/x"))).toBe(false);
+    expect(r).toHaveLength(3);
+  });
+
+  it("asks the news apart, as news_search: it is slow", async () => {
+    stubSources();
+    const { newsSearch } = await import("../src/write/finder");
+    const r = await newsSearch('"pharmacare" deal');
+    expect(r[0]?.url).toBe("https://news.example/a");
+    expect(r[0]?.description).toContain("[news · news.example · 20261002]");
   });
 
   it("uses Cloudflare's paid search only when it can bill, and the free finder otherwise", async () => {
@@ -98,13 +104,13 @@ describe("the free source finder", () => {
       },
     } as unknown as Env;
     const first = await webSearch(env, "Canada pharmacare drug coverage");
-    expect(first[0]?.url).toBe("https://news.example/a");
+    expect(first[0]?.url).toBe("https://doi.org/10.1/x");
     await webSearch(env, "Canada pharmacare drug coverage again");
     // After a "cannot bill", the paid search is not asked again for a while.
     expect(paid).toBe(1);
     // No gateway at all: straight to the free finder.
     const none = await webSearch({ AI: {} } as unknown as Env, "Canada pharmacare drug coverage");
-    expect(none).toHaveLength(5);
+    expect(none).toHaveLength(4);
   });
 });
 
@@ -174,7 +180,6 @@ describe("queries for the keyword sources", () => {
     expect(asked.sort()).toEqual(
       [
         "api.crossref.org",
-        "api.gdeltproject.org",
         "api.semanticscholar.org",
         "archive.org",
         "doaj.org",
