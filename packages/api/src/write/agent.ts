@@ -36,7 +36,7 @@ import {
   workersStep,
 } from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
-import { isSearchEnginePage, newsSearch, waybackCopy } from "./finder";
+import { doiOf, isSearchEnginePage, newsSearch, openAccessCopy, waybackCopy } from "./finder";
 import { describeEchoes, echoGroups, independentCount } from "./independence";
 import {
   NOTES_TOOLS,
@@ -573,6 +573,8 @@ const WORKERS_WEB_LIMIT = 100;
 /** Past this, a research turn's writer is told to write what is left now
  *  (the engine test stops a report at 25 minutes; Chris waits for it). */
 const WRITE_BY_MS = 14 * 60 * 1000;
+/** A paper's page shorter than this is likely its abstract (or a paywall). */
+const SHORT_PAPER = 8000;
 const searchLimit = (t: ToolContext) => (t.workers ? WORKERS_WEB_LIMIT : SEARCH_LIMIT);
 const readLimit = (t: ToolContext) => (t.workers ? WORKERS_WEB_LIMIT : READ_LIMIT);
 
@@ -1008,12 +1010,20 @@ async function runTool(
         offset === 0 && page.links?.length
           ? `\n\nLINKS ON THIS PAGE (read any with web_fetch):\n${page.links.map((l) => `- ${l.text} — ${l.url}`).join("\n")}`
           : "";
+      // A paper's page that gave little (an abstract, a paywall): its free
+      // full text, if OpenAlex knows one, so the evidence is the paper.
+      const doi = offset === 0 && !again && page.text.length < SHORT_PAPER ? doiOf(url) : null;
+      const free = doi ? await openAccessCopy(doi).catch(() => null) : null;
+      const fullText =
+        free && free !== url && free !== page.url
+          ? `\n\nFULL TEXT: this page gave only ${page.text.length.toLocaleString("en")} characters — likely the abstract. A free copy of the whole paper is at ${free} — read it with web_fetch and note from it.`
+          : "";
       return {
         text: `${again ? "(You have read this page already; here it is again from what was kept.)\n" : ""}${page.title ?? url}\n${page.url}\n\n${slice}${
           more
             ? `\n\n[${page.text.length.toLocaleString("en")} characters in all; read on with offset ${offset + PAGE_CHARS}]`
             : ""
-        }${links}`,
+        }${fullText}${links}`,
       };
     }
     default:

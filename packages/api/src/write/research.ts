@@ -31,7 +31,7 @@ Canopticon holds: research documents (the sources you may quote, with uploads th
 HOW YOU RESEARCH
 1. Before searching, restate the question as one sentence about the world, and name what Chris has already decided (treat that as given; mark anything that depends on it "Given your decision…"). If the question is unclear, ask him one short question first.
 2. Check the record: search_documents and list_documents show what Canopticon already holds. Build on it; do not redo it.
-3. Break the question into 3 to 6 concrete sub-questions that, answered together, cover it, and lay the report out with write_outline: one Details section per sub-question, each with a target length, the targets adding up to the depth below. Revise the outline as you learn (call it again; written sections are kept).
+3. Break the question into 3 to 6 concrete sub-questions that, answered together, cover it, and lay the report out with write_outline: one Details section per sub-question, each with a target length the evidence you expect can fill — about 100 words for each passage you expect to note, not more. Revise the outline as you learn (call it again; written sections are kept).
 4. For each, search the web and read the most authoritative sources IN FULL with web_fetch — primary sources, official documents, datasets and peer-reviewed work over blogs, aggregators and encyclopedias. Do not rely on search snippets. When a secondary source cites a primary one, fetch the primary one.
    As you read, note every passage you will use with note_evidence: the exact words, what they show, and the section they are for. A note is checked against the page when you make it and gives the source its number to cite. Pages may leave your view later to keep the conversation short; your notes stay (list_notes shows them).
 5. Be skeptical. Where sources disagree, say so, say which is more credible and why. Separate findings (what is true in the world, with a source) from your own inference, and label the inference.
@@ -43,8 +43,12 @@ HOW TO SEARCH AND READ WELL
 - Never read the same page twice; everything you read is kept.
 - Stop when new sources stop adding anything new. More reading past that point makes a report worse, not better: it buries the strong sources under weak ones.
 
-DEPTH
-The report is a document of record, not a summary. Be comprehensive: answer every sub-question in full, with the evidence itself — the figures, who measured them and how, the dates, the conditions, the competing accounts and why one is stronger — not a sentence pointing at it. The record's research documents run a median of about 4,500 words, and the thorough ones 7,000 or more; write at that depth whenever the evidence supports it, and longer when the question needs it. There is no length cap. Never pad: no repetition, no restating the TL;DR in the Details, no filler. If the evidence is genuinely thin, say so plainly in Open questions rather than stretching. Read widely before you write — usually ten or more sources read in full for a substantial question.
+DEPTH, AND DENSITY
+The report is a document of record, not a summary. Be comprehensive: answer every sub-question in full, with the evidence itself — the figures, who measured them and how, the dates, the conditions, the competing accounts and why one is stronger — not a sentence pointing at it. Depth is evidence, not words: a report is as long as what it found, and every paragraph adds a fact, a source or an argument the reader has not yet had. The record's research documents run a median of about 4,500 words; a thorough one on a well-studied question runs longer because it has more sources, not because it says things again.
+- State each fact once, in the section where it belongs. When a later section needs it, refer back in a few words ("the 50% exposure figure in section 1") instead of restating it with its citation. Live, one report gave the same five facts five to seven times each and was half again as long as its evidence.
+- Breadth before length: a substantial question usually needs fifteen or more distinct sources, from several institutions and kinds (official statistics, peer-reviewed studies, government and independent evaluations, the strongest dissent), read in full. Three sources from one agency count as one voice.
+- Concrete before abstract: a named case, a measured result, a dated event beats a general statement about the literature.
+- Never pad: no repetition, no restating the TL;DR in the Details, no filler. If the evidence is genuinely thin, say so plainly in Open questions rather than stretching.
 
 YOUR WEB ALLOWANCE
 In one message you may run up to 80 web searches and read up to 80 pages. A substantial question usually takes 20 to 40 searches and 15 to 30 pages read in full; use what the question needs, not the whole allowance. Spend reads on primary sources, not on pages that only repeat them. If a search or read comes back "max_uses_exceeded", the allowance for this message is spent: write or revise the report with what you have, say under Open questions exactly what is still uncovered, and tell Chris to reply "keep going" — his next message brings a fresh allowance, and you continue where you stopped and revise the report.
@@ -62,6 +66,8 @@ THE REPORT (outline with write_outline, write each part with write_section, revi
 - Numbers appear exactly as the source gives them.
 - A quotation is in double quotation marks and copied character for character from a page you fetched (whitespace aside). Every quotation is checked against the pages you read; one that is not found word for word fails. Quote sparingly and only what you read; otherwise paraphrase without quotation marks.
 - Plain, direct prose. No throat-clearing, no "in conclusion".
+- The record's voice: third person, about the evidence. Never "I" or "we", never "as Chris asked" or any mention of who asked — the report is read by people who were not in this conversation. Your own calculation is "a calculation from [5] and [7]", not "my arithmetic".
+- Every sentence in the Details that states a fact — a figure, a date, a rule, an event, what a study found — cites its source, even when the previous sentence cited the same one. Your own inference is labelled as inference.
 
 IN THE CHAT
 Be brief: say what you are doing and what you found. Do not paste the report into the chat; it is on the page. When Chris flags a passage it arrives as a quoted block (lines starting with "> "); revise that passage with edit_draft.
@@ -487,6 +493,9 @@ export function writingProblems(body: string): {
   summaryFigures: Array<{ figure: string; sentence: string }>;
   /** Sources that are a database's record or a search, not the document. */
   databaseSources: string[];
+  repeatedFacts: Array<{ fact: string; parts: number }>;
+  uncitedFacts: string[];
+  voice: string[];
 } {
   const at = (h: string) => body.indexOf(`\n## ${h}`);
   const details = at("Details");
@@ -499,7 +508,15 @@ export function writingProblems(body: string): {
     .filter((u) =>
       /^https?:\/\/(api\.|[^/]+\/api\/)|[?&](q|query|query\.[a-z]+|search|s)=/i.test(u),
     );
-  if (details < 0) return { uncitedFindings: [], summaryFigures: [], databaseSources };
+  if (details < 0)
+    return {
+      uncitedFindings: [],
+      summaryFigures: [],
+      databaseSources,
+      repeatedFacts: [],
+      uncitedFacts: [],
+      voice: [],
+    };
   const findingsAt = at("Key Findings");
   const findings =
     findingsAt < 0
@@ -528,7 +545,97 @@ export function writingProblems(body: string): {
       summaryFigures.push({ figure: m[0], sentence: sentence.trim().slice(0, 160) });
     }
   }
-  return { uncitedFindings, summaryFigures, databaseSources };
+  return {
+    uncitedFindings,
+    summaryFigures,
+    databaseSources,
+    ...density(body.slice(details, sources < 0 ? body.length : sources)),
+  };
+}
+
+/** A figure a reader would notice: a percentage, a decimal, a dollar amount,
+ *  a number with separators or of three or more digits (years aside). */
+const SALIENT =
+  /[−-]?\$?\d{1,3}(?:,\d{3})+(?:\.\d+)?%?|[−-]?\$?\d+\.\d+%?|\$\d+|\d+(?:\.\d+)?\s?(?:%|per cent|percentage points?)|(?<![\w.,])\d{3,}(?![\d,])/g;
+
+/** How dense the Details are, in code (from reading the 2026-11-11 thesis
+ *  report: five facts stated five to seven times each, factual sentences
+ *  with no citation, "I" and "as Chris stated it" in a public document).
+ *  - repeatedFacts: a figure or a quotation of five words or more that
+ *    appears in three or more Details sections or closing parts;
+ *  - uncitedFacts: a Details sentence with a salient figure and no [n];
+ *  - voice: sentences in the first person or naming Chris. */
+function density(rest: string): {
+  repeatedFacts: Array<{ fact: string; parts: number }>;
+  uncitedFacts: string[];
+  voice: string[];
+} {
+  const parts = rest
+    .split(/\n(?=### \d+\. |## )/)
+    .map((p) => p.replace(/^#{2,4} [^\n]*\n/, ""))
+    .filter((p) => p.trim() && !p.includes("_(to write)_"));
+  const seenIn = new Map<string, Set<number>>();
+  parts.forEach((p, i) => {
+    const facts = [
+      ...[...p.matchAll(SALIENT)]
+        .map((m) => m[0].replace(/\s+/g, " ").trim())
+        .filter((f) => !/^(19|20)\d{2}$/.test(f)),
+      ...[...p.matchAll(/["“]([^"”]{20,400})["”]/g)]
+        .map((m) => (m[1] ?? "").trim())
+        .filter((q) => q.split(/\s+/).length >= 5)
+        .map((q) => `“${q.slice(0, 80)}${q.length > 80 ? "…" : ""}”`),
+    ];
+    for (const f of facts) seenIn.set(f, (seenIn.get(f) ?? new Set()).add(i));
+  });
+  const repeatedFacts = [...seenIn.entries()]
+    .filter(([, s]) => s.size >= 3)
+    .map(([fact, s]) => ({ fact, parts: s.size }))
+    .sort((a, b) => b.parts - a.parts)
+    .slice(0, 10);
+  const sentences = splitSentences(parts.join("\n")).filter(
+    (s) => s.length > 30 && !/^#{2,4} /.test(s),
+  );
+  const hasFigure = (s: string) =>
+    [...s.matchAll(SALIENT)].some((m) => !/^(19|20)\d{2}$/.test(m[0].trim()));
+  const uncitedFacts = sentences
+    .filter(
+      (s) =>
+        hasFigure(s) &&
+        !/\[\d+(?:[,\s–-]*\d+)*\]/.test(s) &&
+        !/\b(calculation|implies|section \d)/i.test(s),
+    )
+    .map((s) => s.slice(0, 160))
+    .slice(0, 12);
+  // "We" and "our" are left alone: in reported speech ("asking whether we
+  // really want to say…") they are the source's, not the writer's.
+  const unquoted = (s: string) => s.replace(/["“][^"”]*["”]/g, "");
+  // "Part I", "World War I": a numeral, not the writer.
+  const firstPerson =
+    /(?<!\b(?:Part|Volume|Vol\.|Book|Chapter|War|Phase|Type|Article|Section|Title|Schedule|Stage)\s)\b(I|I'm|I've|I'd)\b|\bmy\b|\bChris\b/;
+  const voice = sentences
+    .filter((s) => firstPerson.test(unquoted(s)))
+    .map((s) => s.slice(0, 160))
+    .slice(0, 8);
+  return { repeatedFacts, uncitedFacts, voice };
+}
+
+/** Sentences, split only outside quotation marks: a quoted passage of two
+ *  sentences is one, with the citation that follows it. */
+export function splitSentences(text: string): string[] {
+  // The same text with every quoted span blanked, so its full stops do not
+  // split it; the cuts found there are made in the original.
+  const masked = text.replace(
+    /["“][^"”\n]*["”]/g,
+    (q) => q[0] + "x".repeat(q.length - 2) + q.slice(-1),
+  );
+  const out: string[] = [];
+  let from = 0;
+  for (const m of masked.matchAll(/(?<=[.!?][”"]?)\s+(?=[A-Z“"(*])|\n+/g)) {
+    out.push(text.slice(from, m.index));
+    from = (m.index ?? 0) + m[0].length;
+  }
+  out.push(text.slice(from));
+  return out.map((s) => s.trim()).filter(Boolean);
 }
 
 /** The writing check as the writer reads it; empty when there is nothing. */
@@ -553,6 +660,26 @@ export function describeWriting(w: ReturnType<typeof writingProblems>): string {
       `\nSOURCES THAT ARE A DATABASE'S RECORD OR A SEARCH, NOT THE DOCUMENT (${w.databaseSources.length}). Read the paper or report itself (its DOI or publisher page) and note from it, so the source is the work, not an index of it:\n${w.databaseSources
         .slice(0, 8)
         .map((u) => `- ${u}`)
+        .join("\n")}`,
+    );
+  if (w.repeatedFacts.length)
+    out.push(
+      `\nSAID AGAIN AND AGAIN (${w.repeatedFacts.length}). Each of these appears in three or more parts of the report. State it once, where it belongs, and refer back to it in a few words elsewhere:\n${w.repeatedFacts
+        .map((f) => `- ${f.fact} — in ${f.parts} parts`)
+        .join("\n")}`,
+    );
+  if (w.uncitedFacts.length)
+    out.push(
+      `\nFACTS WITH NO CITATION IN THE DETAILS (${w.uncitedFacts.length}). Each sentence that gives a figure cites its source; or say it is your own calculation and from what:\n${w.uncitedFacts
+        .slice(0, 8)
+        .map((s) => `- "${s}"`)
+        .join("\n")}`,
+    );
+  if (w.voice.length)
+    out.push(
+      `\nNOT THE RECORD'S VOICE (${w.voice.length}). The report is about the evidence, in the third person: no "I" or "we", and no mention of who asked:\n${w.voice
+        .slice(0, 6)
+        .map((s) => `- "${s}"`)
         .join("\n")}`,
     );
   return out.join("");
