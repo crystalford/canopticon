@@ -34,8 +34,13 @@ export interface EchoGroup {
   sample: string;
 }
 
-/** The site a page is on, without "www.". */
+/** The site a page is on, without "www.". An Internet Archive copy is the
+ *  site it is a copy of: live, six archive copies of Wiley, U of T Press,
+ *  SSRN and Government of Canada pages were counted as one publisher, and a
+ *  report with about eight independent sources said four. */
 export function siteOf(url: string): string {
+  const copy = /^https?:\/\/web\.archive\.org\/web\/[^/]+\/(.+)$/i.exec(url);
+  if (copy?.[1]) return siteOf(/^https?:\/\//i.test(copy[1]) ? copy[1] : `http://${copy[1]}`);
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {

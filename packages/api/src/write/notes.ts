@@ -135,8 +135,16 @@ export function skeleton(sections: OutlineSection[], before = ""): string {
   const closing = partOf(before, "closing");
   const details = sections
     .map((s, i) => {
-      const heading = `### ${i + 1}. ${s.heading.trim()}`;
-      return `${heading}\n\n${kept(heading) ?? `${TO_WRITE} About ${s.words} words.`}`;
+      // The number is the code's: a heading the model numbered itself
+      // ("1. The thesis…") came out "### 1. 1. The thesis…" (thesis report,
+      // engine test 2026-11-11). A section already written under the old,
+      // doubled heading is still found and kept.
+      const raw = s.heading.trim();
+      const clean = raw.replace(/^(?:section\s+)?\d+\s*[.):–-]\s*/i, "").trim() || raw;
+      const heading = `### ${i + 1}. ${clean}`;
+      const old = `### ${i + 1}. ${raw}`;
+      const text = kept(heading) ?? (old !== heading ? kept(old) : null);
+      return `${heading}\n\n${text ?? `${TO_WRITE} About ${s.words} words.`}`;
     })
     .join("\n\n");
   return `${summary ?? `## TL;DR\n\n${TO_WRITE}\n\n## Key Findings\n\n${TO_WRITE}`}\n\n## Details\n\n${details}\n\n${closing ?? `## Open questions\n\n${TO_WRITE}`}\n\n## Sources\n\n(Built from the notes.)\n`;

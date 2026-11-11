@@ -224,7 +224,18 @@
   words, every researcher came back with notes (5–16 each, 69 in all), 14
   reviewer flags, 13 changed; the thesis 7,229 words, verdict "Partly
   supported", 47 notes; every quotation found; $0.57 and $0.52.
-  **Then the reviewers** (`runReview`, once per conversation,
+  **Reading those two reports found what the bar does not measure**
+  (2026-11-11): the independence check counted every Internet Archive copy
+  as one publisher (`siteOf` now unwraps `web.archive.org/web/…/` to the
+  site copied — the thesis report's 12 sources came from 8 sites, not
+  "about 4"); every heading was numbered twice ("### 1. 1. …" — `skeleton`
+  strips the model's own number, and still finds a section written under
+  the doubled heading); and **`writingProblems`** (advisory, told to the
+  writer on every `write_section` and reported by `engine-try` as
+  `writing`) lists Key Findings with no citation, figures in the TL;DR or
+  Key Findings that the Details never give, and sources that are a
+  database's record or a search (`api.openalex.org`, `?q=`) rather than the
+  document. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a

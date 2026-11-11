@@ -478,6 +478,86 @@ export function describeFigures(f: Array<{ figure: string; sentence: string }>):
     .join("\n")}${f.length > 12 ? `\n…and ${f.length - 12} more.` : ""}`;
 }
 
+/** What a reader checks first, checked in code: every Key Finding cites a
+ *  source, and every figure the TL;DR or Key Findings give is one the
+ *  Details give too (a summary should summarise, not add). Advisory, like
+ *  the figure check: a summary may round, or add two numbers. */
+export function writingProblems(body: string): {
+  uncitedFindings: string[];
+  summaryFigures: Array<{ figure: string; sentence: string }>;
+  /** Sources that are a database's record or a search, not the document. */
+  databaseSources: string[];
+} {
+  const at = (h: string) => body.indexOf(`\n## ${h}`);
+  const details = at("Details");
+  // A search result or an index's raw record (api.openalex.org,
+  // api.crossref.org, a ?q= page) stands in for the document it describes:
+  // live, both reports of 2026-11-11 cited one. Cite the paper itself.
+  const listed = at("Sources") < 0 ? "" : body.slice(at("Sources"));
+  const databaseSources = [...listed.matchAll(/\]\((https?:\/\/[^)\s]+)\)/g)]
+    .map((m) => m[1] ?? "")
+    .filter((u) =>
+      /^https?:\/\/(api\.|[^/]+\/api\/)|[?&](q|query|query\.[a-z]+|search|s)=/i.test(u),
+    );
+  if (details < 0) return { uncitedFindings: [], summaryFigures: [], databaseSources };
+  const findingsAt = at("Key Findings");
+  const findings =
+    findingsAt < 0
+      ? ""
+      : body.slice(findingsAt + "\n## Key Findings".length, details).replace(/_\(to write\)_/g, "");
+  const uncitedFindings = findings
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => /^([-*]|\d+[.)])\s+\S/.test(l) && !/\[\d+(?:[,\s–-]*\d+)*\]/.test(l))
+    .map((l) => l.replace(/^([-*]|\d+[.)])\s+/, "").slice(0, 160));
+  const sources = at("Sources");
+  const rest = body.slice(details, sources < 0 ? body.length : sources);
+  const haystack = digitsOf(rest.replace(/\[[\d,\s–-]+\]/g, " "));
+  const summary = body.slice(0, details).replace(/\[[\d,\s–-]+\]/g, " ");
+  const seen = new Set<string>();
+  const summaryFigures: Array<{ figure: string; sentence: string }> = [];
+  for (const sentence of summary.split(/(?<=[.!?;])\s+|\n+/)) {
+    for (const m of sentence.matchAll(
+      /(?<![\w.])\d{1,3}(?:[,   ]\d{3})+(?:\.\d+)?(?![\d])|(?<![\w.,])\d+\.\d+(?![\d])|(?<![\w.,])\d{2,}(?![\d,])/g,
+    )) {
+      const figure = digitsOf(m[0]);
+      if (/^(19|20)\d{2}$/.test(figure) || seen.has(figure)) continue;
+      seen.add(figure);
+      const escaped = figure.replace(/\./g, "\\.");
+      if (new RegExp(`(?<![\\d.])${escaped}(?![\\d])`).test(haystack)) continue;
+      summaryFigures.push({ figure: m[0], sentence: sentence.trim().slice(0, 160) });
+    }
+  }
+  return { uncitedFindings, summaryFigures, databaseSources };
+}
+
+/** The writing check as the writer reads it; empty when there is nothing. */
+export function describeWriting(w: ReturnType<typeof writingProblems>): string {
+  const out: string[] = [];
+  if (w.uncitedFindings.length)
+    out.push(
+      `\nKEY FINDINGS WITH NO CITATION (${w.uncitedFindings.length}). Each finding stands on a source; add its [n], or cut it:\n${w.uncitedFindings
+        .slice(0, 8)
+        .map((f) => `- "${f}"`)
+        .join("\n")}`,
+    );
+  if (w.summaryFigures.length)
+    out.push(
+      `\nFIGURES IN THE SUMMARY THAT THE DETAILS NEVER GIVE (${w.summaryFigures.length}). A summary repeats what the report shows; give the figure in its section with its source, or take it out of the summary:\n${w.summaryFigures
+        .slice(0, 8)
+        .map((f) => `- ${f.figure} — "${f.sentence}"`)
+        .join("\n")}`,
+    );
+  if (w.databaseSources.length)
+    out.push(
+      `\nSOURCES THAT ARE A DATABASE'S RECORD OR A SEARCH, NOT THE DOCUMENT (${w.databaseSources.length}). Read the paper or report itself (its DOI or publisher page) and note from it, so the source is the work, not an index of it:\n${w.databaseSources
+        .slice(0, 8)
+        .map((u) => `- ${u}`)
+        .join("\n")}`,
+    );
+  return out.join("");
+}
+
 /** Why a report cannot go to Admin yet; empty when it can. */
 export function reportProblems(
   d: { meta: { title?: string; topic?: string }; body: string },
