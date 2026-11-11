@@ -463,6 +463,36 @@ export async function waybackCopy(url: string): Promise<{ url: string; date: str
   };
 }
 
+/** The DOI a scholarly address carries, if any (doi.org, a publisher's
+ *  /doi/ path, an SSRN abstract page). */
+export function doiOf(url: string): string | null {
+  const ssrn = /ssrn\.com\/.*abstract_id=(\d+)/i.exec(url);
+  if (ssrn) return `10.2139/ssrn.${ssrn[1]}`;
+  let u = url;
+  try {
+    u = decodeURIComponent(url);
+  } catch {
+    // Not percent-encoded as expected: read it as it is.
+  }
+  const m = /\b(10\.\d{4,9}\/[^\s?#&"<>]+)/.exec(u);
+  return m?.[1] ? m[1].replace(/[.,;)\]]+$/, "").replace(/\/(full|abstract|pdf|epdf)$/i, "") : null;
+}
+
+/** A free full text of a paper, where one exists: OpenAlex (free, keyless)
+ *  records the open-access copies of a work — an author's or repository's
+ *  PDF, a working-paper version. Live (2026-11-11), a thesis report read its
+ *  three central papers only as abstracts behind publishers' pages. */
+export async function openAccessCopy(doi: string): Promise<string | null> {
+  const j = (await getJson(`https://api.openalex.org/works/doi:${encodeURIComponent(doi)}`).catch(
+    () => null,
+  )) as {
+    best_oa_location?: { pdf_url?: string | null; landing_page_url?: string | null } | null;
+    open_access?: { oa_url?: string | null };
+  } | null;
+  const loc = j?.best_oa_location;
+  return loc?.pdf_url || loc?.landing_page_url || j?.open_access?.oa_url || null;
+}
+
 /** A search engine's result page (or the engine itself): not fetched, since
  *  querying them by machine breaks their terms. Scholarly and data APIs that
  *  invite automated use (Crossref, Europe PMC, OpenAlex, Semantic Scholar's

@@ -235,7 +235,23 @@
   `writing`) lists Key Findings with no citation, figures in the TL;DR or
   Key Findings that the Details never give, and sources that are a
   database's record or a search (`api.openalex.org`, `?q=`) rather than the
-  document. **Then the reviewers** (`runReview`, once per conversation,
+  document. **Read against the record's own Airbnb audit** (3,400 words,
+  ~15 named sources, no links): the thesis report argued better and was
+  far better sourced, but said five facts five to seven times each, stood
+  on 12 sources (3 from one agency, key papers as abstracts only), left
+  factual sentences uncited and wrote "I" and "as Chris stated it". So:
+  `writingProblems` also lists **facts said in three or more parts**
+  (`repeatedFacts`: a salient figure or a five-word quotation), **Details
+  sentences with a figure and no citation** (`uncitedFacts`) and **the
+  first person or Chris's name** (`voice`; "we" in reported speech and
+  "Part I" excepted), splitting sentences outside quotation marks
+  (`splitSentences`); `RESEARCH_HOW` now asks for density, not length
+  ("state each fact once… refer back"), section targets of ~100 words per
+  expected note, fifteen-plus distinct sources from several institutions,
+  the third person, and a citation on every factual sentence; and a
+  paper's page under 8,000 characters (an abstract or paywall) comes back
+  from `web_fetch` with **its free full text** where OpenAlex knows one
+  (`doiOf`, `openAccessCopy` in `finder.ts`). **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a

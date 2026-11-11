@@ -2,7 +2,7 @@
 // copies counted as one publisher, headings numbered twice, key findings
 // with no citation, summary figures the Details never give, and sources
 // that are a database's record rather than the document.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { echoGroups, independentCount, siteOf } from "../src/write/independence";
 import { skeleton } from "../src/write/notes";
 import { describeWriting, writingProblems } from "../src/write/research";
@@ -98,5 +98,85 @@ describe("what a reader checks first", () => {
       .replace("4.2%", "3.9%")
       .replace("https://api.openalex.org/works/doi:10.1/x", "https://doi.org/10.1/x");
     expect(describeWriting(writingProblems(ok))).toBe("");
+  });
+});
+
+describe("density, in code", () => {
+  const REPEATS = `## TL;DR
+
+Short.
+
+## Details
+
+### 1. Exposure
+
+Half of teens, 50% of employees aged 15 to 19, were paid the minimum [1]. Ontario's step was 20.7% [2].
+
+### 2. The case for
+
+Because 50% of teens earn the minimum [1], the effect concentrates there. Alberta reached $15.00 in October 2018.
+
+### 3. The case against
+
+Again, 50% of teens [1]. I could not find more, and as Chris stated it the claim is broad. In Part I of the book the author says "we must look" [3].
+
+## Sources
+
+1. [A](https://a.example)
+`;
+
+  it("finds a fact said in three parts, a figure with no citation, and the first person", async () => {
+    const { writingProblems: wp } = await import("../src/write/research");
+    const w = wp(REPEATS);
+    expect(w.repeatedFacts).toEqual([{ fact: "50%", parts: 3 }]);
+    expect(w.uncitedFacts).toEqual(["Alberta reached $15.00 in October 2018."]);
+    expect(w.voice).toEqual(["I could not find more, and as Chris stated it the claim is broad."]);
+  });
+
+  it("keeps a quotation of two sentences whole, with the citation after it", async () => {
+    const { splitSentences } = await import("../src/write/research");
+    expect(
+      splitSentences(
+        'It reported: "Employment fell. Year over year it grew by 34,000" [11]. Then more.',
+      ),
+    ).toEqual([
+      'It reported: "Employment fell. Year over year it grew by 34,000" [11].',
+      "Then more.",
+    ]);
+  });
+});
+
+describe("free full texts of papers", () => {
+  it("reads the DOI a scholarly address carries", async () => {
+    const { doiOf } = await import("../src/write/finder");
+    expect(doiOf("https://onlinelibrary.wiley.com/doi/10.1111/coep.12241")).toBe(
+      "10.1111/coep.12241",
+    );
+    expect(
+      doiOf("https://web.archive.org/web/2022/https://utpjournals.press/doi/10.3138/cpp.2018-016"),
+    ).toBe("10.3138/cpp.2018-016");
+    expect(doiOf("https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4996049")).toBe(
+      "10.2139/ssrn.4996049",
+    );
+    expect(doiOf("https://doi.org/10.5334/glo.9")).toBe("10.5334/glo.9");
+    expect(doiOf("https://www.statcan.gc.ca/n1/daily")).toBeNull();
+  });
+
+  it("asks OpenAlex for the open-access copy", async () => {
+    const { openAccessCopy } = await import("../src/write/finder");
+    const seen: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        seen.push(url);
+        return new Response(
+          JSON.stringify({ best_oa_location: { pdf_url: "https://repo.example/paper.pdf" } }),
+          { headers: { "content-type": "application/json" } },
+        );
+      }),
+    );
+    expect(await openAccessCopy("10.1111/coep.12241")).toBe("https://repo.example/paper.pdf");
+    expect(seen[0]).toBe("https://api.openalex.org/works/doi:10.1111%2Fcoep.12241");
+    vi.unstubAllGlobals();
   });
 });
