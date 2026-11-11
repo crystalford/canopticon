@@ -119,6 +119,14 @@ jobs:
             echo "|---|---|---|---|---|---|---|---|---|---|---|"
             jq -r '.[] | "| \(.model|sub("@cf/";"")) | \(.eval) \(.label // "") | \(if .grade.pass then "✅" else "❌" end) | \(.report.words // 0) | \(.report.quotations // 0) (\(.report.not_found // [] | length)) | \(.pages_read // [] | length) | \(.report.figures_not_in_pages // [] | length) | \(.report.review // [] | length) (\(.report.review // [] | map(select(.changed)) | length)) | $\(.dollars // 0) | \(((.seconds // 0) / 60) | floor) | \(.grade.misses | join("; ")) |"' "ops/eval/${STAMP}.json"
             echo
+            # How each report reads against respected research writing
+            # (research.ts RUBRIC): advisory, not yet on the pass bar.
+            echo "### How it reads"
+            echo
+            echo "| Model | Task | Sources | Words per source (≤250) | Top publisher | Sentence words (≈20) | Over 35 words | TL;DR words (≤150) | Said again | Uncited facts | First person |"
+            echo "|---|---|---|---|---|---|---|---|---|---|---|"
+            jq -r '.[] | select(.report.rubric) | "| \(.model|sub("@cf/";"")) | \(.eval) | \(.report.rubric.sources) | \(.report.rubric.wordsPerSource) | \(if .report.rubric.topPublisher then "\(.report.rubric.topPublisher.sources) of \(.report.rubric.sources)" else "—" end) | \(.report.rubric.meanSentenceWords) | \((.report.rubric.longSentenceShare * 100) | floor)% | \(.report.rubric.tldrWords) | \(.report.writing.repeatedFacts // [] | length) | \(.report.writing.uncitedFacts // [] | length) | \(.report.writing.voice // [] | length) |"' "ops/eval/${STAMP}.json"
+            echo
             echo "## Verdict"
             echo
             jq -r '

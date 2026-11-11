@@ -180,3 +180,73 @@ describe("free full texts of papers", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("the rubric: how it reads against respected research writing", () => {
+  const body = `## TL;DR
+
+${"Word ".repeat(160)}.
+
+## Details
+
+### 1. The thesis
+
+Short sentence one [1]. Short sentence two clearly shows it [2].
+
+### 2. The strongest case for
+
+${"The case for has many words in it here and there and everywhere. ".repeat(10)}[1].
+
+### 3. The strongest case against
+
+Only a little against [2].
+
+## Sources
+
+1. [A](https://www150.statcan.gc.ca/a)
+2. [B](https://www150.statcan.gc.ca/b)
+3. [C](https://www150.statcan.gc.ca/c)
+4. [D](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1)
+`;
+
+  it("measures words per source, one publisher's share, certainty words, the summary and the case against", async () => {
+    const { rubric } = await import("../src/write/research");
+    const r = rubric(body, [
+      {
+        url: "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1",
+        text: "abstract only",
+      } as never,
+    ]);
+    expect(r.sources).toBe(4);
+    expect(r.topPublisher).toMatchObject({ site: "www150.statcan.gc.ca", sources: 3 });
+    expect(r.certaintyWords).toEqual(["clearly"]);
+    expect(r.tldrWords).toBeGreaterThan(150);
+    expect(r.caseAgainstRatio).toBeLessThan(0.6);
+    expect(r.thinSources.map((t) => t.n)).toEqual([4]);
+    const said = r.flags.join("\n");
+    expect(said).toContain("3 of 4 sources are from www150.statcan.gc.ca");
+    expect(said).toContain("Certainty without a scale: clearly");
+    expect(said).toContain("The TL;DR runs");
+    expect(said).toContain("The case against is");
+    expect(said).toContain("[4] was read as only 13 characters");
+  });
+
+  it("says nothing about a dense, balanced, plain report", async () => {
+    const { rubric } = await import("../src/write/research");
+    const ok = `## TL;DR
+
+The answer is likely yes [1].
+
+## Details
+
+### 1. What was found
+
+A short sentence [1]. Another short one [2].
+
+## Sources
+
+1. [A](https://a.example/1)
+2. [B](https://b.example/2)
+`;
+    expect(rubric(ok).flags).toEqual([]);
+  });
+});

@@ -251,7 +251,20 @@
   the third person, and a citation on every factual sentence; and a
   paper's page under 8,000 characters (an abstract or paywall) comes back
   from `web_fetch` with **its free full text** where OpenAlex knows one
-  (`doiOf`, `openAccessCopy` in `finder.ts`). **Then the reviewers** (`runReview`, once per conversation,
+  (`doiOf`, `openAccessCopy` in `finder.ts`). **The rubric**
+  (`rubric`/`RUBRIC` in `research.ts`, from a survey of respected research
+  writing — CRS and GAO reports, Cochrane, the Stanford Encyclopedia,
+  Annual Reviews, plain-language standards; academic writing runs ~65–150
+  words per citation, the record's Airbnb audit ~230 words per source,
+  the thesis report ~600): words per distinct source ≤250, no publisher
+  over a quarter of the sources, sentences averaging ≤25 words with ≤15%
+  over 35, a TL;DR of ≤150 words, the case against ≥60% the length of the
+  case for, no "clearly"/"undoubtedly", and cited sources read as under
+  3,000 characters named. Told to the writer on every `write_section`,
+  reported by `engine-try` and as the "How it reads" table in the engine
+  test; advisory until it has been checked against a person's reading. The
+  instructions say how sure on one printed scale (IPCC likelihood terms,
+  GRADE verbs) and "state exactly what was tested". **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a
