@@ -264,7 +264,16 @@
   reported by `engine-try` and as the "How it reads" table in the engine
   test; advisory until it has been checked against a person's reading. The
   instructions say how sure on one printed scale (IPCC likelihood terms,
-  GRADE verbs) and "state exactly what was tested". **Then the reviewers** (`runReview`, once per conversation,
+  GRADE verbs) and "state exactly what was tested". **First run with it**
+  (`ops/eval/2026-11-11-2342.md`): McLuhan 9,692 → 5,718 words, 14 → 16
+  sources, 670 → 340 words per source, sentences 30 → 22.5 words (33% →
+  15% over 35), TL;DR 245 → 159, first person 8 → 0; the thesis 12 → 16
+  sources, 574 → 387 words per source, facts said again 7 → 1, uncited
+  facts 7 → 0, verdict "Unsettled" in the scale's words ("about as likely
+  as not"). McLuhan fell to 7 quotations (bar 10): "quote sparingly" plus
+  short, dense sentences meant paraphrase everywhere — the instructions now
+  ask for two to four short quotations of each section's decisive words,
+  the record's receipts. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a
