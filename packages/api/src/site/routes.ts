@@ -68,13 +68,7 @@ import { receiptLine, renderReadBoard } from "./pages/read";
 import { renderSearch } from "./pages/search";
 import { renderStatic } from "./pages/static";
 import { renderTopic } from "./pages/topic";
-import {
-  PREVIEW_FLAG,
-  proposalCard,
-  renderEmptyPreview,
-  renderWorkspace,
-  renderWriteList,
-} from "./pages/write";
+import { PREVIEW_FLAG, proposalCard, renderEmptyPreview, renderWorkspace } from "./pages/write";
 import { SITE_JS } from "./script";
 import { SITE_CSS } from "./styles";
 import { kindColours, shortDate } from "./theme";
@@ -234,19 +228,10 @@ app.get("/admin/claude", (c) =>
     : html(signIn("/admin/claude"), { status: 401 }),
 );
 
-app.get("/admin/write", async (c) => {
-  if (!signedIn(c)) return html(signIn("/admin/write"), { status: 401 });
-  const store = await workspaceStore(c);
-  const drafts = store ? await store.list().catch(() => []) : [];
-  const uid = await resolveOperatorId(c.env.DB).catch(() => null);
-  return html(
-    renderWriteList(drafts, {
-      hasKey: !!claudeRoute(c.env),
-      route: claudeRoute(c.env),
-      engine: uid ? await defaultEngine(c.env.DB, uid) : DEFAULT_ENGINE,
-    }),
-  );
-});
+// The conversations list is Admin's left column now: one place, not two.
+app.get("/admin/write", (c) =>
+  signedIn(c) ? c.redirect("/admin", 302) : html(signIn("/admin/write"), { status: 401 }),
+);
 
 app.get("/admin/write/:id", async (c, next) => {
   if (!signedIn(c)) return html(signIn(c.req.path), { status: 401 });

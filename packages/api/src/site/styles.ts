@@ -82,6 +82,20 @@ input[type="search"] { -webkit-appearance: none; appearance: none; }
 .skip:hover { opacity: .85; color: var(--paper); }
 .hd { position: sticky; top: 0; z-index: 30; background: rgba(246, 243, 236, .86); backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px); }
 .hd-in { max-width: var(--frame); margin: 0 auto; padding: 8px 32px; min-height: 56px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; border-bottom: 1px solid var(--hair); line-height: 1; }
+/* Working pages (Admin's desk, a conversation): the header spans the window
+   like the desk under it, and on a wide screen the page fills the window
+   with its own scrolling panes — the composer never sits over a list. */
+.hd.wide .hd-in { max-width: none; padding: 8px 20px; }
+@media (min-width: 861px) {
+  body.app { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+  body.app .hd { flex: none; position: static; }
+  body.app .main { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; }
+  body.app .desk, body.app .ws { flex: 1; min-height: 0; }
+  body.app .desk-side { min-height: 0; }
+  body.app .desk-scroll { min-height: 0; overflow-y: auto; }
+  body.app .desk-pane { overflow-y: auto; }
+  body.app .ws-panes { height: auto; min-height: 0; }
+}
 .wm { font-weight: 700; font-size: 18px; letter-spacing: -.03em; white-space: nowrap; color: var(--ink); }
 .nav { display: flex; gap: 20px; font-size: 14px; font-weight: 500; color: var(--muted); white-space: nowrap; }
 .nav a[aria-current="page"], .hd-search[aria-current="page"] { color: var(--ink); font-weight: 600; }
@@ -766,7 +780,13 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .desk-row-s.done { color: var(--green-ink); }
 .desk-row-s.proj { color: var(--amber-ink); }
 .desk-none { font-size: 14px; color: var(--muted); }
-.cmp { position: sticky; bottom: 0; margin: 0 12px 12px 16px; padding: 12px 12px 10px 16px; border: 1px solid var(--rule); border-radius: 14px; background: var(--card); display: flex; flex-direction: column; gap: 8px; }
+.desk-more { margin-top: 8px; }
+.desk-more > summary { display: inline-flex; align-items: center; gap: 4px; padding: 4px 0; font-size: 13px; font-weight: 500; color: var(--ink-2); cursor: pointer; list-style: none; }
+.desk-more > summary::-webkit-details-marker { display: none; }
+.desk-more > summary::after { content: "▾"; font-size: 11px; color: var(--muted); }
+.desk-more[open] > summary::after { content: "▴"; }
+.desk-more > summary:hover { color: var(--cobalt); }
+.cmp { flex: none; margin: 0 12px 12px 16px; padding: 12px 12px 10px 16px; border: 1px solid var(--rule); border-radius: 14px; background: var(--card); display: flex; flex-direction: column; gap: 8px; }
 .cmp:focus-within { border-color: var(--cobalt); }
 .cmp textarea { display: block; width: 100%; min-height: 64px; resize: none; border: 0; padding: 4px 0; background: transparent; font: inherit; font-size: 15px; line-height: 1.5; color: var(--ink); }
 .cmp textarea:focus-visible { outline: none; }

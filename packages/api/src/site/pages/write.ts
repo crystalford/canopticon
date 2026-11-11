@@ -372,6 +372,7 @@ ${pathBar}
     signedIn: true,
     noindex: true,
     mainClass: "ws-main",
+    app: true,
     body,
   });
 }
