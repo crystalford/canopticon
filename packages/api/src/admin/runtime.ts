@@ -1643,9 +1643,8 @@ app.get("/spend", async (c) => {
 app.get("/engine-try", async (c) => {
   const { runTurn } = await import("../write/agent.ts");
   const { memoryDrafts } = await import("../write/drafts.ts");
-  const { memorySources, checkReport, citationProblems, figureProblems } = await import(
-    "../write/research.ts"
-  );
+  const { memorySources, checkReport, citationProblems, figureProblems, writingProblems } =
+    await import("../write/research.ts");
   const { memoryNotes } = await import("../write/notes.ts");
   const { DEFAULT_ENGINE, isWorkersAi, engine } = await import("../write/engines.ts");
   const model = c.req.query("model") ?? DEFAULT_ENGINE;
@@ -1796,6 +1795,9 @@ app.get("/engine-try", async (c) => {
             not_found: check.failed.map((f) => f.text.slice(0, 160)),
             citations: cites,
             figures_not_in_pages: figures,
+            // Advisory: Key Findings with no citation, and summary figures
+            // the Details never give (research.ts writingProblems).
+            writing: kind === "research" ? writingProblems(body) : undefined,
             repeated: Math.round(repeatedShare(body) * 1000) / 1000,
             // The reviewers' flags, and how many sentences changed after.
             review: (done?.meta.review ?? []).map((f) => ({
