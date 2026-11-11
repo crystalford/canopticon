@@ -219,7 +219,12 @@
   note; **the review has a deadline** (`REVIEW_MS`, 4 min — the slowest of
   five had taken five, flagging nothing); and **past 14 minutes**
   (`WRITE_BY_MS`) the writer is told to write every remaining section from
-  its notes, and the gap checkpoint is not said. **Then the reviewers** (`runReview`, once per conversation,
+  its notes, and the gap checkpoint is not said. **Re-run with the fix**
+  (`ops/eval/2026-11-11-1054.md`): both pass in 20 minutes — McLuhan 9,692
+  words, every researcher came back with notes (5–16 each, 69 in all), 14
+  reviewer flags, 13 changed; the thesis 7,229 words, verdict "Partly
+  supported", 47 notes; every quotation found; $0.57 and $0.52.
+  **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a
