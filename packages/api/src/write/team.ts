@@ -15,6 +15,16 @@
 
 export const MAX_RESEARCHERS = 6;
 export const RESEARCHER_STEPS = 16;
+/** Each researcher's own searches, two at a time at most. Live (engine test
+ *  2026-11-08 13:15), five researchers fired four to six long searches a
+ *  step, spent the message's whole allowance in four minutes, and two came
+ *  back with no notes at all; the writer then spent twelve minutes
+ *  researching again with no searches left, and two reports ran out of time. */
+export const RESEARCHER_SEARCHES = 8;
+export const RESEARCHER_SEARCHES_AT_ONCE = 2;
+/** From this step a researcher reads and notes only: no more searching. */
+export const RESEARCHER_READ_ONLY_FROM = RESEARCHER_STEPS - 4;
+export const SEARCH_TOOLS = new Set(["web_search", "news_search"]);
 /** A section with this many notes already is not researched again. */
 export const ENOUGH_NOTES = 4;
 
@@ -37,6 +47,7 @@ export function researcherSystem(): string {
     "- Primary sources first: the agency's, government's or institution's own pages, statistics tables, laws, budget documents, the studies themselves. Then serious secondary sources (major newspapers, think tanks, academic reviews) for what primary sources do not say.",
     "- Search, then read whole pages with web_fetch. Several searches or reads in one message run together.",
     "- Search in short keywords (three to six words, no quotation marks), and read early: after a search or two, fetch the best results and note what you will use.",
+    `- You have ${RESEARCHER_SEARCHES} searches for your section, at most ${RESEARCHER_SEARCHES_AT_ONCE} at a time, and ${RESEARCHER_STEPS} steps. Reading and noting are what count: a researcher who searches and notes nothing has given the writer nothing. In your last four steps there is no searching — only reading and noting.`,
     "- Search covers news, research papers, health research, books, Wikipedia and Government of Canada data — not the whole web. When you know the authoritative source (the agency, statistics office, the law, the study), fetch it directly; follow the links a page lists to its reports, data and PDFs. Cite the primary sources Wikipedia points to, never Wikipedia.",
     "- Note every passage the writer will need with note_evidence: the page's address, its exact words (one or two sentences, copied character for character from the page you read) and the claim they support. A note whose words are not on the page is refused.",
     "- Figures: note them with who published them and for what date or period.",
@@ -93,6 +104,11 @@ export function teamReport(
 
 // Eight: live, twelve-step reviewers took up to eight minutes of a report.
 export const REVIEWER_STEPS = 8;
+/** How long the review may take in all (engine test 2026-11-08 13:15: in
+ *  the two reports that ran out of time, the slowest of five reviewers took
+ *  about five minutes while the rest waited, and no reviewer flagged
+ *  anything; the support check flagged two sentences). */
+export const REVIEW_MS = 4 * 60 * 1000;
 /** Web allowance the reviewers get on top of the message's. */
 export const REVIEW_SEARCHES = 25;
 export const REVIEW_READS = 40;

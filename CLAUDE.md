@@ -208,7 +208,18 @@
   live, about half of every team's researchers had died on the per-minute
   limit after ~105 s with no notes, and the writer silently redid their
   research. A stopped researcher is re-queued once and the stop is said in
-  the chat. **Then the reviewers** (`runReview`, once per conversation,
+  the chat. **Time, not effort, was the limit** (engine test 2026-11-08
+  13:15, McLuhan and the thesis both stopped at 25 minutes with parts
+  unwritten): researchers fired four to six long searches a step, spent
+  the message's whole allowance in four minutes, two of five noted nothing,
+  and the writer re-researched for twelve minutes with no searches left. So
+  **each researcher has its own budget** (`RESEARCHER_SEARCHES` 8, two at a
+  time, searching off for its last four steps; refused searches say what to
+  do instead), is told at halfway with nothing noted to stop searching and
+  note; **the review has a deadline** (`REVIEW_MS`, 4 min — the slowest of
+  five had taken five, flagging nothing); and **past 14 minutes**
+  (`WRITE_BY_MS`) the writer is told to write every remaining section from
+  its notes, and the gap checkpoint is not said. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a

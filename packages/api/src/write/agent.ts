@@ -94,15 +94,20 @@ import {
   ENOUGH_NOTES,
   FLAG_TOOL,
   MAX_RESEARCHERS,
+  RESEARCHER_READ_ONLY_FROM,
+  RESEARCHER_SEARCHES,
+  RESEARCHER_SEARCHES_AT_ONCE,
   RESEARCHER_STEPS,
   RESEARCHER_TOOLS,
   REVIEWER_STEPS,
   REVIEWER_TOOLS,
   REVIEW_KINDS,
+  REVIEW_MS,
   REVIEW_READS,
   REVIEW_SEARCHES,
   type ReviewFlag,
   type ReviewKind,
+  SEARCH_TOOLS,
   researcherBrief,
   researcherSystem,
   reviewReport,
@@ -563,6 +568,9 @@ interface ToolContext {
  *  spent 80 reads in ten minutes; 160 let the writer re-research until the
  *  report ran out of time. On Claude each is billed, so it stays 80. */
 const WORKERS_WEB_LIMIT = 100;
+/** Past this, a research turn's writer is told to write what is left now
+ *  (the engine test stops a report at 25 minutes; Chris waits for it). */
+const WRITE_BY_MS = 14 * 60 * 1000;
 const searchLimit = (t: ToolContext) => (t.workers ? WORKERS_WEB_LIMIT : SEARCH_LIMIT);
 const readLimit = (t: ToolContext) => (t.workers ? WORKERS_WEB_LIMIT : READ_LIMIT);
 
@@ -1110,14 +1118,20 @@ async function runResearcher(o: {
   ];
   const pages = new Set<string>();
   let said = "";
+  // This researcher's own budget (team.ts), so the team cannot spend the
+  // message's whole allowance and leave the writer nothing.
+  let searches = 0;
+  let noted = 0;
+  const readOnly = o.tools.filter((t) => !SEARCH_TOOLS.has((t as { name: string }).name));
   for (let step = 0; step < RESEARCHER_STEPS; step++) {
     if (step && (await ctx.stop?.())) break;
     if (step) ctx.progress?.send();
+    const searchable = searches < RESEARCHER_SEARCHES && step < RESEARCHER_READ_ONLY_FROM;
     const m = await workersStep(
       ctx.env,
       o.reader,
       researcherSystem(),
-      o.tools,
+      searchable ? o.tools : readOnly,
       history,
       200_000,
       `${ctx.draftId}-s${section.n}`,
@@ -1132,20 +1146,39 @@ async function runResearcher(o: {
       .join(" ")
       .trim();
     if (!uses.length || m.stop_reason === "max_tokens") break;
+    // Searches past this researcher's budget, or past two at once, are
+    // refused before anything runs, with what to do instead.
+    let atOnce = 0;
+    const refusal = uses.map((u) => {
+      if (!SEARCH_TOOLS.has(u.name)) return null;
+      if (!searchable || searches >= RESEARCHER_SEARCHES)
+        return step >= RESEARCHER_READ_ONLY_FROM
+          ? "No more searching in your last steps: read the best pages you have found with web_fetch and note what the writer will need."
+          : `Your ${RESEARCHER_SEARCHES} searches for this section are spent. Read the best pages you have found with web_fetch and note what the writer will need.`;
+      if (atOnce >= RESEARCHER_SEARCHES_AT_ONCE)
+        return `At most ${RESEARCHER_SEARCHES_AT_ONCE} searches at a time: read the best results of these first.`;
+      atOnce++;
+      searches++;
+      return null;
+    });
     const results = await Promise.all(
-      uses.map(async (u) => {
+      uses.map(async (u, i) => {
         // Only reading and noting; every note goes under this section.
         const allowed = RESEARCHER_TOOLS.has(u.name);
         const input =
           u.name === "note_evidence"
             ? { ...(u.input as Record<string, unknown>), section: section.n }
             : u.input;
-        const r = allowed
-          ? await runTool(u.name, input, { ...ctx, toolUseId: u.id }).catch((e: Error) => ({
-              text: `Failed: ${e.message}`,
-              error: true,
-            }))
-          : { text: `A researcher cannot use ${u.name}.`, error: true };
+        const refused = refusal[i];
+        const r = refused
+          ? { text: refused, error: true }
+          : allowed
+            ? await runTool(u.name, input, { ...ctx, toolUseId: u.id }).catch((e: Error) => ({
+                text: `Failed: ${e.message}`,
+                error: true,
+              }))
+            : { text: `A researcher cannot use ${u.name}.`, error: true };
+        if (u.name === "note_evidence" && !r.error) noted++;
         if (u.name === "web_fetch" && !r.error)
           pages.add(String((u.input as { url?: unknown }).url ?? ""));
         if (u.name !== "list_notes")
@@ -1159,17 +1192,16 @@ async function runResearcher(o: {
       }),
     );
     const last = step === RESEARCHER_STEPS - 2;
+    // Halfway with nothing noted: stop looking, start noting.
+    const half = step === Math.floor(RESEARCHER_STEPS / 2) - 1 && noted === 0;
+    const say = last
+      ? "One step left: note anything else the writer will need, then stop and reply with your two lines."
+      : half
+        ? "Half your steps are gone and nothing is noted. Stop searching now: fetch the two or three best pages you have found and note what the writer will need from them."
+        : "";
     history.push({
       role: "user",
-      content: last
-        ? [
-            ...results,
-            {
-              type: "text" as const,
-              text: "One step left: note anything else the writer will need, then stop and reply with your two lines.",
-            },
-          ]
-        : results,
+      content: say ? [...results, { type: "text" as const, text: say }] : results,
     } as Message);
   }
   return { said, pages };
@@ -1210,6 +1242,10 @@ async function runReview(o: {
   const flags: ReviewFlag[] = [];
   let dropped = 0;
   const queue = [...sections];
+  // The review has a deadline: live, the slowest of five reviewers held a
+  // report for five minutes while the rest waited. Past it, each reviewer
+  // flags what it has and stops at its next step.
+  const until = Date.now() + REVIEW_MS;
   const worker = async () => {
     for (let s = queue.shift(); s; s = queue.shift()) {
       // Its own notes, and every note from a source the section cites.
@@ -1226,12 +1262,17 @@ async function runReview(o: {
         p.reviewers.working++;
         p.send();
       }
-      const r = await runReviewer({ ...o, reader, ctx: shared, section: s, notes: mine }).catch(
-        (e: Error) => {
-          ctx.emit({ type: "activity", text: `§${s.n} review stopped: ${e.message.slice(0, 90)}` });
-          return { flags: [] as ReviewFlag[], dropped: 0, said: e.message };
-        },
-      );
+      const r = await runReviewer({
+        ...o,
+        reader,
+        ctx: shared,
+        section: s,
+        notes: mine,
+        until,
+      }).catch((e: Error) => {
+        ctx.emit({ type: "activity", text: `§${s.n} review stopped: ${e.message.slice(0, 90)}` });
+        return { flags: [] as ReviewFlag[], dropped: 0, said: e.message };
+      });
       if (p) {
         p.reviewers.working--;
         p.reviewers.done++;
@@ -1293,6 +1334,8 @@ async function runReviewer(o: {
   notes: string;
   tools: Anthropic.Beta.BetaToolUnion[];
   onStep: (m: Anthropic.Beta.BetaMessage, model: EngineId) => Promise<void>;
+  /** The review's deadline (ms since epoch). */
+  until?: number;
 }): Promise<{ flags: ReviewFlag[]; dropped: number; said: string }> {
   const { ctx, section } = o;
   const history: Message[] = [
@@ -1304,6 +1347,7 @@ async function runReviewer(o: {
   const text = flatten(section.text);
   for (let step = 0; step < REVIEWER_STEPS; step++) {
     if (step && (await ctx.stop?.())) break;
+    if (step && o.until && Date.now() > o.until) break;
     const m = await workersStep(
       ctx.env,
       o.reader,
@@ -1611,7 +1655,8 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
   // Stop: Chris presses it, the route marks the draft, and every loop here
   // (the writer's, each researcher's, each reviewer's) ends at its next step.
   // Looked up at most every few seconds; once seen, it stays seen.
-  const startedAt = new Date().toISOString();
+  const turnStartMs = Date.now();
+  const startedAt = new Date(turnStartMs).toISOString();
   let stopSeen = false;
   let stopLooked = 0;
   // The spending cap: one message never costs more than this, whatever the
@@ -1750,8 +1795,18 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     // Live, V4.1 Flash wrote "no government publishes usage figures" where
     // two provinces had (V4 Pro found both): a gap is looked for before it is
     // written down as one. Said once, when the Details are done and the
-    // summary is not.
+    // summary is not — and not when time is already short.
+    // Live (engine test 2026-11-08 13:15), two reports spent twelve minutes
+    // re-researching after the team and ran out of time with parts unwritten:
+    // past WRITE_BY_MS the writer is told to write what is left now.
+    const late = Date.now() - turnStartMs > WRITE_BY_MS;
+    if (late && outlined && blank > 0)
+      say(
+        "time",
+        `${Math.round((Date.now() - turnStartMs) / 60000)} minutes in, with ${blank} ${blank === 1 ? "section" : "sections"} still to write. Write every remaining section now from the notes you have (list_notes with a section number gives them), then the summary and closing; say under Open questions what is still uncovered. Do not search or read further in this message.`,
+      );
     if (
+      !late &&
       outlined &&
       sections > 0 &&
       blank === 0 &&
