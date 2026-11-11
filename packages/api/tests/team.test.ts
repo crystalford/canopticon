@@ -131,6 +131,87 @@ describe("the research team", () => {
       100;
     expect(saved?.usage.cents).toBeCloseTo(cents, 6);
   });
+
+  it("gives each researcher its own searches, two at a time, and pushes it to note", async () => {
+    // Every source the finder asks answers with nothing: searches are cheap here.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("{}", { headers: { "content-type": "application/json" } })),
+    );
+    const writer: unknown[] = [
+      reply(null, [
+        [
+          "o1",
+          "write_outline",
+          {
+            title: "Tetrad",
+            topic: "Media",
+            sections: [{ heading: "Who applied it?", words: 400 }],
+          },
+        ],
+      ]),
+      reply("Done for now."),
+    ];
+    // A researcher that only ever searches, three at a time.
+    let k = 0;
+    const searching = () =>
+      reply(
+        null,
+        [0, 1, 2].map((): [string, string, unknown] => {
+          k++;
+          return [`q${k}`, "web_search", { query: `tetrad ${k}` }];
+        }),
+      );
+    const seen: Array<{ tools: string[]; messages: Array<{ role: string; content: unknown }> }> =
+      [];
+    const env = {
+      LOG_LEVEL: "error",
+      AI: {
+        run: async (
+          _model: string,
+          input: { tools?: Array<{ function: { name: string } }>; messages: never[] },
+          opts?: { headers?: Record<string, string> },
+        ) => {
+          const session = opts?.headers?.["x-session-affinity"] ?? "";
+          if (!/-s\d$/.test(session)) return writer.shift();
+          seen.push({
+            tools: (input.tools ?? []).map((t) => t.function.name),
+            messages: input.messages,
+          });
+          return searching();
+        },
+      },
+    } as unknown as Env;
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    await store.save(d.id, { meta: { ...d.meta, engine: "team:flash" } });
+    await runTurn({
+      stream: null,
+      env,
+      store,
+      sources: memorySources(),
+      notes: memoryNotes(),
+      draftId: d.id,
+      text: "Who applied the tetrad?",
+      emit: () => {},
+    });
+    // The researcher's last call carries every result it was given.
+    const last = seen.at(-1);
+    const results = (last?.messages ?? [])
+      .filter((m) => m.role === "tool")
+      .map((m) => String(m.content));
+    const ran = results.filter((r) => !/spent|At most 2 searches|No more searching/.test(r));
+    expect(ran).toHaveLength(8);
+    expect(results.some((r) => /At most 2 searches at a time/.test(r))).toBe(true);
+    // Halfway with nothing noted, it was told to stop searching and note.
+    expect(JSON.stringify(last?.messages)).toContain(
+      "Half your steps are gone and nothing is noted",
+    );
+    // Once its searches are spent, it is offered reading and noting only.
+    expect(seen[0]?.tools).toContain("web_search");
+    expect(seen.at(-1)?.tools).not.toContain("web_search");
+    expect(seen.at(-1)?.tools).toContain("note_evidence");
+  });
 });
 
 describe("the reviewers", () => {
