@@ -76,9 +76,11 @@ import {
   citationProblems,
   describeFigures,
   describeReportCheck,
+  describeRubric,
   describeWriting,
   fetchedPages,
   figureProblems,
+  rubric,
   writingProblems,
 } from "./research";
 import {
@@ -898,9 +900,11 @@ async function runTool(
       t.emit({ type: "draft", check: r });
       const left = unwritten(body);
       const cites = citationProblems(body);
+      const kept = await keptPages(t);
       const figures =
-        describeFigures(figureProblems(body, await keptPages(t))) +
-        describeWriting(writingProblems(body));
+        describeFigures(figureProblems(body, kept)) +
+        describeWriting(writingProblems(body)) +
+        describeRubric(rubric(body, kept));
       // Every Details section written: the reviewers read them now, once.
       if (t.review && !left.some((h) => /^\d+\. /.test(h))) {
         const said = await t.review();

@@ -20,6 +20,7 @@ import { all, one, run } from "../lib/d1";
 import type { CheckResult, QuoteFailure } from "./check";
 import { verbatimNormal } from "./check";
 import { batches } from "./drafts";
+import { siteOf } from "./independence";
 
 // ---- what Claude is told --------------------------------------------------------
 
@@ -56,7 +57,7 @@ In one message you may run up to 80 web searches and read up to 80 pages. A subs
 THE REPORT (outline with write_outline, write each part with write_section, revise with edit_draft)
 - Write each Details section with write_section once its research is noted, from its notes (list_notes with the section number gives them); then the closing; then the summary (TL;DR and Key Findings) last, when you know what the whole report found. Reach each section's target length with evidence, not filler. After a part is written, change it with edit_draft, never by writing the whole report again. When the check finds several quotations not word for word, fix them all in one edit_draft (the rest go in "also"), using the page's own words it gives you.
 - Markdown, in this shape: no "# Title" line (the title is its own field).
-  ## TL;DR — three to five sentences that answer the question.
+  ## TL;DR — three to five sentences that answer the question, 150 words at most: the answer, how sure, and what it turns on.
   ## Key Findings — the findings as bullets, each with its source as [n].
   ## Details — "### 1. …" sections, one per sub-question, the evidence in full: several paragraphs each, with the numbers, methods, dates and disagreements the sources give.
   ## Beyond this question — what the findings mean for anyone working on this (only if there is something to say).
@@ -67,6 +68,9 @@ THE REPORT (outline with write_outline, write each part with write_section, revi
 - A quotation is in double quotation marks and copied character for character from a page you fetched (whitespace aside). Every quotation is checked against the pages you read; one that is not found word for word fails. Quote sparingly and only what you read; otherwise paraphrase without quotation marks.
 - Plain, direct prose. No throat-clearing, no "in conclusion".
 - The record's voice: third person, about the evidence. Never "I" or "we", never "as Chris asked" or any mention of who asked — the report is read by people who were not in this conversation. Your own calculation is "a calculation from [5] and [7]", not "my arithmetic".
+- How sure, said one way. Likelihood on one printed scale (the IPCC's): virtually certain (99–100%), very likely (90–100%), likely (66–100%), about as likely as not (33–66%), unlikely (0–33%), very unlikely (0–10%). What the evidence shows, in words that follow its strength (GRADE): "shows" for strong evidence, "probably" for moderate, "may" for weak, "the evidence is very uncertain" for very weak. Never "clearly", "undoubtedly", "obviously" or "certainly": readers take them to mean anything from 60% to 100%.
+- One claim to a sentence: sentences average about 20 words, and a sentence over 35 is split.
+- State exactly what was measured or tested — who, what, where, when — and claim no more than that: a study of promoting a measure is not a study of the measure.
 - Every sentence in the Details that states a fact — a figure, a date, a rule, an event, what a study found — cites its source, even when the previous sentence cited the same one. Your own inference is labelled as inference.
 
 IN THE CHAT
@@ -638,6 +642,155 @@ export function splitSentences(text: string): string[] {
   return out.map((s) => s.trim()).filter(Boolean);
 }
 
+// ---- the rubric: what respected research writing does, measured -------------------
+//
+// Drawn from CRS and GAO reports, Cochrane reviews, the Stanford Encyclopedia
+// and Annual Reviews, and plain-language standards (research note,
+// 2026-11-11): academic writing runs about 65–150 words per citation, the
+// record's own Airbnb audit about 230 words per source, and our thesis report
+// about 600; sentences in plain-language standards average 15–22 words;
+// certainty is said on one printed scale, never "clearly". Advisory: the
+// writer is told, the engine test reports it, nothing blocks.
+
+/** Thresholds, in one place. */
+export const RUBRIC = {
+  wordsPerSource: 250,
+  topPublisherShare: 0.25,
+  meanSentenceWords: 25,
+  longSentenceShare: 0.15,
+  longSentence: 35,
+  tldrWords: 150,
+  caseAgainstRatio: 0.6,
+  thinPageChars: 3000,
+};
+
+const CERTAINTY =
+  /\b(clearly|undoubtedly|obviously|certainly|unquestionably|definitively|beyond (any )?doubt|without (a )?doubt)\b/gi;
+
+export interface Rubric {
+  words: number;
+  sources: number;
+  wordsPerSource: number;
+  topPublisher: { site: string; sources: number; share: number } | null;
+  certaintyWords: string[];
+  meanSentenceWords: number;
+  longSentenceShare: number;
+  tldrWords: number;
+  /** Thesis tests: the case against's length over the case for's. */
+  caseAgainstRatio: number | null;
+  /** Cited sources whose kept page was short: an abstract, a stub. */
+  thinSources: Array<{ n: number; url: string; chars: number }>;
+  flags: string[];
+}
+
+const countWords = (s: string) => s.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+
+export function rubric(report: string, pages: ResearchSource[] = []): Rubric {
+  // A report opens with "## TL;DR": a leading newline lets every part be
+  // found the same way.
+  const body = report.startsWith("\n") ? report : `\n${report}`;
+  const at = (h: string) => body.indexOf(`\n## ${h}`);
+  const end = at("Sources");
+  const text = (end < 0 ? body : body.slice(0, end)).replace(/_\(to write\)_[^\n]*/g, "");
+  const words = countWords(text.replace(/^#{1,4} [^\n]*$/gm, ""));
+  const listed = [
+    ...(end < 0 ? "" : body.slice(end)).matchAll(/^(\d+)\. \[[^\]]*\]\((https?:\/\/[^)\s]+)\)/gm),
+  ].map((m) => ({ n: Number(m[1]), url: m[2] ?? "" }));
+  const sources = listed.length;
+  const bySite = new Map<string, number>();
+  for (const s of listed) bySite.set(siteOf(s.url), (bySite.get(siteOf(s.url)) ?? 0) + 1);
+  const [site, count] = [...bySite.entries()].sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
+  const topPublisher = sources ? { site, sources: count, share: count / sources } : null;
+  const unquoted = text.replace(/["“][^"”\n]*["”]/g, " ");
+  const certaintyWords = [
+    ...new Set([...unquoted.matchAll(CERTAINTY)].map((m) => m[0].toLowerCase())),
+  ];
+  const details = at("Details");
+  const closing = body.slice(details < 0 ? 0 : details).search(/\n## (?!Details)/);
+  const detailText =
+    details < 0
+      ? ""
+      : body.slice(details, closing < 0 ? (end < 0 ? body.length : end) : details + closing);
+  const sentences = splitSentences(detailText.replace(/^#{2,4} [^\n]*$/gm, " "))
+    .map(countWords)
+    .filter((n) => n >= 4);
+  const meanSentenceWords = sentences.length
+    ? Math.round((sentences.reduce((a, b) => a + b, 0) / sentences.length) * 10) / 10
+    : 0;
+  const longSentenceShare = sentences.length
+    ? Math.round(
+        (sentences.filter((n) => n > RUBRIC.longSentence).length / sentences.length) * 100,
+      ) / 100
+    : 0;
+  const tldrAt = at("TL;DR");
+  const tldrEnd = body.indexOf("\n## ", tldrAt + 4);
+  const tldrWords =
+    tldrAt < 0 ? 0 : countWords(body.slice(tldrAt + 9, tldrEnd < 0 ? undefined : tldrEnd));
+  // The Details sections, parsed here (notes.ts imports this module).
+  const sectionWords = (re: RegExp) => {
+    for (const m of body.matchAll(/\n### \d+\. ([^\n]*)\n([\s\S]*?)(?=\n### \d+\. |\n## |$)/g))
+      if (re.test(m[1] ?? "")) return countWords(m[2] ?? "");
+    return 0;
+  };
+  const forWords = sectionWords(/strongest case for\b/i);
+  const againstWords = sectionWords(/strongest case against\b/i);
+  const caseAgainstRatio =
+    forWords && againstWords ? Math.round((againstWords / forWords) * 100) / 100 : null;
+  const length = new Map(pages.map((p) => [p.url, p.text.length]));
+  const thinSources = listed
+    .filter((s) => length.has(s.url) && (length.get(s.url) ?? 0) < RUBRIC.thinPageChars)
+    .map((s) => ({ ...s, chars: length.get(s.url) ?? 0 }));
+  const wordsPerSource = sources ? Math.round(words / sources) : words;
+  const flags: string[] = [];
+  if (sources && wordsPerSource > RUBRIC.wordsPerSource)
+    flags.push(
+      `${wordsPerSource} words per source (about ${RUBRIC.wordsPerSource} at most): find and read more independent sources, or cut what is said again.`,
+    );
+  if (topPublisher && sources >= 4 && topPublisher.share > RUBRIC.topPublisherShare)
+    flags.push(
+      `${topPublisher.sources} of ${sources} sources are from ${topPublisher.site}: one institution's voice. Find others, and count these once.`,
+    );
+  if (certaintyWords.length)
+    flags.push(
+      `Certainty without a scale: ${certaintyWords.join(", ")}. Say how sure on the scale in the instructions (likely, very likely…), or let the evidence say it.`,
+    );
+  if (meanSentenceWords > RUBRIC.meanSentenceWords || longSentenceShare > RUBRIC.longSentenceShare)
+    flags.push(
+      `Sentences in the Details average ${meanSentenceWords} words, ${Math.round(longSentenceShare * 100)}% over ${RUBRIC.longSentence}. Split the long ones: one claim, one sentence.`,
+    );
+  if (tldrWords > RUBRIC.tldrWords)
+    flags.push(
+      `The TL;DR runs ${tldrWords} words; ${RUBRIC.tldrWords} at most — the answer, how sure, the crux.`,
+    );
+  if (caseAgainstRatio !== null && caseAgainstRatio < RUBRIC.caseAgainstRatio)
+    flags.push(
+      `The case against is ${Math.round(caseAgainstRatio * 100)}% the length of the case for: build it as carefully.`,
+    );
+  for (const t of thinSources.slice(0, 6))
+    flags.push(
+      `[${t.n}] was read as only ${t.chars.toLocaleString("en")} characters (an abstract or a stub): read the full text, or do not rest a finding on it.`,
+    );
+  return {
+    words,
+    sources,
+    wordsPerSource,
+    topPublisher,
+    certaintyWords,
+    meanSentenceWords,
+    longSentenceShare,
+    tldrWords,
+    caseAgainstRatio,
+    thinSources,
+    flags,
+  };
+}
+
+export function describeRubric(r: Rubric): string {
+  return r.flags.length
+    ? `\nHOW IT READS (${r.flags.length}):\n${r.flags.map((f) => `- ${f}`).join("\n")}`
+    : "";
+}
+
 /** The writing check as the writer reads it; empty when there is nothing. */
 export function describeWriting(w: ReturnType<typeof writingProblems>): string {
   const out: string[] = [];
@@ -738,7 +891,7 @@ Chris gives you a claim. Your job is not to survey a topic but to find out wheth
    5. What would change the conclusion — the evidence that would overturn it, and whether anyone has looked
 3. Build each case in good faith, as its best advocate would: the strongest version of each side from the best sources, never a straw man. The case against is built as carefully as the case for.
 4. Weigh, do not count. Several sources repeating one origin count once; a primary measurement outweighs commentary on it; a study's design matters more than its headline.
-5. Write the TL;DR last, and open it with a verdict on its own line: **Verdict: Supported**, **Partly supported**, **Not supported** or **Unsettled** — then how confident you are and why in one or two sentences, then the crux in one sentence. Key Findings: the decisive findings on each side, each cited.
+5. Write the TL;DR last, and open it with a verdict on its own line: **Verdict: Supported**, **Partly supported**, **Not supported** or **Unsettled** — then how sure, in the scale's words ("likely", "very likely"…), and why in one or two sentences, then the crux in one sentence. The case against is built to the same depth as the case for: about as long, as well sourced. Key Findings: the decisive findings on each side, each cited.
 6. Title: "Testing: " and the thesis in a few words.`;
 
 /** For the Workers AI engines, whose web_search is the free source finder
