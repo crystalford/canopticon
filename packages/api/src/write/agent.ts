@@ -601,6 +601,16 @@ const WRITE_BY_MS = 14 * 60 * 1000;
  *  report its ending (the engine test stops a report at 25 minutes). */
 const POLISH_BY_MS = 20 * 60 * 1000;
 
+/** Marks a message the code sends in Chris's turn (the editing pass), so
+ *  the chat shows it as an activity line. */
+const FROM_CHECKS = "From the checks: ";
+const firstSentence = (t: string) => {
+  const one = t.trim().split(/(?<=[.!?:])\s/)[0] ?? t;
+  return one.length > 160 ? `${one.slice(0, 157)}…` : one;
+};
+const polishText = (fix: string[]) =>
+  `The report is complete. One editing pass before you finish — no new research, nothing added:\n${fix.map((f) => `- ${f}`).join("\n")}\nFix them with edit_draft (several passages at once with "also"), keeping every quotation and citation as it is; then stop.`;
+
 /** What one editing pass should fix, from the rubric and the writing checks
  *  (research.ts) — empty when the report already reads as it should. */
 export function polishList(body: string): string[] {
@@ -2145,11 +2155,13 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
       Date.now() - turnStartMs < POLISH_BY_MS
     ) {
       const fix = polishList(body);
-      if (fix.length)
-        say(
-          "polish",
-          `The report is complete. One editing pass before you finish — no new research, nothing added:\n${fix.map((f) => `- ${f}`).join("\n")}\nFix them with edit_draft (several passages at once with "also"), keeping every quotation and citation as it is; then stop.`,
-        );
+      if (fix.length && !web.capped.has("polish")) {
+        emit({
+          type: "activity",
+          text: `Editing pass: ${fix.length} ${fix.length === 1 ? "thing" : "things"} the checks still find`,
+        });
+        say("polish", polishText(fix));
+      }
     }
     if (outlined && !written && (web.reads >= 16 || noted >= 15 || step >= 12))
       say(
@@ -2408,6 +2420,37 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     if (message.stop_reason === "pause_turn") continue;
     const uses = toolUses(assistant.content);
     if (!uses.length) {
+      // The editing pass cannot be skipped: a finished report that still
+      // has what the rubric finds gets the list once more and one more turn
+      // (engine test 2026-11-12 23:22: a thesis finished with sentences
+      // averaging 33 words and no edit made).
+      if (
+        draft.kind === "research" &&
+        notesMode(frame.tools) &&
+        !web.capped.has("polish-end") &&
+        Date.now() - turnStartMs < POLISH_BY_MS &&
+        step < steps - 3 &&
+        !(await ctx.stop())
+      ) {
+        const body = (await store.get(draftId))?.body ?? "";
+        const fix =
+          body.includes("\n## Details") && !body.includes("_(to write)_") ? polishList(body) : [];
+        if (fix.length) {
+          web.capped.add("polish-end");
+          web.capped.add("polish");
+          emit({
+            type: "activity",
+            text: `Editing pass: ${fix.length} ${fix.length === 1 ? "thing" : "things"} the checks still find`,
+          });
+          const ask: Message = {
+            role: "user",
+            content: [{ type: "text", text: `${FROM_CHECKS}${polishText(fix)}` }],
+          };
+          await store.append(draftId, [ask]);
+          history.push(ask);
+          continue;
+        }
+      }
       ended = true;
       break;
     }
@@ -2574,8 +2617,20 @@ export function transcript(history: Message[]): ChatItem[] {
       out.push({ who: m.role === "user" ? "you" : "claude", text: m.content });
       continue;
     }
+    // Text the code added — a checkpoint beside tool results, or the editing
+    // pass — is an activity line, not Chris speaking (it had shown as "you").
+    const fromCode =
+      m.role === "user" &&
+      (m.content as Array<{ type: string }>).some((b) => b.type === "tool_result");
     for (const b of m.content) {
-      if (b.type === "text" && b.text.trim())
+      if (
+        b.type === "text" &&
+        b.text.trim() &&
+        m.role === "user" &&
+        (fromCode || b.text.startsWith(FROM_CHECKS))
+      )
+        out.push({ who: "activity", text: firstSentence(b.text.replace(FROM_CHECKS, "")) });
+      else if (b.type === "text" && b.text.trim())
         out.push({ who: m.role === "user" ? "you" : "claude", text: b.text });
       // A progress note (display: "updates"); reasoning comes back empty.
       else if (b.type === "thinking" && b.thinking.trim())

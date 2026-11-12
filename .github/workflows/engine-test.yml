@@ -107,9 +107,9 @@ jobs:
             # (research.ts RUBRIC): advisory, not yet on the pass bar.
             echo "### How it reads"
             echo
-            echo "| Model | Task | Sources | Words per source (≤250) | Top publisher | Sentence words (≈20) | Over 35 words | TL;DR words (≤150) | Said again | Uncited facts | First person |"
-            echo "|---|---|---|---|---|---|---|---|---|---|---|"
-            jq -r '.[] | select(.report.rubric) | "| \(.model|sub("@cf/";"")) | \(.eval) | \(.report.rubric.sources) | \(.report.rubric.wordsPerSource) | \(if .report.rubric.topPublisher then "\(.report.rubric.topPublisher.sources) of \(.report.rubric.sources)" else "—" end) | \(.report.rubric.meanSentenceWords) | \((.report.rubric.longSentenceShare * 100) | floor)% | \(.report.rubric.tldrWords) | \(.report.writing.repeatedFacts // [] | length) | \(.report.writing.uncitedFacts // [] | length) | \(.report.writing.voice // [] | length) |"' "ops/eval/${STAMP}.json"
+            echo "| Model | Task | Sources | Words per source (≤250) | Top publisher | Sentence words (≈20) | Over 35 words | TL;DR words (≤150) | Said again | Uncited facts | First person | Still to fix |"
+            echo "|---|---|---|---|---|---|---|---|---|---|---|---|"
+            jq -r '.[] | select(.report.rubric) | "| \(.model|sub("@cf/";"")) | \(.eval) | \(.report.rubric.sources) | \(.report.rubric.wordsPerSource) | \(if .report.rubric.topPublisher then "\(.report.rubric.topPublisher.sources) of \(.report.rubric.sources)" else "—" end) | \(.report.rubric.meanSentenceWords) | \((.report.rubric.longSentenceShare * 100) | floor)% | \(.report.rubric.tldrWords) | \(.report.writing.repeatedFacts // [] | length) | \(.report.writing.uncitedFacts // [] | length) | \(.report.writing.voice // [] | length) | \(.report.polish // [] | length) |"' "ops/eval/${STAMP}.json"
             echo
             echo "### What the evidence carries"
             echo
