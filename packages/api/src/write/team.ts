@@ -24,8 +24,13 @@ export const RESEARCHER_SEARCHES = 8;
 export const RESEARCHER_SEARCHES_AT_ONCE = 2;
 /** From this step a researcher reads and notes only: no more searching. */
 export const RESEARCHER_READ_ONLY_FROM = RESEARCHER_STEPS - 4;
-/** Independent sources (different sites) behind a researcher's notes. */
-export const RESEARCHER_MIN_SOURCES = 3;
+/** Independent sources (different sites) behind a section's notes. Four
+ *  since 2026-11-12: at three, reports stood on 13-19 sources for 52-55
+ *  notes (426 and 341 words per source against a bar of 250). */
+export const RESEARCHER_MIN_SOURCES = 4;
+/** Notes one page may give one section. Live, a researcher took up to ten
+ *  passages from one good page and stopped looking. */
+export const MAX_NOTES_PER_PAGE = 3;
 export const SEARCH_TOOLS = new Set(["web_search", "news_search"]);
 /** A section with this many notes already is not researched again. */
 export const ENOUGH_NOTES = 4;
@@ -65,7 +70,7 @@ export function researcherSystem(steps = RESEARCHER_STEPS): string {
     "- Note every passage the writer will need with note_evidence: the page's address, its exact words (one or two sentences, copied character for character from the page you read) and the claim they support. A note whose words are not on the page is refused.",
     "- Figures: note them with who published them and for what date or period.",
     "- Where sources disagree, note both sides.",
-    "- Aim for 6 to 12 notes from at least three independent sources — different institutions, and different kinds: official data, a study, an independent evaluation, the strongest dissent. Stay on your section; the others are covered.",
+    `- Aim for 6 to 12 notes from at least ${RESEARCHER_MIN_SOURCES} independent sources — different institutions, and different kinds: official data, a study, an independent evaluation, the strongest dissent. At most ${MAX_NOTES_PER_PAGE} notes from any one page: one page is one voice, and the next note is worth more from somewhere else. Stay on your section; the others are covered.`,
     "- A paper's page lists its RELATED WORK — what it cites and what later work cites it, most-cited first. Following it is how a review finds the sources a search misses.",
     "- If your section is the case for or against a claim, build that case as its best advocate would, from the best sources — and note the weaknesses you find in it too.",
     "- Before you call something unpublished or unknown, search for it specifically once or twice.",
@@ -233,7 +238,13 @@ export interface Researched {
 
 /** What the writer is told when the researchers are done. `revise`: the
  *  outline may still be revised once, and new sections get researchers. */
-export function teamReport(done: Researched[], o: { revise?: boolean } = {}): string {
+/** Words of Details one source carries (the rubric's bar, research.ts). */
+export const WORDS_PER_SOURCE = 250;
+
+export function teamReport(
+  done: Researched[],
+  o: { revise?: boolean; sources?: number } = {},
+): string {
   const one = (x: string) => x.replace(/\s+/g, " ").slice(0, 400);
   return [
     "The researchers have finished. What each found (list_notes with a section number gives that section's notes):",
@@ -252,6 +263,12 @@ export function teamReport(done: Researched[], o: { revise?: boolean } = {}): st
     ...(o.revise
       ? [
           "If the notes show the outline is wrong — a sub-question the evidence raises that no section covers, two sections that overlap, one with nothing to say — revise it once with write_outline before writing. Keep every section that has notes at its number (rename it in place if it should say something else) and add new sections after the last; new sections get researchers. Otherwise keep the outline.",
+          "",
+        ]
+      : []),
+    ...(o.sources
+      ? [
+          `The notes come from ${o.sources} ${o.sources === 1 ? "source" : "sources"} in all. Length follows the evidence: about ${WORDS_PER_SOURCE} words of Details per source, so about ${(o.sources * WORDS_PER_SOURCE).toLocaleString("en")} words across the Details unless you find more — denser, not longer. A section with thin notes is short and says what is missing; it is not stretched to its target.`,
           "",
         ]
       : []),
