@@ -1,0 +1,66 @@
+name: Access check
+
+# Is the operator surface closed to strangers on every hostname the Worker
+# answers on? /op/* and /v1/admin/* have no authentication of their own:
+# Cloudflare Access at the edge is the gate (docs/SECURITY-AUDIT-2026-09-24.md
+# §1), and the in-Worker check trusts an email header. Access applications
+# are bound to hostnames, so a hostname without one is an open door.
+#
+# Each request is a read-only GET from outside, once with no credentials and
+# once with the operator's email in the header a proxy would forward. Only
+# status codes and the redirect's host are printed — never a body. Anything
+# but a redirect to Cloudflare Access or a 401/403 fails the run.
+#
+# By hand only. The repository is public, so this costs no Actions minutes.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask each hostname as a stranger
+        env:
+          OPERATOR_EMAIL: ${{ secrets.OPERATOR_EMAIL }}
+        run: |
+          set -uo pipefail
+          open=0
+          for host in canopticon.com www.canopticon.com; do
+            for path in /v1/admin/runtime /op/export /op/login; do
+              for spoof in no yes; do
+                if [ "$spoof" = yes ]; then
+                  out=$(curl -sS -o /dev/null -m 20 -w '%{http_code} %{redirect_url}' \
+                    -H "x-canopticon-email: ${OPERATOR_EMAIL}" "https://${host}${path}" || echo "000 -")
+                else
+                  out=$(curl -sS -o /dev/null -m 20 -w '%{http_code} %{redirect_url}' \
+                    "https://${host}${path}" || echo "000 -")
+                fi
+                code="${out%% *}"
+                to="${out#* }"
+                to_host=$(printf '%s' "$to" | sed -E 's#^https?://([^/]+).*#\1#')
+                verdict=open
+                case "$code" in
+                  401|403) verdict=closed ;;
+                  301|302|303|307|308)
+                    case "$to_host" in
+                      *.cloudflareaccess.com) verdict=closed ;;
+                      # www → apex: the apex is asked on its own.
+                      canopticon.com) [ "$host" = www.canopticon.com ] && verdict="redirects to apex" ;;
+                    esac ;;
+                  000) verdict="no answer" ;;
+                esac
+                echo "${host}${path} header=${spoof}: ${code} ${to_host:--} → ${verdict}"
+                [ "$verdict" = open ] && open=1
+              done
+            done
+          done
+          if [ "$open" = 1 ]; then
+            echo "::error::A request reached the operator surface without Cloudflare Access."
+            exit 1
+          fi
+          echo "Every hostname sends strangers to Cloudflare Access."

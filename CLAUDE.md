@@ -1084,14 +1084,18 @@ stalled the project twice.** Leave it alone.
 - To inspect the live Record, trigger `.github/workflows/canopticon-admin-probe.yml`
   (workflow_dispatch with a `path`); it calls canopticon.com through Cloudflare
   Access and commits the response to `ops/probe/response.json`.
-- **GitHub Actions minutes are a budget** (2026-11-12: the account hit 90%
-  of its monthly minutes, most of it the engine test — one job per task,
-  each waiting ~20 minutes on the live report). The engine test is now one
-  job running every report in parallel (billed for the longest batch, not
-  the sum); CI runs on pull requests only, cancelling superseded runs, not
-  again on the squash to main. Ask before an engine test; prefer two tasks
-  to five; batch small changes into one PR; a probe is ~1 minute. If the
-  minutes run out, deploys stop until the month resets.
+- **The repository is public** (since 2026-11-12, when the private repo
+  hit 90% of its monthly Actions minutes — most of it the engine test, one
+  job per task, each waiting ~20 minutes on the live report). Public repos
+  run standard GitHub runners free. **Nothing secret goes in the repo:**
+  keys live in GitHub secrets and the Worker; `content/research-held/` is
+  readable on GitHub (the operator is fine with that — held means not
+  served, not secret); never write the operator's email into a file. The
+  operator surface relies on Cloudflare Access alone (security audit §1);
+  `.github/workflows/access-check.yml` asks each hostname as a stranger
+  and fails if one answers. The engine test is one job running every
+  report in parallel; CI runs on pull requests only, cancelling superseded
+  runs. The engine test still costs Workers AI (~$0.50 a report): ask first.
 - Branch convention: `claude/<name>`. Never push to `main` directly; PR + CI +
   squash-merge. Branches are reused across PRs, so a designated branch may
   carry a stale tip with no merge base — archive it before force-pushing.
