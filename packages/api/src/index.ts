@@ -36,6 +36,29 @@ type App = AuthContext;
 
 const app = new Hono<App>();
 
+// One front door. Cloudflare Access guards canopticon.com, and the operator
+// surface (/op, /v1/admin) has no authentication of its own — so any other
+// hostname this Worker answers on is an open door. The access check found
+// one (2026-11-12): on www.canopticon.com, /op/export answered 200 to a
+// stranger and /v1/admin answered to a forged email header. www now goes to
+// the apex for every path, method and body kept (308); the operator surface
+// answers on no hostname but the apex.
+const OPERATOR_HOST = "canopticon.com";
+const OPERATOR_PATH = /^\/(op|v1\/admin|admin|auth)(\/|$)/;
+app.use("*", async (c, next) => {
+  const url = new URL(c.req.url);
+  if (url.hostname === `www.${OPERATOR_HOST}`) {
+    url.hostname = OPERATOR_HOST;
+    return c.redirect(url.toString(), 308);
+  }
+  // Tests and local scripts call the app on a made-up host; a real request
+  // reaches the Worker only through its custom domains.
+  const real = url.hostname.includes(".") && url.hostname !== OPERATOR_HOST;
+  if (real && OPERATOR_PATH.test(url.pathname))
+    return c.text(`The operator surface answers on ${OPERATOR_HOST} only.`, 403);
+  await next();
+});
+
 // CORS. This used to reflect ANY origin with credentials: true on every
 // route, the operator console and the admin endpoints included — which lets
 // any site a signed-in operator visits read those responses through the
