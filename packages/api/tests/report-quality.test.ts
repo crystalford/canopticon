@@ -31,10 +31,24 @@ describe("an archive copy is the site it copies", () => {
 
   it("still counts two copies of one site as that site's pages", () => {
     const numbers = new Map([
-      ["https://web.archive.org/web/1/https://gamestudies.org/a", 1],
-      ["https://gamestudies.org/b", 2],
+      ["https://web.archive.org/web/1/https://www.cbc.ca/news/a", 1],
+      ["https://www.cbc.ca/news/b", 2],
     ]);
     expect(echoGroups([], numbers)).toMatchObject([{ why: "publisher", sources: [1, 2] }]);
+  });
+
+  it("counts each paper on a platform as its own voice, and an agency's pages as one", () => {
+    const numbers = new Map([
+      ["https://www.nber.org/papers/w32902", 1],
+      ["https://www.nber.org/papers/w32901", 2],
+      ["https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1", 3],
+      ["https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2", 4],
+      ["https://www150.statcan.gc.ca/n1/a", 5],
+      ["https://www150.statcan.gc.ca/n1/b", 6],
+    ]);
+    expect(echoGroups([], numbers)).toEqual([
+      { why: "publisher", sources: [5, 6], runs: 0, sample: "www150.statcan.gc.ca" },
+    ]);
   });
 });
 

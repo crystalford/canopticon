@@ -17,6 +17,7 @@ import { d1Drafts } from "../../write/drafts";
 import { DEFAULT_ENGINE, ENGINES, defaultEngine, setDefaultEngine } from "../../write/engines";
 import { addEntry, d1Entries } from "../../write/entries";
 import { guessKind, isStartKind, matchTitle } from "../../write/kind";
+import { methodNote } from "../../write/method";
 import { d1Notes } from "../../write/notes";
 import { announce, articleTopics, publishDraft, takeDown } from "../../write/publish";
 import { d1Reads } from "../../write/read";
@@ -351,7 +352,16 @@ app.post("/write/:id/save", async (c) => {
           [d.meta.savedAs, userId],
         ).catch(() => null)
       : null;
-  const bytes = new TextEncoder().encode(reportFile(d));
+  // How it was researched, in counts code made (write/method.ts).
+  const notes = await d1Notes(c.env, userId)
+    .list(id)
+    .catch(() => []);
+  const check = checkReport(d.body, pages);
+  const method = methodNote(d, notes, pages, {
+    total: check.total,
+    failed: check.failed.length,
+  });
+  const bytes = new TextEncoder().encode(reportFile(d, method));
   const p = await createAndExtract(
     c.env,
     userId,

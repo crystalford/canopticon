@@ -344,7 +344,37 @@
   notes in one step are checked in order, so a failed note takes no slot);
   and the team's report tells the writer **length follows the evidence**:
   the notes' source count × 250 words (`WORDS_PER_SOURCE`) across the
-  Details, thin sections short and saying what is missing. **Then the reviewers** (`runReview`, once per conversation,
+  Details, thin sections short and saying what is missing. **Measured**
+  (`ops/eval/2026-11-12-2128.md`): sources 13 → 22 and 19 → 26, words per
+  source 426 → 253 and 341 → 231 (the bar 250), 67 and 52 quotations all
+  found, 19–21 min, $1.15 — the per-page cap moved researchers to other
+  pages, though the thesis's went to other pages of the same publishers.
+  **A voice, not a site, is the unit of independence** (`voiceOf` in
+  `evidence.ts`): for a study, preprint, review or book each work is its
+  own voice (a journal publisher, NBER, SSRN or arXiv is a platform for
+  independent authors), for anything else the site is (an agency's or an
+  outlet's pages are one voice). Used by the independence check's
+  publisher groups, the per-section source count, the evidence checks and
+  the rubric's top publisher — on that run, seven NBER papers by different
+  economists had made a 26-source thesis "about 5 independent" (about 12
+  now; the rest share long runs of wording). Attribution also reads "X
+  also claimed", "Tyler's critique", "the McLuhans' own words". **The editing
+  pass** (a checkpoint in `nudges`, said once a message): when every part
+  is written and the message is under 20 minutes old (`POLISH_BY_MS`),
+  `polishList` turns the rubric and the writing checks into what to fix —
+  sentences over the average or too often past 35 words, facts said in
+  three or more parts, a long TL;DR, uncited figures, the first person,
+  empty certainty words, a short case against — and asks for one
+  `edit_draft` pass with no new research (live, a finished thesis had all
+  of these reported after each section and none fixed). **How this was
+  researched** (`write/method.ts`, Phase 3's first receipt): Save to
+  Admin appends a section in counts code made — pages read in full,
+  passages noted (each checked word for word), sources, publishers and
+  about how many independent, sources by kind, quotations found word for
+  word, reviewer flags and how many changed since, the thesis method, and
+  that language models made it from free and open sources. A check that
+  did not run is not mentioned; it carries no address, so "shares sources
+  with" is unchanged. Published with the report on Publish. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a

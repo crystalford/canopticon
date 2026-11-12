@@ -9,6 +9,7 @@
 // pages a report cites, so the writer weighs them once and Chris can see it.
 
 import { verbatimNormal } from "./check";
+import { voiceOf } from "./evidence";
 import type { ResearchSource } from "./research";
 
 /** Words in a run that counts as shared wording. Twelve identical words in
@@ -127,10 +128,12 @@ export function echoGroups(pages: ResearchSource[], numbers: Map<string, number>
       sample: best && best.at >= 0 ? w.slice(best.at, best.at + RUN + 8).join(" ") : "",
     });
   }
-  // Several pages from one site.
+  // Several pages from one site — one voice. A paper's host is a platform,
+  // not a voice (evidence.ts voiceOf): each paper counts for itself.
+  const titles = new Map(pages.map((p) => [p.url, p.title]));
   const bySite = new Map<string, number[]>();
   for (const [url, k] of numbers) {
-    const site = siteOf(url);
+    const site = voiceOf(url, titles.get(url));
     if (!bySite.get(site)?.includes(k)) bySite.set(site, [...(bySite.get(site) ?? []), k]);
   }
   for (const [site, ks] of bySite)
