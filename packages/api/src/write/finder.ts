@@ -493,6 +493,66 @@ export async function openAccessCopy(doi: string): Promise<string | null> {
   return loc?.pdf_url || loc?.landing_page_url || j?.open_access?.oa_url || null;
 }
 
+export interface RelatedWork {
+  title: string;
+  year: number | null;
+  cited: number;
+  url: string;
+}
+
+/** Citation chasing, as systematic reviewers do it: the works a paper cites
+ *  and the works that cite it, most-cited first, from OpenAlex (free,
+ *  keyless). From one good paper a researcher can reach a dozen more —
+ *  live, reports stood on 10 to 16 sources, and the free finder cannot
+ *  search the whole web. Null when OpenAlex does not know the DOI. */
+export async function relatedWorks(
+  doi: string,
+  each = 6,
+): Promise<{ cites: RelatedWork[]; citedBy: RelatedWork[] } | null> {
+  const w = (await getJson(
+    `https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?select=id,referenced_works`,
+  ).catch(() => null)) as { id?: string; referenced_works?: string[] } | null;
+  const id = w?.id?.split("/").pop();
+  if (!id) return null;
+  const fields = "select=title,doi,publication_year,cited_by_count,open_access";
+  const refs = (w?.referenced_works ?? []).map((r) => r.split("/").pop()).filter(Boolean);
+  const list = async (filter: string): Promise<RelatedWork[]> => {
+    const j = (await getJson(
+      `https://api.openalex.org/works?filter=${filter}&sort=cited_by_count:desc&per-page=${each}&${fields}`,
+    ).catch(() => null)) as {
+      results?: Array<{
+        title?: string | null;
+        doi?: string | null;
+        publication_year?: number | null;
+        cited_by_count?: number;
+        open_access?: { oa_url?: string | null };
+      }>;
+    } | null;
+    return (j?.results ?? [])
+      .map((r) => ({
+        title: (r.title ?? "").trim(),
+        year: r.publication_year ?? null,
+        cited: r.cited_by_count ?? 0,
+        url: r.open_access?.oa_url || r.doi || "",
+      }))
+      .filter((r) => r.title && r.url);
+  };
+  const [cites, citedBy] = await Promise.all([
+    refs.length ? list(`openalex:${refs.slice(0, 50).join("|")}`) : Promise.resolve([]),
+    list(`cites:${id}`),
+  ]);
+  return cites.length || citedBy.length ? { cites, citedBy } : null;
+}
+
+/** Related work as a researcher reads it after a paper's page. */
+export function describeRelated(r: { cites: RelatedWork[]; citedBy: RelatedWork[] }): string {
+  const line = (w: RelatedWork) =>
+    `- ${w.title}${w.year ? ` (${w.year})` : ""}, cited ${w.cited.toLocaleString("en")} times — ${w.url}`;
+  return `\n\nRELATED WORK (OpenAlex, most-cited first): follow the ones your section needs with web_fetch — this is how a review finds its sources.${
+    r.cites.length ? `\nThis paper cites:\n${r.cites.map(line).join("\n")}` : ""
+  }${r.citedBy.length ? `\nLater work citing it:\n${r.citedBy.map(line).join("\n")}` : ""}`;
+}
+
 /** A search engine's result page (or the engine itself): not fetched, since
  *  querying them by machine breaks their terms. Scholarly and data APIs that
  *  invite automated use (Crossref, Europe PMC, OpenAlex, Semantic Scholar's

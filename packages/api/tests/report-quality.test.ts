@@ -250,3 +250,67 @@ A short sentence [1]. Another short one [2].
     expect(rubric(ok).flags).toEqual([]);
   });
 });
+
+describe("citation chasing", () => {
+  it("lists what a paper cites and what cites it, most-cited first", async () => {
+    const { describeRelated, relatedWorks } = await import("../src/write/finder");
+    const seen: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        seen.push(url);
+        const body = url.includes("/works/doi:")
+          ? {
+              id: "https://openalex.org/W1",
+              referenced_works: ["https://openalex.org/W2", "https://openalex.org/W3"],
+            }
+          : url.includes("filter=openalex:")
+            ? {
+                results: [
+                  {
+                    title: "An older study",
+                    doi: "https://doi.org/10.1/old",
+                    publication_year: 2005,
+                    cited_by_count: 400,
+                  },
+                ],
+              }
+            : {
+                results: [
+                  {
+                    title: "A later review",
+                    publication_year: 2023,
+                    cited_by_count: 12,
+                    open_access: { oa_url: "https://repo.example/review.pdf" },
+                  },
+                ],
+              };
+        return new Response(JSON.stringify(body), {
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+    const r = await relatedWorks("10.3138/cpp.2019-070");
+    vi.unstubAllGlobals();
+    expect(seen[1]).toContain("filter=openalex:W2|W3&sort=cited_by_count:desc");
+    expect(seen[2]).toContain("filter=cites:W1&sort=cited_by_count:desc");
+    expect(r?.cites).toEqual([
+      { title: "An older study", year: 2005, cited: 400, url: "https://doi.org/10.1/old" },
+    ]);
+    expect(r?.citedBy[0]?.url).toBe("https://repo.example/review.pdf");
+    const said = describeRelated(r as never);
+    expect(said).toContain("RELATED WORK");
+    expect(said).toContain("- An older study (2005), cited 400 times — https://doi.org/10.1/old");
+    expect(said).toContain("Later work citing it:");
+  });
+
+  it("is quiet when OpenAlex does not know the paper", async () => {
+    const { relatedWorks } = await import("../src/write/finder");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("{}", { status: 404 })),
+    );
+    expect(await relatedWorks("10.9999/nothing")).toBeNull();
+    vi.unstubAllGlobals();
+  });
+});

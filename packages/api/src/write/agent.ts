@@ -36,8 +36,16 @@ import {
   workersStep,
 } from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
-import { doiOf, isSearchEnginePage, newsSearch, openAccessCopy, waybackCopy } from "./finder";
-import { describeEchoes, echoGroups, independentCount } from "./independence";
+import {
+  describeRelated,
+  doiOf,
+  isSearchEnginePage,
+  newsSearch,
+  openAccessCopy,
+  relatedWorks,
+  waybackCopy,
+} from "./finder";
+import { describeEchoes, echoGroups, independentCount, siteOf } from "./independence";
 import {
   NOTES_TOOLS,
   type NoteStore,
@@ -98,6 +106,7 @@ import {
   ENOUGH_NOTES,
   FLAG_TOOL,
   MAX_RESEARCHERS,
+  RESEARCHER_MIN_SOURCES,
   RESEARCHER_READ_ONLY_FROM,
   RESEARCHER_SEARCHES,
   RESEARCHER_SEARCHES_AT_ONCE,
@@ -1016,12 +1025,22 @@ async function runTool(
           : "";
       // A paper's page that gave little (an abstract, a paywall): its free
       // full text, if OpenAlex knows one, so the evidence is the paper.
-      const doi = offset === 0 && !again && page.text.length < SHORT_PAPER ? doiOf(url) : null;
-      const free = doi ? await openAccessCopy(doi).catch(() => null) : null;
+      // A paper (it carries a DOI), read for the first time: its free full
+      // text if this page gave little, and the work it cites and that cites
+      // it — citation chasing, the way a review widens its sources.
+      const doi = offset === 0 && !again ? doiOf(url) : null;
+      const [free, related] = doi
+        ? await Promise.all([
+            page.text.length < SHORT_PAPER
+              ? openAccessCopy(doi).catch(() => null)
+              : Promise.resolve(null),
+            relatedWorks(doi).catch(() => null),
+          ])
+        : [null, null];
       const fullText =
-        free && free !== url && free !== page.url
+        (free && free !== url && free !== page.url
           ? `\n\nFULL TEXT: this page gave only ${page.text.length.toLocaleString("en")} characters — likely the abstract. A free copy of the whole paper is at ${free} — read it with web_fetch and note from it.`
-          : "";
+          : "") + (related ? describeRelated(related) : "");
       return {
         text: `${again ? "(You have read this page already; here it is again from what was kept.)\n" : ""}${page.title ?? url}\n${page.url}\n\n${slice}${
           more
@@ -1140,6 +1159,7 @@ async function runResearcher(o: {
   // message's whole allowance and leave the writer nothing.
   let searches = 0;
   let noted = 0;
+  const notedSites = new Set<string>();
   const readOnly = o.tools.filter((t) => !SEARCH_TOOLS.has((t as { name: string }).name));
   for (let step = 0; step < RESEARCHER_STEPS; step++) {
     if (step && (await ctx.stop?.())) break;
@@ -1196,7 +1216,10 @@ async function runResearcher(o: {
                 error: true,
               }))
             : { text: `A researcher cannot use ${u.name}.`, error: true };
-        if (u.name === "note_evidence" && !r.error) noted++;
+        if (u.name === "note_evidence" && !r.error) {
+          noted++;
+          notedSites.add(siteOf(String((u.input as { url?: unknown }).url ?? "")));
+        }
         if (u.name === "web_fetch" && !r.error)
           pages.add(String((u.input as { url?: unknown }).url ?? ""));
         if (u.name !== "list_notes")
@@ -1212,11 +1235,20 @@ async function runResearcher(o: {
     const last = step === RESEARCHER_STEPS - 2;
     // Halfway with nothing noted: stop looking, start noting.
     const half = step === Math.floor(RESEARCHER_STEPS / 2) - 1 && noted === 0;
+    // Before searching stops: notes from too few independent sources (live,
+    // a report's 10 to 16 sources depended on which researchers had a good
+    // run). One push, while searches remain.
+    const narrow =
+      step === RESEARCHER_READ_ONLY_FROM - 2 &&
+      noted > 0 &&
+      notedSites.size < RESEARCHER_MIN_SOURCES;
     const say = last
       ? "One step left: note anything else the writer will need, then stop and reply with your two lines."
       : half
         ? "Half your steps are gone and nothing is noted. Stop searching now: fetch the two or three best pages you have found and note what the writer will need from them."
-        : "";
+        : narrow
+          ? `Your notes come from ${notedSites.size} ${notedSites.size === 1 ? "source" : "sources"}; this section needs at least ${RESEARCHER_MIN_SOURCES} independent ones (different institutions). Use your remaining searches for a kind you do not have yet — official data, a study, an independent evaluation, the strongest dissent — or follow the RELATED WORK a paper's page lists.`
+          : "";
     history.push({
       role: "user",
       content: say ? [...results, { type: "text" as const, text: say }] : results,

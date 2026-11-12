@@ -444,4 +444,80 @@ describe("a team with two reader models", () => {
     expect(byResearcher.get("s1")).toBe("@cf/deepseek-ai/deepseek-v4.1-flash-1017");
     expect(byResearcher.get("s2")).toBe("@cf/deepseek-ai/deepseek-v4-flash-0731");
   });
+
+  it("pushes a researcher whose notes all come from one source to find others", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        /p1\.example/.test(url)
+          ? new Response(`<p>${"Rents rose four per cent in Toronto last year. ".repeat(20)}</p>`, {
+              headers: { "content-type": "text/html" },
+            })
+          : new Response("{}", { headers: { "content-type": "application/json" } }),
+      ),
+    );
+    const writer: unknown[] = [
+      reply(null, [
+        [
+          "o1",
+          "write_outline",
+          {
+            title: "Rents",
+            topic: "Housing",
+            sections: [{ heading: "What happened?", words: 400 }],
+          },
+        ],
+      ]),
+      reply("Done."),
+    ];
+    let k = 0;
+    const step = (i: number) =>
+      i === 0
+        ? reply(null, [["f1", "web_fetch", { url: "https://p1.example/a" }]])
+        : i === 1
+          ? reply(null, [
+              [
+                "n1",
+                "note_evidence",
+                {
+                  url: "https://p1.example/a",
+                  quote: "Rents rose four per cent in Toronto last year.",
+                  claim: "Rents rose",
+                },
+              ],
+            ])
+          : reply(null, [[`q${i}`, "web_search", { query: `rents ${i}` }]]);
+    const seen: Array<Array<{ role: string; content: unknown }>> = [];
+    const env = {
+      LOG_LEVEL: "error",
+      AI: {
+        run: async (
+          _m: string,
+          input: { messages: never[] },
+          opts?: { headers?: Record<string, string> },
+        ) => {
+          if (!/-s\d$/.test(opts?.headers?.["x-session-affinity"] ?? "")) return writer.shift();
+          seen.push(input.messages);
+          return step(k++);
+        },
+      },
+    } as unknown as Env;
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    await store.save(d.id, { meta: { ...d.meta, engine: "team:flash" } });
+    await runTurn({
+      stream: null,
+      env,
+      store,
+      sources: memorySources(),
+      notes: memoryNotes(),
+      draftId: d.id,
+      text: "What happened to rents?",
+      emit: () => {},
+    });
+    const all = JSON.stringify(seen.at(-1));
+    expect(all).toContain(
+      "Your notes come from 1 source; this section needs at least 3 independent ones",
+    );
+  });
 });

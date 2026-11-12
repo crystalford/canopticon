@@ -277,7 +277,14 @@
   passes, 52 quotations all found, 5,362 words, sentences 23.8, TL;DR 135,
   nothing said again, no first person — but 10 sources (511 words per
   source, the bar 250): one run each, and runs vary; breadth is the open
-  problem. **Then the reviewers** (`runReview`, once per conversation,
+  problem. **Breadth, first steps** (2026-11-12): **citation chasing** —
+  every paper page read (it carries a DOI) comes back with its RELATED
+  WORK from OpenAlex, free: what it cites and what later work cites it,
+  most-cited first, with open-access links (`relatedWorks`,
+  `describeRelated` in `finder.ts`; `/v1/admin/paper?doi=` shows it live);
+  and **each researcher needs three independent sources**
+  (`RESEARCHER_MIN_SOURCES`): before its searching ends, a researcher whose
+  notes come from fewer sites is told to find a kind it lacks. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a
