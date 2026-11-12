@@ -344,7 +344,15 @@
   notes in one step are checked in order, so a failed note takes no slot);
   and the team's report tells the writer **length follows the evidence**:
   the notes' source count × 250 words (`WORDS_PER_SOURCE`) across the
-  Details, thin sections short and saying what is missing. **Then the reviewers** (`runReview`, once per conversation,
+  Details, thin sections short and saying what is missing. **The editing
+  pass** (a checkpoint in `nudges`, said once a message): when every part
+  is written and the message is under 20 minutes old (`POLISH_BY_MS`),
+  `polishList` turns the rubric and the writing checks into what to fix —
+  sentences over the average or too often past 35 words, facts said in
+  three or more parts, a long TL;DR, uncited figures, the first person,
+  empty certainty words, a short case against — and asks for one
+  `edit_draft` pass with no new research (live, a finished thesis had all
+  of these reported after each section and none fixed). **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a

@@ -77,6 +77,7 @@ import {
   FREE_SEARCH_HOW,
   READ_LIMIT,
   RESEARCH_HOW,
+  RUBRIC,
   type ResearchSource,
   SEARCH_LIMIT,
   type SourceStore,
@@ -596,6 +597,54 @@ const WORKERS_WEB_LIMIT = 100;
 /** Past this, a research turn's writer is told to write what is left now
  *  (the engine test stops a report at 25 minutes; Chris waits for it). */
 const WRITE_BY_MS = 14 * 60 * 1000;
+/** The editing pass is asked for only before this, so it never costs a
+ *  report its ending (the engine test stops a report at 25 minutes). */
+const POLISH_BY_MS = 20 * 60 * 1000;
+
+/** What one editing pass should fix, from the rubric and the writing checks
+ *  (research.ts) — empty when the report already reads as it should. */
+export function polishList(body: string): string[] {
+  const r = rubric(body);
+  const w = writingProblems(body);
+  const out: string[] = [];
+  if (r.meanSentenceWords > RUBRIC.meanSentenceWords)
+    out.push(
+      `Sentences average ${r.meanSentenceWords} words (aim ${RUBRIC.meanSentenceWords} or fewer): split the long ones at their natural joints.`,
+    );
+  if (r.longSentenceShare > RUBRIC.longSentenceShare)
+    out.push(
+      `${Math.round(r.longSentenceShare * 100)}% of sentences run past ${RUBRIC.longSentence} words (aim ${Math.round(RUBRIC.longSentenceShare * 100)}% or fewer).`,
+    );
+  if (w.repeatedFacts.length >= 2)
+    out.push(
+      `Said in three or more parts: ${w.repeatedFacts
+        .slice(0, 5)
+        .map((f) => f.fact)
+        .join("; ")}. State each once, where it matters most, and refer back.`,
+    );
+  if (r.tldrWords > RUBRIC.tldrWords)
+    out.push(`The TL;DR is ${r.tldrWords} words (aim ${RUBRIC.tldrWords} or fewer).`);
+  if (w.uncitedFacts.length)
+    out.push(
+      `Figures with no citation: ${w.uncitedFacts
+        .slice(0, 4)
+        .map((x) => `"${x.slice(0, 90)}…"`)
+        .join("; ")}. Cite each, or say whose calculation it is.`,
+    );
+  if (w.voice.length)
+    out.push(
+      "The first person or Chris's name appears: the record is written in the third person.",
+    );
+  if (r.certaintyWords.length)
+    out.push(
+      `Certainty words with nothing behind them: ${r.certaintyWords.join(", ")}. Say how sure on the scale, or cut them.`,
+    );
+  if (r.caseAgainstRatio !== null && r.caseAgainstRatio < RUBRIC.caseAgainstRatio)
+    out.push(
+      `The case against is ${Math.round(r.caseAgainstRatio * 100)}% the length of the case for (aim ${Math.round(RUBRIC.caseAgainstRatio * 100)}% or more): it should be argued as fully.`,
+    );
+  return out;
+}
 /** A paper's page shorter than this is likely its abstract (or a paywall). */
 const SHORT_PAPER = 8000;
 const searchLimit = (t: ToolContext) => (t.workers ? WORKERS_WEB_LIMIT : SEARCH_LIMIT);
@@ -2084,6 +2133,23 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
         "gaps",
         "Before the summary: re-read the question. Wherever a section says something is not published, unknown or unavailable, make one or two targeted searches for it first — the agency's or province's own news releases, annual or quarterly reports, legislature answers, statistics tables — and note what you find. A gap is a finding only after you have looked for it.",
       );
+    // The editing pass: once every part is written, what the rubric and the
+    // writing checks still find (engine test 2026-11-12 11:06: a finished
+    // thesis said seven facts three or more times, sentences averaging 29
+    // words — all reported after each section, none fixed).
+    if (
+      outlined &&
+      blank === 0 &&
+      !body.includes("_(to write)_") &&
+      Date.now() - turnStartMs < POLISH_BY_MS
+    ) {
+      const fix = polishList(body);
+      if (fix.length)
+        say(
+          "polish",
+          `The report is complete. One editing pass before you finish — no new research, nothing added:\n${fix.map((f) => `- ${f}`).join("\n")}\nFix them with edit_draft (several passages at once with "also"), keeping every quotation and citation as it is; then stop.`,
+        );
+    }
     if (outlined && !written && (web.reads >= 16 || noted >= 15 || step >= 12))
       say(
         "write",

@@ -225,6 +225,22 @@ describe("a research turn with notes and sections", () => {
   });
 });
 
+describe("the editing pass", () => {
+  it("lists what a finished report should still fix, and nothing for one that reads well", async () => {
+    const { polishList } = await import("../src/write/agent");
+    const long =
+      "The province's own figures, which were published in the spring and then revised twice over the following months as more employers reported and as the statistics office reconciled its survey with payroll records, show a fall that is much smaller than the first release suggested [1].";
+    const body = (details: string) =>
+      `## TL;DR\n\nStarts fell [1].\n\n## Key Findings\n\n- Down [1].\n\n## Details\n\n### 1. A\n\n${details}\n\n## Open questions\n\nNone.\n\n## Sources\n\n1. [A](https://a.example)\n`;
+    const fix = polishList(body(`${long} ${long} Short one [1].`));
+    expect(fix.join(" ")).toMatch(/Sentences average \d+ words/);
+    expect(fix.join(" ")).toMatch(/% of sentences run past 35 words/);
+    expect(polishList(body("Starts fell a third [1]. Rentals rose [1]. Prices held [1]."))).toEqual(
+      [],
+    );
+  });
+});
+
 describe("keeping a cheaper model to the workflow", () => {
   it("asks for the outline after a few steps, and for notes after six pages, each once", async () => {
     vi.stubGlobal(
