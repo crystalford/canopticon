@@ -289,7 +289,23 @@
   meters use, and live it answered nothing (`ops/probe/paper.json`).
   and **each researcher needs three independent sources**
   (`RESEARCHER_MIN_SOURCES`): before its searching ends, a researcher whose
-  notes come from fewer sites is told to find a kind it lacks. **Then the reviewers** (`runReview`, once per conversation,
+  notes come from fewer sites is told to find a kind it lacks.
+  **The Record method, Phase 1** (2026-11-12, `team.ts`, `runTeam`): before
+  the researchers go, **one cheap call names 4–6 perspectives** — stakeholders
+  who would see the question differently — and which sections each bears on
+  (`perspectivesPrompt` / `parsePerspectives`, STORM's idea; the defaults —
+  agency, independent researchers, practitioners, those affected, another
+  jurisdiction — stand in if it fails); each researcher's brief names its
+  section's. **Saturate:** after the first round, a section whose notes stand
+  on fewer than three sites gets one second researcher (`DIVERSIFY_STEPS`
+  10, `diversifyBrief`: the publishers it already has, find others); finding
+  no new source is the stop, and the writer is told the section stands on
+  what it has. **The evidence may revise the outline once**: the team's
+  report invites it, new sections get researchers (`MAX_DISPATCHES` 2), and
+  `outlineMoves` refuses a revision that would move or drop a section with
+  notes (notes are filed by number — rename in place, add after the last).
+  Neither a second round nor a re-dispatch starts past nine minutes
+  (`SATURATE_BY_MS`). **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a

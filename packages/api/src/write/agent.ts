@@ -103,9 +103,12 @@ import {
 import { storedKey } from "./stored-key";
 import { type Support, UNSUPPORTED_BELOW, supportCheck } from "./support";
 import {
+  DIVERSIFY_STEPS,
   ENOUGH_NOTES,
   FLAG_TOOL,
+  MAX_DISPATCHES,
   MAX_RESEARCHERS,
+  type Perspectives,
   RESEARCHER_MIN_SOURCES,
   RESEARCHER_READ_ONLY_FROM,
   RESEARCHER_SEARCHES,
@@ -118,9 +121,15 @@ import {
   REVIEW_MS,
   REVIEW_READS,
   REVIEW_SEARCHES,
+  type Researched,
   type ReviewFlag,
   type ReviewKind,
+  SATURATE_BY_MS,
   SEARCH_TOOLS,
+  defaultPerspectives,
+  diversifyBrief,
+  parsePerspectives,
+  perspectivesPrompt,
   researcherBrief,
   researcherSystem,
   reviewReport,
@@ -819,6 +828,8 @@ async function runTool(
         );
       const d = await t.store.get(t.draftId);
       const notes = t.notes ? await t.notes.list(t.draftId) : [];
+      const moved = outlineMoves(d?.body ?? "", sections, notes);
+      if (moved) return bad(moved);
       const body = withSources(skeleton(sections, d?.body ?? ""), notes, await keptPages(t));
       await t.store.save(t.draftId, {
         meta: {
@@ -1080,6 +1091,10 @@ async function runTeam(o: {
   all: Array<{ n: number; heading: string }>;
   tools: Anthropic.Beta.BetaToolUnion[];
   onStep: (m: Anthropic.Beta.BetaMessage, model: EngineId) => Promise<void>;
+  /** The second round and an outline revision run only before this time. */
+  until?: number;
+  /** The writer may still revise the outline once after this team. */
+  revise?: boolean;
 }): Promise<string> {
   const { ctx } = o;
   // Loaded once before anyone reads, so every researcher shares one list.
@@ -1090,54 +1105,194 @@ async function runTeam(o: {
     ...rest,
     ...(ctx.notes ? { notes: oneAtATime(ctx.notes) } : {}),
   };
+  const first = o.readers[0] as EngineId;
+  // Who sees the question differently, and which sections each bears on.
+  const views = (await perspectives(o, first).catch(() => null)) ?? defaultPerspectives(o.all);
+  ctx.emit({
+    type: "activity",
+    text: `Perspectives: ${views.all.map((v) => v.name).join(" · ")}`,
+  });
   ctx.emit({
     type: "activity",
     text: `${o.need.length} researchers started: ${o.need.map((s) => `§${s.n}`).join(", ")}`,
   });
-  const queue = [...o.need];
-  const done: Array<{ n: number; heading: string; notes: number; pages: number; said: string }> =
-    [];
-  const retried = new Set<number>();
-  const worker = async () => {
-    for (let s = queue.shift(); s; s = queue.shift()) {
-      const reader = o.readers[(s.n - 1) % o.readers.length] ?? (o.readers[0] as EngineId);
-      const p = ctx.progress;
-      if (p) {
-        p.researchers.working++;
-        p.send();
-      }
-      const r = await runResearcher({ ...o, reader, ctx: shared, section: s }).catch(
-        (e: Error) => ({
+  const sectionNotes = async (n: number) =>
+    shared.notes ? (await shared.notes.list(ctx.draftId)).filter((x) => x.section === n) : [];
+  const sitesOf = (notes: Array<{ url: string }>) => [...new Set(notes.map((x) => siteOf(x.url)))];
+  /** One round: every section in `items` researched, at most six at once;
+   *  a researcher Workers AI stopped gets one more go, at the back —
+   *  unless Chris pressed Stop. */
+  const round = async (
+    items: Array<{ n: number; heading: string }>,
+    run: (
+      s: { n: number; heading: string },
+      reader: EngineId,
+    ) => Promise<{
+      said: string;
+      pages: Set<string>;
+    }>,
+  ) => {
+    const queue = [...items];
+    const out = new Map<number, { said: string; pages: number }>();
+    const retried = new Set<number>();
+    const worker = async () => {
+      for (let s = queue.shift(); s; s = queue.shift()) {
+        const reader = o.readers[(s.n - 1) % o.readers.length] ?? first;
+        const p = ctx.progress;
+        if (p) {
+          p.researchers.working++;
+          p.send();
+        }
+        const r = await run(s, reader).catch((e: Error) => ({
           said: `Stopped: ${e.message.slice(0, 200)}`,
           pages: new Set<string>(),
           failed: true,
-        }),
-      );
-      if (p) p.researchers.working--;
-      // A researcher Workers AI stopped gets one more go, at the back —
-      // unless Chris pressed Stop.
-      if ("failed" in r && !retried.has(s.n) && !(await ctx.stop?.())) {
-        retried.add(s.n);
-        ctx.emit({
-          type: "activity",
-          text: `§${s.n} stopped (${r.said.slice(9, 90)}); trying again`,
-        });
-        queue.push(s);
-        continue;
+        }));
+        if (p) p.researchers.working--;
+        if ("failed" in r && !retried.has(s.n) && !(await ctx.stop?.())) {
+          retried.add(s.n);
+          ctx.emit({
+            type: "activity",
+            text: `§${s.n} stopped (${r.said.slice(9, 90)}); trying again`,
+          });
+          queue.push(s);
+          continue;
+        }
+        out.set(s.n, { said: r.said, pages: r.pages.size });
+        const notes = (await sectionNotes(s.n)).length;
+        ctx.emit({ type: "activity", text: `§${s.n} researched: ${notes} notes` });
+        if (p) {
+          p.researchers.done++;
+          p.send();
+        }
       }
-      const notes = shared.notes
-        ? (await shared.notes.list(ctx.draftId)).filter((x) => x.section === s.n).length
-        : 0;
-      done.push({ n: s.n, heading: s.heading, notes, pages: r.pages.size, said: r.said });
-      ctx.emit({ type: "activity", text: `§${s.n} researched: ${notes} notes` });
-      if (p) {
-        p.researchers.done++;
-        p.send();
-      }
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(MAX_RESEARCHERS, queue.length) }, worker));
+    return out;
   };
-  await Promise.all(Array.from({ length: Math.min(MAX_RESEARCHERS, queue.length) }, worker));
-  return teamReport(done.sort((a, b) => a.n - b.n));
+
+  const firstRound = await round(o.need, (section, reader) =>
+    runResearcher({ ...o, reader, ctx: shared, section, views }),
+  );
+  const done: Researched[] = [];
+  for (const s of o.need) {
+    const r = firstRound.get(s.n) ?? { said: "", pages: 0 };
+    const notes = await sectionNotes(s.n);
+    done.push({
+      n: s.n,
+      heading: s.heading,
+      notes: notes.length,
+      pages: r.pages,
+      said: r.said,
+      sites: sitesOf(notes).length,
+    });
+  }
+
+  // Saturate: a section standing on fewer than three independent sources
+  // gets one more researcher, told which publishers it already has. A second
+  // round that finds no new source is the stop — the section has what the
+  // free sources hold, and the writer is told so.
+  const thin = done.filter((d) => (d.sites ?? 0) < RESEARCHER_MIN_SOURCES);
+  const inTime = () => o.until === undefined || Date.now() < o.until;
+  if (thin.length && inTime() && !(await ctx.stop?.())) {
+    const before = new Map<number, { notes: number; sites: string[] }>();
+    for (const d of thin) {
+      const notes = await sectionNotes(d.n);
+      before.set(d.n, { notes: notes.length, sites: sitesOf(notes) });
+    }
+    ctx.emit({
+      type: "activity",
+      text: `Too few independent sources in ${thin.map((d) => `§${d.n}`).join(", ")}: ${thin.length === 1 ? "a second researcher looks" : "second researchers look"} for others`,
+    });
+    const second = await round(thin, (section, reader) => {
+      const had = before.get(section.n) ?? { notes: 0, sites: [] };
+      return runResearcher({
+        ...o,
+        reader,
+        ctx: shared,
+        section,
+        views,
+        steps: DIVERSIFY_STEPS,
+        brief: diversifyBrief(o.question, o.all, section, had, views),
+        seen: new Set(had.sites),
+        tag: "d",
+      });
+    });
+    for (const d of thin) {
+      const had = before.get(d.n) ?? { notes: 0, sites: [] };
+      const notes = await sectionNotes(d.n);
+      const sites = sitesOf(notes);
+      const r = second.get(d.n);
+      d.notes = notes.length;
+      d.pages += r?.pages ?? 0;
+      d.sites = sites.length;
+      d.widened = {
+        notes: notes.length - had.notes,
+        sites: sites.filter((x) => !had.sites.includes(x)).length,
+        said: r?.said ?? "",
+      };
+    }
+  }
+  return teamReport(
+    done.sort((a, b) => a.n - b.n),
+    { revise: !!o.revise && inTime() },
+  );
+}
+
+/** Notes are filed by section number, so a revised outline must keep each
+ *  section that has notes at its number: renamed in place is fine, moved or
+ *  dropped would file its notes under another section. Null when the
+ *  revision is safe; otherwise what to do instead. */
+export function outlineMoves(
+  before: string,
+  sections: OutlineSection[],
+  notes: Array<{ section: number | null }>,
+): string | null {
+  const count = new Map<number, number>();
+  for (const x of notes) if (x.section) count.set(x.section, (count.get(x.section) ?? 0) + 1);
+  if (!count.size) return null;
+  const plain = (h: string) =>
+    h
+      .replace(/^(?:section\s+)?\d+\s*[.):–-]\s*/i, "")
+      .trim()
+      .toLowerCase();
+  const now = sections.map((s) => plain(s.heading));
+  for (const old of sectionsOf(before)) {
+    const k = count.get(old.n);
+    if (!k) continue;
+    const at = now.indexOf(plain(old.heading));
+    if (old.n > sections.length || (at >= 0 && at + 1 !== old.n))
+      return `Not revised: section ${old.n} ("${old.heading}") has ${k} ${k === 1 ? "note" : "notes"}, filed under its number. Keep it at number ${old.n} (rename it in place if it should say something else) and add new sections after the last.`;
+  }
+  return null;
+}
+
+/** One cheap call before the researchers go: who would see this question
+ *  differently, and which sections each bears on (team.ts). */
+async function perspectives(
+  o: {
+    ctx: ToolContext;
+    question: string;
+    all: Array<{ n: number; heading: string }>;
+    onStep: (m: Anthropic.Beta.BetaMessage, model: EngineId) => Promise<void>;
+  },
+  reader: EngineId,
+): Promise<Perspectives | null> {
+  const m = await workersStep(
+    o.ctx.env,
+    reader,
+    "You plan research. Reply only in the form asked, with no other text.",
+    [],
+    [{ role: "user", content: perspectivesPrompt(o.question, o.all) }],
+    undefined,
+    `${o.ctx.draftId}-views`,
+  );
+  await o.onStep(m, reader);
+  const text = m.content
+    .filter((b) => b.type === "text")
+    .map((b) => (b as { text: string }).text)
+    .join("\n");
+  return parsePerspectives(text, o.all);
 }
 
 async function runResearcher(o: {
@@ -1148,10 +1303,19 @@ async function runResearcher(o: {
   section: { n: number; heading: string };
   tools: Anthropic.Beta.BetaToolUnion[];
   onStep: (m: Anthropic.Beta.BetaMessage, model: EngineId) => Promise<void>;
+  views?: Perspectives;
+  /** The second round's: fewer steps, its own brief, the sites the section
+   *  already stands on, and its own session ("d" rather than "s"). */
+  steps?: number;
+  brief?: string;
+  seen?: Set<string>;
+  tag?: string;
 }): Promise<{ said: string; pages: Set<string> }> {
   const { ctx, section } = o;
+  const steps = o.steps ?? RESEARCHER_STEPS;
+  const readOnlyFrom = steps - (RESEARCHER_STEPS - RESEARCHER_READ_ONLY_FROM);
   const history: Message[] = [
-    { role: "user", content: researcherBrief(o.question, o.all, section) },
+    { role: "user", content: o.brief ?? researcherBrief(o.question, o.all, section, o.views) },
   ];
   const pages = new Set<string>();
   let said = "";
@@ -1159,20 +1323,20 @@ async function runResearcher(o: {
   // message's whole allowance and leave the writer nothing.
   let searches = 0;
   let noted = 0;
-  const notedSites = new Set<string>();
+  const notedSites = new Set<string>(o.seen ?? []);
   const readOnly = o.tools.filter((t) => !SEARCH_TOOLS.has((t as { name: string }).name));
-  for (let step = 0; step < RESEARCHER_STEPS; step++) {
+  for (let step = 0; step < steps; step++) {
     if (step && (await ctx.stop?.())) break;
     if (step) ctx.progress?.send();
-    const searchable = searches < RESEARCHER_SEARCHES && step < RESEARCHER_READ_ONLY_FROM;
+    const searchable = searches < RESEARCHER_SEARCHES && step < readOnlyFrom;
     const m = await workersStep(
       ctx.env,
       o.reader,
-      researcherSystem(),
+      researcherSystem(steps),
       searchable ? o.tools : readOnly,
       history,
       200_000,
-      `${ctx.draftId}-s${section.n}`,
+      `${ctx.draftId}-${o.tag ?? "s"}${section.n}`,
     );
     await o.onStep(m, o.reader);
     const assistant: Message = { role: "assistant", content: m.content as Message["content"] };
@@ -1190,7 +1354,7 @@ async function runResearcher(o: {
     const refusal = uses.map((u) => {
       if (!SEARCH_TOOLS.has(u.name)) return null;
       if (!searchable || searches >= RESEARCHER_SEARCHES)
-        return step >= RESEARCHER_READ_ONLY_FROM
+        return step >= readOnlyFrom
           ? "No more searching in your last steps: read the best pages you have found with web_fetch and note what the writer will need."
           : `Your ${RESEARCHER_SEARCHES} searches for this section are spent. Read the best pages you have found with web_fetch and note what the writer will need.`;
       if (atOnce >= RESEARCHER_SEARCHES_AT_ONCE)
@@ -1232,16 +1396,14 @@ async function runResearcher(o: {
         };
       }),
     );
-    const last = step === RESEARCHER_STEPS - 2;
+    const last = step === steps - 2;
     // Halfway with nothing noted: stop looking, start noting.
-    const half = step === Math.floor(RESEARCHER_STEPS / 2) - 1 && noted === 0;
+    const half = step === Math.floor(steps / 2) - 1 && noted === 0;
     // Before searching stops: notes from too few independent sources (live,
     // a report's 10 to 16 sources depended on which researchers had a good
     // run). One push, while searches remain.
     const narrow =
-      step === RESEARCHER_READ_ONLY_FROM - 2 &&
-      noted > 0 &&
-      notedSites.size < RESEARCHER_MIN_SOURCES;
+      step === readOnlyFrom - 2 && noted > 0 && notedSites.size < RESEARCHER_MIN_SOURCES;
     const say = last
       ? "One step left: note anything else the writer will need, then stop and reply with your two lines."
       : half
@@ -1759,12 +1921,21 @@ async function turn(o: Parameters<typeof runTurn>[0], draft: Draft): Promise<voi
     // A revised outline does not send researchers back to a section they
     // have already covered this message.
     const covered = new Set<string>();
+    // Researchers go out for the outline and, once, for a revision the
+    // evidence called for — and not late in the message (team.ts).
+    let dispatches = 0;
+    const until = turnStartMs + SATURATE_BY_MS;
     ctx.team = async (need, all) => {
       const fresh = need.filter((s) => !covered.has(s.heading.toLowerCase()));
       if (!fresh.length)
         return "Those sections were researched earlier in this message; write them from their notes (list_notes with a section number).";
+      if (dispatches >= MAX_DISPATCHES || (dispatches > 0 && Date.now() > until))
+        return "No more researchers in this message. Write each section from its notes (list_notes with a section number); search yourself only for one gap you can name, and say under Open questions what is still uncovered.";
+      dispatches++;
       for (const s of fresh) covered.add(s.heading.toLowerCase());
       return runTeam({
+        until,
+        revise: dispatches < MAX_DISPATCHES,
         ctx,
         readers: crew.readers ?? [crew.reader],
         question: firstText ?? o.text,

@@ -789,7 +789,12 @@ export async function workersStep(
   const ai = env.AI as unknown as {
     run: (m: string, i: unknown, o?: unknown) => Promise<unknown>;
   };
-  const input = { messages: toChat(system, history, clearAt), tools: toFunctions(tools) };
+  // No tools, no tools field: a plain question (the perspectives call).
+  const fns = toFunctions(tools);
+  const input = {
+    messages: toChat(system, history, clearAt),
+    ...(fns.length ? { tools: fns } : {}),
+  };
   // Workers AI reuses a cached prefix only on the instance that holds it:
   // one conversation, one instance (x-session-affinity). Without it nearly
   // every step was billed as fresh input.
