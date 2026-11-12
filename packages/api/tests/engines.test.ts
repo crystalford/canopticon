@@ -514,7 +514,7 @@ describe("Workers AI's other passing failures", () => {
     waits.length = 0;
     await ask(failing(["8005: Internal server error", "8005: Internal server error"]));
     expect(waits).toHaveLength(2);
-    waits.forEach((w) => expect(w).toBeLessThan(15_000));
+    for (const w of waits) expect(w).toBeLessThan(15_000);
     await expect(
       ask(failing(["8005: Internal server error", "8005: x", "8005: Internal server error"])),
     ).rejects.toThrow(/8005/);
