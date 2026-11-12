@@ -1646,6 +1646,7 @@ app.get("/engine-try", async (c) => {
   const { memorySources, checkReport, citationProblems, figureProblems, writingProblems, rubric } =
     await import("../write/research.ts");
   const { memoryNotes } = await import("../write/notes.ts");
+  const { evidenceProblems } = await import("../write/evidence.ts");
   const { DEFAULT_ENGINE, isWorkersAi, engine } = await import("../write/engines.ts");
   const model = c.req.query("model") ?? DEFAULT_ENGINE;
   // Claude is billed per token on the operator's account: only when asked.
@@ -1802,6 +1803,10 @@ app.get("/engine-try", async (c) => {
             // RUBRIC): words per source, one publisher's share, sentence
             // length, certainty words, summary length, abstract-only sources.
             rubric: kind === "research" ? rubric(body, pages) : undefined,
+            // Each cited sentence against what it cites (evidence.ts): the
+            // figure on the cited page, certainty the kinds of source earn,
+            // Key Findings on one publisher; and the sources by kind.
+            evidence: kind === "research" ? evidenceProblems(body, kept, pages) : undefined,
             repeated: Math.round(repeatedShare(body) * 1000) / 1000,
             // The reviewers' flags, and how many sentences changed after.
             review: (done?.meta.review ?? []).map((f) => ({

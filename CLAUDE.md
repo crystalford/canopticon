@@ -305,7 +305,20 @@
   `outlineMoves` refuses a revision that would move or drop a section with
   notes (notes are filed by number — rename in place, add after the last).
   Neither a second round nor a re-dispatch starts past nine minutes
-  (`SATURATE_BY_MS`). **Then the reviewers** (`runReview`, once per conversation,
+  (`SATURATE_BY_MS`). **Phase 2, the evidence checks** (`write/evidence.ts`,
+  no model, nothing billed; advisory, told to the writer on every
+  `write_section`, reported by `engine-try` as `evidence` and as "What the
+  evidence carries" in the engine test): every cited sentence of the Key
+  Findings and Details is checked for **a figure not on any page it cites**
+  (naming the listed source, or the page read and never noted, that does
+  give it — a figure on no page at all is `figureProblems`'), **certainty
+  above its evidence** (the IPCC scale's top terms or GRADE's strong verbs
+  resting only on news, preprints, encyclopedias or other pages, or on one
+  publisher), and **Key Findings on one publisher**. A source's kind —
+  official, systematic review, peer-reviewed study, university or scholarly
+  page, book, preprint, news, encyclopedia, other — is read from its address
+  and title by plain rules (`sourceKind`), and the cited sources are counted
+  by kind. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a

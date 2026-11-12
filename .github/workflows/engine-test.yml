@@ -127,6 +127,12 @@ jobs:
             echo "|---|---|---|---|---|---|---|---|---|---|---|"
             jq -r '.[] | select(.report.rubric) | "| \(.model|sub("@cf/";"")) | \(.eval) | \(.report.rubric.sources) | \(.report.rubric.wordsPerSource) | \(if .report.rubric.topPublisher then "\(.report.rubric.topPublisher.sources) of \(.report.rubric.sources)" else "—" end) | \(.report.rubric.meanSentenceWords) | \((.report.rubric.longSentenceShare * 100) | floor)% | \(.report.rubric.tldrWords) | \(.report.writing.repeatedFacts // [] | length) | \(.report.writing.uncitedFacts // [] | length) | \(.report.writing.voice // [] | length) |"' "ops/eval/${STAMP}.json"
             echo
+            echo "### What the evidence carries"
+            echo
+            echo "| Model | Task | Figures not on the cited page | Certainty above its evidence | Key Findings on one publisher | Sources by kind |"
+            echo "|---|---|---|---|---|---|"
+            jq -r '.[] | select(.report.evidence) | "| \(.model|sub("@cf/";"")) | \(.eval) | \(.report.evidence.misplacedFigures | length) | \(.report.evidence.overcertain | length) | \(.report.evidence.onePublisherFindings | length) | \(.report.evidence.profile | to_entries | sort_by(-.value) | map("\(.value) \(.key)") | join(", ")) |"' "ops/eval/${STAMP}.json"
+            echo
             echo "## Verdict"
             echo
             jq -r '

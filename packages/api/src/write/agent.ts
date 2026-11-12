@@ -36,6 +36,7 @@ import {
   workersStep,
 } from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
+import { describeEvidence, evidenceProblems } from "./evidence";
 import {
   describeRelated,
   doiOf,
@@ -924,7 +925,8 @@ async function runTool(
       const figures =
         describeFigures(figureProblems(body, kept)) +
         describeWriting(writingProblems(body)) +
-        describeRubric(rubric(body, kept));
+        describeRubric(rubric(body, kept)) +
+        describeEvidence(evidenceProblems(body, notes, kept));
       // Every Details section written: the reviewers read them now, once.
       if (t.review && !left.some((h) => /^\d+\. /.test(h))) {
         const said = await t.review();
