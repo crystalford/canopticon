@@ -776,6 +776,8 @@ export function gate(model: string): Gate {
 export function setSleep(f: (ms: number) => Promise<void>) {
   sleep = f;
 }
+/** A wait the tests can skip (setSleep). */
+export const pause = (ms: number) => sleep(ms);
 
 export async function workersStep(
   env: Env,
@@ -813,11 +815,25 @@ export async function workersStep(
         g.fine();
         return r;
       } catch (err) {
-        const busy = /\b3021\b|rate limit/i.test(String(err));
+        // 3040 is the model's capacity, not our rate: the same wait as the
+        // rate limit (engine test 2026-11-12 09:56 — eight of eleven
+        // researchers died on 3040 or 8005, and their one retry, started at
+        // once, failed again within seconds with no notes).
+        const busy = /\b30(21|40)\b|rate limit|capacity temporarily exceeded/i.test(String(err));
         const slow = /\b3046\b|request timeout/i.test(String(err));
+        const broken = /\b8005\b|internal server error/i.test(String(err));
         if (busy) g.busy();
-        if (!(busy && attempt < RETRY_WAITS.length) && !(slow && attempt < 1)) throw err;
-        wait = busy ? (RETRY_WAITS[attempt] ?? 60_000) + Math.random() * 5_000 : 2_000;
+        if (
+          !(busy && attempt < RETRY_WAITS.length) &&
+          !(slow && attempt < 1) &&
+          !(broken && attempt < 2)
+        )
+          throw err;
+        wait = busy
+          ? (RETRY_WAITS[attempt] ?? 60_000) + Math.random() * 5_000
+          : broken
+            ? 5_000 + Math.random() * 10_000
+            : 2_000;
       } finally {
         g.leave();
       }

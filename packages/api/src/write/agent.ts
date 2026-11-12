@@ -30,6 +30,7 @@ import {
   engine as engineOf,
   isWorkersAi,
   messageCapCents,
+  pause,
   readPage,
   webSearch,
   workersModel,
@@ -1083,6 +1084,10 @@ function oneAtATime(n: NoteStore): NoteStore {
   };
 }
 
+/** A stopped researcher waits this long, and up to as long again, before
+ *  its second go. */
+const RETRY_AFTER_MS = 20_000;
+
 async function runTeam(o: {
   ctx: ToolContext;
   /** Researchers take these models in turn: each model has its own
@@ -1157,6 +1162,9 @@ async function runTeam(o: {
             type: "activity",
             text: `§${s.n} stopped (${r.said.slice(9, 90)}); trying again`,
           });
+          // Not at once: what stopped it (the model's capacity, most often)
+          // is still there a second later.
+          await pause(RETRY_AFTER_MS + Math.random() * RETRY_AFTER_MS);
           queue.push(s);
           continue;
         }

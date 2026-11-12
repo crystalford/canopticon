@@ -486,6 +486,42 @@ describe("Workers AI's limits", () => {
   });
 });
 
+describe("Workers AI's other passing failures", () => {
+  it("waits out the model's capacity like the rate limit, and an internal error twice", async () => {
+    const { workersStep, setSleep, RETRY_WAITS } = await import("../src/write/engines");
+    const waits: number[] = [];
+    setSleep(async (ms) => {
+      waits.push(ms);
+    });
+    const ok = {
+      choices: [{ message: { role: "assistant", content: "Fine." }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
+    };
+    const failing = (errors: string[]) =>
+      ({
+        AI: {
+          run: async () => {
+            const e = errors.shift();
+            if (e) throw new Error(e);
+            return ok;
+          },
+        },
+      }) as unknown as Env;
+    const ask = (env: Env) =>
+      workersStep(env, "@cf/x/cap", "sys", [], [{ role: "user", content: "Hi" }]);
+    await ask(failing(["3040: Capacity temporarily exceeded, please try again."]));
+    expect(waits[0]).toBeGreaterThanOrEqual(RETRY_WAITS[0] ?? 0);
+    waits.length = 0;
+    await ask(failing(["8005: Internal server error", "8005: Internal server error"]));
+    expect(waits).toHaveLength(2);
+    waits.forEach((w) => expect(w).toBeLessThan(15_000));
+    await expect(
+      ask(failing(["8005: Internal server error", "8005: x", "8005: Internal server error"])),
+    ).rejects.toThrow(/8005/);
+    setSleep((ms) => new Promise((r) => setTimeout(r, ms)));
+  });
+});
+
 describe("the per-model gate", () => {
   it("lets a few requests run at once, and fewer after Workers AI says too many", async () => {
     const { workersStep, setSleep, gate } = await import("../src/write/engines");

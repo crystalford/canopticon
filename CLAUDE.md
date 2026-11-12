@@ -318,7 +318,13 @@
   official, systematic review, peer-reviewed study, university or scholarly
   page, book, preprint, news, encyclopedia, other — is read from its address
   and title by plain rules (`sourceKind`), and the cited sources are counted
-  by kind. **Then the reviewers** (`runReview`, once per conversation,
+  by kind. **First run of Phase 1** (`ops/eval/2026-11-12-0956.md`): both
+  pass, 18–21 min, $0.96; perspectives named real stakeholders; but eight
+  of eleven first-round researchers died on Workers AI's **3040 (capacity
+  exceeded) and 8005 (internal error)** and their retry, started at once,
+  failed again — so `workersStep` now waits out 3040 like the rate limit
+  and retries 8005 twice, and a stopped researcher waits 20–40 s
+  (`RETRY_AFTER_MS`) before its second go. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a

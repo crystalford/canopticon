@@ -344,6 +344,11 @@ describe("the reviewers", () => {
 
 describe("a researcher Workers AI stops", () => {
   it("is tried once more, and the stop is said in the chat", async () => {
+    const { setSleep } = await import("../src/write/engines");
+    const waits: number[] = [];
+    setSleep(async (ms) => {
+      waits.push(ms);
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -407,6 +412,9 @@ describe("a researcher Workers AI stops", () => {
     });
     expect(events.some((e) => /§1 stopped .*trying again/.test(e.text ?? ""))).toBe(true);
     expect((await notes.list(d.id)).map((n) => n.section)).toEqual([1]);
+    // Not at once: twenty to forty seconds later.
+    expect(waits.some((w) => w >= 20_000 && w < 40_000)).toBe(true);
+    setSleep((ms) => new Promise((r) => setTimeout(r, ms)));
   });
 });
 
