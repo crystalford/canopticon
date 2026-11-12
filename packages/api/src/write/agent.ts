@@ -109,6 +109,7 @@ import {
   ENOUGH_NOTES,
   FLAG_TOOL,
   MAX_DISPATCHES,
+  MAX_NOTES_PER_PAGE,
   MAX_RESEARCHERS,
   type Perspectives,
   RESEARCHER_MIN_SOURCES,
@@ -1243,9 +1244,12 @@ async function runTeam(o: {
       };
     }
   }
+  const sources = shared.notes
+    ? new Set((await shared.notes.list(ctx.draftId)).map((x) => x.url)).size
+    : 0;
   return teamReport(
     done.sort((a, b) => a.n - b.n),
-    { revise: !!o.revise && inTime() },
+    { revise: !!o.revise && inTime(), sources },
   );
 }
 
@@ -1334,6 +1338,17 @@ async function runResearcher(o: {
   let searches = 0;
   let noted = 0;
   const notedSites = new Set<string>(o.seen ?? []);
+  // Notes per page in this section, counting what an earlier researcher
+  // noted: one page is one voice (team.ts MAX_NOTES_PER_PAGE).
+  const perPage = new Map<string, number>();
+  const pageKey = (url: string) =>
+    url
+      .trim()
+      .replace(/[#?].*$/, "")
+      .replace(/\/+$/, "");
+  for (const x of ctx.notes ? await ctx.notes.list(ctx.draftId) : [])
+    if (x.section === section.n)
+      perPage.set(pageKey(x.url), (perPage.get(pageKey(x.url)) ?? 0) + 1);
   const readOnly = o.tools.filter((t) => !SEARCH_TOOLS.has((t as { name: string }).name));
   for (let step = 0; step < steps; step++) {
     if (step && (await ctx.stop?.())) break;
@@ -1373,6 +1388,9 @@ async function runResearcher(o: {
       searches++;
       return null;
     });
+    // Notes in one step run one after another, so the per-page count is
+    // the count of notes that went in, not of notes asked for.
+    let notesInOrder: Promise<unknown> = Promise.resolve();
     const results = await Promise.all(
       uses.map(async (u, i) => {
         // Only reading and noting; every note goes under this section.
@@ -1382,14 +1400,33 @@ async function runResearcher(o: {
             ? { ...(u.input as Record<string, unknown>), section: section.n }
             : u.input;
         const refused = refusal[i];
+        const run = () =>
+          runTool(u.name, input, { ...ctx, toolUseId: u.id }).catch((e: Error) => ({
+            text: `Failed: ${e.message}`,
+            error: true,
+          }));
+        const note = async () => {
+          const key = pageKey(String((u.input as { url?: unknown })?.url ?? ""));
+          const had = perPage.get(key) ?? 0;
+          if (had >= MAX_NOTES_PER_PAGE)
+            return {
+              text: `Not noted: this section already has ${had} notes from that page. One page is one voice — note what a different source says (another institution, or another kind: official data, a study, an evaluation, the strongest dissent), or follow the RELATED WORK a paper's page lists.`,
+              error: true,
+            };
+          const done = await run();
+          if (!done.error) perPage.set(key, had + 1);
+          return done;
+        };
         const r = refused
           ? { text: refused, error: true }
-          : allowed
-            ? await runTool(u.name, input, { ...ctx, toolUseId: u.id }).catch((e: Error) => ({
-                text: `Failed: ${e.message}`,
-                error: true,
-              }))
-            : { text: `A researcher cannot use ${u.name}.`, error: true };
+          : !allowed
+            ? { text: `A researcher cannot use ${u.name}.`, error: true }
+            : u.name === "note_evidence"
+              ? ((await (notesInOrder = notesInOrder.then(note, note))) as {
+                  text: string;
+                  error?: boolean;
+                })
+              : await run();
         if (u.name === "note_evidence" && !r.error) {
           noted++;
           notedSites.add(siteOf(String((u.input as { url?: unknown }).url ?? "")));

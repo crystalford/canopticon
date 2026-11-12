@@ -336,7 +336,15 @@
   small journals' hosts count as studies, IZA/CEPR papers as preprints,
   and a Key Finding that names its source ("Logan and Iseri state…",
   "per Statistics Canada", "Wolfson concludes") is not flagged as resting
-  on one publisher (8 → 2 and 6 → 3 on that run). **Then the reviewers** (`runReview`, once per conversation,
+  on one publisher (8 → 2 and 6 → 3 on that run). **Breadth, pushed**
+  (2026-11-12): a section needs **four** independent sources
+  (`RESEARCHER_MIN_SOURCES`, was three — so the second round runs below
+  four); **one page gives a section at most three notes**
+  (`MAX_NOTES_PER_PAGE`; the fourth is refused with where to look instead;
+  notes in one step are checked in order, so a failed note takes no slot);
+  and the team's report tells the writer **length follows the evidence**:
+  the notes' source count × 250 words (`WORDS_PER_SOURCE`) across the
+  Details, thin sections short and saying what is missing. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a

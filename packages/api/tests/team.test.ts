@@ -551,7 +551,7 @@ describe("a team with two reader models", () => {
     });
     const all = JSON.stringify(seen.at(-1));
     expect(all).toContain(
-      "Your notes come from 1 source; this section needs at least 3 independent ones",
+      "Your notes come from 1 source; this section needs at least 4 independent ones",
     );
   });
 });

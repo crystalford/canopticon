@@ -111,6 +111,9 @@ describe("the writer's report", () => {
     expect(teamReport([{ ...base, n: 1 }], { revise: true })).toContain(
       "revise it once with write_outline",
     );
+    expect(teamReport([{ ...base, n: 1 }], { sources: 14 })).toContain(
+      "The notes come from 14 sources in all. Length follows the evidence: about 250 words of Details per source, so about 3,500 words",
+    );
   });
 });
 
@@ -267,5 +270,84 @@ describe("a team that saturates", () => {
     // Moving a section with notes is refused; a third dispatch is refused.
     expect(all).toContain('Not revised: section 1 (\\"What happened?\\") has 2 notes');
     expect(all).toContain("No more researchers in this message");
+  });
+});
+
+describe("one page is one voice", () => {
+  it("refuses a section's fourth note from the same page and says where to look", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        /p1\.example/.test(url)
+          ? new Response(
+              `<p>${["One fact stated here.", "Two fact stated here.", "Three fact stated here.", "Four fact stated here."].join(" ").repeat(10)}</p>`,
+              { headers: { "content-type": "text/html" } },
+            )
+          : new Response("{}", { headers: { "content-type": "application/json" } }),
+      ),
+    );
+    const writer: unknown[] = [
+      reply(null, [
+        [
+          "o1",
+          "write_outline",
+          { title: "T", topic: "X", sections: [{ heading: "What?", words: 400 }] },
+        ],
+      ]),
+      reply("Done."),
+    ];
+    const note = (k: number, word: string): [string, string, unknown] => [
+      `n${k}`,
+      "note_evidence",
+      { url: "https://p1.example/a", quote: `${word} fact stated here.`, claim: `Claim ${k}` },
+    ];
+    const s1 = [
+      reply(null, [["f1", "web_fetch", { url: "https://p1.example/a" }]]),
+      // A note whose words are not on the page fails and takes no slot.
+      reply(null, [
+        note(0, "Zero"),
+        note(1, "One"),
+        note(2, "Two"),
+        note(3, "Three"),
+        note(4, "Four"),
+      ]),
+      reply("Done."),
+    ];
+    let last: unknown[] = [];
+    const env = {
+      LOG_LEVEL: "error",
+      AI: {
+        run: async (
+          _m: string,
+          input: { messages: unknown[] },
+          opts?: { headers?: Record<string, string> },
+        ) => {
+          const session = opts?.headers?.["x-session-affinity"] ?? "";
+          if (/-views$/.test(session)) return reply("No.");
+          if (/-d\d$/.test(session)) return reply("Found no other source.");
+          if (!/-s1$/.test(session)) return writer.shift();
+          last = input.messages;
+          return s1.shift() ?? reply("Done.");
+        },
+      },
+    } as unknown as Env;
+    const store = memoryDrafts();
+    const notes = memoryNotes();
+    const d = await store.create("research");
+    await store.save(d.id, { meta: { ...d.meta, engine: "team:flash" } });
+    await runTurn({
+      stream: null,
+      env,
+      store,
+      sources: memorySources(),
+      notes,
+      draftId: d.id,
+      text: "What?",
+      emit: () => {},
+    });
+    expect((await notes.list(d.id)).map((n) => n.claim)).toEqual(["Claim 1", "Claim 2", "Claim 3"]);
+    expect(JSON.stringify(last)).toContain(
+      "already has 3 notes from that page. One page is one voice",
+    );
   });
 });
