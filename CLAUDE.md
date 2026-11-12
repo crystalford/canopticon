@@ -324,7 +324,19 @@
   exceeded) and 8005 (internal error)** and their retry, started at once,
   failed again — so `workersStep` now waits out 3040 like the rate limit
   and retries 8005 twice, and a stopped researcher waits 20–40 s
-  (`RETRY_AFTER_MS`) before its second go. **Then the reviewers** (`runReview`, once per conversation,
+  (`RETRY_AFTER_MS`) before its second go. **Re-run with the fix**
+  (`ops/eval/2026-11-12-1106.md`): no researcher stopped, all ten came
+  back with notes, both pass in 20–21 min, $1.24; McLuhan 5,846 words, 46
+  quotations, 13 sources (the second round ran for two sections); the
+  thesis 6,791 words, 53 quotations, 19 sources (14 before), "said again"
+  7 and sentences 28.9 words — runs vary. 0 figures off their cited page,
+  0 certainty above its evidence. Words per source 426 and 341 against a
+  bar of 250: breadth is still the open problem. That run also tuned the
+  checks: Open Journal Systems paths (`/index.php/<journal>/article/`) and
+  small journals' hosts count as studies, IZA/CEPR papers as preprints,
+  and a Key Finding that names its source ("Logan and Iseri state…",
+  "per Statistics Canada", "Wolfson concludes") is not flagged as resting
+  on one publisher (8 → 2 and 6 → 3 on that run). **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a

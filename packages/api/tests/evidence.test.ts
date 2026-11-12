@@ -32,6 +32,18 @@ describe("what kind of source a page is", () => {
     // An archived copy counts as the site it copied.
     expect(sourceKind("https://web.archive.org/web/2020/https://www.cbc.ca/news/x")).toBe("news");
     expect(sourceKind("https://someblog.example/post")).toBe("other");
+    // Small journals: Open Journal Systems paths and known journal hosts.
+    expect(
+      sourceKind(
+        "https://web.archive.org/web/2019/https://www.cjc-online.ca/index.php/journal/article/view/1046/952",
+      ),
+    ).toBe("study");
+    expect(sourceKind("https://dl.digra.org/index.php/dl/article/download/264/264")).toBe("study");
+    expect(sourceKind("http://dhs.ff.untz.ba/index.php/home/article/download/12139/857")).toBe(
+      "study",
+    );
+    expect(sourceKind("https://gamestudies.org/0802/articles/tyler")).toBe("study");
+    expect(sourceKind("https://docs.iza.org/dp14178.pdf")).toBe("preprint");
   });
 });
 
@@ -102,6 +114,30 @@ describe("the evidence checks", () => {
     expect(said).toContain("CERTAINTY ABOVE ITS EVIDENCE (2)");
     expect(said).toContain("KEY FINDINGS ON ONE PUBLISHER (2)");
     expect(said).toContain("Your cited sources by kind: 2 official, 1 news.");
+  });
+  it("leaves alone a Key Finding that says whose finding it is", () => {
+    const attributed = evidenceProblems(
+      [
+        "## Key Findings",
+        "",
+        "- Logan and Iseri state the laws apply to every artefact [1].",
+        "- Rents rose 4.2 per cent, per Statistics Canada [1].",
+        "- Katz and Katz report that McLuhan tried to test them [1].",
+        "- Rents rose 4.2 per cent [1].",
+        "",
+        "## Details",
+        "",
+        "### 1. A",
+        "",
+        "Text [2]. More [3].",
+        "",
+        "## Sources",
+        "",
+      ].join("\n"),
+      notes,
+      pages,
+    );
+    expect(attributed.onePublisherFindings).toEqual(["Rents rose 4.2 per cent [1]."]);
   });
   it("says nothing of a sound report but its sources", () => {
     const sound = evidenceProblems(

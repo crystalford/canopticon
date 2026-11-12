@@ -60,11 +60,18 @@ export const KIND_LABEL: Record<SourceKind, string> = {
 const OFFICIAL =
   /(^|\.)(gov|mil)(\.[a-z]{2})?$|\.gc\.ca$|\.gov\.[a-z]{2,3}$|\.gouv\.[a-z]{2}$|\.gob\.[a-z]{2}$|\.govt\.nz$|\.go\.(jp|kr|th|id)$|(^|\.)(canada|ontario|quebec|alberta|manitoba|saskatchewan|novascotia|gnb|princeedwardisland)\.ca$|(^|\.)(gov\.bc|gov\.nl|gov\.nt|gov\.nu|gov\.yk)\.ca$|(^|\.)statcan\.gc\.ca$|(^|\.)(europa\.eu|who\.int|oecd\.org|worldbank\.org|imf\.org|un\.org|unesco\.org|ilo\.org|wto\.org|bis\.org|bankofcanada\.ca|parl\.ca|ourcommons\.ca|sencanada\.ca|legislation\.gov\.uk|ons\.gov\.uk)$|\.int$/;
 const PREPRINT =
-  /(^|\.)(arxiv\.org|ssrn\.com|osf\.io|medrxiv\.org|biorxiv\.org|nber\.org|researchsquare\.com|preprints\.org|ideas\.repec\.org|econpapers\.repec\.org|socarxiv\.org|psyarxiv\.com)$/;
+  /(^|\.)(arxiv\.org|ssrn\.com|osf\.io|medrxiv\.org|biorxiv\.org|nber\.org|researchsquare\.com|preprints\.org|ideas\.repec\.org|econpapers\.repec\.org|socarxiv\.org|psyarxiv\.com|iza\.org|docs\.iza\.org|cepr\.org|nber\.org|brookings\.edu)$/;
 const STUDY =
   /(^|\.)(doi\.org|sciencedirect\.com|springer\.com|link\.springer\.com|wiley\.com|onlinelibrary\.wiley\.com|tandfonline\.com|jstor\.org|nature\.com|sagepub\.com|academic\.oup\.com|cambridge\.org|ncbi\.nlm\.nih\.gov|pubmed\.ncbi\.nlm\.nih\.gov|europepmc\.org|plos\.org|journals\.plos\.org|bmj\.com|thelancet\.com|jamanetwork\.com|nejm\.org|frontiersin\.org|mdpi\.com|muse\.jhu\.edu|cmaj\.ca|utpjournals\.press|annualreviews\.org|science\.org|pnas\.org|aeaweb\.org|cdnsciencepub\.com|elifesciences\.org|biomedcentral\.com|hindawi\.com|dl\.acm\.org|ieeexplore\.ieee\.org|emerald\.com|degruyter\.com|karger\.com|liebertpub\.com|healthaffairs\.org|journals\.uchicago\.edu|journals\.sagepub\.com|doaj\.org|scielo\.org|semanticscholar\.org)$/;
 const ACADEMIC =
   /(^|\.)edu(\.[a-z]{2})?$|\.ac\.[a-z]{2}$|(^|\.)(utoronto|ubc|mcgill|uwaterloo|queensu|ualberta|yorku|uottawa|sfu|dal|usask|umanitoba|uvic|carleton|concordia|mcmaster|uwo|umontreal|ulaval)\.ca$|(^|\.)(plato\.stanford\.edu|iep\.utm\.edu)$/;
+/** Open Journal Systems, the software most small journals run on:
+ *  /index.php/<journal>/article/… (live: the Canadian Journal of
+ *  Communication, DiGRA's proceedings and a university journal had all
+ *  been counted as "other"). */
+const JOURNAL_PATH = /\/index\.php\/[^/]+\/(?:article|dl\/article)\/|\/index\.php\/dl\/article\//i;
+const JOURNAL_HOST =
+  /(^|\.)(cjc-online\.ca|gamestudies\.org|dl\.digra\.org|journals\.openedition\.org|ojs\.[a-z.]+|erudit\.org|persee\.fr|scholarsportal\.info|projecteuclid\.org|jmir\.org|aclanthology\.org|openreview\.net|proceedings\.mlr\.press)$/;
 const BOOK = /(^|\.)(openlibrary\.org|books\.google\.[a-z.]+|gutenberg\.org)$/;
 const NEWS =
   /(^|\.)(nytimes\.com|washingtonpost\.com|theguardian\.com|bbc\.co\.uk|bbc\.com|cbc\.ca|theglobeandmail\.com|thestar\.com|nationalpost\.com|reuters\.com|apnews\.com|bloomberg\.com|ft\.com|wsj\.com|economist\.com|cnn\.com|npr\.org|politico\.com|politico\.eu|theatlantic\.com|newyorker\.com|vox\.com|axios\.com|ctvnews\.ca|globalnews\.ca|macleans\.ca|latimes\.com|usatoday\.com|independent\.co\.uk|telegraph\.co\.uk|aljazeera\.com|theconversation\.com|thetyee\.ca|torontolife\.com|financialpost\.com|businessinsider\.com|forbes\.com|time\.com|wired\.com|theverge\.com|nbcnews\.com|cbsnews\.com|abcnews\.go\.com|foxnews\.com|lapresse\.ca|ledevoir\.com|radio-canada\.ca|thehill\.com|slate\.com|salon\.com|vice\.com|huffpost\.com|lemonde\.fr|spiegel\.de|scmp\.com|smh\.com\.au|thenarwhal\.ca|cp24\.com|citynews\.ca|torontosun\.com|vancouversun\.com|calgaryherald\.com|ottawacitizen\.com|montrealgazette\.com|edmontonjournal\.com)$/;
@@ -81,7 +88,7 @@ export function sourceKind(url: string, title?: string | null): SourceKind {
   if (REFERENCE.test(site)) return "reference";
   if (OFFICIAL.test(site)) return "official";
   if (PREPRINT.test(site) || /working paper|discussion paper|preprint/.test(t)) return "preprint";
-  if (STUDY.test(site)) return "study";
+  if (STUDY.test(site) || JOURNAL_PATH.test(url) || JOURNAL_HOST.test(site)) return "study";
   if (BOOK.test(site) || /^archive\.org$/.test(site)) return "book";
   if (ACADEMIC.test(site)) return "academic";
   if (NEWS.test(site)) return "news";
@@ -92,6 +99,28 @@ export function sourceKind(url: string, title?: string | null): SourceKind {
  *  strong verbs). */
 const STRONG =
   /\b(virtually certain|extremely likely|very likely|demonstrat(?:es|ed|ing)|establish(?:es|ed)|prov(?:es|ed|en)|conclusive(?:ly)?|definitive(?:ly)?|beyond (?:reasonable )?doubt|confirm(?:s|ed)|settled)\b/i;
+
+/** A finding that says whose it is ("Logan and Iseri state…", "per
+ *  Statistics Canada", "Katz and Katz report…") is honest about standing on
+ *  one source; only an unattributed one is flagged (live, eight of eight
+ *  McLuhan findings were flagged, most of them attributed). */
+const ATTRIBUTED_TO = /\b(?:according to|per|citing|cited by)\s+(?:the\s+)?[A-Z][\w'’.-]+/;
+/** A named source: two capitalised words ("Statistics Canada", "Low Pay
+ *  Commission"), names joined by "and", or a possessive ("the UK's"). */
+const NAMED =
+  /\b[A-Z][\w'’.-]+(?:\s+(?:and|&|of|the)?\s*[A-Z][\w'’.-]+)+|\b[A-Z][\w.-]*(?:'s|’s)\b/;
+const REPORTING =
+  /\b(?:report|reports|reported|state|states|stated|find|finds|found|argue|argues|argued|write|writes|wrote|say|says|said|show|shows|showed|estimate|estimates|estimated|read|reads|conclude|concludes|concluded|note|notes|noted|count|counts|counted|describe|describes|described|call|calls|called|attribute|attributes|attributed|extend|extends|extended|concede|concedes|conceded|record|records|recorded|put|puts|give|gives|gave|measure|measures|measured|claimed|propose|proposes|proposed)\b/;
+/** A surname straight before its verb ("Wolfson concludes") counts too. */
+const NAME_THEN_VERB = new RegExp(`\\b[A-Z][\\w'’.-]+(?:'s|’s)?\\s+${REPORTING.source}`);
+const attributed = (sentence: string) => {
+  const s = sentence.replace(/[*_`]/g, "");
+  return (
+    (ATTRIBUTED_TO.test(s) && NAMED.test(s)) ||
+    (NAMED.test(s) && REPORTING.test(s)) ||
+    NAME_THEN_VERB.test(s)
+  );
+};
 
 /** A figure a reader checks: separators, a decimal, a percentage, a dollar
  *  amount, or three or more digits (years aside). */
@@ -111,7 +140,8 @@ interface Sentence {
 }
 
 /** Key Findings bullets that cite a source, as sentences. */
-function findingSentences(body: string): Sentence[] {
+function findingSentences(report: string): Sentence[] {
+  const body = `\n${report}`;
   const at = body.indexOf("\n## Key Findings");
   if (at < 0) return [];
   const rest = body.slice(at + "\n## Key Findings".length);
@@ -230,7 +260,12 @@ export function evidenceProblems(
         });
     }
     // A Key Finding on one publisher.
-    if (s.where === "Key Findings" && sites.size >= 3 && new Set(cited.map(siteOf)).size === 1)
+    if (
+      s.where === "Key Findings" &&
+      sites.size >= 3 &&
+      new Set(cited.map(siteOf)).size === 1 &&
+      !attributed(unquoted(s.sentence))
+    )
       onePublisherFindings.push(s.sentence.slice(0, 160));
   }
   return {
