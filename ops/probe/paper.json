@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-11-12T01:13:21Z",
+  "run_id": "43132966399",
+  "method": "GET",
+  "path": "/v1/admin/paper?doi=10.3138/cpp.2019-070",
+  "status": 200,
+  "body": "{\n  \"doi\": \"10.3138/cpp.2019-070\",\n  \"ms\": 388,\n  \"freeText\": null,\n  \"related\": null\n}"
+}
