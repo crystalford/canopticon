@@ -241,6 +241,106 @@ describe("the editing pass", () => {
   });
 });
 
+describe("the editing pass in a turn", () => {
+  it("is asked for once when a finished report still reads long, and shows as activity, not as Chris", async () => {
+    const text =
+      "Housing starts in the Toronto CMA fell 31 percent in 2025, from 37,718 to 26,087, according to CMHC.";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(`<p>${text}</p><p>${"More context. ".repeat(20)}</p>`, {
+            headers: { "content-type": "text/html" },
+          }),
+      ),
+    );
+    const topic = articleTopics()[0] ?? "Housing";
+    const call = (id: string, name: string, args: unknown) => ({
+      id,
+      type: "function",
+      function: { name, arguments: JSON.stringify(args) },
+    });
+    const reply = (calls: unknown[] | null, content: string | null = null) => ({
+      choices: [
+        {
+          message: { role: "assistant", content, ...(calls ? { tool_calls: calls } : {}) },
+          finish_reason: calls ? "tool_calls" : "stop",
+        },
+      ],
+      usage: { prompt_tokens: 1000, completion_tokens: 100 },
+    });
+    const long =
+      "Housing starts in the Toronto metropolitan area, which the national housing agency measures every month from building permits and site visits across the whole region, fell 31 percent in 2025 according to the agency's own annual release for the year [1].";
+    const script = [
+      reply([
+        call("o", "write_outline", {
+          title: "Toronto housing starts",
+          topic,
+          sections: [{ heading: "Did starts fall?", words: 400 }],
+        }),
+      ]),
+      reply([call("f", "web_fetch", { url: "https://cmhc.example/report" })]),
+      reply([
+        call("n1", "note_evidence", {
+          url: "https://cmhc.example/report",
+          quote: "fell 31 percent in 2025, from 37,718 to 26,087",
+          claim: "Starts fell 31% in 2025",
+          section: 1,
+        }),
+      ]),
+      reply([call("s1", "write_section", { part: "1", text: `${long} ${long} ${long}` })]),
+      reply([
+        call("s2", "write_section", {
+          part: "closing",
+          text: "## Open questions\n\nWhether rentals keep rising.",
+        }),
+      ]),
+      reply([
+        call("s3", "write_section", {
+          part: "summary",
+          text: "## TL;DR\n\nStarts fell [1].\n\n## Key Findings\n\n- Down 31% [1].",
+        }),
+      ]),
+      reply(null, "The report is written."),
+      reply(null, "Done."),
+      reply(null, "Done again."),
+    ];
+    const env = {
+      LOG_LEVEL: "error",
+      AI: { run: async () => script.shift() },
+    } as unknown as Env;
+    const store = memoryDrafts();
+    const d = await store.create("research");
+    const events: Array<{ type: string; text?: string }> = [];
+    await runTurn({
+      stream: null,
+      defaultEngine: FLASH,
+      env,
+      store,
+      sources: memorySources(),
+      notes: memoryNotes(),
+      draftId: d.id,
+      text: "Did starts fall?",
+      maxSteps: 14,
+      emit: (e) => events.push(e as never),
+    });
+    const msgs = await store.messages(d.id);
+    const asks = JSON.stringify(msgs).split("One editing pass before you finish").length - 1;
+    // Said once beside the summary's tool result; the turn then ended without
+    // an edit, so it came once more as its own message — and no more.
+    expect(asks).toBe(2);
+    expect(script.map((r) => r.choices[0]?.message.content)).toEqual(["Done again."]);
+    expect(events.filter((e) => e.text?.startsWith("Editing pass:")).length).toBeGreaterThan(0);
+    // In the chat it is an activity line, never "you".
+    const { transcript } = await import("../src/write/agent");
+    const chat = transcript(msgs as never);
+    expect(chat.filter((c) => c.who === "you").map((c) => c.text)).toEqual(["Did starts fall?"]);
+    expect(
+      chat.some((c) => c.who === "activity" && c.text.startsWith("The report is complete.")),
+    ).toBe(true);
+  });
+});
+
 describe("keeping a cheaper model to the workflow", () => {
   it("asks for the outline after a few steps, and for notes after six pages, each once", async () => {
     vi.stubGlobal(

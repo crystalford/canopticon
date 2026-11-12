@@ -1647,6 +1647,7 @@ app.get("/engine-try", async (c) => {
     await import("../write/research.ts");
   const { memoryNotes } = await import("../write/notes.ts");
   const { evidenceProblems } = await import("../write/evidence.ts");
+  const { polishList } = await import("../write/agent.ts");
   const { DEFAULT_ENGINE, isWorkersAi, engine } = await import("../write/engines.ts");
   const model = c.req.query("model") ?? DEFAULT_ENGINE;
   // Claude is billed per token on the operator's account: only when asked.
@@ -1807,6 +1808,8 @@ app.get("/engine-try", async (c) => {
             // figure on the cited page, certainty the kinds of source earn,
             // Key Findings on one publisher; and the sources by kind.
             evidence: kind === "research" ? evidenceProblems(body, kept, pages) : undefined,
+            // What the editing pass would still ask for, once the report is done.
+            polish: kind === "research" ? polishList(body) : undefined,
             repeated: Math.round(repeatedShare(body) * 1000) / 1000,
             // The reviewers' flags, and how many sentences changed after.
             review: (done?.meta.review ?? []).map((f) => ({

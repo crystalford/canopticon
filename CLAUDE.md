@@ -366,7 +366,17 @@
   three or more parts, a long TL;DR, uncited figures, the first person,
   empty certainty words, a short case against — and asks for one
   `edit_draft` pass with no new research (live, a finished thesis had all
-  of these reported after each section and none fixed). **How this was
+  of these reported after each section and none fixed). **It cannot be
+  skipped** (engine test `ops/eval/2026-11-12-2322.md`: both pass, $1.05,
+  the thesis's facts said again 9 → 0 and about 16 of 24 independent, but
+  its sentences averaged 33 words and no edit was made): a finished report
+  the checks still fault, whose writer tries to end, gets the list once
+  more as its own message (marked `FROM_CHECKS`) and one more turn; the
+  chat shows "Editing pass: N things the checks still find". `engine-try`
+  reports what is left as `polish`, the engine test as "Still to fix".
+  Text the code adds — checkpoints beside tool results, the editing pass —
+  shows in the chat as an activity line (`transcript`); it had shown as if
+  Chris had written it. **How this was
   researched** (`write/method.ts`, Phase 3's first receipt): Save to
   Admin appends a section in counts code made — pages read in full,
   passages noted (each checked word for word), sources, publishers and
