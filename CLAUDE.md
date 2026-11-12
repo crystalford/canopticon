@@ -1093,7 +1093,12 @@ stalled the project twice.** Leave it alone.
   served, not secret); never write the operator's email into a file. The
   operator surface relies on Cloudflare Access alone (security audit §1);
   `.github/workflows/access-check.yml` asks each hostname as a stranger
-  and fails if one answers. The engine test is one job running every
+  and fails if one answers. **Its first run found www.canopticon.com open**
+  (Access was bound to the apex only: `/op/export` answered 200 to a
+  stranger, `/v1/admin` to a forged email header), so `src/index.ts` sends
+  every www request to the apex (308, method kept) and the operator surface
+  (`/op`, `/v1/admin`, `/admin`, `/auth`) answers 403 on any hostname but
+  `canopticon.com` (`tests/one-host.test.ts`). The engine test is one job running every
   report in parallel; CI runs on pull requests only, cancelling superseded
   runs. The engine test still costs Workers AI (~$0.50 a report): ask first.
 - Branch convention: `claude/<name>`. Never push to `main` directly; PR + CI +
