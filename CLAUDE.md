@@ -1084,6 +1084,14 @@ stalled the project twice.** Leave it alone.
 - To inspect the live Record, trigger `.github/workflows/canopticon-admin-probe.yml`
   (workflow_dispatch with a `path`); it calls canopticon.com through Cloudflare
   Access and commits the response to `ops/probe/response.json`.
+- **GitHub Actions minutes are a budget** (2026-11-12: the account hit 90%
+  of its monthly minutes, most of it the engine test — one job per task,
+  each waiting ~20 minutes on the live report). The engine test is now one
+  job running every report in parallel (billed for the longest batch, not
+  the sum); CI runs on pull requests only, cancelling superseded runs, not
+  again on the squash to main. Ask before an engine test; prefer two tasks
+  to five; batch small changes into one PR; a probe is ~1 minute. If the
+  minutes run out, deploys stop until the month resets.
 - Branch convention: `claude/<name>`. Never push to `main` directly; PR + CI +
   squash-merge. Branches are reused across PRs, so a designated branch may
   carry a stale tip with no merge base — archive it before force-pushing.

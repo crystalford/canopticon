@@ -1,8 +1,9 @@
 name: CI
 
+# Not on push to main: every change reaches main as a squash of a pull
+# request whose CI already passed on the same tree, and the second run cost
+# Actions minutes for nothing (2026-11-12, the account near its monthly cap).
 on:
-  push:
-    branches: [main, master]
   pull_request:
     branches: [main, master]
   # GitHub deliberately does not fire workflow triggers for events created
@@ -10,6 +11,11 @@ on:
   # all — and "CI is green" then means "CI never ran", which is the more
   # dangerous of the two states because it looks identical on the branch.
   workflow_dispatch:
+
+# A newer push to the same pull request makes the older run pointless.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:

@@ -38,72 +38,56 @@ permissions:
   contents: write
 
 jobs:
-  plan:
+  # One job, every report in parallel inside it: GitHub bills each job's
+  # minutes, and a job per task waiting ~20 minutes on the live report billed
+  # the sum of every report (2026-11-12: the engine tests had used most of
+  # the account's monthly Actions minutes). Now it bills the longest batch.
+  test:
     runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.m.outputs.matrix }}
+    timeout-minutes: 90
     steps:
-      - id: m
-        env:
-          MODELS: ${{ github.event.inputs.models }}
-          TASKS: ${{ github.event.inputs.tasks }}
-        run: |
-          set -euo pipefail
-          jq -cn --arg m "$MODELS" --arg t "$TASKS" '
-            {include: [ ($t | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))[] as $task
-                      | ($m | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))[] as $model
-                      | {model: $model, task: $task} ]}' > m.json
-          echo "matrix=$(cat m.json)" >> "$GITHUB_OUTPUT"
-
-  run:
-    needs: plan
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      # Workers AI limits requests per minute per model across the account:
-      # three research-team runs at once spent 6-14 minutes waiting on it.
-      # Two at a time is close to one person's use.
-      max-parallel: ${{ fromJson(github.event.inputs.parallel || '2') }}
-      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
-    steps:
-      - name: Run one task on one model
+      - uses: actions/checkout@v4
+      - name: Run every task on every model
         env:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-          MODEL: ${{ matrix.model }}
-          TASK: ${{ matrix.task }}
+          MODELS: ${{ github.event.inputs.models }}
+          TASKS: ${{ github.event.inputs.tasks }}
+          # Workers AI limits requests per minute per model across the
+          # account: three research-team runs at once spent 6-14 minutes
+          # waiting on it. Two at a time is close to one person's use.
+          PARALLEL: ${{ github.event.inputs.parallel || '2' }}
           CLAUDE: ${{ github.event.inputs.include_claude == 'true' && '&claude=1' || '' }}
         run: |
           set -uo pipefail
+          mkdir -p results
+          jq -rn --arg m "$MODELS" --arg t "$TASKS" '
+            ($t | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))[] as $task
+            | ($m | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))[] as $model
+            | "\($model) \($task)"' > pairs.txt
+          cat > one.sh <<'SH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+          MODEL="$1"; TASK="$2"
           ENC="$(jq -rn --arg m "$MODEL" '$m|@uri')"
           URL="https://canopticon.com/v1/admin/engine-try?model=${ENC}&eval=${TASK}&steps=100&deadline=1500&follow=2&full=1${CLAUDE}"
           NAME="$(printf '%s-%s' "$MODEL" "$TASK" | tr -c 'a-zA-Z0-9-' '-')"
           curl -sS -m 1600 \
             -H "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}" \
             -H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}" \
-            "$URL" > raw.json || true
-          if ! jq -e .grade raw.json > /dev/null 2>&1; then
-            jq -n --arg m "$MODEL" --arg t "$TASK" --rawfile b raw.json \
-              '{model:$m, eval:($t|tonumber), failed_to_run:true, body:($b|.[0:2000]), grade:{pass:false, misses:["did not run"]}}' > raw.json
+            "$URL" > "results/${NAME}.raw" || true
+          if jq -e .grade "results/${NAME}.raw" > /dev/null 2>&1; then
+            mv "results/${NAME}.raw" "results/${NAME}.json"
+          else
+            jq -n --arg m "$MODEL" --arg t "$TASK" --rawfile b "results/${NAME}.raw" \
+              '{model:$m, eval:($t|tonumber), failed_to_run:true, body:($b|.[0:2000]), grade:{pass:false, misses:["did not run"]}}' > "results/${NAME}.json"
+            rm -f "results/${NAME}.raw"
           fi
-          mkdir -p out && cp raw.json "out/${NAME}.json"
-          echo "NAME=${NAME}" >> "$GITHUB_ENV"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.NAME }}
-          path: out/
-
-  report:
-    needs: run
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          path: results
-          merge-multiple: true
+          echo "done: $MODEL task $TASK"
+          SH
+          chmod +x one.sh
+          export CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET CLAUDE
+          xargs -P "$PARALLEL" -L 1 ./one.sh < pairs.txt
       - name: Write the verdict
         run: |
           set -euo pipefail
