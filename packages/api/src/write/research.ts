@@ -871,8 +871,8 @@ export function reportBrief(title: string, slug: string): string {
 }
 
 /** The report as the file Admin receives: a title line, then the body. */
-export function reportFile(d: { meta: { title?: string }; body: string }): string {
-  return `# ${d.meta.title ?? "Untitled research"}\n\n${d.body.trim()}\n`;
+export function reportFile(d: { meta: { title?: string }; body: string }, method = ""): string {
+  return `# ${d.meta.title ?? "Untitled research"}\n\n${d.body.trim()}\n${method ? `\n${method.trim()}\n` : ""}`;
 }
 
 /** Test a thesis: the same research, aimed at a claim rather than a topic.

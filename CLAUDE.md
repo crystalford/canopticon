@@ -352,7 +352,15 @@
   three or more parts, a long TL;DR, uncited figures, the first person,
   empty certainty words, a short case against — and asks for one
   `edit_draft` pass with no new research (live, a finished thesis had all
-  of these reported after each section and none fixed). **Then the reviewers** (`runReview`, once per conversation,
+  of these reported after each section and none fixed). **How this was
+  researched** (`write/method.ts`, Phase 3's first receipt): Save to
+  Admin appends a section in counts code made — pages read in full,
+  passages noted (each checked word for word), sources, publishers and
+  about how many independent, sources by kind, quotations found word for
+  word, reviewer flags and how many changed since, the thesis method, and
+  that language models made it from free and open sources. A check that
+  did not run is not mentioned; it carries no address, so "shares sources
+  with" is unchanged. Published with the report on Publish. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a
