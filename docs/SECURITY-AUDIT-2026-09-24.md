@@ -53,7 +53,7 @@ architectural note.** Only the operator can check:
 ```
 curl -i -X POST https://canopticon-api.<subdomain>.workers.dev/op/process/all
 curl -i https://canopticon-api.<subdomain>.workers.dev/v1/admin/runtime \
-     -H 'x-canopticon-email: chrisrobtelford@gmail.com'
+     -H 'x-canopticon-email: <the operator email>'
 ```
 
 A 302 to `/library?queued=…` on the first, or a 200 JSON body on the second,
