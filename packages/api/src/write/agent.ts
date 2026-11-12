@@ -37,7 +37,7 @@ import {
   workersStep,
 } from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
-import { describeEvidence, evidenceProblems } from "./evidence";
+import { describeEvidence, evidenceProblems, voiceOf } from "./evidence";
 import {
   describeRelated,
   doiOf,
@@ -47,7 +47,7 @@ import {
   relatedWorks,
   waybackCopy,
 } from "./finder";
-import { describeEchoes, echoGroups, independentCount, siteOf } from "./independence";
+import { describeEchoes, echoGroups, independentCount } from "./independence";
 import {
   NOTES_TOOLS,
   type NoteStore,
@@ -1175,7 +1175,8 @@ async function runTeam(o: {
   });
   const sectionNotes = async (n: number) =>
     shared.notes ? (await shared.notes.list(ctx.draftId)).filter((x) => x.section === n) : [];
-  const sitesOf = (notes: Array<{ url: string }>) => [...new Set(notes.map((x) => siteOf(x.url)))];
+  // Independent voices, not sites: each paper counts for itself (voiceOf).
+  const sitesOf = (notes: Array<{ url: string }>) => [...new Set(notes.map((x) => voiceOf(x.url)))];
   /** One round: every section in `items` researched, at most six at once;
    *  a researcher Workers AI stopped gets one more go, at the back —
    *  unless Chris pressed Stop. */
@@ -1478,7 +1479,7 @@ async function runResearcher(o: {
               : await run();
         if (u.name === "note_evidence" && !r.error) {
           noted++;
-          notedSites.add(siteOf(String((u.input as { url?: unknown }).url ?? "")));
+          notedSites.add(voiceOf(String((u.input as { url?: unknown }).url ?? "")));
         }
         if (u.name === "web_fetch" && !r.error)
           pages.add(String((u.input as { url?: unknown }).url ?? ""));

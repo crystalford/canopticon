@@ -95,6 +95,26 @@ export function sourceKind(url: string, title?: string | null): SourceKind {
   return "other";
 }
 
+/** The kinds whose host is a platform, not a voice: a journal publisher, a
+ *  working-paper series or a repository carries papers by independent
+ *  authors (live, seven NBER working papers by different economists had
+ *  been counted as one publisher, and a 26-source report as "about 5"
+ *  independent). */
+const PLATFORM_KINDS = new Set<SourceKind>(["study", "preprint", "review", "book"]);
+
+/** The unit of independence: for a paper or a book, the work itself (its
+ *  address, an archived copy unwrapped); for anything else, the site — an
+ *  agency's or a newspaper's pages are one voice. */
+export function voiceOf(url: string, title?: string | null): string {
+  if (!PLATFORM_KINDS.has(sourceKind(url, title))) return siteOf(url);
+  const copy = /^https?:\/\/web\.archive\.org\/web\/[^/]+\/(.+)$/i.exec(url);
+  return (copy?.[1] ?? url)
+    .replace(/^https?:\/\/(www\.)?/i, "")
+    .replace(/#.*$/, "")
+    .replace(/\/+$/, "")
+    .toLowerCase();
+}
+
 /** Words that claim a high certainty (the IPCC scale's top terms; GRADE's
  *  strong verbs). */
 const STRONG =
@@ -108,17 +128,24 @@ const ATTRIBUTED_TO = /\b(?:according to|per|citing|cited by)\s+(?:the\s+)?[A-Z]
 /** A named source: two capitalised words ("Statistics Canada", "Low Pay
  *  Commission"), names joined by "and", or a possessive ("the UK's"). */
 const NAMED =
-  /\b[A-Z][\w'’.-]+(?:\s+(?:and|&|of|the)?\s*[A-Z][\w'’.-]+)+|\b[A-Z][\w.-]*(?:'s|’s)\b/;
+  /\b[A-Z][\w'’.-]+(?:\s+(?:and|&|of|the)?\s*[A-Z][\w'’.-]+)+|\b[A-Z][\w.-]*(?:'s|’s|s'|s’)(?=\s|$)/;
+/** "Tyler's critique", "the McLuhans' own words": a named author's own
+ *  work, which a single citation to that work is honest about. */
+const THEIR_WORK =
+  /\b[A-Z][\w.-]*(?:'s|’s|s'|s’)\s+(?:own\s+)?(?:critique|verdict|account|reading|argument|view|claim|claims|finding|findings|estimate|estimates|review|analysis|study|survey|data|report|words|position|definition|model|theory|reply|response|thesis|book|paper|essay)\b/;
 const REPORTING =
   /\b(?:report|reports|reported|state|states|stated|find|finds|found|argue|argues|argued|write|writes|wrote|say|says|said|show|shows|showed|estimate|estimates|estimated|read|reads|conclude|concludes|concluded|note|notes|noted|count|counts|counted|describe|describes|described|call|calls|called|attribute|attributes|attributed|extend|extends|extended|concede|concedes|conceded|record|records|recorded|put|puts|give|gives|gave|measure|measures|measured|claimed|propose|proposes|proposed)\b/;
 /** A surname straight before its verb ("Wolfson concludes") counts too. */
-const NAME_THEN_VERB = new RegExp(`\\b[A-Z][\\w'’.-]+(?:'s|’s)?\\s+${REPORTING.source}`);
+const NAME_THEN_VERB = new RegExp(
+  `\\b[A-Z][\\w'’.-]+(?:'s|’s)?(?:\\s+(?:also|then|later|first|explicitly|repeatedly|himself|herself|themselves|itself))?\\s+${REPORTING.source}`,
+);
 const attributed = (sentence: string) => {
   const s = sentence.replace(/[*_`]/g, "");
   return (
     (ATTRIBUTED_TO.test(s) && NAMED.test(s)) ||
     (NAMED.test(s) && REPORTING.test(s)) ||
-    NAME_THEN_VERB.test(s)
+    NAME_THEN_VERB.test(s) ||
+    THEIR_WORK.test(s)
   );
 };
 
@@ -203,7 +230,8 @@ export function evidenceProblems(
     const k = sourceKind(url, page.get(url)?.title);
     profile[k] = (profile[k] ?? 0) + 1;
   }
-  const sites = new Set([...numbers.keys()].map(siteOf));
+  const voice = (url: string) => voiceOf(url, page.get(url)?.title);
+  const sites = new Set([...numbers.keys()].map(voice));
 
   const sentences: Sentence[] = [
     ...findingSentences(body),
@@ -247,7 +275,7 @@ export function evidenceProblems(
     // Certainty the evidence earns.
     if (STRONG.test(unquoted(s.sentence))) {
       const kinds = s.cites.map(kindOf).filter((k): k is SourceKind => !!k);
-      const citedSites = new Set(cited.map(siteOf));
+      const citedSites = new Set(cited.map(voice));
       if (kinds.length && !kinds.some((k) => STRONG_KINDS.has(k)))
         overcertain.push({
           sentence: short,
@@ -263,7 +291,7 @@ export function evidenceProblems(
     if (
       s.where === "Key Findings" &&
       sites.size >= 3 &&
-      new Set(cited.map(siteOf)).size === 1 &&
+      new Set(cited.map(voice)).size === 1 &&
       !attributed(unquoted(s.sentence))
     )
       onePublisherFindings.push(s.sentence.slice(0, 160));

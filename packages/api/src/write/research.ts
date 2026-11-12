@@ -20,7 +20,7 @@ import { all, one, run } from "../lib/d1";
 import type { CheckResult, QuoteFailure } from "./check";
 import { verbatimNormal } from "./check";
 import { batches } from "./drafts";
-import { siteOf } from "./independence";
+import { voiceOf } from "./evidence";
 
 // ---- what Claude is told --------------------------------------------------------
 
@@ -698,7 +698,12 @@ export function rubric(report: string, pages: ResearchSource[] = []): Rubric {
   ].map((m) => ({ n: Number(m[1]), url: m[2] ?? "" }));
   const sources = listed.length;
   const bySite = new Map<string, number>();
-  for (const s of listed) bySite.set(siteOf(s.url), (bySite.get(siteOf(s.url)) ?? 0) + 1);
+  // One voice per paper, one per agency or outlet (evidence.ts voiceOf).
+  const pageTitle = new Map(pages.map((p) => [p.url, p.title]));
+  for (const s of listed) {
+    const v = voiceOf(s.url, pageTitle.get(s.url));
+    bySite.set(v, (bySite.get(v) ?? 0) + 1);
+  }
   const [site, count] = [...bySite.entries()].sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
   const topPublisher = sources ? { site, sources: count, share: count / sources } : null;
   const unquoted = text.replace(/["“][^"”\n]*["”]/g, " ");
