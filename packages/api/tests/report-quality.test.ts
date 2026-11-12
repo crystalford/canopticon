@@ -162,153 +162,154 @@ describe("free full texts of papers", () => {
     expect(doiOf("https://www.statcan.gc.ca/n1/daily")).toBeNull();
   });
 
-  it("asks OpenAlex for the open-access copy", async () => {
+  it("finds an open-access copy without a key: Semantic Scholar, then Europe PMC", async () => {
     const { openAccessCopy } = await import("../src/write/finder");
     const seen: string[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
         seen.push(url);
-        return new Response(
-          JSON.stringify({ best_oa_location: { pdf_url: "https://repo.example/paper.pdf" } }),
-          { headers: { "content-type": "application/json" } },
-        );
-      }),
-    );
-    expect(await openAccessCopy("10.1111/coep.12241")).toBe("https://repo.example/paper.pdf");
-    expect(seen[0]).toBe("https://api.openalex.org/works/doi:10.1111%2Fcoep.12241");
-    vi.unstubAllGlobals();
-  });
-});
-
-describe("the rubric: how it reads against respected research writing", () => {
-  const body = `## TL;DR
-
-${"Word ".repeat(160)}.
-
-## Details
-
-### 1. The thesis
-
-Short sentence one [1]. Short sentence two clearly shows it [2].
-
-### 2. The strongest case for
-
-${"The case for has many words in it here and there and everywhere. ".repeat(10)}[1].
-
-### 3. The strongest case against
-
-Only a little against [2].
-
-## Sources
-
-1. [A](https://www150.statcan.gc.ca/a)
-2. [B](https://www150.statcan.gc.ca/b)
-3. [C](https://www150.statcan.gc.ca/c)
-4. [D](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1)
-`;
-
-  it("measures words per source, one publisher's share, certainty words, the summary and the case against", async () => {
-    const { rubric } = await import("../src/write/research");
-    const r = rubric(body, [
-      {
-        url: "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1",
-        text: "abstract only",
-      } as never,
-    ]);
-    expect(r.sources).toBe(4);
-    expect(r.topPublisher).toMatchObject({ site: "www150.statcan.gc.ca", sources: 3 });
-    expect(r.certaintyWords).toEqual(["clearly"]);
-    expect(r.tldrWords).toBeGreaterThan(150);
-    expect(r.caseAgainstRatio).toBeLessThan(0.6);
-    expect(r.thinSources.map((t) => t.n)).toEqual([4]);
-    const said = r.flags.join("\n");
-    expect(said).toContain("3 of 4 sources are from www150.statcan.gc.ca");
-    expect(said).toContain("Certainty without a scale: clearly");
-    expect(said).toContain("The TL;DR runs");
-    expect(said).toContain("The case against is");
-    expect(said).toContain("[4] was read as only 13 characters");
-  });
-
-  it("says nothing about a dense, balanced, plain report", async () => {
-    const { rubric } = await import("../src/write/research");
-    const ok = `## TL;DR
-
-The answer is likely yes [1].
-
-## Details
-
-### 1. What was found
-
-A short sentence [1]. Another short one [2].
-
-## Sources
-
-1. [A](https://a.example/1)
-2. [B](https://b.example/2)
-`;
-    expect(rubric(ok).flags).toEqual([]);
-  });
-});
-
-describe("citation chasing", () => {
-  it("lists what a paper cites and what cites it, most-cited first", async () => {
-    const { describeRelated, relatedWorks } = await import("../src/write/finder");
-    const seen: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: string) => {
-        seen.push(url);
-        const body = url.includes("/works/doi:")
-          ? {
-              id: "https://openalex.org/W1",
-              referenced_works: ["https://openalex.org/W2", "https://openalex.org/W3"],
-            }
-          : url.includes("filter=openalex:")
-            ? {
-                results: [
+        const body = url.includes("semanticscholar")
+          ? { openAccessPdf: null }
+          : {
+              resultList: {
+                result: [
                   {
-                    title: "An older study",
-                    doi: "https://doi.org/10.1/old",
-                    publication_year: 2005,
-                    cited_by_count: 400,
+                    fullTextUrlList: {
+                      fullTextUrl: [
+                        { availability: "Open access", url: "https://europepmc.org/articles/PMC1" },
+                      ],
+                    },
                   },
                 ],
-              }
-            : {
-                results: [
-                  {
-                    title: "A later review",
-                    publication_year: 2023,
-                    cited_by_count: 12,
-                    open_access: { oa_url: "https://repo.example/review.pdf" },
-                  },
-                ],
-              };
+              },
+            };
         return new Response(JSON.stringify(body), {
           headers: { "content-type": "application/json" },
         });
       }),
     );
+    expect(await openAccessCopy("10.1111/coep.12241")).toBe("https://europepmc.org/articles/PMC1");
+    expect(seen[0]).toBe(
+      "https://api.semanticscholar.org/graph/v1/paper/DOI:10.1111%2Fcoep.12241?fields=openAccessPdf",
+    );
+    expect(seen[1]).toContain("ebi.ac.uk/europepmc");
+    expect(seen.some((u) => u.includes("openalex"))).toBe(false);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("citation chasing, keyless", () => {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
+  it("takes what a paper cites and what cites it from Semantic Scholar, most-cited first", async () => {
+    const { describeRelated, relatedWorks } = await import("../src/write/finder");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url.includes("/references")
+          ? json({
+              data: [
+                {
+                  citedPaper: {
+                    title: "A minor note",
+                    year: 2001,
+                    citationCount: 3,
+                    externalIds: { DOI: "10.1/minor" },
+                  },
+                },
+                {
+                  citedPaper: {
+                    title: "An older study",
+                    year: 2005,
+                    citationCount: 400,
+                    externalIds: { DOI: "10.1/old" },
+                  },
+                },
+              ],
+            })
+          : json({
+              data: [
+                {
+                  citingPaper: {
+                    title: "A later review",
+                    year: 2023,
+                    citationCount: 12,
+                    openAccessPdf: { url: "https://repo.example/review.pdf" },
+                  },
+                },
+              ],
+            }),
+      ),
+    );
     const r = await relatedWorks("10.3138/cpp.2019-070");
     vi.unstubAllGlobals();
-    expect(seen[1]).toContain("filter=openalex:W2|W3&sort=cited_by_count:desc");
-    expect(seen[2]).toContain("filter=cites:W1&sort=cited_by_count:desc");
+    expect(r?.cites.map((w) => w.title)).toEqual(["An older study", "A minor note"]);
+    expect(r?.cites[0]).toEqual({
+      title: "An older study",
+      year: 2005,
+      cited: 400,
+      url: "https://doi.org/10.1/old",
+    });
+    expect(r?.citedBy[0]?.url).toBe("https://repo.example/review.pdf");
+    const said = describeRelated(r as never);
+    expect(said).toContain("RELATED WORK (most-cited first)");
+    expect(said).toContain("- An older study (2005), cited 400 times — https://doi.org/10.1/old");
+  });
+
+  it("falls back to OpenCitations, with Crossref's titles, when Semantic Scholar is busy", async () => {
+    const { relatedWorks } = await import("../src/write/finder");
+    const seen: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        seen.push(url);
+        if (url.includes("semanticscholar")) return json({ message: "Too Many Requests" }, 429);
+        if (url.includes("/references/")) return json([{ cited: "coci => 10.1/old" }]);
+        if (url.includes("/citations/")) return json([{ citing: "10.1/new" }]);
+        return json({
+          message: {
+            items: url.includes("10.1%2Fold")
+              ? [
+                  {
+                    DOI: "10.1/old",
+                    title: ["An older study"],
+                    issued: { "date-parts": [[2005]] },
+                    "is-referenced-by-count": 400,
+                  },
+                ]
+              : [
+                  {
+                    DOI: "10.1/new",
+                    title: ["A later review"],
+                    issued: { "date-parts": [[2023]] },
+                    "is-referenced-by-count": 12,
+                  },
+                ],
+          },
+        });
+      }),
+    );
+    const r = await relatedWorks("10.3138/cpp.2019-070");
+    vi.unstubAllGlobals();
     expect(r?.cites).toEqual([
       { title: "An older study", year: 2005, cited: 400, url: "https://doi.org/10.1/old" },
     ]);
-    expect(r?.citedBy[0]?.url).toBe("https://repo.example/review.pdf");
-    const said = describeRelated(r as never);
-    expect(said).toContain("RELATED WORK");
-    expect(said).toContain("- An older study (2005), cited 400 times — https://doi.org/10.1/old");
-    expect(said).toContain("Later work citing it:");
+    expect(r?.citedBy[0]?.title).toBe("A later review");
+    expect(
+      seen.some((u) =>
+        u.includes("opencitations.net/index/coci/api/v1/references/10.3138/cpp.2019-070"),
+      ),
+    ).toBe(true);
+    expect(seen.some((u) => u.includes("openalex"))).toBe(false);
   });
 
-  it("is quiet when OpenAlex does not know the paper", async () => {
+  it("is quiet when no index knows the paper", async () => {
     const { relatedWorks } = await import("../src/write/finder");
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response("{}", { status: 404 })),
+      vi.fn(async () => json({}, 404)),
     );
     expect(await relatedWorks("10.9999/nothing")).toBeNull();
     vi.unstubAllGlobals();

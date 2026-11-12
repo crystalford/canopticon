@@ -250,8 +250,9 @@
   expected note, fifteen-plus distinct sources from several institutions,
   the third person, and a citation on every factual sentence; and a
   paper's page under 8,000 characters (an abstract or paywall) comes back
-  from `web_fetch` with **its free full text** where OpenAlex knows one
-  (`doiOf`, `openAccessCopy` in `finder.ts`). **The rubric**
+  from `web_fetch` with **its free full text** where a keyless index knows
+  one (`doiOf`, `openAccessCopy` in `finder.ts`: Semantic Scholar's
+  open-access PDF, else Europe PMC). **The rubric**
   (`rubric`/`RUBRIC` in `research.ts`, from a survey of respected research
   writing — CRS and GAO reports, Cochrane, the Stanford Encyclopedia,
   Annual Reviews, plain-language standards; academic writing runs ~65–150
@@ -279,9 +280,13 @@
   source, the bar 250): one run each, and runs vary; breadth is the open
   problem. **Breadth, first steps** (2026-11-12): **citation chasing** —
   every paper page read (it carries a DOI) comes back with its RELATED
-  WORK from OpenAlex, free: what it cites and what later work cites it,
-  most-cited first, with open-access links (`relatedWorks`,
-  `describeRelated` in `finder.ts`; `/v1/admin/paper?doi=` shows it live);
+  WORK: what it cites and what later work cites it, most-cited first, with
+  open-access links (`relatedWorks`, `describeRelated` in `finder.ts`;
+  `/v1/admin/paper?doi=` shows it live, with each source's raw status).
+  **Keyless only — no key, no bill:** Semantic Scholar's graph, else
+  OpenCitations (the open citation index) with titles from Crossref.
+  OpenAlex was tried first and dropped: since 2026-02 it wants a key and
+  meters use, and live it answered nothing (`ops/probe/paper.json`).
   and **each researcher needs three independent sources**
   (`RESEARCHER_MIN_SOURCES`): before its searching ends, a researcher whose
   notes come from fewer sites is told to find a kind it lacks. **Then the reviewers** (`runReview`, once per conversation,

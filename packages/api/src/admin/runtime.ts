@@ -1837,9 +1837,11 @@ app.get("/engine-try", async (c) => {
   return new Response(readable, { headers: { "content-type": "application/json" } });
 });
 
-/** A paper's free full text and its citation trail (OpenAlex), live, for
- *  checking what a researcher is handed after reading a paper. No model.
- *  ?doi=10.… (default: a Canadian minimum-wage meta-analysis). */
+/** A paper's free full text and its citation trail, live, for checking what
+ *  a researcher is handed after reading a paper — from keyless sources only
+ *  (Semantic Scholar, OpenCitations with Crossref titles, Europe PMC). No
+ *  model. Each source's raw status is shown, since the lookups read a
+ *  refusal as "nothing found". ?doi=10.… */
 app.get("/paper", async (c) => {
   const { openAccessCopy, relatedWorks } = await import("../write/finder.ts");
   const doi = c.req.query("doi") ?? "10.3138/cpp.2019-070";
@@ -1848,21 +1850,24 @@ app.get("/paper", async (c) => {
     openAccessCopy(doi).catch((e: Error) => `failed: ${e.message}`),
     relatedWorks(doi).catch((e: Error) => `failed: ${e.message}`),
   ]);
-  // OpenAlex's own answer, raw: since 2026 it may want a key or be metered,
-  // and the lookups above swallow a refusal as "nothing found".
-  const raw = await fetch(
-    `https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?select=id,referenced_works`,
-    { headers: { "user-agent": "CanopticonResearch/1.0 (+https://canopticon.com/about)" } },
-  )
-    .then(async (r) => ({
-      status: r.status,
-      headers: Object.fromEntries(
-        [...r.headers.entries()].filter(([k]) => /ratelimit|limit|cost|credit|remaining/i.test(k)),
-      ),
-      body: (await r.text()).slice(0, 400),
-    }))
-    .catch((e: Error) => ({ error: e.message }));
-  return c.json({ doi, ms: Date.now() - t0, freeText, related, raw });
+  const ua = { "user-agent": "CanopticonResearch/1.0 (+https://canopticon.com/about)" };
+  const status = (url: string) =>
+    fetch(url, { headers: ua })
+      .then(async (r) => ({ status: r.status, body: (await r.text()).slice(0, 200) }))
+      .catch((e: Error) => ({ error: e.message }));
+  const [semanticScholar, openCitations] = await Promise.all([
+    status(
+      `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title`,
+    ),
+    status(`https://opencitations.net/index/coci/api/v1/citations/${doi}`),
+  ]);
+  return c.json({
+    doi,
+    ms: Date.now() - t0,
+    freeText,
+    related,
+    raw: { semanticScholar, openCitations },
+  });
 });
 
 /** The free source finder, source by source, live: what each returned for

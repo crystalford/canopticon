@@ -1024,7 +1024,7 @@ async function runTool(
           ? `\n\nLINKS ON THIS PAGE (read any with web_fetch):\n${page.links.map((l) => `- ${l.text} — ${l.url}`).join("\n")}`
           : "";
       // A paper's page that gave little (an abstract, a paywall): its free
-      // full text, if OpenAlex knows one, so the evidence is the paper.
+      // full text, if a keyless index knows one, so the evidence is the paper.
       // A paper (it carries a DOI), read for the first time: its free full
       // text if this page gave little, and the work it cites and that cites
       // it — citation chasing, the way a review widens its sources.
