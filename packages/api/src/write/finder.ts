@@ -478,19 +478,35 @@ export function doiOf(url: string): string | null {
   return m?.[1] ? m[1].replace(/[.,;)\]]+$/, "").replace(/\/(full|abstract|pdf|epdf)$/i, "") : null;
 }
 
-/** A free full text of a paper, where one exists: OpenAlex (free, keyless)
- *  records the open-access copies of a work — an author's or repository's
- *  PDF, a working-paper version. Live (2026-11-11), a thesis report read its
- *  three central papers only as abstracts behind publishers' pages. */
+// ---- a paper's full text and citation trail, from keyless sources -------------
+//
+// Nothing here needs a key or a bill (the record's rule since 2026-11-07):
+// OpenAlex was tried first and dropped when it began metering and wanting
+// keys (2026-02). Semantic Scholar's graph answers without a key (a shared,
+// rate-limited pool); OpenCitations is an open citation index; Crossref
+// fills in titles; Europe PMC finds open full texts of health research.
+
+const S2 = "https://api.semanticscholar.org/graph/v1/paper";
+
+/** A free full text of a paper, where one exists: Semantic Scholar's
+ *  open-access PDF, else Europe PMC's open full text. Live (2026-11-11), a
+ *  thesis report read its three central papers only as abstracts. */
 export async function openAccessCopy(doi: string): Promise<string | null> {
-  const j = (await getJson(`https://api.openalex.org/works/doi:${encodeURIComponent(doi)}`).catch(
+  const s2 = (await getJson(`${S2}/DOI:${encodeURIComponent(doi)}?fields=openAccessPdf`).catch(
     () => null,
-  )) as {
-    best_oa_location?: { pdf_url?: string | null; landing_page_url?: string | null } | null;
-    open_access?: { oa_url?: string | null };
+  )) as { openAccessPdf?: { url?: string | null } | null } | null;
+  if (s2?.openAccessPdf?.url) return s2.openAccessPdf.url;
+  const pmc = (await getJson(
+    `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(`DOI:"${doi}"`)}&resultType=core&format=json&pageSize=1`,
+  ).catch(() => null)) as {
+    resultList?: {
+      result?: Array<{
+        fullTextUrlList?: { fullTextUrl?: Array<{ availability?: string; url?: string }> };
+      }>;
+    };
   } | null;
-  const loc = j?.best_oa_location;
-  return loc?.pdf_url || loc?.landing_page_url || j?.open_access?.oa_url || null;
+  const urls = pmc?.resultList?.result?.[0]?.fullTextUrlList?.fullTextUrl ?? [];
+  return urls.find((u) => /open access|free/i.test(u.availability ?? "") && u.url)?.url ?? null;
 }
 
 export interface RelatedWork {
@@ -500,55 +516,131 @@ export interface RelatedWork {
   url: string;
 }
 
+interface S2Paper {
+  title?: string | null;
+  year?: number | null;
+  citationCount?: number | null;
+  externalIds?: { DOI?: string } | null;
+  openAccessPdf?: { url?: string | null } | null;
+  url?: string | null;
+}
+
+const fromS2 = (p: S2Paper | null | undefined): RelatedWork | null => {
+  const title = (p?.title ?? "").trim();
+  const url =
+    p?.openAccessPdf?.url ||
+    (p?.externalIds?.DOI ? `https://doi.org/${p.externalIds.DOI}` : "") ||
+    p?.url ||
+    "";
+  return title && url ? { title, year: p?.year ?? null, cited: p?.citationCount ?? 0, url } : null;
+};
+
+const top = (list: Array<RelatedWork | null>, each: number): RelatedWork[] =>
+  list
+    .filter((x): x is RelatedWork => !!x)
+    .sort((a, b) => b.cited - a.cited)
+    .slice(0, each);
+
+/** From Semantic Scholar: the references and the citing papers. */
+async function relatedFromS2(
+  doi: string,
+  each: number,
+): Promise<{ cites: RelatedWork[]; citedBy: RelatedWork[] } | null> {
+  const fields = "fields=title,year,citationCount,externalIds,openAccessPdf,url&limit=100";
+  const id = `DOI:${encodeURIComponent(doi)}`;
+  const [refs, cits] = await Promise.all([
+    getJson(`${S2}/${id}/references?${fields}`).catch(() => null) as Promise<{
+      data?: Array<{ citedPaper?: S2Paper }>;
+    } | null>,
+    getJson(`${S2}/${id}/citations?${fields}`).catch(() => null) as Promise<{
+      data?: Array<{ citingPaper?: S2Paper }>;
+    } | null>,
+  ]);
+  if (!refs && !cits) return null;
+  const cites = top(
+    (refs?.data ?? []).map((r) => fromS2(r.citedPaper)),
+    each,
+  );
+  const citedBy = top(
+    (cits?.data ?? []).map((r) => fromS2(r.citingPaper)),
+    each,
+  );
+  return cites.length || citedBy.length ? { cites, citedBy } : null;
+}
+
+/** From OpenCitations (the open citation index), with titles from Crossref:
+ *  when Semantic Scholar's shared pool is busy. */
+async function relatedFromOpenCitations(
+  doi: string,
+  each: number,
+): Promise<{ cites: RelatedWork[]; citedBy: RelatedWork[] } | null> {
+  const base = "https://opencitations.net/index/coci/api/v1";
+  const pick = (rows: unknown, key: "cited" | "citing") =>
+    ((rows as Array<Record<string, string>> | null) ?? [])
+      .map((r) =>
+        String(r[key] ?? "")
+          .replace(/^coci\s*=>\s*/i, "")
+          .trim(),
+      )
+      .filter((d) => /^10\./.test(d))
+      .slice(0, 40);
+  const [refs, cits] = await Promise.all([
+    getJson(`${base}/references/${doi}`).catch(() => null),
+    getJson(`${base}/citations/${doi}`).catch(() => null),
+  ]);
+  if (!refs && !cits) return null;
+  const titled = async (dois: string[]): Promise<RelatedWork[]> => {
+    if (!dois.length) return [];
+    const j = (await getJson(
+      `https://api.crossref.org/works?filter=${dois.map((d) => `doi:${encodeURIComponent(d)}`).join(",")}&rows=${dois.length}&select=DOI,title,issued,is-referenced-by-count`,
+    ).catch(() => null)) as {
+      message?: {
+        items?: Array<{
+          DOI?: string;
+          title?: string[];
+          issued?: { "date-parts"?: number[][] };
+          "is-referenced-by-count"?: number;
+        }>;
+      };
+    } | null;
+    return top(
+      (j?.message?.items ?? []).map((w) =>
+        w.title?.[0] && w.DOI
+          ? {
+              title: w.title[0].trim(),
+              year: w.issued?.["date-parts"]?.[0]?.[0] ?? null,
+              cited: w["is-referenced-by-count"] ?? 0,
+              url: `https://doi.org/${w.DOI}`,
+            }
+          : null,
+      ),
+      each,
+    );
+  };
+  const [cites, citedBy] = await Promise.all([
+    titled(pick(refs, "cited")),
+    titled(pick(cits, "citing")),
+  ]);
+  return cites.length || citedBy.length ? { cites, citedBy } : null;
+}
+
 /** Citation chasing, as systematic reviewers do it: the works a paper cites
- *  and the works that cite it, most-cited first, from OpenAlex (free,
- *  keyless). From one good paper a researcher can reach a dozen more —
- *  live, reports stood on 10 to 16 sources, and the free finder cannot
- *  search the whole web. Null when OpenAlex does not know the DOI. */
+ *  and the works that cite it, most-cited first. From one good paper a
+ *  researcher can reach a dozen more — live, reports stood on 10 to 16
+ *  sources, and the free finder cannot search the whole web. Keyless:
+ *  Semantic Scholar, else OpenCitations with Crossref's titles. */
 export async function relatedWorks(
   doi: string,
   each = 6,
 ): Promise<{ cites: RelatedWork[]; citedBy: RelatedWork[] } | null> {
-  const w = (await getJson(
-    `https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?select=id,referenced_works`,
-  ).catch(() => null)) as { id?: string; referenced_works?: string[] } | null;
-  const id = w?.id?.split("/").pop();
-  if (!id) return null;
-  const fields = "select=title,doi,publication_year,cited_by_count,open_access";
-  const refs = (w?.referenced_works ?? []).map((r) => r.split("/").pop()).filter(Boolean);
-  const list = async (filter: string): Promise<RelatedWork[]> => {
-    const j = (await getJson(
-      `https://api.openalex.org/works?filter=${filter}&sort=cited_by_count:desc&per-page=${each}&${fields}`,
-    ).catch(() => null)) as {
-      results?: Array<{
-        title?: string | null;
-        doi?: string | null;
-        publication_year?: number | null;
-        cited_by_count?: number;
-        open_access?: { oa_url?: string | null };
-      }>;
-    } | null;
-    return (j?.results ?? [])
-      .map((r) => ({
-        title: (r.title ?? "").trim(),
-        year: r.publication_year ?? null,
-        cited: r.cited_by_count ?? 0,
-        url: r.open_access?.oa_url || r.doi || "",
-      }))
-      .filter((r) => r.title && r.url);
-  };
-  const [cites, citedBy] = await Promise.all([
-    refs.length ? list(`openalex:${refs.slice(0, 50).join("|")}`) : Promise.resolve([]),
-    list(`cites:${id}`),
-  ]);
-  return cites.length || citedBy.length ? { cites, citedBy } : null;
+  return (await relatedFromS2(doi, each)) ?? (await relatedFromOpenCitations(doi, each));
 }
 
 /** Related work as a researcher reads it after a paper's page. */
 export function describeRelated(r: { cites: RelatedWork[]; citedBy: RelatedWork[] }): string {
   const line = (w: RelatedWork) =>
     `- ${w.title}${w.year ? ` (${w.year})` : ""}, cited ${w.cited.toLocaleString("en")} times — ${w.url}`;
-  return `\n\nRELATED WORK (OpenAlex, most-cited first): follow the ones your section needs with web_fetch — this is how a review finds its sources.${
+  return `\n\nRELATED WORK (most-cited first): follow the ones your section needs with web_fetch — this is how a review finds its sources.${
     r.cites.length ? `\nThis paper cites:\n${r.cites.map(line).join("\n")}` : ""
   }${r.citedBy.length ? `\nLater work citing it:\n${r.citedBy.map(line).join("\n")}` : ""}`;
 }
