@@ -1848,7 +1848,21 @@ app.get("/paper", async (c) => {
     openAccessCopy(doi).catch((e: Error) => `failed: ${e.message}`),
     relatedWorks(doi).catch((e: Error) => `failed: ${e.message}`),
   ]);
-  return c.json({ doi, ms: Date.now() - t0, freeText, related });
+  // OpenAlex's own answer, raw: since 2026 it may want a key or be metered,
+  // and the lookups above swallow a refusal as "nothing found".
+  const raw = await fetch(
+    `https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?select=id,referenced_works`,
+    { headers: { "user-agent": "CanopticonResearch/1.0 (+https://canopticon.com/about)" } },
+  )
+    .then(async (r) => ({
+      status: r.status,
+      headers: Object.fromEntries(
+        [...r.headers.entries()].filter(([k]) => /ratelimit|limit|cost|credit|remaining/i.test(k)),
+      ),
+      body: (await r.text()).slice(0, 400),
+    }))
+    .catch((e: Error) => ({ error: e.message }));
+  return c.json({ doi, ms: Date.now() - t0, freeText, related, raw });
 });
 
 /** The free source finder, source by source, live: what each returned for
