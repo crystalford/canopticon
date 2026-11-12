@@ -30,12 +30,14 @@ import {
   engine as engineOf,
   isWorkersAi,
   messageCapCents,
+  pause,
   readPage,
   webSearch,
   workersModel,
   workersStep,
 } from "./engines";
 import { type Entry, type EntryKind, type EntryStore, proposalProblems } from "./entries";
+import { describeEvidence, evidenceProblems } from "./evidence";
 import {
   describeRelated,
   doiOf,
@@ -924,7 +926,8 @@ async function runTool(
       const figures =
         describeFigures(figureProblems(body, kept)) +
         describeWriting(writingProblems(body)) +
-        describeRubric(rubric(body, kept));
+        describeRubric(rubric(body, kept)) +
+        describeEvidence(evidenceProblems(body, notes, kept));
       // Every Details section written: the reviewers read them now, once.
       if (t.review && !left.some((h) => /^\d+\. /.test(h))) {
         const said = await t.review();
@@ -1081,6 +1084,10 @@ function oneAtATime(n: NoteStore): NoteStore {
   };
 }
 
+/** A stopped researcher waits this long, and up to as long again, before
+ *  its second go. */
+const RETRY_AFTER_MS = 20_000;
+
 async function runTeam(o: {
   ctx: ToolContext;
   /** Researchers take these models in turn: each model has its own
@@ -1155,6 +1162,9 @@ async function runTeam(o: {
             type: "activity",
             text: `§${s.n} stopped (${r.said.slice(9, 90)}); trying again`,
           });
+          // Not at once: what stopped it (the model's capacity, most often)
+          // is still there a second later.
+          await pause(RETRY_AFTER_MS + Math.random() * RETRY_AFTER_MS);
           queue.push(s);
           continue;
         }

@@ -305,7 +305,26 @@
   `outlineMoves` refuses a revision that would move or drop a section with
   notes (notes are filed by number — rename in place, add after the last).
   Neither a second round nor a re-dispatch starts past nine minutes
-  (`SATURATE_BY_MS`). **Then the reviewers** (`runReview`, once per conversation,
+  (`SATURATE_BY_MS`). **Phase 2, the evidence checks** (`write/evidence.ts`,
+  no model, nothing billed; advisory, told to the writer on every
+  `write_section`, reported by `engine-try` as `evidence` and as "What the
+  evidence carries" in the engine test): every cited sentence of the Key
+  Findings and Details is checked for **a figure not on any page it cites**
+  (naming the listed source, or the page read and never noted, that does
+  give it — a figure on no page at all is `figureProblems`'), **certainty
+  above its evidence** (the IPCC scale's top terms or GRADE's strong verbs
+  resting only on news, preprints, encyclopedias or other pages, or on one
+  publisher), and **Key Findings on one publisher**. A source's kind —
+  official, systematic review, peer-reviewed study, university or scholarly
+  page, book, preprint, news, encyclopedia, other — is read from its address
+  and title by plain rules (`sourceKind`), and the cited sources are counted
+  by kind. **First run of Phase 1** (`ops/eval/2026-11-12-0956.md`): both
+  pass, 18–21 min, $0.96; perspectives named real stakeholders; but eight
+  of eleven first-round researchers died on Workers AI's **3040 (capacity
+  exceeded) and 8005 (internal error)** and their retry, started at once,
+  failed again — so `workersStep` now waits out 3040 like the rate limit
+  and retries 8005 twice, and a stopped researcher waits 20–40 s
+  (`RETRY_AFTER_MS`) before its second go. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a
@@ -1065,6 +1084,14 @@ stalled the project twice.** Leave it alone.
 - To inspect the live Record, trigger `.github/workflows/canopticon-admin-probe.yml`
   (workflow_dispatch with a `path`); it calls canopticon.com through Cloudflare
   Access and commits the response to `ops/probe/response.json`.
+- **GitHub Actions minutes are a budget** (2026-11-12: the account hit 90%
+  of its monthly minutes, most of it the engine test — one job per task,
+  each waiting ~20 minutes on the live report). The engine test is now one
+  job running every report in parallel (billed for the longest batch, not
+  the sum); CI runs on pull requests only, cancelling superseded runs, not
+  again on the squash to main. Ask before an engine test; prefer two tasks
+  to five; batch small changes into one PR; a probe is ~1 minute. If the
+  minutes run out, deploys stop until the month resets.
 - Branch convention: `claude/<name>`. Never push to `main` directly; PR + CI +
   squash-merge. Branches are reused across PRs, so a designated branch may
   carry a stale tip with no merge base — archive it before force-pushing.
