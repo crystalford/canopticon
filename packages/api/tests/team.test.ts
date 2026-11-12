@@ -32,6 +32,16 @@ const reply = (content: string | null, calls: Array<[string, string, unknown]> =
   usage: { prompt_tokens: 1000, completion_tokens: 100 },
 });
 
+/** The perspectives call and second-round researchers, in tests about
+ *  something else: no perspectives (the defaults stand in), and a second
+ *  researcher that finds nothing new. */
+const side = (opts?: { headers?: Record<string, string> }) => {
+  const session = opts?.headers?.["x-session-affinity"] ?? "";
+  if (/-views$/.test(session)) return reply("No.");
+  if (/-d\d$/.test(session)) return reply("Found no other source.");
+  return null;
+};
+
 describe("the research team", () => {
   it("researches every section at once and hands the writer the notes", async () => {
     vi.stubGlobal(
@@ -85,6 +95,8 @@ describe("the research team", () => {
       AI: {
         run: async (model: string, _i: unknown, opts?: { headers?: Record<string, string> }) => {
           models.push(model);
+          const aside = side(opts);
+          if (aside) return aside;
           const session = opts?.headers?.["x-session-affinity"] ?? "";
           const who = /-s(\d)$/.exec(session)?.[1];
           return who ? scripts[`s${who}`]?.shift() : writer.shift();
@@ -107,9 +119,11 @@ describe("the research team", () => {
       emit: (e) => events.push(e as never),
     });
 
-    // The writer's calls went to V4 Pro, the researchers' to Flash.
+    // The writer's calls went to V4 Pro, the researchers' to Flash: three
+    // steps each, the perspectives call, and a second researcher for each
+    // section (each stood on one source).
     expect(models.filter((m) => m === team.writer)).toHaveLength(2);
-    expect(models.filter((m) => m === team.reader)).toHaveLength(6);
+    expect(models.filter((m) => m === team.reader)).toHaveLength(9);
     // Each researcher's note is filed under its own section, whatever it said.
     const kept = await notes.list(d.id);
     expect(kept.map((n) => [n.section, n.claim]).sort()).toEqual([
@@ -120,13 +134,15 @@ describe("the research team", () => {
     const all = JSON.stringify(await store.messages(d.id));
     expect(all).toContain("The researchers have finished");
     expect(all).toContain("Could not find a 2026 figure");
+    expect(all).toContain("1 independent source");
+    expect(all).toContain("A second researcher looked for other sources and found no new one");
     expect(events.some((e) => e.text?.startsWith("§1 Read:"))).toBe(true);
     // Every call is counted: two at Pro's rates, six at Flash's.
     const saved = await store.get(d.id);
     const pro = engine(team.writer).price;
     const flash = engine(team.reader).price;
     const cents =
-      ((2 * (1000 * pro.input + 100 * pro.output) + 6 * (1000 * flash.input + 100 * flash.output)) /
+      ((2 * (1000 * pro.input + 100 * pro.output) + 9 * (1000 * flash.input + 100 * flash.output)) /
         1e6) *
       100;
     expect(saved?.usage.cents).toBeCloseTo(cents, 6);
@@ -172,6 +188,8 @@ describe("the research team", () => {
           input: { tools?: Array<{ function: { name: string } }>; messages: never[] },
           opts?: { headers?: Record<string, string> },
         ) => {
+          const aside = side(opts);
+          if (aside) return aside;
           const session = opts?.headers?.["x-session-affinity"] ?? "";
           if (!/-s\d$/.test(session)) return writer.shift();
           seen.push({
@@ -282,6 +300,8 @@ describe("the reviewers", () => {
       LOG_LEVEL: "error",
       AI: {
         run: async (_m: string, _i: unknown, opts?: { headers?: Record<string, string> }) => {
+          const aside = side(opts);
+          if (aside) return aside;
           const who = /-([sr]\d)$/.exec(opts?.headers?.["x-session-affinity"] ?? "")?.[1];
           return who ? scripts[who]?.shift() : writer.shift();
         },
@@ -359,6 +379,8 @@ describe("a researcher Workers AI stops", () => {
       LOG_LEVEL: "error",
       AI: {
         run: async (_m: string, _i: unknown, opts?: { headers?: Record<string, string> }) => {
+          const aside = side(opts);
+          if (aside) return aside;
           if (!/-s1$/.test(opts?.headers?.["x-session-affinity"] ?? "")) return writer.shift();
           if (!failed) {
             failed = true;
@@ -421,6 +443,8 @@ describe("a team with two reader models", () => {
       LOG_LEVEL: "error",
       AI: {
         run: async (model: string, _i: unknown, opts?: { headers?: Record<string, string> }) => {
+          const aside = side(opts);
+          if (aside) return aside;
           const who = /-(s\d)$/.exec(opts?.headers?.["x-session-affinity"] ?? "")?.[1];
           if (!who) return writer.shift();
           byResearcher.set(who, model);
@@ -496,6 +520,8 @@ describe("a team with two reader models", () => {
           input: { messages: never[] },
           opts?: { headers?: Record<string, string> },
         ) => {
+          const aside = side(opts);
+          if (aside) return aside;
           if (!/-s\d$/.test(opts?.headers?.["x-session-affinity"] ?? "")) return writer.shift();
           seen.push(input.messages);
           return step(k++);
