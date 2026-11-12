@@ -273,7 +273,11 @@
   as not"). McLuhan fell to 7 quotations (bar 10): "quote sparingly" plus
   short, dense sentences meant paraphrase everywhere — the instructions now
   ask for two to four short quotations of each section's decisive words,
-  the record's receipts. **Then the reviewers** (`runReview`, once per conversation,
+  the record's receipts. Re-run (`ops/eval/2026-11-12-0018.md`): McLuhan
+  passes, 52 quotations all found, 5,362 words, sentences 23.8, TL;DR 135,
+  nothing said again, no first person — but 10 sources (511 words per
+  source, the bar 250): one run each, and runs vary; breadth is the open
+  problem. **Then the reviewers** (`runReview`, once per conversation,
   when the last Details section is written): one per section (12 steps,
   Flash) reads it against its notes and every note from a source it cites,
   searches for counter-evidence (noted like any evidence), and `flag`s a
