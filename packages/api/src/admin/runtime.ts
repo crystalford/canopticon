@@ -1837,6 +1837,20 @@ app.get("/engine-try", async (c) => {
   return new Response(readable, { headers: { "content-type": "application/json" } });
 });
 
+/** A paper's free full text and its citation trail (OpenAlex), live, for
+ *  checking what a researcher is handed after reading a paper. No model.
+ *  ?doi=10.… (default: a Canadian minimum-wage meta-analysis). */
+app.get("/paper", async (c) => {
+  const { openAccessCopy, relatedWorks } = await import("../write/finder.ts");
+  const doi = c.req.query("doi") ?? "10.3138/cpp.2019-070";
+  const t0 = Date.now();
+  const [freeText, related] = await Promise.all([
+    openAccessCopy(doi).catch((e: Error) => `failed: ${e.message}`),
+    relatedWorks(doi).catch((e: Error) => `failed: ${e.message}`),
+  ]);
+  return c.json({ doi, ms: Date.now() - t0, freeText, related });
+});
+
 /** The free source finder, source by source, live: what each returned for
  *  a question, or why it failed. ?q=…&all=1 asks every source, not just the
  *  ones the question routes to. */

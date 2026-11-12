@@ -904,6 +904,7 @@ web_search asks free collections, not the whole web: research papers and reports
 - When you know the authoritative source — the agency, statistics office, regulator, the law itself, the study, the organisation's own report — fetch its page directly with web_fetch. You do not need a search result to read a page.
 - A page you read lists its links: follow them to the reports, data tables and PDFs behind it. A site's /sitemap.xml lists its pages.
 - Wikipedia is a map, not a source: fetch the references it cites and cite those, never Wikipedia itself.
+- A paper's page (one with a DOI) comes back with its RELATED WORK: what it cites and what later work cites it, most-cited first, and a free full text when the page gave only an abstract. Follow them: citation chasing finds the sources a keyword search misses.
 - Search in short keywords — three to six words, no quotation marks or operators. Long, quoted queries find little here.
 - Read early: after a search or two, fetch the best results and note what you will use. A list of results is not evidence.
 - If a search finds little, change the words, search for the publisher or the document's name, or go to the source directly.

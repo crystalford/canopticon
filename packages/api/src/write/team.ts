@@ -24,6 +24,8 @@ export const RESEARCHER_SEARCHES = 8;
 export const RESEARCHER_SEARCHES_AT_ONCE = 2;
 /** From this step a researcher reads and notes only: no more searching. */
 export const RESEARCHER_READ_ONLY_FROM = RESEARCHER_STEPS - 4;
+/** Independent sources (different sites) behind a researcher's notes. */
+export const RESEARCHER_MIN_SOURCES = 3;
 export const SEARCH_TOOLS = new Set(["web_search", "news_search"]);
 /** A section with this many notes already is not researched again. */
 export const ENOUGH_NOTES = 4;
@@ -52,7 +54,8 @@ export function researcherSystem(): string {
     "- Note every passage the writer will need with note_evidence: the page's address, its exact words (one or two sentences, copied character for character from the page you read) and the claim they support. A note whose words are not on the page is refused.",
     "- Figures: note them with who published them and for what date or period.",
     "- Where sources disagree, note both sides.",
-    "- Aim for 6 to 12 notes from at least three different sources. Stay on your section; the others are covered.",
+    "- Aim for 6 to 12 notes from at least three independent sources — different institutions, and different kinds: official data, a study, an independent evaluation, the strongest dissent. Stay on your section; the others are covered.",
+    "- A paper's page lists its RELATED WORK — what it cites and what later work cites it, most-cited first. Following it is how a review finds the sources a search misses.",
     "- If your section is the case for or against a claim, build that case as its best advocate would, from the best sources — and note the weaknesses you find in it too.",
     "- Before you call something unpublished or unknown, search for it specifically once or twice.",
     "",
