@@ -46,7 +46,13 @@
   green = verified. No box-shadows (focus halos are outlines: `--halo`). Reading column 720px,
   rail 280px (`--rail`) on articles and documents alike. The wordmark carries the eye mark; Search is a
   field-like control (an icon on phones). Polish pass 2026-11-17: calmer article marks, list rows that
-  stack date-first on phones, a one-line phone header, the chat log scrolling inside its pane. `/site.js` is
+  stack date-first on phones, a one-line phone header, the chat log scrolling inside its pane. **One type scale**
+  (2026-11-17): every font-size is a `--t-*` token (eight fixed steps, four fluid headings). **Share
+  cards**: every page carries `og:image` (`cardPath` in `layout.ts`); `/card/<page path>.png` draws
+  a 1200×630 card from the page's library row (`site/og/card.ts`, pure SVG, text wrapped with
+  Geist's real widths from `og/metrics.ts`) and renders it in the Worker (`og/render.ts`:
+  resvg-wasm + the vendored Geist, OFL), kept in R2 at `cards/<hash of the SVG>.png` — drawn once,
+  redrawn only when what it says changes. Held or private pages resolve to the record's card. `/site.js` is
   enhancement only (`/` focuses search, progress bar, TOC, cite copy,
   passage finding, hovercards); every page is whole without it.
 - **Adding an article** means adding `content/articles/<slug>.md` and a row in

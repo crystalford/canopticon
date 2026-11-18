@@ -119,6 +119,48 @@ app.get(
     }),
 );
 
+// The share card: /card/<page path>.png (site/og/card.ts). Only public pages
+// have a row to draw from — a held document or a private page resolves to
+// nothing and gets the record's own card, never its title. Drawn once per
+// distinct card and kept in R2 under a hash of its SVG; the renderer (a
+// WebAssembly module) loads only on a miss.
+app.get("/card/*", async (c) => {
+  const path = c.req.path.replace(/^\/card/, "").replace(/\.png$/, "");
+  if (!/^\/[A-Za-z0-9/_-]*$/.test(path)) return c.notFound();
+  const { cardFromItem, cardSvg, siteCard, topicCard } = await import("./og/card");
+  const items = libraryItems();
+  let data = siteCard();
+  const topicMatch = /^\/topics\/([a-z0-9-]+)$/.exec(path);
+  const topic = topicMatch ? topicBySlug(topicMatch[1] as string) : null;
+  if (topic) data = topicCard(topic, items.filter((i) => i.topic === topic).length);
+  else {
+    const row = items.find((i) => i.route === path);
+    if (row) data = cardFromItem(row);
+  }
+  const svg = cardSvg(data);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(svg));
+  const key = `cards/${[...new Uint8Array(digest)]
+    .slice(0, 12)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")}.png`;
+  const headers = { "content-type": "image/png", "cache-control": "public, max-age=86400" };
+  const kept = await c.env.FILES.get(key).catch(() => null);
+  if (kept) return new Response(kept.body, { headers });
+  try {
+    const { renderPng } = await import("./og/render");
+    const png = await renderPng(svg);
+    c.executionCtx.waitUntil(
+      c.env.FILES.put(key, png, { httpMetadata: { contentType: "image/png" } }).catch(
+        () => undefined,
+      ),
+    );
+    return new Response(png, { headers });
+  } catch (e) {
+    console.error("card render failed", path, e);
+    return c.notFound();
+  }
+});
+
 app.get("/", (c) => html(renderFront({ signedIn: signedIn(c) })));
 
 function libraryQuery(q: (k: string) => string | undefined): LibraryQuery {

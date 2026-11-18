@@ -18,6 +18,13 @@ workers_dev = false
 [build]
 command = "node scripts/build-content.mjs"
 
+# The share card's fonts (src/site/og/fonts, imported by og/render.ts) are
+# bundled as bytes. .wasm needs no rule: wrangler compiles it by default.
+[[rules]]
+type = "Data"
+globs = ["**/*.ttf"]
+fallthrough = true
+
 # Custom domains for canopticon.com / www.canopticon.com are configured
 # via the Cloudflare dashboard (Workers & Pages → canopticon-api →
 # Settings → Domains & Routes). Those persist across deploys and don't

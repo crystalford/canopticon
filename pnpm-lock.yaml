@@ -29,6 +29,9 @@ importers:
       '@canopticon/shared':
         specifier: workspace:*
         version: link:../shared
+      '@resvg/resvg-wasm':
+        specifier: 2.6.2
+        version: 2.6.2
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
@@ -1619,6 +1622,10 @@ packages:
     resolution: {integrity: sha512-3gglLjiN6AJo1ayqbxZCBhpLJIieD3XGUnBgJ7b1Ew+C881wjOSH8O5vt+pvrO1E0RizjqbbBkbV99FwLFrC/A==}
     peerDependencies:
       zod: 4.3.6
+
+  '@resvg/resvg-wasm@2.6.2':
+    resolution: {integrity: sha512-FqALmHI8D4o6lk/LRWDnhw95z5eO+eAa6ORjVg09YRR7BkcM6oPHU9uyC0gtQG5vpFLvgpeU4+zEAz2H8APHNw==}
+    engines: {node: '>= 10'}
 
   '@rollup/rollup-android-arm-eabi@4.60.2':
     resolution: {integrity: sha512-dnlp69efPPg6Uaw2dVqzWRfAWRnYVb1XJ8CyyhIbZeaq4CA5/mLeZ1IEt9QqQxmbdvagjLIm2ZL8BxXv5lH4Yw==}
@@ -4090,6 +4097,8 @@ snapshots:
     transitivePeerDependencies:
       - react
       - react-dom
+
+  '@resvg/resvg-wasm@2.6.2': {}
 
   '@rollup/rollup-android-arm-eabi@4.60.2':
     optional: true
