@@ -84,8 +84,16 @@
   (conversations started this month, list prices). **One control system**
   in `site/styles.ts`: `.btn` Secondary, `.primary` tonal blue, `.sm`,
   `.warn`, `.ghost`, `.chipb`, `.attach`, `.toggle`, `.more` (`.d-btn` is
-  the same control). The old operator console — processing, leads,
-  research, the export — is `/admin/workbench`. Published Admin uploads join
+  the same control). **Processing runs in Admin** (2026-11-17): Publish queues a document
+  (`enqueueProcessing`); Admin's left column lists what is queued, running, failed or renamed
+  (`processingModel` in `site/admin-data.ts`) and, while Admin is open, `site.js` presses
+  `/op/process/advance` one step at a time and paints each row in place — never reloading, so a
+  half-typed message stays. Failed rows offer Retry and Start over; a pipeline rename offers Put it
+  back and Keep. The old operator console, `/admin/workbench`, is gone: it 301s to `/admin`, and its
+  renderers (`public/render/library/*` but `export.ts`), its model (`public/models/library.ts`),
+  `/library.json` and the old poller (`process-live.ts`) are deleted. The old research engine's
+  routes (leads, Dig here, readings) remain only because the old `src/public` document and search
+  pages still reference them; they go with that cleanup. Published Admin uploads join
   every public list through `site/uploads.ts` → `setUploadedRows()`. On a
   phone the desk's two halves are tabs (Your work · Waiting).
   **Each conversation page is the same desk** (v3): a top bar (‹ back to

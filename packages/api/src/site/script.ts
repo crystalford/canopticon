@@ -323,6 +323,46 @@ export const SITE_JS = `(function () {
     });
   }
 
+  // ---- Admin runs the processing queue while it is open ----------------------
+  // Publish queues a document (title, reading, figures, passage, section);
+  // nothing runs unattended, so this page presses "advance" one step at a
+  // time and paints each row in place. It never reloads: a half-typed
+  // message in the composer stays where it is.
+  var proc = d.querySelector("[data-proc-active]");
+  if (proc && Number(proc.getAttribute("data-proc-active")) > 0) {
+    var pNote = proc.querySelector("[data-proc-note]");
+    var pFails = 0;
+    var pStep = function () {
+      fetch("/op/process/advance", { method: "POST", headers: { Accept: "application/json" }, credentials: "same-origin" })
+        .then(function (res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
+        .then(function (r) {
+          pFails = 0;
+          if (r.piece_id && r.status) {
+            var line = proc.querySelector('[data-proc-line="' + r.piece_id + '"]');
+            var dot = proc.querySelector('[data-proc-dot="' + r.piece_id + '"]');
+            if (line) {
+              line.textContent = r.status.text;
+              line.classList.toggle("bad", r.status.state === "failed");
+              line.classList.toggle("done", r.status.state === "done");
+            }
+            if (dot) {
+              dot.classList.toggle("bad", r.status.state === "failed");
+              dot.classList.toggle("done", r.status.state === "done");
+            }
+          }
+          if (pNote) pNote.textContent = r.remaining > 0 ? r.remaining + " to go \u00b7 runs while this page is open" : "All processed";
+          if (r.remaining > 0) setTimeout(pStep, r.piece_id ? 300 : 5000);
+        })
+        .catch(function () {
+          pFails++;
+          if (pNote) pNote.textContent = "Paused \u2014 trying again";
+          if (pFails < 5) setTimeout(pStep, 4000 * pFails);
+          else if (pNote) pNote.textContent = "Stopped after five failures. Reload to try again.";
+        });
+    };
+    pStep();
+  }
+
   // ---- ⋯ menus close on Escape or a click elsewhere ---------------------------
   d.addEventListener("click", function (e) {
     d.querySelectorAll("details.more[open]").forEach(function (m) { if (!m.contains(e.target)) m.removeAttribute("open"); });

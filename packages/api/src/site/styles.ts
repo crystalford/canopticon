@@ -813,6 +813,13 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .desk-row-s.done { color: var(--green-ink); }
 .desk-row-s.proj { color: var(--amber-ink); }
 .desk-none { font-size: var(--t-ui); color: var(--muted); }
+/* Processing: a row carries its own actions under the status line. */
+.proc-row { align-items: start; }
+.proc-row:hover { background: transparent; }
+.proc-row .desk-row-t:hover { color: var(--cobalt); }
+.proc-act { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.proc-act form { margin: 0; }
+.proc-note { margin: -2px 0 6px; font-size: var(--t-sm); color: var(--cobalt-ink); }
 .desk-more { margin-top: 8px; }
 .desk-more > summary { display: inline-flex; align-items: center; gap: 4px; padding: 4px 0; font-size: var(--t-sm); font-weight: 500; color: var(--ink-2); cursor: pointer; list-style: none; }
 .desk-more > summary::-webkit-details-marker { display: none; }

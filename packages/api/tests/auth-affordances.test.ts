@@ -60,7 +60,7 @@ describe("attachAuthState — the one-site permission middleware", () => {
   // had nothing to tell them why. They reported being unable to find where to
   // upload more than once, and this was the reason.
   it("anonymous /library says how to sign in rather than silently redirecting", async () => {
-    const res = await app.fetch(new Request("http://test/admin/workbench"), env);
+    const res = await app.fetch(new Request("http://test/admin"), env);
     const html = await res.text();
     expect(res.status).toBe(401);
     // /op/login, not /auth/login. This assertion used to pin the broken link:
@@ -111,7 +111,7 @@ describe("attachAuthState — the one-site permission middleware", () => {
     // And the operator-only surface stays shut to it — sign-in page, never
     // the working surface.
     const lib = await app.fetch(
-      new Request("http://test/admin/workbench", { headers: { cookie: cookieValue } }),
+      new Request("http://test/admin", { headers: { cookie: cookieValue } }),
       env,
     );
     expect(lib.status).toBe(401);
@@ -135,10 +135,11 @@ describe("attachAuthState — the one-site permission middleware", () => {
     // Library: operator sees the same paper page, plus the op-strip with the
     // bulk-extract actions. The operator strip only renders when the
     // operator is resolved (an operator row exists in the DB).
-    const lib = await app.fetch(await loggedInRequest("/admin/workbench"), envWithOp);
+    const lib = await app.fetch(await loggedInRequest("/admin"), envWithOp);
     expect(lib.status).toBe(200);
     const libHtml = await lib.text();
-    expect(libHtml).toContain('class="op-strip"');
+    // The working surface is Admin's desk now (the Workbench folded into it).
+    expect(libHtml).toContain("data-desk");
 
     // The upload dropzone itself — the actual backend/upload affordance the
     // op-strip exists to surface. Regression guard: an earlier "dissolve
@@ -158,7 +159,7 @@ describe("attachAuthState — the one-site permission middleware", () => {
   });
 
   it("anonymous pages never show the upload form or the operator nav link", async () => {
-    const res = await app.fetch(new Request("http://test/admin/workbench"), env);
+    const res = await app.fetch(new Request("http://test/admin"), env);
     const html = await res.text();
     expect(html).not.toContain('action="/op/feed/upload"');
     expect(html).not.toContain('href="/op/library"');

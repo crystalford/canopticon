@@ -1385,6 +1385,26 @@ function makeDb(): D1Database {
         if (/FROM research_sources/i.test(sql))
           return { results: bound[0] === RESEARCH_ROW.id ? RESEARCH_PAGES : [] };
         if (/FROM record_entries WHERE draft_id/i.test(sql)) return { results: [ENTRY_ROW] };
+        // Admin's processing list: the rows still to run or failed, with each
+        // document's title and slug; then the pipeline's renames.
+        if (/FROM piece_processing x JOIN pieces/i.test(sql)) {
+          return {
+            results: PROCESSING.filter((r) => r.status !== "done").map((r) => {
+              const p = ALL.find((x) => x.id === r.piece_id);
+              return { ...r, title: p?.title ?? r.piece_id, slug: p?.slug ?? r.piece_id };
+            }),
+          };
+        }
+        if (/title_auto_at IS NOT NULL/i.test(sql)) {
+          return {
+            results: ALL.filter((p) => p.title_auto_at).map((p) => ({
+              id: p.id,
+              slug: p.slug,
+              title: p.title,
+              original_title: p.original_title,
+            })),
+          };
+        }
         // processingRows: every pipeline row for the operator.
         if (/FROM piece_processing/i.test(sql)) return { results: PROCESSING };
         // Readings: as leads for the worklist (readingsAsLeads selects the

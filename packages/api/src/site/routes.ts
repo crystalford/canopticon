@@ -20,7 +20,7 @@ import { START_READ, d1Reads } from "../write/read";
 import { checkReport, d1Sources, reportFile, reportProblems } from "../write/research";
 import { sourceTexts, sourceTitles } from "../write/sources";
 import { loadStoredKey } from "../write/stored-key";
-import { adminModel, waitingCount } from "./admin-data";
+import { adminModel, processingModel, waitingCount } from "./admin-data";
 import {
   allPapers,
   answeredElsewhere,
@@ -247,6 +247,7 @@ app.get("/admin", async (c) => {
         engine: userId ? await defaultEngine(c.env.DB, userId) : DEFAULT_ENGINE,
         monthCents,
         decided: c.req.query("decided") === "1",
+        processing: userId ? await processingModel(c.env, userId) : [],
       },
     ),
   );

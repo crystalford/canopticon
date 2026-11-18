@@ -127,3 +127,62 @@ export async function waitingCount(env: Env, userId: string): Promise<number> {
   ).catch(() => null);
   return r?.n ?? 0;
 }
+
+/** A document the processing pipeline is working on, failed on, or renamed
+ *  (graph/lib/processing.ts: title → digest → findings → passage → section).
+ *  Publish queues the work; Admin is where it runs, while the page is open. */
+export interface ProcessingItem {
+  id: string;
+  slug: string;
+  title: string;
+  state: "queued" | "running" | "failed" | "renamed";
+  /** One line: "Queued 2/7 · reading", "Failed at finding figures: …",
+   *  or for a rename, the title it had. */
+  line: string;
+}
+
+export async function processingModel(env: Env, userId: string): Promise<ProcessingItem[]> {
+  const { describeProcessing } = await import("../graph/lib/processing");
+  type ProcRow = import("../graph/lib/processing").ProcessingRow & { title: string; slug: string };
+  const rows = await all<ProcRow>(
+    env.DB,
+    `SELECT x.*, p.title AS title, p.slug AS slug
+       FROM piece_processing x JOIN pieces p ON p.id = x.piece_id
+      WHERE x.user_id = ? AND x.status IN ('queued','running','failed')
+      ORDER BY CASE x.status WHEN 'running' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, x.updated_at DESC
+      LIMIT 40`,
+    [userId],
+  ).catch(() => [] as ProcRow[]);
+  // The title step renames a working title (a file name) from the document's
+  // own words; until the author keeps or reverts it, it is shown here.
+  const renamed = await all<{ id: string; slug: string; title: string; original_title: string }>(
+    env.DB,
+    `SELECT id, slug, title, original_title FROM pieces
+      WHERE user_id = ? AND ${OWN_UPLOADS_SQL}
+        AND title_auto_at IS NOT NULL AND title_approved_at IS NULL
+        AND original_title IS NOT NULL AND original_title <> title
+      ORDER BY title_auto_at DESC LIMIT 5`,
+    [userId],
+  ).catch(() => []);
+  const items: ProcessingItem[] = rows.map((r) => {
+    const d = describeProcessing(r);
+    return {
+      id: r.piece_id,
+      slug: r.slug,
+      title: r.title,
+      state: d.state === "failed" ? "failed" : d.state === "running" ? "running" : "queued",
+      line: d.text,
+    };
+  });
+  for (const r of renamed) {
+    if (items.some((i) => i.id === r.id)) continue;
+    items.push({
+      id: r.id,
+      slug: r.slug,
+      title: r.title,
+      state: "renamed",
+      line: `Renamed from "${r.original_title}"`,
+    });
+  }
+  return items;
+}
