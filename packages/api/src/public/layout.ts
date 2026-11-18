@@ -67,6 +67,10 @@ export interface RenderPageArgs {
    *  the one public page that must never compete with the documents it
    *  lists (CLAUDE.md: a site's own pages displace each other). */
   noindex?: boolean;
+  /** The paper skin: the new site's palette, Geist and its nav over this
+   *  page's own markup (html.paper in styles.ts re-points the tokens). For
+   *  the operator pages not yet rebuilt — the Workbench first. */
+  paper?: boolean;
 }
 
 const SITE_ORIGIN = "https://canopticon.com";
@@ -122,7 +126,7 @@ export function renderPage(args: RenderPageArgs): string {
     .filter(Boolean)
     .join("\n");
   return `<!doctype html>
-<html lang="en" data-mode="${mode}" data-zone="${escapeAttr(zone)}">
+<html lang="en"${args.paper ? ' class="paper"' : ""} data-mode="${mode}" data-zone="${escapeAttr(zone)}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -133,13 +137,17 @@ ${args.noindex ? '<meta name="robots" content="noindex,follow" />' : ""}
 ${social}
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&display=swap" />
+${
+  args.paper
+    ? '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" />'
+    : '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&display=swap" />'
+}
 <link rel="stylesheet" href="${cssHref}" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="alternate icon" href="/favicon.ico" />
 </head>
 <body>
-${renderNav(args.activeNav)}
+${args.paper ? renderPaperNav() : renderNav(args.activeNav)}
 <main class="record-main">
 ${args.bare ? args.body : `<div class="container">${args.body}</div>`}
 </main>
@@ -180,6 +188,26 @@ function renderNav(activeHref?: string): string {
     <div class="nav-links">
       ${items}
       <a href="/search" class="nav-search"><span class="q">/</span> Search</a>
+    </div>
+  </div>
+</nav>`;
+}
+
+/** The new site's nav, in this shell's markup: Library and About, Search,
+ *  and the way back to Admin. The class on .nav-links keeps the operator
+ *  middleware from adding its old "Library" link (routes.ts); Search is the
+ *  same anchor, so the working badge and Sign out still follow it. */
+function renderPaperNav(): string {
+  return `<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="wordmark">canopticon</a>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle" />
+    <label for="nav-toggle" class="nav-burger" aria-label="Menu"><span></span></label>
+    <div class="nav-links paper-links">
+      <a href="/library">Library</a>
+      <a href="/about">About</a>
+      <a href="/search" class="nav-search"><span class="q">/</span> Search</a>
+      <a href="/admin" class="nav-admin">Admin</a>
     </div>
   </div>
 </nav>`;

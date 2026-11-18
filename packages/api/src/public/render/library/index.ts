@@ -80,8 +80,8 @@ export function renderLibraryFromModel(m: LibraryModel): string {
 
   const body = `
 <header class="phead">
-  <div class="eyebrow">The raw research</div>
-  <h1>Library</h1>
+  <div class="eyebrow"><a href="/admin">Admin</a> · the raw research</div>
+  <h1>Workbench</h1>
   <p class="phead-dek">
     Every document the rest is built on, kept whole. Each row shows what it fed —
     facts extracted, subjects it touched. Working material feeds the rest but
@@ -113,12 +113,13 @@ ${queueBlock}
 ${operator ? PROCESS_LIVE_JS : ""}
 `;
   return renderPage({
-    title: "Library",
+    title: "Workbench",
     description:
       "Every source document the rest is built on. Each row shows what it fed — facts extracted, subjects it touched.",
     body,
     activeNav: "/admin/workbench",
     zone: "library",
+    paper: true,
   });
 }
 

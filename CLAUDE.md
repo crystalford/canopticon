@@ -85,7 +85,9 @@
   in `site/styles.ts`: `.btn` Secondary, `.primary` tonal blue, `.sm`,
   `.warn`, `.ghost`, `.chipb`, `.attach`, `.toggle`, `.more` (`.d-btn` is
   the same control). The old operator console — processing, leads,
-  research, the export — is `/admin/workbench`. Published Admin uploads join
+  research, the export — is `/admin/workbench`, still rendered by `src/public/` but in **the paper
+  skin** (`renderPage({ paper: true })` → `html.paper` in `public/styles.ts`: the old tokens
+  re-pointed at the site palette, Geist and cobalt; the site's nav with an Admin pill). Published Admin uploads join
   every public list through `site/uploads.ts` → `setUploadedRows()`. On a
   phone the desk's two halves are tabs (Your work · Waiting).
   **Each conversation page is the same desk** (v3): a top bar (‹ back to

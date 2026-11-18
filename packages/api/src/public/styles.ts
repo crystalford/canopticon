@@ -2713,6 +2713,63 @@ aside.reading .note-sig button:hover { color: var(--accent); }
   .lib-table td.lib-status { width: 100%; min-width: 0; max-width: none; }
 }
 
+
+/* ---- The paper skin (2026-11-17) ----------------------------------------
+   html.paper (renderPage({ paper: true })) puts the new site's look over a
+   page this sheet still renders: paper ground, Geist, cobalt for interaction,
+   the site's radii. Only tokens move, so every component follows; the few
+   rules below are the ones that carried a literal colour or the old nav's
+   furniture. The Workbench (/admin/workbench) is the first page in it. */
+html.paper {
+  color-scheme: light;
+  --op-paper: #f6f3ec;
+  --op-paper-2: #fffdf8;
+  --op-paper-hover: #efebe1;
+  --op-paper-3: #efebe1;
+  --op-paper-4: #e8e3d8;
+  --op-surface: #fffdf8;
+  --op-ink: #15171c;
+  --op-ink-2: #2e313a;
+  --op-ink-3: #4a4d57;
+  --op-ink-mute: #5a5e6b;
+  --op-ink-faint: #b8b3a7;
+  --op-rule: #e8e3d8;
+  --op-rule-bright: #d8d2c4;
+  --op-accent: #1f4e8c;
+  --op-accent-2: #2f55c4;
+  --op-accent-bg: #e6ecfa;
+  --op-accent-bd: #c9d3f0;
+  --confirmed: #1f5e36;
+  --confirmed-bg-d: #e3f0e6;
+  --confirmed-bd-d: #cfe3d5;
+  --correction-bg-d: #fbe9df;
+  --correction-bd-d: #e0b9a6;
+  --propose-bg-d: #efe6f6;
+  --propose-bd-d: #ddd0ea;
+  --sans: Geist, system-ui, sans-serif;
+  --serif: Geist, system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --r: 9px;
+  --r-lg: 14px;
+}
+html.paper body { background: var(--paper); color: var(--ink); }
+html.paper .nav { background: rgba(246, 243, 236, .86); }
+html.paper .nav::before { display: none; }
+html.paper .wordmark { display: inline-flex; align-items: center; gap: var(--s-2); font-weight: 700; font-size: var(--t-4); }
+html.paper .wordmark::before { content: ""; flex: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--ink); background: radial-gradient(circle, #2f55c4 0 3px, transparent 3.5px); }
+html.paper .paper-links { font-family: var(--sans); gap: var(--s-1) var(--s-5); }
+html.paper .paper-links .nav-search { font-family: var(--sans); font-size: var(--t-2); min-width: 160px; padding: var(--s-2) var(--s-3); border-color: var(--rule); border-radius: var(--r-lg); }
+html.paper .paper-links .nav-search .q { color: var(--accent-2); }
+html.paper .nav-admin { padding: var(--s-1) var(--s-3); border: 1px solid var(--rule-bright); border-radius: var(--r-lg); background: var(--surface); color: var(--ink); font-weight: 600; }
+html.paper .nav-admin:hover { border-color: var(--ink-faint); }
+html.paper .nav-op-status, html.paper .nav-op-out { font-family: var(--sans); font-size: var(--t-2); letter-spacing: 0; }
+html.paper .btn-primary:hover, html.paper .btn.primary:hover, html.paper .op-strip-btn-primary:hover, html.paper .atom-pub:hover, html.paper .docrail-btn.primary:hover { background: #d6dff5; border-color: var(--accent-bd); color: var(--accent); }
+html.paper .btn.accent { color: var(--surface); }
+html.paper .eyebrow a { color: inherit; border-bottom: 1px solid currentColor; }
+html.paper :focus-visible { outline: 2px solid #2f55c4; outline-offset: 3px; }
+/* Red was the brand here and a warning at once; cobalt is only interaction,
+   so what warns keeps the brick. */
+html.paper .rcpt-gap, html.paper .lib-model-fallback { color: var(--correction); }
 `;
 
 // Cheap deterministic hash of the CSS for cache-busting. djb2.
