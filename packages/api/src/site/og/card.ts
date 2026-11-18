@@ -136,7 +136,6 @@ const BODY = "#4a4d57";
 const MUTED = "#5a5e6b";
 const PAPER = "#f6f3ec";
 const HAIR = "#e3ddcf";
-const COBALT = "#2f55c4";
 const GREEN = "#1f5e36";
 
 /** Narrow the measure as far as it goes without adding a line, so a title
@@ -182,11 +181,9 @@ const FOOT = 530;
 
 export function cardSvg(d: CardData): string {
   const parts: string[] = [];
-  // The masthead: the eye mark and the wordmark.
+  // The masthead: the wordmark, as the site sets it.
   parts.push(
-    `<circle cx="${PAD + 13}" cy="86" r="11.5" fill="none" stroke="${INK}" stroke-width="3.5"/>`,
-    `<circle cx="${PAD + 13}" cy="86" r="4.6" fill="${COBALT}"/>`,
-    `<text x="${PAD + 38}" y="96" font-family="Geist" font-weight="600" font-size="30" letter-spacing="-0.9" fill="${INK}">canopticon</text>`,
+    `<text x="${PAD}" y="96" font-family="Geist" font-weight="600" font-size="30" letter-spacing="-0.9" fill="${INK}">canopticon</text>`,
   );
   // The pills, right-aligned on the masthead line.
   let x = CARD_W - PAD;
