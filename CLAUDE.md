@@ -43,7 +43,10 @@
   same document page (guarded by `OWN_UPLOADS_SQL`).
 - **Design.** `src/site/styles.ts` (served at `/site.css`) and `src/site/layout.ts`.
   Paper palette, Geist, cobalt = interaction, brick = the author's marks,
-  green = verified. No box-shadows. Reading column 720px. `/site.js` is
+  green = verified. No box-shadows (focus halos are outlines: `--halo`). Reading column 720px,
+  rail 280px (`--rail`) on articles and documents alike. The wordmark is unchanged (no mark yet); Search is a
+  field-like control (an icon on phones). Polish pass 2026-11-17: calmer article marks, list rows that
+  stack date-first on phones, a one-line phone header, the chat log scrolling inside its pane. `/site.js` is
   enhancement only (`/` focuses search, progress bar, TOC, cite copy,
   passage finding, hovercards); every page is whole without it.
 - **Adding an article** means adding `content/articles/<slug>.md` and a row in
