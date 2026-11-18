@@ -99,10 +99,7 @@ input[type="search"] { -webkit-appearance: none; appearance: none; }
   body.app .desk-pane { overflow-y: auto; }
   body.app .ws-panes { height: auto; min-height: 0; }
 }
-/* The wordmark carries a small mark: an eye — a ring with a cobalt pupil. */
-.wm { display: inline-flex; align-items: center; gap: 9px; font-weight: 700; font-size: 18px; letter-spacing: -.03em; white-space: nowrap; color: var(--ink); }
-.wm::before { content: ""; flex: none; width: 16px; height: 16px; border-radius: 999px; border: 2px solid var(--ink); background: radial-gradient(circle, var(--cobalt) 0 3px, transparent 3.5px); }
-.wm:hover { color: var(--ink); }
+.wm { font-weight: 700; font-size: 18px; letter-spacing: -.03em; white-space: nowrap; color: var(--ink); }
 .nav { display: flex; gap: 22px; font-size: 14px; font-weight: 500; color: var(--muted); white-space: nowrap; }
 .nav a { padding: 6px 0; }
 .nav a:hover { color: var(--ink); }
@@ -1061,8 +1058,6 @@ a.xl.concept { border-bottom-color: var(--brick); }
    in) the Admin pill on one line. The word "Search" stays for screen readers. */
 @media (max-width: 520px) {
   .hd-in { flex-wrap: nowrap; gap: 14px; padding: 8px 14px; }
-  .wm { font-size: 17px; gap: 7px; }
-  .wm::before { width: 14px; height: 14px; }
   .nav { gap: 14px; }
   .hd-search { min-width: 0; width: 34px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
   .admin { padding: 0 9px; }
