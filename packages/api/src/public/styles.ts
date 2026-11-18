@@ -2755,8 +2755,7 @@ html.paper {
 html.paper body { background: var(--paper); color: var(--ink); }
 html.paper .nav { background: rgba(246, 243, 236, .86); }
 html.paper .nav::before { display: none; }
-html.paper .wordmark { display: inline-flex; align-items: center; gap: var(--s-2); font-weight: 700; font-size: var(--t-4); }
-html.paper .wordmark::before { content: ""; flex: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--ink); background: radial-gradient(circle, #2f55c4 0 3px, transparent 3.5px); }
+html.paper .wordmark { font-weight: 700; font-size: var(--t-4); }
 html.paper .paper-links { font-family: var(--sans); gap: var(--s-1) var(--s-5); }
 html.paper .paper-links .nav-search { font-family: var(--sans); font-size: var(--t-2); min-width: 160px; padding: var(--s-2) var(--s-3); border-color: var(--rule); border-radius: var(--r-lg); }
 html.paper .paper-links .nav-search .q { color: var(--accent-2); }
