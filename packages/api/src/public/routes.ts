@@ -175,7 +175,7 @@ app.use("*", async (c, next) => {
   const withNav = html
     .replace(
       '<div class="nav-links">\n      ',
-      '<div class="nav-links">\n      <a href="/admin" class="nav-op">Library</a>\n      ',
+      '<div class="nav-links">\n      <a href="/admin" class="nav-op">Admin</a>\n      ',
     )
     .replace(
       '<a href="/search" class="nav-search"><span class="q">/</span> Search</a>',
