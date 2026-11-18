@@ -81,24 +81,24 @@ app.route("/", readingsRoutes);
 // maps to the new surface that absorbed its functionality.
 
 const redirects: Record<string, string> = {
-  "/console": "/admin/workbench",
-  "/ingest": "/admin/workbench",
-  "/workbench": "/admin/workbench",
-  "/leads": "/admin/workbench",
+  "/console": "/admin",
+  "/ingest": "/admin",
+  "/workbench": "/admin",
+  "/leads": "/admin",
   "/patterns": "/library?kind=Research",
-  "/editorial": "/admin/workbench",
-  "/build": "/admin/workbench",
-  "/publish": "/admin/workbench",
+  "/editorial": "/admin",
+  "/build": "/admin",
+  "/publish": "/admin",
   "/briefs": "/library?kind=Research",
   // Unmounted 2026-09-24 (docs/the-record.md §9).
   "/out": "/",
-  "/synthesis": "/admin/workbench",
+  "/synthesis": "/admin",
   "/studio": "/",
   "/outputs": "/library?kind=Research",
   "/records": "/library?kind=Research",
   "/proposals": "/library?kind=Research",
   "/faces": "/",
-  "/answers": "/admin/workbench",
+  "/answers": "/admin",
 };
 
 for (const [from, to] of Object.entries(redirects)) {

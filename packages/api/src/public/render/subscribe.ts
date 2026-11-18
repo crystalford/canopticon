@@ -99,33 +99,3 @@ export function renderSubscribeError(message: string): string {
     canonical: `${CANONICAL}/subscribed`,
   });
 }
-
-/**
- * The operator's way back in.
- *
- * `/admin/workbench` is where uploading happens and it is session-gated. It used to
- * redirect a signed-out visitor to `/research`, which meant a lapsed cookie
- * looked exactly like the page not existing. Saying so, and pointing at the
- * door, costs one page and removes the only genuinely blocking bug on the site.
- */
-export function renderSignedOut(): string {
-  return notice(
-    "Sign in",
-    "Sign in to continue",
-    // /op/login, NOT /auth/login. Minting a session needs Cloudflare Access to
-    // have verified the visitor and injected their email header, and Access is
-    // scoped to a path: it covers /op/* and cannot cover /*, because the
-    // publication is meant to be publicly readable. /auth/login therefore sits
-    // outside the gate it depends on, so this link — the one link on the one
-    // page a locked-out operator reaches — was the one that could never work.
-    `  <p class="lead">The library is where documents are uploaded and reviewed. It needs an
-  operator session.</p>
-  <p><a href="/op/login">Sign in →</a></p>
-  <p>If you are not the operator, the published documents are at
-  <a href="/research">Research</a> and the essays at <a href="/essays">Essays</a>.</p>`,
-    // No "back to the essays" — the body already points at both public
-    // indexes, and no canonical, because a sign-in page is not a destination
-    // any crawler should be led to.
-    { eyebrow: "Operator", description: "Sign in to the Canopticon library.", back: false },
-  );
-}

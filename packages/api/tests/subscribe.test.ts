@@ -203,19 +203,20 @@ describe("follow — double opt-in with a consent record (CASL)", () => {
 describe("the sign-in page does not inherit the mailing list's identity", () => {
   it("points at /op/login, the mount Access actually protects", async () => {
     const { db } = makeDb();
-    const res = await app.fetch(new Request("http://test/admin/workbench"), envWith(db));
+    const res = await app.fetch(new Request("http://test/admin"), envWith(db));
     const html = await res.text();
     // Minting a session needs Access to have injected an identity header, and
     // Access is scoped to a path: it covers /op/* and cannot cover /*, since
     // the publication is public. /auth/login sits outside the gate it depends
     // on, so this link was the one link on this page that could never work.
-    expect(html).toContain('href="/op/login"');
+    // Admin's sign-in carries where to come back to (?next=/admin).
+    expect(html).toContain('href="/op/login');
     expect(html).not.toContain('href="/auth/login"');
   });
 
   it("is not labelled Mailing list", async () => {
     const { db } = makeDb();
-    const res = await app.fetch(new Request("http://test/admin/workbench"), envWith(db));
+    const res = await app.fetch(new Request("http://test/admin"), envWith(db));
     expect(await res.text()).not.toContain("Mailing list");
   });
 
@@ -224,10 +225,12 @@ describe("the sign-in page does not inherit the mailing list's identity", () => 
     // sign-in page was a duplicate of the newsletter confirmation. A sign-in
     // page is not a destination to lead anyone to, so it claims nothing.
     const { db } = makeDb();
-    const res = await app.fetch(new Request("http://test/admin/workbench"), envWith(db));
+    const res = await app.fetch(new Request("http://test/admin"), envWith(db));
     const html = await res.text();
     expect(html).not.toContain("/subscribed");
-    expect(html).not.toMatch(/rel="canonical"/);
+    // Admin's sign-in is the site's notice page: it keeps its own address as
+    // canonical and tells crawlers not to index it.
+    expect(html).toContain('<meta name="robots" content="noindex,follow" />');
   });
 
   it("still gives the mailing-list notices their own eyebrow and canonical", async () => {

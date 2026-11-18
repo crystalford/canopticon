@@ -22,20 +22,17 @@ import {
 import { htmlResponse } from "./layout";
 import { feedJson, llmsFullTxt, llmsTxt, pieceMarkdown } from "./machine";
 import { documentModel } from "./models/document";
-import { emptyLibraryModel, libraryModel } from "./models/library";
 import { searchModel } from "./models/search";
 import { renderAbout } from "./render/about";
 import { renderCitationsPage } from "./render/citations";
 import { renderFront } from "./render/front";
 import { renderEssaysIndex, renderResearchIndex, renderSectionHub } from "./render/indexes";
-import { renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
 import { renderPiece } from "./render/piece-template";
 import { renderNotFound } from "./render/placeholder";
 import { renderSearchPage } from "./render/search";
 import {
   renderConfirmed,
-  renderSignedOut,
   renderSubscribeError,
   renderSubscribed,
   renderUnsubscribed,
@@ -173,12 +170,12 @@ app.use("*", async (c, next) => {
   // working indicator and sign out. Same bar, same height, same rules.
   const status = await renderWorkStatusBadge(c.env.DB).catch(() => null);
   const statusHtml = status
-    ? `<a href="/admin/workbench" class="nav-op-status${status.live ? " live" : ""}" title="${status.title}"><span class="nav-op-dot"></span>${status.text}</a>`
+    ? `<a href="/admin" class="nav-op-status${status.live ? " live" : ""}" title="${status.title}"><span class="nav-op-dot"></span>${status.text}</a>`
     : "";
   const withNav = html
     .replace(
       '<div class="nav-links">\n      ',
-      '<div class="nav-links">\n      <a href="/admin/workbench" class="nav-op">Library</a>\n      ',
+      '<div class="nav-links">\n      <a href="/admin" class="nav-op">Library</a>\n      ',
     )
     .replace(
       '<a href="/search" class="nav-search"><span class="q">/</span> Search</a>',
@@ -766,78 +763,14 @@ app.get("/record", (c) => c.redirect("/", 301));
 // inside Investigations (intent badges).
 app.get("/patterns", (c) => c.redirect("/library?kind=Research", 301));
 
-// ---- Library --------------------------------------------------------------
+// ---- The Workbench, folded into Admin ------------------------------------
 
-// /library is now the OPERATOR's working surface, not a public door: it
-// lists working-material alongside published pieces and carries the upload
-// dropzone.
-//
-// IT USED TO 301 A LOGGED-OUT VISITOR TO /research, and that was the single
-// worst thing on the site. This is where uploading happens, it is the page the
-// operator needs most, and a lapsed session turned it into a silent bounce to
-// a different page with no explanation and no way back in — while exactly one
-// link to /auth/* existed anywhere in the codebase. The operator reported, more
-// than once, not being able to find where to upload. This was why.
-//
-// Now it says what it is and where the door is.
-app.get("/admin/workbench", async (c) => {
-  if (!c.get("is_operator")) return htmlResponse(renderSignedOut(), { status: 401 });
-  const ingested = c.req.query("ingested");
-  const error = c.req.query("error");
-  const importing = c.req.query("importing");
-  const videoError = c.req.query("video_error");
-  const published = c.req.query("published");
-  const renamed = c.req.query("renamed");
-  const queued = c.req.query("queued");
-  // The upload just made: POST /op/feed/upload redirects here carrying the
-  // new piece ids (comma-separated for a zip), and the page opens on them.
-  const uploaded = c.req.query("uploaded");
-  return htmlResponse(
-    await renderLibraryIndex(c.env, {
-      isOperator: c.get("is_operator"),
-      ...(uploaded ? { uploaded } : {}),
-      ...(ingested ? { ingested } : {}),
-      ...(error ? { error } : {}),
-      ...(importing ? { importing } : {}),
-      ...(videoError ? { videoError } : {}),
-      ...(published ? { published } : {}),
-      ...(renamed ? { renamed } : {}),
-      ...(queued ? { queued } : {}),
-    }),
-  );
-});
-
-// The same model /library renders, as JSON — the data seam for a front end
-// built against real data (public/models/library.ts). Operator-only, like the
-// page; a reader gets a 404, not a 401, because the URL is not a door.
-app.get("/library.json", async (c) => {
-  if (c.get("is_operator") !== true) return c.notFound();
-  const operatorId = await resolveOperatorId(c.env.DB);
-  // Only the flashes actually present, so an absent query key stays absent.
-  const opts: Record<string, string> = {};
-  for (const [key, param] of [
-    ["uploaded", "uploaded"],
-    ["importing", "importing"],
-    ["videoError", "video_error"],
-    ["ingested", "ingested"],
-    ["error", "error"],
-    ["published", "published"],
-    ["renamed", "renamed"],
-    ["queued", "queued"],
-  ] as const) {
-    const v = c.req.query(param);
-    if (v) opts[key] = v;
-  }
-  const model = operatorId
-    ? await libraryModel(c.env, { ...opts, userId: operatorId })
-    : emptyLibraryModel(c.env, opts);
-  return new Response(JSON.stringify(model), {
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-    },
-  });
-});
+// /admin/workbench was the old operator console (uploads, the processing
+// queue, leads, the old research engine). Admin does all of what is still
+// used — uploading, replacing, the export, and the processing queue, which
+// runs while Admin is open — so the old address goes there.
+app.get("/admin/workbench", (c) => c.redirect("/admin", 301));
+app.get("/library.json", (c) => c.notFound());
 
 app.get("/briefs/:slug", (c) => c.redirect(`/p/${c.req.param("slug")}`, 301));
 

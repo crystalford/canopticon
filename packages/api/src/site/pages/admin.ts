@@ -16,7 +16,7 @@ import type { Draft } from "../../write/drafts";
 import { DEFAULT_ENGINE, ENGINES, type EngineId } from "../../write/engines";
 import { KIND_NAME, KIND_WHAT, START_KINDS, kindRulesJson } from "../../write/kind";
 import type { ReadBadge } from "../../write/read";
-import type { AdminModel, AdminPiece } from "../admin-data";
+import type { AdminModel, AdminPiece, ProcessingItem } from "../admin-data";
 import { heldResearch, terms } from "../content/store";
 import { hubTopics } from "../data";
 import { esc, shell } from "../layout";
@@ -234,6 +234,8 @@ export interface DeskModel {
   monthCents?: number;
   /** Show decided is on. */
   decided?: boolean;
+  /** Documents the processing pipeline is on, has failed, or renamed. */
+  processing?: ProcessingItem[];
 }
 
 const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -309,6 +311,34 @@ function rowHtml(r: Row): string {
 
 const SHOWN = 8;
 
+/** Processing: what Publish queued, run here while the page is open (the
+ *  browser is the scheduler; nothing runs unattended). Running and queued
+ *  rows update in place (site.js presses /op/process/advance); a failed one
+ *  offers Retry and Start over; a rename offers Put it back. */
+function processingGroup(items: ProcessingItem[]): string {
+  if (!items.length) return "";
+  const active = items.filter((i) => i.state === "queued" || i.state === "running").length;
+  const tone = (s: ProcessingItem["state"]) =>
+    s === "failed" ? " bad" : s === "renamed" ? " proj" : "";
+  const act = (i: ProcessingItem) =>
+    i.state === "failed"
+      ? `<span class="proc-act"><form method="post" action="/op/library/${esc(i.id)}/retry"><button type="submit" class="btn sm">Retry</button></form><form method="post" action="/op/library/${esc(i.id)}/reprocess"><button type="submit" class="btn sm quiet">Start over</button></form></span>`
+      : i.state === "renamed"
+        ? `<span class="proc-act"><form method="post" action="/op/pieces/${esc(i.id)}/title/revert"><button type="submit" class="btn sm">Put it back</button></form><form method="post" action="/op/pieces/${esc(i.id)}/title"><input type="hidden" name="title" value="${esc(i.title)}"><button type="submit" class="btn sm quiet">Keep</button></form></span>`
+        : "";
+  const rows = items
+    .map(
+      (i) =>
+        `<div class="desk-row proc-row"><span class="dot${tone(i.state)}" aria-hidden="true" data-proc-dot="${esc(i.id)}"></span><a class="desk-row-t" href="/p/${esc(i.slug)}">${esc(i.title)}</a><span class="desk-row-s${tone(i.state)}" data-proc-line="${esc(i.id)}" title="${esc(i.line)}">${esc(i.line)}</span>${act(i)}</div>`,
+    )
+    .join("");
+  return `<section class="desk-group" aria-label="Processing" data-proc-active="${active}"><h2 class="desk-gh">Processing <span>${items.length}</span></h2>${
+    active
+      ? `<p class="proc-note" data-proc-note>${active} to go · runs while this page is open</p>`
+      : ""
+  }${rows}</section>`;
+}
+
 function side(desk: DeskModel, reads: Map<string, ReadBadge>): string {
   const byDraft = new Map(
     [...reads.values()].filter((r) => r.draftId).map((r) => [r.draftId as string, r]),
@@ -330,7 +360,7 @@ function side(desk: DeskModel, reads: Map<string, ReadBadge>): string {
     open.length
       ? open.slice(0, SHOWN).map(rowHtml).join("")
       : '<div class="desk-none">Nothing under way. Type below to start.</div>'
-  }${fold(`${open.length - SHOWN} older`, open.slice(SHOWN))}${fold(`Done · ${done.length}`, done)}</section>`;
+  }${fold(`${open.length - SHOWN} older`, open.slice(SHOWN))}${fold(`Done · ${done.length}`, done)}</section>${processingGroup(desk.processing ?? [])}`;
   const chosen = desk.engine ?? DEFAULT_ENGINE;
   const engines = ENGINES.map(
     (e) =>
@@ -370,7 +400,7 @@ export function renderAdmin(
     desk.monthCents !== undefined
       ? `<span aria-hidden="true">·</span><span title="Conversations started this month, estimated at list prices">${dollars(desk.monthCents)} in conversations this month</span>`
       : ""
-  }</div></div><div class="desk-tools"><a href="/admin/workbench" class="btn sm" title="Processing, leads and the old research">Workbench</a></div></div>`;
+  }</div></div></div>`;
 
   const tools = `<div class="q-tools"><form method="get" action="/admin"><button type="submit" class="toggle" name="decided" value="${on ? "0" : "1"}" aria-pressed="${on}"><span class="sw" aria-hidden="true"></span>Show decided<span class="n">${decided.length}</span></button></form><a href="/op/export" class="btn" title="Every document, article and paper, as Markdown in a few zips"><span class="g g-dl" aria-hidden="true">↓</span>Download the record <span class="sub">.zip</span></a></div>`;
 
