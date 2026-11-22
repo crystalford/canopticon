@@ -12,6 +12,8 @@ related:
     label: "Paper: Why Temperature"
   - route: /theories/self-extinguishing-maintenance
     label: "Theory: Self-extinguishing maintenance (P5, understanding why sustains a routine)"
+  - route: /theories/ground-blindness
+    label: "Theory: Ground blindness (what removal reveals)"
 propositions:
   - statement: "Whether a medium is hot or cool is a relation between the medium, the task and the receiver, not a fixed property of the medium."
     grade: "Moderate"
