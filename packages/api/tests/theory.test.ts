@@ -119,6 +119,14 @@ describe("theories", () => {
     expect(html).toMatch(/\d+ in full, \d+ from the abstract, \d+ from a secondary account/);
   });
 
+  it("the sitemap lists every theory, dated by its last revision", async () => {
+    const xml = await (await get("/sitemap.xml")).text();
+    for (const t of allTheories())
+      expect(xml).toContain(
+        `<loc>https://canopticon.com/theories/${t.slug}</loc><lastmod>${t.revised ?? t.date}</lastmod>`,
+      );
+  });
+
   it("a DOI shows as a link to its resolver, and nothing shows without one", () => {
     expect(doiChip("10.5281/zenodo.123")).toContain('href="https://doi.org/10.5281/zenodo.123"');
     expect(doiChip(undefined)).toBe("");

@@ -23,6 +23,7 @@ import { loadStoredKey } from "../write/stored-key";
 import { adminModel, processingModel, waitingCount } from "./admin-data";
 import {
   allPapers,
+  allTheories,
   answeredElsewhere,
   anyResearchDoc,
   article,
@@ -524,7 +525,9 @@ app.get("/sitemap.xml", () => {
     ["/follow", ""],
     ...hubTopics().map((t): [string, string] => [`/topics/${t.slug}`, ""]),
     ...listedArticles().map((a): [string, string] => [`/articles/${a.slug}`, a.date]),
-    ...allPapers().map((p): [string, string] => [`/articles/${p.slug}`, p.date]),
+    ...allPapers().map((p): [string, string] => [`/articles/${p.slug}`, p.revised ?? p.date]),
+    // A theory's last change is its revision, not the day it was coined.
+    ...allTheories().map((t): [string, string] => [`/theories/${t.slug}`, t.revised ?? t.date]),
     ...libraryItems()
       .filter((r) => r.kind !== "Article" && r.kind !== "Paper" && r.kind !== "Project")
       .map((r): [string, string] => [r.route, r.date]),
