@@ -21,16 +21,16 @@ Later he tied it to the theory of left and right brain hemispheres. When that th
 
 What has changed since is the measurement. Research on how the brain combines the senses shows that when two of them are combined, the weight each one gets depends on how reliable it is. That is a ratio in the literal sense. The series starts there, by taking McLuhan at his word.
 
-## Every extension is also an amputation
+## Every extension has a cost, and the cost is not a cut
 
-From: McLuhan's pairing of extension and amputation is not a figure of speech here.
-Caveat: The GPS finding is an association measured over three years in habitual users, not proof that GPS causes the decline.
+From: The pattern holds; the image does not.
+Caveat: The four kinds are a reading of evidence gathered for other purposes. No study has compared them directly.
 
-McLuhan paired every extension with an amputation: whatever a medium strengthens, something else weakens. Across the six cases in this series, that pairing is the most consistent pattern in the evidence.
+McLuhan said every extension is also an amputation. The pattern behind that is the most consistent one in this series: whatever a medium strengthens, something else weakens. But an amputation is a part removed for good, and none of the cases is a removal. There are four kinds of cost.
 
-Habitual GPS users show weaker spatial memory over time. People remember less of what they photograph and let a device keep. Action video games sharpen visual timing, while slow, sustained reading goes unpractised. A drug restores a baseline that the drug itself shifted. Saving something frees memory for the next thing, and lets the saved thing go.
+Reweighting: when two senses are combined, more trust in one is a smaller share for the other. Delegation: you remember less of what a device keeps for you, because the function has moved out to it. Disuse: slow reading that goes unpractised weakens without disappearing. Recycling: learning to read takes over part of a region that also responds to faces, a competition for territory.
 
-None of these cases is pure gain or pure loss. Whether a tool is good or bad is too coarse a question to answer. What it strengthens, and what it lets go, can be answered case by case, and the answers are specific.
+Each of these behaves differently, and each leaves a different route back. The first version of this paper accepted McLuhan's image. The second replaces it.
 
 ## Small effects, whole environments
 

@@ -1090,5 +1090,13 @@ app.get("/articles/:slug", async (c, next) => {
   return next();
 });
 
+// A paper's earlier versions, kept whole (content/pages/paper-<slug>-v<n>.html,
+// route /articles/<slug>/v<n>): revising a paper never erases what it said.
+app.get("/articles/:slug/:ver{v[0-9]+}", (c, next) => {
+  const built = staticPage(`/articles/${c.req.param("slug")}/${c.req.param("ver")}`);
+  if (!built) return next();
+  return html(renderStatic(built, { signedIn: signedIn(c) }));
+});
+
 export default app;
 export { renderNotFound };

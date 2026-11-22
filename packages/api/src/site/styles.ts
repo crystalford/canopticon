@@ -821,6 +821,11 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .proc-act form { margin: 0; }
 .proc-note { margin: -2px 0 6px; font-size: var(--t-sm); color: var(--cobalt-ink); }
 
+/* An earlier version of a paper, kept whole: one quiet line saying so. */
+.version-note { margin: 0 0 32px; padding: 12px 16px; border: 1px solid var(--green-line); border-radius: 12px; background: var(--green-wash); font-family: var(--sans); font-size: var(--t-sm); line-height: 1.55; color: var(--ink-2); }
+.version-note strong { color: var(--green-ink); font-weight: 600; }
+.version-note a { color: var(--ink); border-bottom: 1px solid var(--green); }
+
 /* Spoken: a paper decanted into cards of about a minute, to be read aloud.
    Plain type, no ornament; the source and the caveat sit under each card. */
 .spoken { margin: 48px 0 8px; padding-top: 28px; border-top: 1px solid var(--hair); }

@@ -13,7 +13,7 @@ source_upload: "uploads/Krasis.md"
 
 *McLuhan's sense ratios as a theory of tempering: a synthesis of the Sensory Syncrasis series*
 
-Oct 5, 2026 · @Christopher Telford
+Oct 5, 2026 · @Christopher Telford · Version 2, revised Nov 22, 2026
 
 ## Abstract
 
@@ -101,9 +101,18 @@ Read side by side, the six cases share five patterns. None of them belongs to on
 
 In every case, what changes is the background condition of perception rather than any single thing perceived. The typed era became the unnoticed way language was made. The screen sets a reading pace readers follow without choosing it. In addiction, the shifted baseline is felt as "how the world is," not as a state. McLuhan's claim that media effects are invisible because they become environments holds across all of them. That is also why they are hard to study: brief lab exposures measure the figure, and the ground has to be measured over time and across whole environments. The findings that failed replication in this area mostly measured the figure.
 
-### Every extension is also an amputation
+### Every extension has a cost, and the cost is not a cut
 
-No case shows pure gain or pure loss. Action games sharpen visual timing while slow reading goes unpractised. GPS extends navigation while the inner map fades. A drug restores a baseline it has itself shifted. Saving information frees memory for the next thing while letting the saved thing go. McLuhan's pairing of extension and amputation is not a figure of speech here. It is the most consistent empirical pattern across the series.
+No case shows pure gain or pure loss. Action games sharpen visual timing while slow reading goes unpractised. GPS extends navigation while the inner map fades. A drug restores a baseline it has itself shifted. Saving information frees memory for the next thing while letting the saved thing go. The trade-off is the most consistent empirical pattern across the series.
+
+McLuhan's name for the cost was amputation. The pattern holds; the image does not. An amputation is a part removed for good, and read at the level of mechanism, none of these cases is a removal. They show four different kinds of cost.
+
+- **Reweighting.** When two senses are combined, their weights trade off in proportion to how reliable each is (Ernst & Banks, 2002). More trust in one channel is a smaller share for the other. This is a change of proportion, which is what *krasis* names: more wine in the mixture does not remove the water.
+- **Delegation.** People remember less of what a device keeps for them (Henkel, 2014), and habitual GPS users show weaker spatial memory over time (Dahmani & Bohbot, 2020). The function has moved into the environment rather than out of existence, which is what *exocrasis* names.
+- **Disuse.** Action games strengthen the fast visual skills screens demand (Bediou and colleagues, 2018), while slow, sustained reading goes unpractised. A capacity that is not exercised weakens without being removed.
+- **Recycling.** Literacy is the closest case to a true loss, and even there the change is competition for territory. In the region that comes to respond to writing, learning to read "induced a small competition with faces" (Dehaene and colleagues, 2010). The field's term is neuronal recycling: circuitry repurposed, not cut away.
+
+The four behave differently. A reweighting shifts as reliability shifts. A delegation lasts as long as the device does the work. Disuse is the kind practice addresses. Recycling is slow and may last. Calling all four amputation hides which cost a medium imposes, and so which route back is open.
 
 ### Small per person, large in aggregate, and persistent
 
@@ -144,6 +153,16 @@ What has changed since is the measurement. Neuroscience can now describe how the
 The series has tried to put the two together: to keep McLuhan's structure and replace his authorities. The result is a framework, sensory syncrasis, and a family of terms that name what happens to it: where it starts, what holds it, where it moves, what alters it, what fixes it, and what loosens it again. Much of the framework is still interpretation, and the series has tried to say so wherever it is.
 
 The practical upshot is the one McLuhan himself drew. If the most important effects of a medium are the ones we cannot see, the first task is to make them visible. "There is absolutely no inevitability," he wrote, "as long as there is a willingness to contemplate what is happening." Each paper in this series is an attempt at that contemplation, using tools McLuhan did not have: to turn some part of the ground back into figure, long enough to see it, and perhaps to re-temper it.
+
+## How this paper has changed
+
+**Version 2, 22 November 2026.** The section "Every extension is also an amputation" is replaced by "Every extension has a cost, and the cost is not a cut."
+
+Version 1 accepted McLuhan's image. It said that his pairing of extension and amputation "is not a figure of speech here." The pattern it described holds: in every case something is strengthened and something else weakened. The image does not hold. An amputation is a part removed for good, and none of the cases is a removal. They are four different kinds of cost (reweighting, delegation, disuse and recycling), and naming them apart says which route back each leaves open.
+
+The series had already started down this road. *Sensory Syncrasis* proposed translating McLuhan's "autoamputation" as the down-weighting of the channels that lose out, and *Exocrasis* measured extension and amputation as cognitive offloading. Version 2 finishes the translation.
+
+Version 1 is kept whole at [canopticon.com/articles/krasis/v1](https://canopticon.com/articles/krasis/v1): the paper as it stood on 5 October 2026, with nothing removed.
 
 ## Papers in the series and core references
 

@@ -57,3 +57,27 @@ describe("spoken cards", () => {
     expect(html).not.toContain('id="spoken"');
   });
 });
+
+describe("versions", () => {
+  it("Krasis says how it changed and links the version it replaced", async () => {
+    const html = await (await get("/articles/krasis")).text();
+    expect(html).toContain('id="versions"');
+    expect(html).toContain('href="/articles/krasis/v1"');
+    expect(html).not.toContain("Every extension is also an amputation</h3>");
+    // How it changed comes before the cards, and both before the back matter.
+    expect(html.indexOf('id="versions"')).toBeLessThan(html.indexOf('id="spoken"'));
+  });
+
+  it("version 1 is kept whole, says what it is, and carries no cards", async () => {
+    const res = await get("/articles/krasis/v1");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Version 1 of 2.");
+    expect(html).toContain("Every extension is also an amputation</h3>");
+    expect(html).not.toContain('id="spoken"');
+  });
+
+  it("an unknown version is not a page", async () => {
+    expect((await get("/articles/krasis/v9")).status).toBe(404);
+  });
+});
