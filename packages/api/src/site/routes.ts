@@ -40,6 +40,7 @@ import {
   staticPage,
   subjectLinks,
   term,
+  theory,
 } from "./content/store";
 import { docViewFromStore, hubTopics, listedArticles, topicBySlug } from "./data";
 import {
@@ -71,6 +72,7 @@ import { receiptLine, renderReadBoard } from "./pages/read";
 import { renderSearch } from "./pages/search";
 import { withSpoken } from "./pages/spoken";
 import { renderStatic } from "./pages/static";
+import { renderTheory } from "./pages/theory";
 import { renderTopic } from "./pages/topic";
 import { PREVIEW_FLAG, proposalCard, renderEmptyPreview, renderWorkspace } from "./pages/write";
 import { SITE_JS } from "./script";
@@ -1090,6 +1092,32 @@ app.get("/articles/:slug", async (c, next) => {
     return html(renderPaper(p, { signedIn: signedIn(c) }));
   }
   return next();
+});
+
+// ---- theories -----------------------------------------------------------------
+
+app.get("/theories/:slug", (c, next) => {
+  const raw = c.req.param("slug");
+  const md = raw.endsWith(".md");
+  const t = theory(md ? raw.slice(0, -3) : raw);
+  if (!t) return next();
+  if (md) {
+    const props = t.propositions
+      .map((p, i) => `${i + 1}. ${p.statement} (${p.grade})${p.basis ? ` \u2014 ${p.basis}` : ""}`)
+      .join("\n");
+    return markdownTwin(
+      {
+        id: t.slug,
+        title: t.title,
+        kind: "Theory",
+        topic: t.topic,
+        date: t.date,
+        body: `**Claim.** ${t.claim}\n\n## Propositions\n\n${props}\n\n${t.body}`,
+      },
+      `/theories/${t.slug}`,
+    );
+  }
+  return html(renderTheory(t, { signedIn: signedIn(c) }));
 });
 
 // What changed between a paper's last kept version and the current one,

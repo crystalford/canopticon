@@ -119,6 +119,35 @@ export interface Paper {
   body: string;
 }
 
+/** A theory's proposition, graded by the evidence behind it. */
+export interface Proposition {
+  statement: string;
+  grade: "Strong" | "Moderate" | "Proposed";
+  basis?: string;
+}
+
+/** A theory (content/theories/): a named idea stated formally — claim,
+ *  definition, mechanism, graded propositions, measures, protocol, scope and
+ *  counter-evidence. The body is in the article dialect; every <q> is
+ *  checked word for word at build, and the sections are required. */
+export interface Theory {
+  slug: string;
+  kind: "Theory";
+  title: string;
+  dek: string;
+  topic: string;
+  date: string;
+  version?: number;
+  revised?: string;
+  claim: string;
+  coined?: string;
+  based_on?: BasedOn[];
+  related?: Array<{ route: string; label: string }>;
+  propositions: Proposition[];
+  cite?: string;
+  body: string;
+}
+
 /** One spoken card: a passage of a paper decanted into about a minute read
  *  aloud (content/spoken/). `from` is in the paper word for word. */
 export interface SpokenCard {
@@ -174,6 +203,7 @@ interface Store {
   papers: Record<string, Paper>;
   spoken: Record<string, SpokenCard[]>;
   versions: Record<string, PaperVersion[]>;
+  theories: Record<string, Theory>;
   pages: Record<string, StaticPage>;
   articleExtras: Record<string, ArticleExtras>;
   /** content/prompts/<name>.md: the research prompts an article offers. */
@@ -219,6 +249,14 @@ export function paper(slug: string): Paper | null {
 export function allArticles(): Article[] {
   const own = Object.values(STORE.articles);
   return PUBLISHED_ROWS.length ? [...own, ...Object.values(PUBLISHED)] : own;
+}
+
+export function theory(slug: string): Theory | null {
+  return STORE.theories?.[slug] ?? null;
+}
+
+export function allTheories(): Theory[] {
+  return Object.values(STORE.theories ?? {});
 }
 
 /** A paper's spoken cards, in order; none for a paper not yet decanted. */

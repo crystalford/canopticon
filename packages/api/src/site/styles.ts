@@ -821,6 +821,26 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .proc-act form { margin: 0; }
 .proc-note { margin: -2px 0 6px; font-size: var(--t-sm); color: var(--cobalt-ink); }
 
+/* A theory: the claim in a card, then numbered propositions with their grade. */
+.theory-card { margin: 0 0 32px; padding: 18px 20px; border: 1px solid var(--rule); border-left: 3px solid var(--ink); border-radius: 12px; background: var(--card); display: grid; gap: 12px; }
+.tc-row { display: grid; grid-template-columns: 92px 1fr; gap: 12px; align-items: baseline; }
+.tc-l { font-family: var(--sans); font-size: var(--t-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.tc-row p { margin: 0; font-size: var(--t-read); line-height: 1.55; }
+.props { margin: 0 0 40px; }
+.props h2 { font-family: var(--sans); font-size: var(--t-xl); font-weight: 600; letter-spacing: -.018em; margin: 0 0 12px; scroll-margin-top: 80px; }
+.prop-list, .prose .prop-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hair); }
+.prop, .prose .prop { margin: 0; display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--hair); scroll-margin-top: 80px; }
+.prop-n { font-family: var(--sans); font-size: var(--t-sm); font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 3px; }
+.prose .prop-s, .prop-s { margin: 0 0 4px; font-size: var(--t-read); line-height: 1.5; font-weight: 500; }
+.prose .prop-basis, .prop-basis { margin: 0; font-family: var(--sans); font-size: var(--t-sm); line-height: 1.55; color: var(--ink-2); }
+.prop-g { padding-top: 2px; }
+.prop-key { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font-family: var(--sans); font-size: var(--t-xs); color: var(--muted); }
+@media (max-width: 520px) {
+  .tc-row { grid-template-columns: 1fr; gap: 2px; }
+  .prop { grid-template-columns: 32px 1fr; }
+  .prop-g { grid-column: 2; }
+}
+
 /* An earlier version of a paper, kept whole: one quiet line saying so. */
 .version-note { margin: 0 0 32px; padding: 12px 16px; border: 1px solid var(--green-line); border-radius: 12px; background: var(--green-wash); font-family: var(--sans); font-size: var(--t-sm); line-height: 1.55; color: var(--ink-2); }
 .version-note strong { color: var(--green-ink); font-weight: 600; }

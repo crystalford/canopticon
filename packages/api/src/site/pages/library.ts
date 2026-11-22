@@ -21,6 +21,7 @@ interface Group {
 
 const GROUPS: Group[] = [
   { id: "all", label: "All", kinds: null },
+  { id: "Theory", label: "Theories", kinds: ["Theory"] },
   {
     id: "Writing",
     label: "Writing",
@@ -48,6 +49,7 @@ const GROUPS: Group[] = [
 
 /** ?kind= accepts a group or a member, as the prototype's ?k= did. */
 const KIND_PARAM: Record<string, [string, string]> = {
+  Theory: ["Theory", "all"],
   Article: ["Writing", "Article"],
   Paper: ["Writing", "Paper"],
   Writing: ["Writing", "all"],

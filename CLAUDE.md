@@ -55,6 +55,7 @@
   redrawn only when what it says changes. Held or private pages resolve to the record's card. `/site.js` is
   enhancement only (`/` focuses search, progress bar, TOC, cite copy,
   passage finding, hovercards); every page is whole without it.
+- **Theories** (2026-11-22): `content/theories/<slug>.md`, served at `/theories/<slug>` (`site/pages/theory.ts`, `.md` twin, a `Theory` row in `library.json`, its own Library group). A theory is a named idea stated formally: front matter carries the `claim`, `coined`, `version`/`revised`, `based_on`, `related` and `propositions` (each `statement`, `grade` = Strong | Moderate | Proposed, `basis`); the body, in the article dialect, must have the sections Definition, Mechanism, Evidence, Measures, Protocol, Scope and Counter-evidence. The build fails on a missing section, an ungraded proposition, or any `<q>` that is not word for word in its document. JSON-LD is a ScholarlyArticle about a DefinedTerm. The site now calls itself "An independent research publication by Chris Telford" (footer, front page, About), not a notebook: answer engines repeat a site's self-description. Self-extinguishing maintenance is the first theory.
 - **Adding an article** means adding `content/articles/<slug>.md` and a row in
   `content/library.json`, then deploying. The verbatim check runs at build.
 - **To look at it:** `pnpm tsx scripts/look-site.mts <outDir> <width> <path…>`;

@@ -226,7 +226,40 @@ function build() {
     }
     spoken[slug] = cards;
   }
-  for (const a of Object.values(articles)) {
+  // Theories (content/theories/): a named idea stated formally. Their body is
+  // written in the article dialect, so every <q> is checked the same way, and
+  // the parts that make a theory more than a concept must all be present.
+  const theories = {};
+  const THEORY_SECTIONS = [
+    "Definition",
+    "Mechanism",
+    "Evidence",
+    "Measures",
+    "Protocol",
+    "Scope",
+    "Counter-evidence",
+  ];
+  const GRADES = ["Strong", "Moderate", "Proposed"];
+  for (const f of existsSync(join(CONTENT, "theories")) ? mdFiles("theories") : []) {
+    const { meta, body } = parseFrontMatter(readFileSync(join(CONTENT, "theories", f), "utf8"));
+    const slug = String(meta.slug ?? f.slice(0, -3));
+    const heads = [...body.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
+    for (const need of THEORY_SECTIONS)
+      if (!heads.includes(need)) failures.push(`theories/${f}: missing the "## ${need}" section`);
+    const props = Array.isArray(meta.propositions) ? meta.propositions : [];
+    if (!props.length) failures.push(`theories/${f}: states no propositions`);
+    for (const [i, p] of props.entries()) {
+      if (!p.statement) failures.push(`theories/${f}: proposition ${i + 1} has no statement`);
+      if (!GRADES.includes(p.grade))
+        failures.push(
+          `theories/${f}: proposition ${i + 1} grade must be one of ${GRADES.join(", ")}`,
+        );
+    }
+    if (!meta.claim) failures.push(`theories/${f}: states no claim`);
+    theories[slug] = { ...meta, slug, kind: "Theory", body };
+  }
+
+  for (const a of [...Object.values(articles), ...Object.values(theories)]) {
     for (const m of a.body.matchAll(/<q\s+([^>]*)>([\s\S]*?)<\/q>/g)) {
       checked++;
       const doc = /doc="([^"]*)"/.exec(m[1])?.[1];
@@ -298,6 +331,7 @@ function build() {
     papers,
     spoken,
     versions,
+    theories,
     pages,
     // Per-article details the hand-built prototype pages carry and the
     // Markdown export did not: short contents labels, the named sources, the

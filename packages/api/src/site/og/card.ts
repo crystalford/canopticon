@@ -276,6 +276,7 @@ export function cardFromItem(i: LibraryItem): CardData {
     stat = `${i.sources} references · ${i.min ?? ""} min`.replace(/ · $/, "");
   else if (kind === "Research")
     stat = i.min ? `Research document · ${i.min} min read` : "Research document, kept whole";
+  else if (kind === "Theory") stat = i.stat ? `A theory · ${i.stat}` : "A theory, stated formally";
   else if (kind === "Concept") stat = "A name the research gave a pattern";
   else if (kind === "Open problem") stat = "An open problem";
   return { pills, title: i.title, dek: i.dek, byline, stat };

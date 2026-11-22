@@ -1,5 +1,15 @@
 [
  {
+  "kind": "Theory",
+  "topic": "Habits & maintenance",
+  "date": "2026-09-30",
+  "dateLabel": "30 Sep",
+  "title": "Self-extinguishing maintenance",
+  "dek": "A routine that works removes the symptom that cued and rewarded it, so the routine stops, and a cause that never went away brings the problem back.",
+  "stat": "6 propositions · 2 strong",
+  "route": "/theories/self-extinguishing-maintenance"
+ },
+ {
   "href": "Canopticon%20Essay%20Portraiture.dc.html",
   "kind": "Article",
   "topic": "Video & design",

@@ -25,7 +25,7 @@ import { kindColours, longDate, monthYear, topicColours, topicSlug } from "../th
 const COPY_ICON =
   '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="flex:none"><rect x="5.5" y="5.5" width="8" height="8" rx="1.8"></rect><path d="M10.5 5.5V3.8A1.3 1.3 0 0 0 9.2 2.5H3.8A1.3 1.3 0 0 0 2.5 3.8v5.4a1.3 1.3 0 0 0 1.3 1.3h1.7"></path></svg>';
 
-function toc(label: string, heads: Head[], lead?: { text: string; href: string }): string {
+export function toc(label: string, heads: Head[], lead?: { text: string; href: string }): string {
   if (!heads.length) return "";
   const items = [
     ...(lead
@@ -38,7 +38,7 @@ function toc(label: string, heads: Head[], lead?: { text: string; href: string }
   return `<div class="rail-sticky"><div class="toc-h">${esc(label)}</div><ol class="toc" data-toc>${items.join("")}</ol></div>`;
 }
 
-function statbox(
+export function statbox(
   topic: string,
   a: [string, string],
   b: [string, string],
@@ -74,7 +74,7 @@ function emailPanel(): string {
   return `<section class="panel email" aria-label="Get new articles by email"><h2>Get the next one by email</h2><p>One email a week, only when something new is published. Unsubscribe any time.</p><form class="form-row" method="get" action="/follow"><label for="article-email" class="vh">Email address</label><input id="article-email" class="field" type="email" name="email" placeholder="you@example.com" autocomplete="email" required /><button type="submit" class="btn tall">Get the weekly email</button></form><div class="form-links"><a href="/follow" class="ulink">Choose topics</a><a href="/feed.xml" class="ulink">RSS feed</a></div></section>`;
 }
 
-function citeBlock(cite: string): string {
+export function citeBlock(cite: string): string {
   return `<div><h3>Cite this</h3><div class="cite-row"><span class="cite-t" data-cite-text>${esc(cite)}</span><button type="button" class="btn sm" data-copy-cite>${COPY_ICON}<span>Copy</span></button></div></div>`;
 }
 
@@ -90,7 +90,7 @@ function readNext(
     .join("")}</div></section>`;
 }
 
-function citationMeta(title: string, date: string, url: string): string {
+export function citationMeta(title: string, date: string, url: string): string {
   return [
     `<meta name="citation_title" content="${esc(title)}" />`,
     `<meta name="citation_author" content="Telford, Chris" />`,
@@ -105,7 +105,7 @@ function citationMeta(title: string, date: string, url: string): string {
     .join("\n");
 }
 
-function jsonLd(o: Record<string, unknown>): string {
+export function jsonLd(o: Record<string, unknown>): string {
   return `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, "\\u003c")}</script>`;
 }
 
