@@ -401,18 +401,16 @@ async function ensureUniqueSlug(db: D1Database, userId: string, base: string): P
 // channel with the video's own publish date. See graph/lib/video-intake.ts.
 app.post("/library/import-video", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/admin/workbench");
+  if (!userId) return c.redirect("/admin");
   const form = await c.req.parseBody();
   const url = typeof form.url === "string" ? form.url.trim() : "";
-  if (!url) return c.redirect("/admin/workbench");
+  if (!url) return c.redirect("/admin");
   const { requestVideoImport } = await import("../../graph/lib/video-intake");
   const result = await requestVideoImport(c.env, userId, url);
   if (!result.ok || !result.importId) {
-    return c.redirect(
-      `/admin/workbench?video_error=${encodeURIComponent(result.error ?? "failed")}`,
-    );
+    return c.redirect(`/admin?video_error=${encodeURIComponent(result.error ?? "failed")}`);
   }
-  return c.redirect(`/admin/workbench?importing=${encodeURIComponent(result.importId)}`);
+  return c.redirect(`/admin?importing=${encodeURIComponent(result.importId)}`);
 });
 
 // JSON status for the same live-polling banner pattern as /research-status.
@@ -523,7 +521,7 @@ app.post("/library/delete", async (c) => {
 // ?error=same+file when the upload is byte-identical to the current source.
 app.post("/library/:id/replace", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/admin/workbench?error=No%20operator%20user");
+  if (!userId) return c.redirect("/admin?error=No%20operator%20user");
   const pieceId = c.req.param("id");
   const piece = await one<{
     id: string;
@@ -536,11 +534,11 @@ app.post("/library/:id/replace", async (c) => {
     "SELECT id, slug, title, body_md, metadata FROM pieces WHERE id = ? AND user_id = ?",
     [pieceId, userId],
   );
-  if (!piece) return c.redirect("/admin/workbench?error=No%20document");
+  if (!piece) return c.redirect("/admin?error=No%20document");
   const form = await c.req.formData();
   const file = form.get("file");
   if (!file || typeof file === "string") {
-    return c.redirect(`/admin/workbench?error=${encodeURIComponent("No file in form data")}`);
+    return c.redirect(`/admin?error=${encodeURIComponent("No file in form data")}`);
   }
   const f = file as unknown as File;
   const bytes = new Uint8Array(await f.arrayBuffer());
@@ -564,7 +562,7 @@ app.post("/library/:id/replace", async (c) => {
     currentSha = u?.sha256 ?? null;
   }
   if (currentSha && currentSha === sha256) {
-    return c.redirect("/admin/workbench?error=same+file");
+    return c.redirect("/admin?error=same+file");
   }
 
   // Readings are read BEFORE the purge: their quotes cascade away with the
@@ -633,7 +631,7 @@ app.post("/library/:id/replace", async (c) => {
   }
 
   await enqueueProcessing(c.env, userId, pieceId, { restart: true });
-  return c.redirect(`/admin/workbench?replaced=1&readings_lost=${lost}`);
+  return c.redirect(`/admin?replaced=1&readings_lost=${lost}`);
 });
 
 export default app;

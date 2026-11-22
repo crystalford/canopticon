@@ -20,7 +20,7 @@ import { START_READ, d1Reads } from "../write/read";
 import { checkReport, d1Sources, reportFile, reportProblems } from "../write/research";
 import { sourceTexts, sourceTitles } from "../write/sources";
 import { loadStoredKey } from "../write/stored-key";
-import { adminModel, waitingCount } from "./admin-data";
+import { adminModel, processingModel, waitingCount } from "./admin-data";
 import {
   allPapers,
   answeredElsewhere,
@@ -30,14 +30,17 @@ import {
   libraryItems,
   measuredElsewhere,
   paper,
+  paperVersions,
   privatePage,
   problem,
   researchDoc,
   sharedSources,
   shownRead,
+  spokenCards,
   staticPage,
   subjectLinks,
   term,
+  theory,
 } from "./content/store";
 import { docViewFromStore, hubTopics, listedArticles, topicBySlug } from "./data";
 import {
@@ -55,6 +58,7 @@ import type { InlineLink } from "./links";
 import { passageHref } from "./md";
 import { renderAdmin } from "./pages/admin";
 import { renderArticle, renderPaper } from "./pages/article";
+import { renderChanges } from "./pages/changes";
 import { renderClaude } from "./pages/claude";
 import { type DocView, renderDocument } from "./pages/document";
 import { evidence } from "./pages/evidence";
@@ -66,7 +70,9 @@ import { INVESTIGATIONS, type LibraryQuery, renderLibrary } from "./pages/librar
 import { renderNotFound, renderNotice } from "./pages/notice";
 import { receiptLine, renderReadBoard } from "./pages/read";
 import { renderSearch } from "./pages/search";
+import { withSpoken } from "./pages/spoken";
 import { renderStatic } from "./pages/static";
+import { renderTheory } from "./pages/theory";
 import { renderTopic } from "./pages/topic";
 import { PREVIEW_FLAG, proposalCard, renderEmptyPreview, renderWorkspace } from "./pages/write";
 import { SITE_JS } from "./script";
@@ -118,6 +124,48 @@ app.get(
       },
     }),
 );
+
+// The share card: /card/<page path>.png (site/og/card.ts). Only public pages
+// have a row to draw from — a held document or a private page resolves to
+// nothing and gets the record's own card, never its title. Drawn once per
+// distinct card and kept in R2 under a hash of its SVG; the renderer (a
+// WebAssembly module) loads only on a miss.
+app.get("/card/*", async (c) => {
+  const path = c.req.path.replace(/^\/card/, "").replace(/\.png$/, "");
+  if (!/^\/[A-Za-z0-9/_-]*$/.test(path)) return c.notFound();
+  const { cardFromItem, cardSvg, siteCard, topicCard } = await import("./og/card");
+  const items = libraryItems();
+  let data = siteCard();
+  const topicMatch = /^\/topics\/([a-z0-9-]+)$/.exec(path);
+  const topic = topicMatch ? topicBySlug(topicMatch[1] as string) : null;
+  if (topic) data = topicCard(topic, items.filter((i) => i.topic === topic).length);
+  else {
+    const row = items.find((i) => i.route === path);
+    if (row) data = cardFromItem(row);
+  }
+  const svg = cardSvg(data);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(svg));
+  const key = `cards/${[...new Uint8Array(digest)]
+    .slice(0, 12)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")}.png`;
+  const headers = { "content-type": "image/png", "cache-control": "public, max-age=86400" };
+  const kept = await c.env.FILES.get(key).catch(() => null);
+  if (kept) return new Response(kept.body, { headers });
+  try {
+    const { renderPng } = await import("./og/render");
+    const png = await renderPng(svg);
+    c.executionCtx.waitUntil(
+      c.env.FILES.put(key, png, { httpMetadata: { contentType: "image/png" } }).catch(
+        () => undefined,
+      ),
+    );
+    return new Response(png, { headers });
+  } catch (e) {
+    console.error("card render failed", path, e);
+    return c.notFound();
+  }
+});
 
 app.get("/", (c) => html(renderFront({ signedIn: signedIn(c) })));
 
@@ -205,6 +253,7 @@ app.get("/admin", async (c) => {
         engine: userId ? await defaultEngine(c.env.DB, userId) : DEFAULT_ENGINE,
         monthCents,
         decided: c.req.query("decided") === "1",
+        processing: userId ? await processingModel(c.env, userId) : [],
       },
     ),
   );
@@ -1023,7 +1072,10 @@ app.get("/articles/:slug", async (c, next) => {
     // (content/pages/paper-*.html). The Markdown stays the source for the
     // twin, the feeds and llms-full.txt.
     const built = staticPage(`/articles/${p.slug}`);
-    if (built && !md) return html(renderStatic(built, { signedIn: signedIn(c) }));
+    if (built && !md) {
+      const body = withSpoken(built.body, spokenCards(p.slug));
+      return html(renderStatic({ ...built, body }, { signedIn: signedIn(c) }));
+    }
     if (md) {
       return markdownTwin(
         {
@@ -1040,6 +1092,63 @@ app.get("/articles/:slug", async (c, next) => {
     return html(renderPaper(p, { signedIn: signedIn(c) }));
   }
   return next();
+});
+
+// ---- theories -----------------------------------------------------------------
+
+app.get("/theories/:slug", (c, next) => {
+  const raw = c.req.param("slug");
+  const md = raw.endsWith(".md");
+  const t = theory(md ? raw.slice(0, -3) : raw);
+  if (!t) return next();
+  if (md) {
+    const props = t.propositions
+      .map(
+        (p, i) =>
+          `${i + 1}. ${p.statement} (${p.grade})${p.basis ? ` \u2014 ${p.basis}` : ""}${
+            p.refs.length ? ` References: ${p.refs.map((r) => `[${r}]`).join(" ")}.` : ""
+          }`,
+      )
+      .join("\n");
+    const refs = t.references
+      .map((r, i) => `${i + 1}. ${r.text}${r.url ? ` ${r.url}` : ""}`)
+      .join("\n");
+    const grading =
+      "Strong: measured directly in at least two independent studies. Moderate: follows from established findings; not tested as stated. Proposed: not yet tested.";
+    return markdownTwin(
+      {
+        id: t.slug,
+        title: t.title,
+        kind: "Theory",
+        topic: t.topic,
+        date: t.date,
+        body: `**Claim.** ${t.claim}\n\n## Propositions\n\n${grading}\n\n${props}\n\n${t.body}${
+          refs ? `\n\n## References\n\n${refs}` : ""
+        }`,
+      },
+      `/theories/${t.slug}`,
+    );
+  }
+  return html(renderTheory(t, { signedIn: signedIn(c) }));
+});
+
+// What changed between a paper's last kept version and the current one,
+// word by word (pages/changes.ts).
+app.get("/articles/:slug/changes", (c, next) => {
+  const p = paper(c.req.param("slug"));
+  const kept = p ? paperVersions(p.slug) : [];
+  const from = kept[kept.length - 1];
+  if (!p || !from) return next();
+  const to = { n: p.version ?? from.n + 1, date: p.revised ?? p.date, body: p.body };
+  return html(renderChanges(p, from, to, { signedIn: signedIn(c) }));
+});
+
+// A paper's earlier versions, kept whole (content/pages/paper-<slug>-v<n>.html,
+// route /articles/<slug>/v<n>): revising a paper never erases what it said.
+app.get("/articles/:slug/:ver{v[0-9]+}", (c, next) => {
+  const built = staticPage(`/articles/${c.req.param("slug")}/${c.req.param("ver")}`);
+  if (!built) return next();
+  return html(renderStatic(built, { signedIn: signedIn(c) }));
 });
 
 export default app;

@@ -19,7 +19,7 @@
 //
 //   node scripts/build-content.mjs
 
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -104,6 +104,37 @@ export function verbatimNormal(s) {
   return s.replace(/[*`]/g, "");
 }
 
+/** A spoken file's cards: each "## Title", then "From:" (the passage it
+ *  compresses) and "Caveat:" lines, then the text in paragraphs. HTML
+ *  comments are notes for the author and are dropped. */
+export function parseSpoken(body) {
+  const cards = [];
+  const src = body.replace(/<!--[\s\S]*?-->/g, "");
+  for (const part of src.split(/^## /m).slice(1)) {
+    const [head, ...rest] = part.split("\n");
+    const card = { title: head.trim(), from: "", caveat: "", paras: [], words: 0, seconds: 0 };
+    const text = [];
+    for (const line of rest) {
+      const from = /^From:\s*(.+)$/.exec(line);
+      const caveat = /^Caveat:\s*(.+)$/.exec(line);
+      if (from) card.from = from[1].trim();
+      else if (caveat) card.caveat = caveat[1].trim();
+      else text.push(line);
+    }
+    card.paras = text
+      .join("\n")
+      .split(/\n\s*\n/)
+      .map((p) => p.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    card.body = card.paras.join("\n\n");
+    card.words = card.body.split(/\s+/).filter(Boolean).length;
+    // Read aloud, plainly: about 150 words a minute.
+    card.seconds = Math.round((card.words / 150) * 60);
+    cards.push(card);
+  }
+  return cards;
+}
+
 const readJson = (f) => JSON.parse(readFileSync(join(CONTENT, f), "utf8"));
 const mdFiles = (dir) =>
   readdirSync(join(CONTENT, dir))
@@ -147,11 +178,159 @@ function build() {
     papers[slug] = { ...meta, slug, kind: "Paper", body };
   }
 
+  // Earlier versions of papers, kept whole (content/papers/versions/<slug>-v<n>.md),
+  // so a revised paper can show exactly what changed.
+  const versions = {};
+  for (const f of existsSync(join(CONTENT, "papers", "versions"))
+    ? readdirSync(join(CONTENT, "papers", "versions"))
+        .filter((x) => x.endsWith(".md"))
+        .sort()
+    : []) {
+    const m = /^(.+)-v(\d+)\.md$/.exec(f);
+    if (!m) continue;
+    const { meta, body } = parseFrontMatter(
+      readFileSync(join(CONTENT, "papers", "versions", f), "utf8"),
+    );
+    (versions[m[1]] ??= []).push({ n: Number(m[2]), date: String(meta.date ?? ""), body });
+  }
+  for (const list of Object.values(versions)) list.sort((a, b) => a.n - b.n);
+
   // Verbatim or nothing.
   const normal = new Map();
   const failures = [];
   let checked = 0;
-  for (const a of Object.values(articles)) {
+
+  // Spoken cards (content/spoken/<paper>.md): a paper decanted into pieces
+  // of about a minute, to be read aloud. Each names the passage it compresses,
+  // and that passage must be in the paper word for word, so a card can always
+  // be traced back to what it shortens.
+  const spoken = {};
+  for (const f of existsSync(join(CONTENT, "spoken")) ? mdFiles("spoken") : []) {
+    const { meta, body } = parseFrontMatter(readFileSync(join(CONTENT, "spoken", f), "utf8"));
+    const slug = String(meta.paper ?? f.slice(0, -3));
+    const p = papers[slug];
+    if (!p) {
+      failures.push(`spoken/${f}: names no paper (${slug})`);
+      continue;
+    }
+    const cards = parseSpoken(body);
+    const whole = verbatimNormal(p.body).replace(/\s+/g, " ");
+    for (const c of cards) {
+      checked++;
+      if (!c.body) failures.push(`spoken/${f}: "${c.title}" has no text`);
+      if (!c.from) failures.push(`spoken/${f}: "${c.title}" names no passage (From:)`);
+      else if (!whole.includes(verbatimNormal(c.from).replace(/\s+/g, " ")))
+        failures.push(
+          `spoken/${f}: "${c.title}" — From: not verbatim in ${slug}: "${c.from.slice(0, 90)}"`,
+        );
+    }
+    spoken[slug] = cards;
+  }
+  // Theories (content/theories/): a named idea stated formally. Their body is
+  // written in the article dialect, so every <q> is checked the same way, and
+  // the parts that make a theory more than a concept must all be present.
+  const theories = {};
+  const THEORY_SECTIONS = [
+    "Definition",
+    "Mechanism",
+    "Evidence",
+    "Measures",
+    "Protocol",
+    "Scope",
+    "Counter-evidence",
+  ];
+  const GRADES = ["Strong", "Moderate", "Proposed"];
+  for (const f of existsSync(join(CONTENT, "theories")) ? mdFiles("theories") : []) {
+    const { meta, body } = parseFrontMatter(readFileSync(join(CONTENT, "theories", f), "utf8"));
+    const slug = String(meta.slug ?? f.slice(0, -3));
+    const heads = [...body.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
+    for (const need of THEORY_SECTIONS)
+      if (!heads.includes(need)) failures.push(`theories/${f}: missing the "## ${need}" section`);
+    if (!heads.includes("Prior work"))
+      failures.push(
+        `theories/${f}: missing the "## Prior work" section (what already has a name, and what this adds)`,
+      );
+    // Primary references, numbered in order. A proposition names the ones it
+    // rests on ("refs": "1,3"), and its grade sets how many it needs: Strong
+    // means measured directly in at least two independent studies, Moderate
+    // that it follows from established findings (at least one named),
+    // Proposed that it is not yet tested.
+    const references = (Array.isArray(meta.references) ? meta.references : []).map((r) => ({
+      text: String(r.text ?? ""),
+      ...(r.url ? { url: String(r.url) } : {}),
+      read: String(r.read ?? ""),
+    }));
+    if (!references.length) failures.push(`theories/${f}: lists no references`);
+    for (const [i, r] of references.entries()) {
+      if (!r.text) failures.push(`theories/${f}: reference ${i + 1} has no text`);
+      // What was actually read, said on the page: never imply a paper was
+      // read in full when only its abstract, or a secondary account, was.
+      if (!["full", "abstract", "secondary"].includes(r.read))
+        failures.push(
+          `theories/${f}: reference ${i + 1} must say what was read (read: full | abstract | secondary)`,
+        );
+    }
+    const NEEDS = { Strong: 2, Moderate: 1, Proposed: 0 };
+    const props = (Array.isArray(meta.propositions) ? meta.propositions : []).map((p) => ({
+      ...p,
+      refs: String(p.refs ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map(Number),
+    }));
+    if (!props.length) failures.push(`theories/${f}: states no propositions`);
+    for (const [i, p] of props.entries()) {
+      const at = `theories/${f}: proposition ${i + 1}`;
+      if (!p.statement) failures.push(`${at} has no statement`);
+      if (!GRADES.includes(p.grade))
+        failures.push(`${at} grade must be one of ${GRADES.join(", ")}`);
+      for (const n of p.refs)
+        if (!Number.isInteger(n) || n < 1 || n > references.length)
+          failures.push(`${at} cites reference ${n}, which is not in the list`);
+      const need = NEEDS[p.grade] ?? 0;
+      if (new Set(p.refs).size < need)
+        failures.push(
+          `${at} is graded ${p.grade} and needs at least ${need} reference${need > 1 ? "s" : ""}`,
+        );
+    }
+    const cycle = (Array.isArray(meta.cycle) ? meta.cycle : [])
+      .map((c) => String(c.step ?? ""))
+      .filter(Boolean);
+    if (cycle.length && (cycle.length < 3 || cycle.length > 8))
+      failures.push(`theories/${f}: a cycle has 3 to 8 steps`);
+    if (
+      meta.cycle_cut !== undefined &&
+      !(Number.isInteger(meta.cycle_cut) && meta.cycle_cut >= 1 && meta.cycle_cut <= cycle.length)
+    )
+      failures.push(`theories/${f}: cycle_cut must name one of the cycle's steps`);
+    if (!meta.claim) failures.push(`theories/${f}: states no claim`);
+    if (meta.doi !== undefined && !/^10\.\d{4,9}\/\S+$/.test(String(meta.doi)))
+      failures.push(`theories/${f}: doi must look like 10.xxxx/…`);
+    theories[slug] = {
+      ...meta,
+      slug,
+      kind: "Theory",
+      body,
+      propositions: props,
+      references,
+      ...(cycle.length ? { cycle } : {}),
+    };
+  }
+
+  for (const p of Object.values(papers)) {
+    if (p.theory && !theories[p.theory])
+      failures.push(`papers/${p.slug}: theory ${p.theory} does not exist`);
+    if (p.doi !== undefined && !/^10\.\d{4,9}\/\S+$/.test(String(p.doi)))
+      failures.push(`papers/${p.slug}: doi must look like 10.xxxx/…`);
+  }
+  // A theory may name another as related; the link must land.
+  for (const t of Object.values(theories))
+    for (const r of Array.isArray(t.related) ? t.related : [])
+      if (String(r.route ?? "").startsWith("/theories/") && !theories[r.route.slice(10)])
+        failures.push(`theories/${t.slug}: related theory ${r.route} does not exist`);
+
+  for (const a of [...Object.values(articles), ...Object.values(theories)]) {
     for (const m of a.body.matchAll(/<q\s+([^>]*)>([\s\S]*?)<\/q>/g)) {
       checked++;
       const doc = /doc="([^"]*)"/.exec(m[1])?.[1];
@@ -221,6 +400,9 @@ function build() {
     research,
     articles,
     papers,
+    spoken,
+    versions,
+    theories,
     pages,
     // Per-article details the hand-built prototype pages carry and the
     // Markdown export did not: short contents labels, the named sources, the

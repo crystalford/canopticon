@@ -15,6 +15,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
     "@canopticon/shared": "workspace:*",
+    "@resvg/resvg-wasm": "2.6.2",
     "fflate": "^0.8.3",
     "hono": "^4.6.10",
     "zod": "^3.23.8"

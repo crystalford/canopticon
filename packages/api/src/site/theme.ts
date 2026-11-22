@@ -8,6 +8,7 @@ export type Pair = readonly [string, string];
 const SAND: Pair = ["#efebe1", "#15171c"];
 
 export const KIND_COLOURS: Record<string, Pair> = {
+  Theory: ["#15171c", "#f6f3ec"],
   Article: ["#e4ecf7", "#1f4e8c"],
   Paper: ["#efe6f6", "#5a2d82"],
   Research: SAND,

@@ -1,5 +1,25 @@
 [
  {
+  "kind": "Theory",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-22",
+  "dateLabel": "22 Nov",
+  "title": "Cognitive ectothermy",
+  "dek": "Relying on the environment to supply understanding, as an ectotherm relies on outside heat: what a medium hands over before you have predicted it is not learned, and the capacity it replaces goes untrained.",
+  "stat": "6 propositions · 2 strong",
+  "route": "/theories/cognitive-ectothermy"
+ },
+ {
+  "kind": "Theory",
+  "topic": "Habits & maintenance",
+  "date": "2026-09-30",
+  "dateLabel": "30 Sep",
+  "title": "Self-extinguishing maintenance",
+  "dek": "A routine that works removes the symptom that cued and rewarded it, so the routine stops, and a cause that never went away brings the problem back.",
+  "stat": "8 propositions · 2 strong",
+  "route": "/theories/self-extinguishing-maintenance"
+ },
+ {
   "href": "Canopticon%20Essay%20Portraiture.dc.html",
   "kind": "Article",
   "topic": "Video & design",
@@ -663,6 +683,21 @@
   "dek": "Calvano et al. is robust experimentally; real-world prevalence and detectability remain open.",
   "stat": "open",
   "route": "/open/how-common-is-algorithmic-price-collusion"
+ },
+ {
+  "kind": "Paper",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-22",
+  "dateLabel": "22 Nov",
+  "title": "Why Temperature",
+  "dek": "McLuhan never said why media are hot or cool. Read as regulation, hot and cool describe how much a medium supplies, how much it arouses, and whether the receiver predicts before the answer arrives.",
+  "stat": "38 references · 29 min",
+  "min": 29,
+  "quotes": 0,
+  "sources": 38,
+  "own": 0,
+  "coined": 1,
+  "route": "/articles/why-temperature"
  },
  {
   "href": "Canopticon%20Paper%20Krasis.dc.html",

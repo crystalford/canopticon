@@ -43,9 +43,19 @@
   same document page (guarded by `OWN_UPLOADS_SQL`).
 - **Design.** `src/site/styles.ts` (served at `/site.css`) and `src/site/layout.ts`.
   Paper palette, Geist, cobalt = interaction, brick = the author's marks,
-  green = verified. No box-shadows. Reading column 720px. `/site.js` is
+  green = verified. No box-shadows (focus halos are outlines: `--halo`). Reading column 720px,
+  rail 280px (`--rail`) on articles and documents alike. The wordmark is unchanged (no mark yet); Search is a
+  field-like control (an icon on phones). Polish pass 2026-11-17: calmer article marks, list rows that
+  stack date-first on phones, a one-line phone header, the chat log scrolling inside its pane. **One type scale**
+  (2026-11-17): every font-size is a `--t-*` token (eight fixed steps, four fluid headings). **Share
+  cards**: every page carries `og:image` (`cardPath` in `layout.ts`); `/card/<page path>.png` draws
+  a 1200×630 card from the page's library row (`site/og/card.ts`, pure SVG, text wrapped with
+  Geist's real widths from `og/metrics.ts`) and renders it in the Worker (`og/render.ts`:
+  resvg-wasm + the vendored Geist, OFL), kept in R2 at `cards/<hash of the SVG>.png` — drawn once,
+  redrawn only when what it says changes. Held or private pages resolve to the record's card. `/site.js` is
   enhancement only (`/` focuses search, progress bar, TOC, cite copy,
   passage finding, hovercards); every page is whole without it.
+- **Theories** (2026-11-22): `content/theories/<slug>.md`, served at `/theories/<slug>` (`site/pages/theory.ts`, `.md` twin, a `Theory` row in `library.json`, its own Library group). A theory is a named idea stated formally: front matter carries the `claim`, `coined`, `version`/`revised`, `based_on`, `related` and `propositions` (each `statement`, `grade` = Strong | Moderate | Proposed, `basis`); the body, in the article dialect, must have the sections Definition, Mechanism, Evidence, Measures, Protocol, Scope and Counter-evidence. The build fails on a missing section, an ungraded proposition, or any `<q>` that is not word for word in its document. JSON-LD is a ScholarlyArticle about a DefinedTerm. The site now calls itself "An independent research publication by Chris Telford" (footer, front page, About), not a notebook: answer engines repeat a site's self-description. Self-extinguishing maintenance is the first theory. **What makes it more than an essay** (2026-11-22, all build-enforced except the diagram and the check): a numbered `references` list of the primary studies (`text`, `url` where an open copy exists; shown as References, in JSON-LD `citation`, and in the `.md` twin), each proposition naming the ones it rests on (`refs: "1,3"`, shown as `[n]` links with a count); **the grading rubric, enforced**: Strong = measured directly in at least two independent studies (two refs), Moderate = follows from established findings, not tested as stated (one), Proposed = not yet tested — stated on every page under "How propositions are graded"; a required `## Prior work` section (what already has a name, and what this adds); `[n]` in the body links to the reference. Optional: a `cycle` (3–8 steps, "Head|detail") and `cycle_exit`, drawn as a server-side SVG ring after the Mechanism's first paragraph (a list on phones), and a related `/theories/…` link must resolve. The theory also carries a four-question check and two worked examples, one outside the body. Optional `cycle_cut` (1-based) marks the step whose incoming arrow the way out cuts. Every reference was checked against its Crossref / Europe PMC record (2026-11-22) and links to a free full text where one exists, else the DOI. Every reference also says what was read (`read: full | abstract | secondary`, required at build, shown on the page with a count) — never imply a paper was read in full. **DOIs**: a theory or paper may carry `doi` (Zenodo; build checks the form), shown in the byline and as `citation_doi`, JSON-LD `identifier` and `sameAs`; `docs/zenodo.md` is how to deposit, and `scripts/print-site.mts <outDir> <path…>` prints a page to PDF for it. A paper outside the McLuhan series says "Builds on" it, and may name its theory (`theory:`). Two theories: self-extinguishing maintenance, and **cognitive ectothermy** (from the paper *Why Temperature*, `content/papers/why-temperature.md`, McLuhan's hot and cool read as regulation); each links the other.
 - **Adding an article** means adding `content/articles/<slug>.md` and a row in
   `content/library.json`, then deploying. The verbatim check runs at build.
 - **To look at it:** `pnpm tsx scripts/look-site.mts <outDir> <width> <path…>`;
@@ -75,8 +85,16 @@
   (conversations started this month, list prices). **One control system**
   in `site/styles.ts`: `.btn` Secondary, `.primary` tonal blue, `.sm`,
   `.warn`, `.ghost`, `.chipb`, `.attach`, `.toggle`, `.more` (`.d-btn` is
-  the same control). The old operator console — processing, leads,
-  research, the export — is `/admin/workbench`. Published Admin uploads join
+  the same control). **Processing runs in Admin** (2026-11-17): Publish queues a document
+  (`enqueueProcessing`); Admin's left column lists what is queued, running, failed or renamed
+  (`processingModel` in `site/admin-data.ts`) and, while Admin is open, `site.js` presses
+  `/op/process/advance` one step at a time and paints each row in place — never reloading, so a
+  half-typed message stays. Failed rows offer Retry and Start over; a pipeline rename offers Put it
+  back and Keep. The old operator console, `/admin/workbench`, is gone: it 301s to `/admin`, and its
+  renderers (`public/render/library/*` but `export.ts`), its model (`public/models/library.ts`),
+  `/library.json` and the old poller (`process-live.ts`) are deleted. The old research engine's
+  routes (leads, Dig here, readings) remain only because the old `src/public` document and search
+  pages still reference them; they go with that cleanup. Published Admin uploads join
   every public list through `site/uploads.ts` → `setUploadedRows()`. On a
   phone the desk's two halves are tabs (Your work · Waiting).
   **Each conversation page is the same desk** (v3): a top bar (‹ back to

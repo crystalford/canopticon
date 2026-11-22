@@ -165,7 +165,7 @@ export function renderFront(opts: { signedIn?: boolean } = {}): string {
         "@id": "https://canopticon.com/#site",
         name: "Canopticon",
         url: "https://canopticon.com/",
-        description: "A research and development notebook by Chris Telford.",
+        description: "An independent research publication by Chris Telford.",
         publisher: { "@id": "https://canopticon.com/#org" },
         author: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
         potentialAction: {
@@ -179,7 +179,7 @@ export function renderFront(opts: { signedIn?: boolean } = {}): string {
   return shell({
     title: "",
     description:
-      "A research and development notebook by Chris Telford. Every quote links back to its source.",
+      "An independent research publication by Chris Telford. Every quote links back to its source.",
     path: "/",
     signedIn: opts.signedIn ?? false,
     head: `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`,

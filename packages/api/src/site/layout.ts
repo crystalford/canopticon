@@ -54,6 +54,15 @@ export function setWaiting(n: number): void {
   WAITING = n;
 }
 
+/** The share card for a page (site/og/card.ts, served by the /card route):
+ *  a content page gets its own, anything else the record's. */
+export function cardPath(path: string): string {
+  const clean = path.split(/[?#]/)[0] ?? "/";
+  if (/^\/(articles|p|concepts|open|topics)\/[A-Za-z0-9_-]+$/.test(clean))
+    return `/card${clean}.png`;
+  return "/card/index.png";
+}
+
 export function shell(a: ShellArgs): string {
   const canonical = `${SITE}${a.path}`;
   const title = a.title ? `${esc(a.title)} · Canopticon` : "Canopticon";
@@ -71,8 +80,14 @@ ${a.noindex ? '<meta name="robots" content="noindex,follow" />\n' : ""}<meta pro
 <meta property="og:title" content="${esc(a.title || "Canopticon")}" />
 <meta property="og:description" content="${desc}" />
 <meta property="og:url" content="${esc(canonical)}" />
-<meta name="twitter:card" content="summary" />
+<meta property="og:image" content="${SITE}${cardPath(a.path)}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="${esc(a.title || "Canopticon")}" />
+<meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:site" content="@canoptics" />
+<meta name="twitter:title" content="${esc(a.title || "Canopticon")}" />
+<meta name="twitter:description" content="${desc}" />
 <link rel="alternate" type="application/rss+xml" title="Canopticon" href="/feed.xml" />
 <link rel="alternate" type="application/feed+json" title="Canopticon (JSON Feed)" href="/feed.json" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -108,7 +123,7 @@ function header(a: ShellArgs): string {
 }
 
 function footer(): string {
-  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">A research and development notebook by Chris Telford. Every quote links back to its source. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><a href="/library?kind=Article">Articles</a><a href="/library?kind=Research">Research</a><a href="/library?kind=Concept">Ideas</a><a href="/investigations">Investigations</a><a href="/follow">Follow</a><a href="/about">About</a><a href="/about#m-machines">Feed</a><a href="/about#m-machines">llms.txt</a></nav></div></footer>`;
+  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">An independent research publication by Chris Telford. Every quote links back to its source. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><a href="/library?kind=Article">Articles</a><a href="/library?kind=Research">Research</a><a href="/library?kind=Concept">Ideas</a><a href="/investigations">Investigations</a><a href="/follow">Follow</a><a href="/about">About</a><a href="/about#m-machines">Feed</a><a href="/about#m-machines">llms.txt</a></nav></div></footer>`;
 }
 
 function beacon(token: string | undefined): string {

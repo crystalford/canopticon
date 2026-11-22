@@ -113,6 +113,81 @@ export interface Paper {
   dek?: string;
   date: string;
   series?: string;
+  /** Set once a paper has been revised: its version number and the date. */
+  version?: number;
+  revised?: string;
+  /** A registered DOI (e.g. from Zenodo), without the https://doi.org/ prefix. */
+  doi?: string;
+  /** The slug of a theory drawn from this paper. */
+  theory?: string;
+  body: string;
+}
+
+/** A theory's proposition, graded by the evidence behind it. */
+export interface Proposition {
+  statement: string;
+  grade: "Strong" | "Moderate" | "Proposed";
+  basis?: string;
+  /** Numbers in the theory's references list (1-based). The build requires
+   *  two for Strong and one for Moderate. */
+  refs: number[];
+}
+
+/** A primary reference: the study itself, linked where a copy is reachable. */
+export interface Reference {
+  text: string;
+  url?: string;
+  /** What was read for this theory: the full text, the abstract, or only a
+   *  secondary account. Required at build, said on the page. */
+  read: "full" | "abstract" | "secondary";
+}
+
+/** A theory (content/theories/): a named idea stated formally — claim,
+ *  definition, mechanism, graded propositions, measures, protocol, scope and
+ *  counter-evidence. The body is in the article dialect; every <q> is
+ *  checked word for word at build, and the sections are required. */
+export interface Theory {
+  slug: string;
+  kind: "Theory";
+  title: string;
+  dek: string;
+  topic: string;
+  date: string;
+  version?: number;
+  revised?: string;
+  claim: string;
+  coined?: string;
+  based_on?: BasedOn[];
+  related?: Array<{ route: string; label: string }>;
+  propositions: Proposition[];
+  references: Reference[];
+  /** The loop the theory describes, step by step; "Head|detail" per step. */
+  cycle?: string[];
+  /** Where the loop breaks, drawn beneath it. */
+  cycle_exit?: string;
+  /** The step (1-based) whose incoming arrow the way out cuts. */
+  cycle_cut?: number;
+  cite?: string;
+  /** A registered DOI (e.g. from Zenodo), without the https://doi.org/ prefix. */
+  doi?: string;
+  body: string;
+}
+
+/** One spoken card: a passage of a paper decanted into about a minute read
+ *  aloud (content/spoken/). `from` is in the paper word for word. */
+export interface SpokenCard {
+  title: string;
+  from: string;
+  caveat: string;
+  paras: string[];
+  words: number;
+  seconds: number;
+}
+
+/** An earlier version of a paper, kept whole (content/papers/versions/). */
+export interface PaperVersion {
+  n: number;
+  date: string;
   body: string;
 }
 
@@ -151,6 +226,9 @@ interface Store {
   research: Record<string, ResearchDoc>;
   articles: Record<string, Article>;
   papers: Record<string, Paper>;
+  spoken: Record<string, SpokenCard[]>;
+  versions: Record<string, PaperVersion[]>;
+  theories: Record<string, Theory>;
   pages: Record<string, StaticPage>;
   articleExtras: Record<string, ArticleExtras>;
   /** content/prompts/<name>.md: the research prompts an article offers. */
@@ -196,6 +274,24 @@ export function paper(slug: string): Paper | null {
 export function allArticles(): Article[] {
   const own = Object.values(STORE.articles);
   return PUBLISHED_ROWS.length ? [...own, ...Object.values(PUBLISHED)] : own;
+}
+
+export function theory(slug: string): Theory | null {
+  return STORE.theories?.[slug] ?? null;
+}
+
+export function allTheories(): Theory[] {
+  return Object.values(STORE.theories ?? {});
+}
+
+/** A paper's spoken cards, in order; none for a paper not yet decanted. */
+export function spokenCards(slug: string): SpokenCard[] {
+  return STORE.spoken?.[slug] ?? [];
+}
+
+/** A paper's earlier versions, oldest first; the current one is paper(). */
+export function paperVersions(slug: string): PaperVersion[] {
+  return STORE.versions?.[slug] ?? [];
 }
 
 export function allPapers(): Paper[] {
