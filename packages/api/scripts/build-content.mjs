@@ -178,6 +178,23 @@ function build() {
     papers[slug] = { ...meta, slug, kind: "Paper", body };
   }
 
+  // Earlier versions of papers, kept whole (content/papers/versions/<slug>-v<n>.md),
+  // so a revised paper can show exactly what changed.
+  const versions = {};
+  for (const f of existsSync(join(CONTENT, "papers", "versions"))
+    ? readdirSync(join(CONTENT, "papers", "versions"))
+        .filter((x) => x.endsWith(".md"))
+        .sort()
+    : []) {
+    const m = /^(.+)-v(\d+)\.md$/.exec(f);
+    if (!m) continue;
+    const { meta, body } = parseFrontMatter(
+      readFileSync(join(CONTENT, "papers", "versions", f), "utf8"),
+    );
+    (versions[m[1]] ??= []).push({ n: Number(m[2]), date: String(meta.date ?? ""), body });
+  }
+  for (const list of Object.values(versions)) list.sort((a, b) => a.n - b.n);
+
   // Verbatim or nothing.
   const normal = new Map();
   const failures = [];
@@ -280,6 +297,7 @@ function build() {
     articles,
     papers,
     spoken,
+    versions,
     pages,
     // Per-article details the hand-built prototype pages carry and the
     // Markdown export did not: short contents labels, the named sources, the

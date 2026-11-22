@@ -113,6 +113,9 @@ export interface Paper {
   dek?: string;
   date: string;
   series?: string;
+  /** Set once a paper has been revised: its version number and the date. */
+  version?: number;
+  revised?: string;
   body: string;
 }
 
@@ -125,6 +128,13 @@ export interface SpokenCard {
   paras: string[];
   words: number;
   seconds: number;
+}
+
+/** An earlier version of a paper, kept whole (content/papers/versions/). */
+export interface PaperVersion {
+  n: number;
+  date: string;
+  body: string;
 }
 
 export interface StaticPage {
@@ -163,6 +173,7 @@ interface Store {
   articles: Record<string, Article>;
   papers: Record<string, Paper>;
   spoken: Record<string, SpokenCard[]>;
+  versions: Record<string, PaperVersion[]>;
   pages: Record<string, StaticPage>;
   articleExtras: Record<string, ArticleExtras>;
   /** content/prompts/<name>.md: the research prompts an article offers. */
@@ -213,6 +224,11 @@ export function allArticles(): Article[] {
 /** A paper's spoken cards, in order; none for a paper not yet decanted. */
 export function spokenCards(slug: string): SpokenCard[] {
   return STORE.spoken?.[slug] ?? [];
+}
+
+/** A paper's earlier versions, oldest first; the current one is paper(). */
+export function paperVersions(slug: string): PaperVersion[] {
+  return STORE.versions?.[slug] ?? [];
 }
 
 export function allPapers(): Paper[] {

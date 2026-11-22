@@ -30,6 +30,7 @@ import {
   libraryItems,
   measuredElsewhere,
   paper,
+  paperVersions,
   privatePage,
   problem,
   researchDoc,
@@ -56,6 +57,7 @@ import type { InlineLink } from "./links";
 import { passageHref } from "./md";
 import { renderAdmin } from "./pages/admin";
 import { renderArticle, renderPaper } from "./pages/article";
+import { renderChanges } from "./pages/changes";
 import { renderClaude } from "./pages/claude";
 import { type DocView, renderDocument } from "./pages/document";
 import { evidence } from "./pages/evidence";
@@ -1088,6 +1090,17 @@ app.get("/articles/:slug", async (c, next) => {
     return html(renderPaper(p, { signedIn: signedIn(c) }));
   }
   return next();
+});
+
+// What changed between a paper's last kept version and the current one,
+// word by word (pages/changes.ts).
+app.get("/articles/:slug/changes", (c, next) => {
+  const p = paper(c.req.param("slug"));
+  const kept = p ? paperVersions(p.slug) : [];
+  const from = kept[kept.length - 1];
+  if (!p || !from) return next();
+  const to = { n: p.version ?? from.n + 1, date: p.revised ?? p.date, body: p.body };
+  return html(renderChanges(p, from, to, { signedIn: signedIn(c) }));
 });
 
 // A paper's earlier versions, kept whole (content/pages/paper-<slug>-v<n>.html,

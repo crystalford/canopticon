@@ -81,3 +81,32 @@ describe("versions", () => {
     expect((await get("/articles/krasis/v9")).status).toBe(404);
   });
 });
+
+describe("what changed", () => {
+  it("diffs words inside a changed paragraph and leaves the rest equal", async () => {
+    const { diffParagraphs } = await import("../src/site/diff");
+    const blocks = diffParagraphs(
+      "One.\n\nThe cost is amputation.\n\nThree.",
+      "One.\n\nThe cost is reweighting.\n\nThree.",
+    );
+    expect(blocks.map((b) => b.kind)).toEqual(["same", "changed", "same"]);
+    const changed = blocks[1] as Extract<(typeof blocks)[number], { kind: "changed" }>;
+    expect(changed.removed).toBe(1);
+    expect(changed.added).toBe(1);
+  });
+
+  it("Krasis shows version 1 against version 2, word by word", async () => {
+    const res = await get("/articles/krasis/changes");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Version 1 → version 2");
+    expect(html).toMatch(/<del>[^<]*amputation/);
+    expect(html).toMatch(/<ins>[^<]*Four kinds of cost/);
+    expect(html).toContain("unchanged paragraph");
+    expect(html).toContain("</footer>");
+  });
+
+  it("a paper never revised has no changes page", async () => {
+    expect((await get("/articles/typomora/changes")).status).toBe(404);
+  });
+});

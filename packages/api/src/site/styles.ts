@@ -826,6 +826,32 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .version-note strong { color: var(--green-ink); font-weight: 600; }
 .version-note a { color: var(--ink); border-bottom: 1px solid var(--green); }
 
+/* What changed: a paper's versions compared word by word, like a review.
+   Removed words struck through on brick, added words on green. */
+.chg { max-width: var(--read); margin: 0 auto; padding: 40px 0 64px; }
+.chg-kick { font-family: var(--sans); font-size: var(--t-sm); font-weight: 500; color: var(--muted); margin: 0 0 10px; }
+.chg-kick a { color: var(--ink); border-bottom: 1px solid var(--green); }
+.chg h1 { font-size: var(--t-h1); font-weight: 500; letter-spacing: -.02em; line-height: 1.12; margin: 0 0 14px; }
+.chg-sum { font-size: var(--t-md); line-height: 1.55; color: var(--ink-2); margin: 0 0 8px; }
+.chg-n { display: inline-block; padding: 0 8px; border-radius: 999px; font-family: var(--sans); font-size: var(--t-xs); font-weight: 600; line-height: 20px; font-variant-numeric: tabular-nums; }
+.chg-n.del { background: #f6e4df; color: #8a2f1f; }
+.chg-n.ins { background: var(--green-bg); color: var(--green-ink); }
+.chg-links { font-family: var(--sans); font-size: var(--t-sm); color: var(--muted); margin: 0 0 28px; }
+.chg-links a { color: var(--ink); border-bottom: 1px solid var(--green); }
+.chg-body { font-size: var(--t-body); line-height: 1.65; }
+.chg-body p { margin: 0 0 14px; }
+.chg-h { font-family: var(--sans); font-size: var(--t-md); font-weight: 600; letter-spacing: -.01em; margin: 18px 0 8px; }
+.chg-ctx { color: var(--muted); }
+.chg-fold { margin: 6px 0 14px; }
+.chg-fold > summary { cursor: pointer; list-style: none; font-family: var(--sans); font-size: var(--t-sm); font-weight: 500; color: var(--muted); padding: 8px 12px; border: 1px dashed var(--rule); border-radius: 10px; background: var(--tint); }
+.chg-fold > summary::-webkit-details-marker { display: none; }
+.chg-fold > summary:hover { color: var(--ink); border-color: var(--rule-2); }
+.chg-fold[open] > summary { margin-bottom: 14px; }
+.chg-hunk { border-left: 3px solid var(--rule-2); padding: 4px 0 2px 18px; margin: 0 0 18px; }
+.chg-hunk del { background: #f6e4df; color: #8a2f1f; text-decoration-color: rgba(138,47,31,.6); }
+.chg-hunk ins { background: var(--green-bg); color: var(--green-ink); text-decoration: none; }
+@media (max-width: 520px) { .chg { padding: 24px 16px 48px; } }
+
 /* Spoken: a paper decanted into cards of about a minute, to be read aloud.
    Plain type, no ornament; the source and the caveat sit under each card. */
 .spoken { margin: 48px 0 8px; padding-top: 28px; border-top: 1px solid var(--hair); }

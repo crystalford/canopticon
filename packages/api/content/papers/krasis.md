@@ -6,6 +6,8 @@ title: "Krasis"
 dek: "The synthesis of the series. McLuhan said every medium changes the ratio among our senses; six papers test that literally, from ADHD and typing to drugs and addiction, and find one configuration that media, drugs and illness all re-temper."
 topic: "McLuhan & media theory"
 date: "2026-10-05"
+version: 2
+revised: "2026-11-22"
 source_upload: "uploads/Krasis.md"
 ---
 
@@ -162,7 +164,7 @@ Version 1 used McLuhan's word, amputation, for the cost of an extension, and sai
 
 Earlier papers in the series had moved in this direction. *Sensory Syncrasis* proposed translating McLuhan's "autoamputation" as the down-weighting of the senses that lose out, and *Exocrasis* treated extension and amputation as cognitive offloading.
 
-Version 1, as published on 5 October 2026, is kept unchanged at [canopticon.com/articles/krasis/v1](https://canopticon.com/articles/krasis/v1).
+Version 1, as published on 5 October 2026, is kept unchanged at [canopticon.com/articles/krasis/v1](https://canopticon.com/articles/krasis/v1). Every change, word by word: [canopticon.com/articles/krasis/changes](https://canopticon.com/articles/krasis/changes).
 
 ## Papers in the series and core references
 
