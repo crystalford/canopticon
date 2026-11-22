@@ -246,18 +246,68 @@ function build() {
     const heads = [...body.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
     for (const need of THEORY_SECTIONS)
       if (!heads.includes(need)) failures.push(`theories/${f}: missing the "## ${need}" section`);
-    const props = Array.isArray(meta.propositions) ? meta.propositions : [];
+    if (!heads.includes("Prior work"))
+      failures.push(
+        `theories/${f}: missing the "## Prior work" section (what already has a name, and what this adds)`,
+      );
+    // Primary references, numbered in order. A proposition names the ones it
+    // rests on ("refs": "1,3"), and its grade sets how many it needs: Strong
+    // means measured directly in at least two independent studies, Moderate
+    // that it follows from established findings (at least one named),
+    // Proposed that it is not yet tested.
+    const references = (Array.isArray(meta.references) ? meta.references : []).map((r) => ({
+      text: String(r.text ?? ""),
+      ...(r.url ? { url: String(r.url) } : {}),
+    }));
+    if (!references.length) failures.push(`theories/${f}: lists no references`);
+    for (const [i, r] of references.entries())
+      if (!r.text) failures.push(`theories/${f}: reference ${i + 1} has no text`);
+    const NEEDS = { Strong: 2, Moderate: 1, Proposed: 0 };
+    const props = (Array.isArray(meta.propositions) ? meta.propositions : []).map((p) => ({
+      ...p,
+      refs: String(p.refs ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map(Number),
+    }));
     if (!props.length) failures.push(`theories/${f}: states no propositions`);
     for (const [i, p] of props.entries()) {
-      if (!p.statement) failures.push(`theories/${f}: proposition ${i + 1} has no statement`);
+      const at = `theories/${f}: proposition ${i + 1}`;
+      if (!p.statement) failures.push(`${at} has no statement`);
       if (!GRADES.includes(p.grade))
+        failures.push(`${at} grade must be one of ${GRADES.join(", ")}`);
+      for (const n of p.refs)
+        if (!Number.isInteger(n) || n < 1 || n > references.length)
+          failures.push(`${at} cites reference ${n}, which is not in the list`);
+      const need = NEEDS[p.grade] ?? 0;
+      if (new Set(p.refs).size < need)
         failures.push(
-          `theories/${f}: proposition ${i + 1} grade must be one of ${GRADES.join(", ")}`,
+          `${at} is graded ${p.grade} and needs at least ${need} reference${need > 1 ? "s" : ""}`,
         );
     }
+    const cycle = (Array.isArray(meta.cycle) ? meta.cycle : [])
+      .map((c) => String(c.step ?? ""))
+      .filter(Boolean);
+    if (cycle.length && (cycle.length < 3 || cycle.length > 8))
+      failures.push(`theories/${f}: a cycle has 3 to 8 steps`);
     if (!meta.claim) failures.push(`theories/${f}: states no claim`);
-    theories[slug] = { ...meta, slug, kind: "Theory", body };
+    theories[slug] = {
+      ...meta,
+      slug,
+      kind: "Theory",
+      body,
+      propositions: props,
+      references,
+      ...(cycle.length ? { cycle } : {}),
+    };
   }
+
+  // A theory may name another as related; the link must land.
+  for (const t of Object.values(theories))
+    for (const r of Array.isArray(t.related) ? t.related : [])
+      if (String(r.route ?? "").startsWith("/theories/") && !theories[r.route.slice(10)])
+        failures.push(`theories/${t.slug}: related theory ${r.route} does not exist`);
 
   for (const a of [...Object.values(articles), ...Object.values(theories)]) {
     for (const m of a.body.matchAll(/<q\s+([^>]*)>([\s\S]*?)<\/q>/g)) {

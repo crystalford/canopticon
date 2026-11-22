@@ -835,6 +835,45 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .prose .prop-basis, .prop-basis { margin: 0; font-family: var(--sans); font-size: var(--t-sm); line-height: 1.55; color: var(--ink-2); }
 .prop-g { padding-top: 2px; }
 .prop-key { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font-family: var(--sans); font-size: var(--t-xs); color: var(--muted); }
+.prop-key-h { flex-basis: 100%; font-weight: 600; color: var(--ink-2); }
+.prose .prop-refs, .prop-refs { margin: 6px 0 0; font-family: var(--sans); font-size: var(--t-xs); color: var(--muted); }
+.prop-refs a, .ref-n { color: var(--cobalt); text-decoration: none; font-family: var(--sans); font-size: .85em; }
+.prop-refs a:hover, .ref-n:hover { text-decoration: underline; }
+/* A theory's loop, drawn on the server. */
+.cycle { margin: 28px 0; padding: 16px; border: 1px solid var(--hair); border-radius: 14px; background: var(--card); }
+.cycle svg { display: block; width: 100%; height: auto; font-family: var(--sans); }
+.cycle .cy-s rect { fill: var(--paper); stroke: var(--rule); stroke-width: 1.2; }
+.cycle .cy-h { font-size: 15px; font-weight: 600; fill: var(--ink); text-anchor: middle; }
+.cycle .cy-d { font-size: 12.5px; fill: var(--muted); text-anchor: middle; }
+.cycle .cy-a { stroke: var(--switch); stroke-width: 1.6; fill: none; }
+.cycle marker path { fill: var(--switch); }
+.cycle .cy-cut circle { fill: var(--card); stroke: var(--brick); stroke-width: 1.6; }
+.cycle .cy-cut path { stroke: var(--brick); stroke-width: 2; }
+.cycle .cy-x text { font-size: 14px; fill: var(--brick); text-anchor: middle; }
+.cycle .cy-x .cy-xl { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.cycle-list, .cycle-exit { display: none; }
+@media (max-width: 560px) {
+  .cycle svg { display: none; }
+  .prose .cycle-list, .cycle-list { display: block; margin: 0; padding: 0; list-style: none; font-family: var(--sans); font-size: var(--t-ui); }
+  .cycle-list li { position: relative; margin: 0 0 18px; padding: 8px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); }
+  .cycle-list li::after { content: "↓"; position: absolute; left: 50%; bottom: -18px; color: var(--switch); }
+  .cycle-list li.cut::before { content: "✕"; position: absolute; right: 10px; top: -15px; color: var(--brick); font-weight: 600; }
+  .cycle-list li span { display: block; color: var(--muted); font-size: var(--t-xs); }
+  .cycle-list li.back { border-style: dashed; color: var(--muted); }
+  .cycle-list li.back::after { content: none; }
+  .prose .cycle-exit, .cycle-exit { display: block; margin: 12px 0 0; font-family: var(--sans); font-size: var(--t-sm); color: var(--brick); }
+}
+.cycle figcaption { margin-top: 8px; font-family: var(--sans); font-size: var(--t-sm); color: var(--muted); }
+/* A theory's primary references. */
+.refs { margin-top: 40px; }
+.prose .refs-note, .refs-note { font-family: var(--sans); font-size: var(--t-sm); color: var(--muted); }
+.prose .ref-list, .ref-list { margin: 12px 0 0; padding-left: 28px; font-family: var(--sans); font-size: var(--t-sm); line-height: 1.55; color: var(--ink-2); }
+.ref-list li { margin: 0 0 10px; scroll-margin-top: 80px; }
+.ref-list li:target { background: var(--cobalt-soft); outline: 4px solid var(--cobalt-soft); border-radius: 4px; }
+.ref-u { color: var(--cobalt); }
+.ref-u.none { color: var(--hint); }
+.ref-by { color: var(--hint); }
+.ref-by a { color: var(--hint); }
 @media (max-width: 520px) {
   .tc-row { grid-template-columns: 1fr; gap: 2px; }
   .prop { grid-template-columns: 32px 1fr; }

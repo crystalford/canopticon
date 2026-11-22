@@ -124,6 +124,15 @@ export interface Proposition {
   statement: string;
   grade: "Strong" | "Moderate" | "Proposed";
   basis?: string;
+  /** Numbers in the theory's references list (1-based). The build requires
+   *  two for Strong and one for Moderate. */
+  refs: number[];
+}
+
+/** A primary reference: the study itself, linked where a copy is reachable. */
+export interface Reference {
+  text: string;
+  url?: string;
 }
 
 /** A theory (content/theories/): a named idea stated formally — claim,
@@ -144,6 +153,11 @@ export interface Theory {
   based_on?: BasedOn[];
   related?: Array<{ route: string; label: string }>;
   propositions: Proposition[];
+  references: Reference[];
+  /** The loop the theory describes, step by step; "Head|detail" per step. */
+  cycle?: string[];
+  /** Where the loop breaks, drawn beneath it. */
+  cycle_exit?: string;
   cite?: string;
   body: string;
 }

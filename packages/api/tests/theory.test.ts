@@ -29,7 +29,27 @@ describe("theories", () => {
       expect(t.propositions.length).toBeGreaterThan(0);
       for (const p of t.propositions) expect(["Strong", "Moderate", "Proposed"]).toContain(p.grade);
       for (const s of SECTIONS) expect(t.body).toContain(`## ${s}\n`);
+      expect(t.body).toContain("## Prior work\n");
+      expect(t.references.length).toBeGreaterThan(0);
+      for (const p of t.propositions) {
+        // The rubric, enforced: Strong rests on two studies, Moderate on one.
+        const need = { Strong: 2, Moderate: 1, Proposed: 0 }[p.grade];
+        expect(new Set(p.refs).size).toBeGreaterThanOrEqual(need);
+        for (const r of p.refs) expect(t.references[r - 1]).toBeTruthy();
+      }
     }
+  });
+
+  it("states the grading rubric, numbers the references and draws the loop", async () => {
+    const html = await (await get("/theories/self-extinguishing-maintenance")).text();
+    expect(html).toContain("How propositions are graded");
+    expect(html).toContain("Measured directly in at least two independent studies");
+    expect(html).toContain('id="references"');
+    expect(html).toContain('id="ref-1"');
+    expect(html).toContain('href="#ref-3"');
+    expect(html).toContain('<figure class="cycle">');
+    expect(html).toContain('role="img"');
+    expect(html).toContain('"citation":[');
   });
 
   it("the source file parses to the same propositions", () => {
@@ -59,6 +79,8 @@ describe("theories", () => {
     expect(md).toContain("**Claim.**");
     expect(md).toContain("## Propositions");
     expect(md).toContain("(Strong)");
+    expect(md).toContain("## References");
+    expect(md).toContain("at least two independent studies");
   });
 
   it("appears in the Library, and an unknown theory is not a page", async () => {

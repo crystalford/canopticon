@@ -1103,8 +1103,18 @@ app.get("/theories/:slug", (c, next) => {
   if (!t) return next();
   if (md) {
     const props = t.propositions
-      .map((p, i) => `${i + 1}. ${p.statement} (${p.grade})${p.basis ? ` \u2014 ${p.basis}` : ""}`)
+      .map(
+        (p, i) =>
+          `${i + 1}. ${p.statement} (${p.grade})${p.basis ? ` \u2014 ${p.basis}` : ""}${
+            p.refs.length ? ` References: ${p.refs.map((r) => `[${r}]`).join(" ")}.` : ""
+          }`,
+      )
       .join("\n");
+    const refs = t.references
+      .map((r, i) => `${i + 1}. ${r.text}${r.url ? ` ${r.url}` : ""}`)
+      .join("\n");
+    const grading =
+      "Strong: measured directly in at least two independent studies. Moderate: follows from established findings; not tested as stated. Proposed: not yet tested.";
     return markdownTwin(
       {
         id: t.slug,
@@ -1112,7 +1122,9 @@ app.get("/theories/:slug", (c, next) => {
         kind: "Theory",
         topic: t.topic,
         date: t.date,
-        body: `**Claim.** ${t.claim}\n\n## Propositions\n\n${props}\n\n${t.body}`,
+        body: `**Claim.** ${t.claim}\n\n## Propositions\n\n${grading}\n\n${props}\n\n${t.body}${
+          refs ? `\n\n## References\n\n${refs}` : ""
+        }`,
       },
       `/theories/${t.slug}`,
     );
