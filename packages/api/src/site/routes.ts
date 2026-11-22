@@ -35,6 +35,7 @@ import {
   researchDoc,
   sharedSources,
   shownRead,
+  spokenCards,
   staticPage,
   subjectLinks,
   term,
@@ -66,6 +67,7 @@ import { INVESTIGATIONS, type LibraryQuery, renderLibrary } from "./pages/librar
 import { renderNotFound, renderNotice } from "./pages/notice";
 import { receiptLine, renderReadBoard } from "./pages/read";
 import { renderSearch } from "./pages/search";
+import { withSpoken } from "./pages/spoken";
 import { renderStatic } from "./pages/static";
 import { renderTopic } from "./pages/topic";
 import { PREVIEW_FLAG, proposalCard, renderEmptyPreview, renderWorkspace } from "./pages/write";
@@ -1066,7 +1068,10 @@ app.get("/articles/:slug", async (c, next) => {
     // (content/pages/paper-*.html). The Markdown stays the source for the
     // twin, the feeds and llms-full.txt.
     const built = staticPage(`/articles/${p.slug}`);
-    if (built && !md) return html(renderStatic(built, { signedIn: signedIn(c) }));
+    if (built && !md) {
+      const body = withSpoken(built.body, spokenCards(p.slug));
+      return html(renderStatic({ ...built, body }, { signedIn: signedIn(c) }));
+    }
     if (md) {
       return markdownTwin(
         {

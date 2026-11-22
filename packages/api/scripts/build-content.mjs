@@ -19,7 +19,7 @@
 //
 //   node scripts/build-content.mjs
 
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -104,6 +104,37 @@ export function verbatimNormal(s) {
   return s.replace(/[*`]/g, "");
 }
 
+/** A spoken file's cards: each "## Title", then "From:" (the passage it
+ *  compresses) and "Caveat:" lines, then the text in paragraphs. HTML
+ *  comments are notes for the author and are dropped. */
+export function parseSpoken(body) {
+  const cards = [];
+  const src = body.replace(/<!--[\s\S]*?-->/g, "");
+  for (const part of src.split(/^## /m).slice(1)) {
+    const [head, ...rest] = part.split("\n");
+    const card = { title: head.trim(), from: "", caveat: "", paras: [], words: 0, seconds: 0 };
+    const text = [];
+    for (const line of rest) {
+      const from = /^From:\s*(.+)$/.exec(line);
+      const caveat = /^Caveat:\s*(.+)$/.exec(line);
+      if (from) card.from = from[1].trim();
+      else if (caveat) card.caveat = caveat[1].trim();
+      else text.push(line);
+    }
+    card.paras = text
+      .join("\n")
+      .split(/\n\s*\n/)
+      .map((p) => p.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    card.body = card.paras.join("\n\n");
+    card.words = card.body.split(/\s+/).filter(Boolean).length;
+    // Read aloud, plainly: about 150 words a minute.
+    card.seconds = Math.round((card.words / 150) * 60);
+    cards.push(card);
+  }
+  return cards;
+}
+
 const readJson = (f) => JSON.parse(readFileSync(join(CONTENT, f), "utf8"));
 const mdFiles = (dir) =>
   readdirSync(join(CONTENT, dir))
@@ -151,6 +182,33 @@ function build() {
   const normal = new Map();
   const failures = [];
   let checked = 0;
+
+  // Spoken cards (content/spoken/<paper>.md): a paper decanted into pieces
+  // of about a minute, to be read aloud. Each names the passage it compresses,
+  // and that passage must be in the paper word for word, so a card can always
+  // be traced back to what it shortens.
+  const spoken = {};
+  for (const f of existsSync(join(CONTENT, "spoken")) ? mdFiles("spoken") : []) {
+    const { meta, body } = parseFrontMatter(readFileSync(join(CONTENT, "spoken", f), "utf8"));
+    const slug = String(meta.paper ?? f.slice(0, -3));
+    const p = papers[slug];
+    if (!p) {
+      failures.push(`spoken/${f}: names no paper (${slug})`);
+      continue;
+    }
+    const cards = parseSpoken(body);
+    const whole = verbatimNormal(p.body).replace(/\s+/g, " ");
+    for (const c of cards) {
+      checked++;
+      if (!c.body) failures.push(`spoken/${f}: "${c.title}" has no text`);
+      if (!c.from) failures.push(`spoken/${f}: "${c.title}" names no passage (From:)`);
+      else if (!whole.includes(verbatimNormal(c.from).replace(/\s+/g, " ")))
+        failures.push(
+          `spoken/${f}: "${c.title}" — From: not verbatim in ${slug}: "${c.from.slice(0, 90)}"`,
+        );
+    }
+    spoken[slug] = cards;
+  }
   for (const a of Object.values(articles)) {
     for (const m of a.body.matchAll(/<q\s+([^>]*)>([\s\S]*?)<\/q>/g)) {
       checked++;
@@ -221,6 +279,7 @@ function build() {
     research,
     articles,
     papers,
+    spoken,
     pages,
     // Per-article details the hand-built prototype pages carry and the
     // Markdown export did not: short contents labels, the named sources, the

@@ -116,6 +116,17 @@ export interface Paper {
   body: string;
 }
 
+/** One spoken card: a passage of a paper decanted into about a minute read
+ *  aloud (content/spoken/). `from` is in the paper word for word. */
+export interface SpokenCard {
+  title: string;
+  from: string;
+  caveat: string;
+  paras: string[];
+  words: number;
+  seconds: number;
+}
+
 export interface StaticPage {
   route: string;
   /** Long pages (the papers) carry the reading-progress bar. */
@@ -151,6 +162,7 @@ interface Store {
   research: Record<string, ResearchDoc>;
   articles: Record<string, Article>;
   papers: Record<string, Paper>;
+  spoken: Record<string, SpokenCard[]>;
   pages: Record<string, StaticPage>;
   articleExtras: Record<string, ArticleExtras>;
   /** content/prompts/<name>.md: the research prompts an article offers. */
@@ -196,6 +208,11 @@ export function paper(slug: string): Paper | null {
 export function allArticles(): Article[] {
   const own = Object.values(STORE.articles);
   return PUBLISHED_ROWS.length ? [...own, ...Object.values(PUBLISHED)] : own;
+}
+
+/** A paper's spoken cards, in order; none for a paper not yet decanted. */
+export function spokenCards(slug: string): SpokenCard[] {
+  return STORE.spoken?.[slug] ?? [];
 }
 
 export function allPapers(): Paper[] {

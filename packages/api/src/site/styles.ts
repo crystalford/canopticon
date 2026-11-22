@@ -820,6 +820,27 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .proc-act { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .proc-act form { margin: 0; }
 .proc-note { margin: -2px 0 6px; font-size: var(--t-sm); color: var(--cobalt-ink); }
+
+/* Spoken: a paper decanted into cards of about a minute, to be read aloud.
+   Plain type, no ornament; the source and the caveat sit under each card. */
+.spoken { margin: 48px 0 8px; padding-top: 28px; border-top: 1px solid var(--hair); }
+.spoken h2 { font-family: var(--sans); font-size: var(--t-xl); font-weight: 600; letter-spacing: -.018em; line-height: 1.25; margin: 0 0 8px; scroll-margin-top: 80px; }
+.spoken-intro { font-size: var(--t-md); line-height: 1.55; color: var(--ink-2); margin: 0 0 20px; max-width: 60ch; }
+.spoken-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.spoken-card { border: 1px solid var(--hair); border-radius: 12px; background: var(--card); padding: 20px 22px 16px; scroll-margin-top: 80px; }
+.spoken-meta { display: flex; justify-content: space-between; gap: 12px; font-family: var(--sans); font-size: var(--t-xs); font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.spoken-card h3 { font-family: var(--sans); font-size: var(--t-lg); font-weight: 600; letter-spacing: -.012em; line-height: 1.3; margin: 8px 0 10px; }
+.spoken-card p { font-size: var(--t-read); line-height: 1.62; margin: 0 0 12px; }
+.spoken-src { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--hair-2); display: grid; gap: 6px; font-family: var(--sans); font-size: var(--t-sm); line-height: 1.5; }
+.spoken-src div { display: grid; grid-template-columns: 88px 1fr; gap: 10px; }
+.spoken-src dt { color: var(--muted); font-weight: 500; }
+.spoken-src dd { margin: 0; color: var(--ink-2); }
+.spoken-src a { color: var(--ink); border-bottom: 1px solid var(--cobalt-line); }
+.spoken-src a:hover { border-bottom-color: var(--cobalt); }
+@media (max-width: 520px) {
+  .spoken-card { padding: 16px 16px 14px; }
+  .spoken-src div { grid-template-columns: 1fr; gap: 0; }
+}
 .desk-more { margin-top: 8px; }
 .desk-more > summary { display: inline-flex; align-items: center; gap: 4px; padding: 4px 0; font-size: var(--t-sm); font-weight: 500; color: var(--ink-2); cursor: pointer; list-style: none; }
 .desk-more > summary::-webkit-details-marker { display: none; }
