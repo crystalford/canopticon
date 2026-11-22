@@ -21,16 +21,16 @@ Later he tied it to the theory of left and right brain hemispheres. When that th
 
 What has changed since is the measurement. Research on how the brain combines the senses shows that when two of them are combined, the weight each one gets depends on how reliable it is. That is a ratio in the literal sense. The series starts there, by taking McLuhan at his word.
 
-## Four kinds of cost
+## Extension and amputation
 
-From: Amputation means a part removed for good
-Caveat: The four kinds are a reading of evidence gathered for other purposes. No study has compared them directly.
+From: McLuhan's pairing of extension and amputation is not a figure of speech here.
+Caveat: The GPS finding is an association measured over three years in habitual users, not proof that GPS causes the decline.
 
-McLuhan said every extension of ourselves is also an amputation. The first half of that holds up well across this series: when a medium strengthens one capacity, another usually weakens. The problem is the word. Amputation means something removed permanently, and the evidence does not show that.
+McLuhan paired every extension with an amputation: when a medium strengthens one capacity, another weakens. Across the six cases in this series, that pairing is the most consistent pattern in the evidence.
 
-Looking at the mechanisms, there are at least four different things going on. Reweighting: when the brain combines two senses, relying more on one means relying less on the other. Delegation: people remember less of what their phone stores, because the phone is doing that work now. Disuse: skills that get less practice, like slow reading, get weaker. Recycling: learning to read takes over part of a brain region that also responds to faces.
+Habitual GPS users show weaker spatial memory over time. People remember less of what they photograph and let a device keep. Action video games sharpen visual timing, while slow, sustained reading gets less practice. A drug restores a baseline that the drug itself shifted. Saving something frees memory for the next thing and lets the saved thing go.
 
-These work differently and reverse differently, so in the paper I've replaced amputation with the four of them.
+None of these cases is pure gain or pure loss. The useful question about a tool is what it strengthens and what it weakens, and in each of these cases the answer is specific.
 
 ## Small effects, whole environments
 

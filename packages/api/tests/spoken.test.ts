@@ -58,30 +58,6 @@ describe("spoken cards", () => {
   });
 });
 
-describe("versions", () => {
-  it("Krasis says how it changed and links the version it replaced", async () => {
-    const html = await (await get("/articles/krasis")).text();
-    expect(html).toContain('id="versions"');
-    expect(html).toContain('href="/articles/krasis/v1"');
-    expect(html).not.toContain("Every extension is also an amputation</h3>");
-    // How it changed comes before the cards, and both before the back matter.
-    expect(html.indexOf('id="versions"')).toBeLessThan(html.indexOf('id="spoken"'));
-  });
-
-  it("version 1 is kept whole, says what it is, and carries no cards", async () => {
-    const res = await get("/articles/krasis/v1");
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain("Version 1 of 2.");
-    expect(html).toContain("Every extension is also an amputation</h3>");
-    expect(html).not.toContain('id="spoken"');
-  });
-
-  it("an unknown version is not a page", async () => {
-    expect((await get("/articles/krasis/v9")).status).toBe(404);
-  });
-});
-
 describe("what changed", () => {
   it("diffs words inside a changed paragraph and leaves the rest equal", async () => {
     const { diffParagraphs } = await import("../src/site/diff");
@@ -95,18 +71,8 @@ describe("what changed", () => {
     expect(changed.added).toBe(1);
   });
 
-  it("Krasis shows version 1 against version 2, word by word", async () => {
-    const res = await get("/articles/krasis/changes");
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain("Version 1 → version 2");
-    expect(html).toMatch(/<del>[^<]*amputation/);
-    expect(html).toMatch(/<ins>[^<]*Four kinds of cost/);
-    expect(html).toContain("unchanged paragraph");
-    expect(html).toContain("</footer>");
-  });
-
   it("a paper never revised has no changes page", async () => {
-    expect((await get("/articles/typomora/changes")).status).toBe(404);
+    expect((await get("/articles/krasis/changes")).status).toBe(404);
+    expect((await get("/articles/krasis/v1")).status).toBe(404);
   });
 });
