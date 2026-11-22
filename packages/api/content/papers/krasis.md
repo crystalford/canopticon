@@ -101,18 +101,18 @@ Read side by side, the six cases share five patterns. None of them belongs to on
 
 In every case, what changes is the background condition of perception rather than any single thing perceived. The typed era became the unnoticed way language was made. The screen sets a reading pace readers follow without choosing it. In addiction, the shifted baseline is felt as "how the world is," not as a state. McLuhan's claim that media effects are invisible because they become environments holds across all of them. That is also why they are hard to study: brief lab exposures measure the figure, and the ground has to be measured over time and across whole environments. The findings that failed replication in this area mostly measured the figure.
 
-### Every extension has a cost, and the cost is not a cut
+### Four kinds of cost
 
-No case shows pure gain or pure loss. Action games sharpen visual timing while slow reading goes unpractised. GPS extends navigation while the inner map fades. A drug restores a baseline it has itself shifted. Saving information frees memory for the next thing while letting the saved thing go. The trade-off is the most consistent empirical pattern across the series.
+No case shows pure gain or pure loss. Action games sharpen visual timing while slow reading goes unpractised. GPS extends navigation while the inner map fades. A drug restores a baseline it has itself shifted. Saving information frees memory for the next thing while letting the saved thing go. This trade-off is the most consistent empirical pattern across the series.
 
-McLuhan's name for the cost was amputation. The pattern holds; the image does not. An amputation is a part removed for good, and read at the level of mechanism, none of these cases is a removal. They show four different kinds of cost.
+McLuhan called the cost amputation, and version 1 of this synthesis accepted the word. It fits the evidence poorly. Amputation means a part removed for good, and the cases in this series describe four different mechanisms, none of which removes anything.
 
-- **Reweighting.** When two senses are combined, their weights trade off in proportion to how reliable each is (Ernst & Banks, 2002). More trust in one channel is a smaller share for the other. This is a change of proportion, which is what *krasis* names: more wine in the mixture does not remove the water.
-- **Delegation.** People remember less of what a device keeps for them (Henkel, 2014), and habitual GPS users show weaker spatial memory over time (Dahmani & Bohbot, 2020). The function has moved into the environment rather than out of existence, which is what *exocrasis* names.
-- **Disuse.** Action games strengthen the fast visual skills screens demand (Bediou and colleagues, 2018), while slow, sustained reading goes unpractised. A capacity that is not exercised weakens without being removed.
-- **Recycling.** Literacy is the closest case to a true loss, and even there the change is competition for territory. In the region that comes to respond to writing, learning to read "induced a small competition with faces" (Dehaene and colleagues, 2010). The field's term is neuronal recycling: circuitry repurposed, not cut away.
+- **Reweighting.** When two senses are combined, the brain weights each in proportion to how reliable it is (Ernst & Banks, 2002). Relying more on one sense means relying less on the other. The change is one of proportion, which is the sense of *krasis*.
+- **Delegation.** People remember less of what a device keeps for them (Henkel, 2014), and habitual GPS users show weaker spatial memory over time (Dahmani & Bohbot, 2020). The work has moved to the device. This is what *exocrasis* describes.
+- **Disuse.** Action games strengthen the fast visual skills screens demand (Bediou and colleagues, 2018), while slow, sustained reading gets less practice. A skill that is practised less gets weaker.
+- **Recycling.** Literacy comes closest to a loss. Learning to read changes how the left fusiform region responds, and in that region it "induced a small competition with faces" (Dehaene and colleagues, 2010). Dehaene calls this neuronal recycling: brain areas taken over for a new use.
 
-The four behave differently. A reweighting shifts as reliability shifts. A delegation lasts as long as the device does the work. Disuse is the kind practice addresses. Recycling is slow and may last. Calling all four amputation hides which cost a medium imposes, and so which route back is open.
+Separating the four matters because they reverse differently. Weights shift when reliability changes. Delegated memory stays with the device for as long as the device is used. Disuse can be addressed with practice. Recycling happens slowly and may last.
 
 ### Small per person, large in aggregate, and persistent
 
@@ -156,13 +156,13 @@ The practical upshot is the one McLuhan himself drew. If the most important effe
 
 ## How this paper has changed
 
-**Version 2, 22 November 2026.** The section "Every extension is also an amputation" is replaced by "Every extension has a cost, and the cost is not a cut."
+**Version 2, 22 November 2026.** The section "Every extension is also an amputation" was rewritten and retitled "Four kinds of cost."
 
-Version 1 accepted McLuhan's image. It said that his pairing of extension and amputation "is not a figure of speech here." The pattern it described holds: in every case something is strengthened and something else weakened. The image does not hold. An amputation is a part removed for good, and none of the cases is a removal. They are four different kinds of cost (reweighting, delegation, disuse and recycling), and naming them apart says which route back each leaves open.
+Version 1 used McLuhan's word, amputation, for the cost of an extension, and said that his pairing of extension and amputation "is not a figure of speech here." Version 2 keeps the observation that every case trades one capacity against another, and drops the word. Amputation implies permanent removal, and the evidence describes four mechanisms that remove nothing: reweighting, delegation, disuse and recycling. Separating them also shows how each might be reversed.
 
-The series had already started down this road. *Sensory Syncrasis* proposed translating McLuhan's "autoamputation" as the down-weighting of the channels that lose out, and *Exocrasis* measured extension and amputation as cognitive offloading. Version 2 finishes the translation.
+Earlier papers in the series had moved in this direction. *Sensory Syncrasis* proposed translating McLuhan's "autoamputation" as the down-weighting of the senses that lose out, and *Exocrasis* treated extension and amputation as cognitive offloading.
 
-Version 1 is kept whole at [canopticon.com/articles/krasis/v1](https://canopticon.com/articles/krasis/v1): the paper as it stood on 5 October 2026, with nothing removed.
+Version 1, as published on 5 October 2026, is kept unchanged at [canopticon.com/articles/krasis/v1](https://canopticon.com/articles/krasis/v1).
 
 ## Papers in the series and core references
 

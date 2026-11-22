@@ -21,27 +21,27 @@ Later he tied it to the theory of left and right brain hemispheres. When that th
 
 What has changed since is the measurement. Research on how the brain combines the senses shows that when two of them are combined, the weight each one gets depends on how reliable it is. That is a ratio in the literal sense. The series starts there, by taking McLuhan at his word.
 
-## Every extension has a cost, and the cost is not a cut
+## Four kinds of cost
 
-From: The pattern holds; the image does not.
+From: Amputation means a part removed for good
 Caveat: The four kinds are a reading of evidence gathered for other purposes. No study has compared them directly.
 
-McLuhan said every extension is also an amputation. The pattern behind that is the most consistent one in this series: whatever a medium strengthens, something else weakens. But an amputation is a part removed for good, and none of the cases is a removal. There are four kinds of cost.
+McLuhan said every extension of ourselves is also an amputation. The first half of that holds up well across this series: when a medium strengthens one capacity, another usually weakens. The problem is the word. Amputation means something removed permanently, and the evidence does not show that.
 
-Reweighting: when two senses are combined, more trust in one is a smaller share for the other. Delegation: you remember less of what a device keeps for you, because the function has moved out to it. Disuse: slow reading that goes unpractised weakens without disappearing. Recycling: learning to read takes over part of a region that also responds to faces, a competition for territory.
+Looking at the mechanisms, there are at least four different things going on. Reweighting: when the brain combines two senses, relying more on one means relying less on the other. Delegation: people remember less of what their phone stores, because the phone is doing that work now. Disuse: skills that get less practice, like slow reading, get weaker. Recycling: learning to read takes over part of a brain region that also responds to faces.
 
-Each of these behaves differently, and each leaves a different route back. The first version of this paper accepted McLuhan's image. The second replaces it.
+These work differently and reverse differently, so in the paper I've replaced amputation with the four of them.
 
 ## Small effects, whole environments
 
 From: It is what turns a small shift into an environment.
 Caveat: The claim is about scale and persistence, not about dramatic effects on any one person.
 
-The effects in this research are small. Measured per person, they typically run a tenth to a third of a standard deviation. The links between technology and well-being account for at most a fraction of a percent of the variance. Read one study at a time, that looks like nothing.
+The effects in this research are small. Measured per person, they typically run a tenth to a third of a standard deviation. The links between technology and well-being account for at most a fraction of a percent of the variance. Read one study at a time, that looks negligible.
 
-But these effects do not happen to one person once. They apply to whole populations, daily, for years, and they accumulate. Spatial memory declines over three years of GPS use. Reduced social media use persists after the payment for reducing it ends. A hedonic baseline outlasts the drug that shifted it.
+The effects apply to whole populations, daily, for years, and they accumulate. Spatial memory declines over three years of GPS use. Reduced social media use persists after the payment for reducing it ends. A hedonic baseline outlasts the drug that shifted it.
 
-Of the five dimensions in the framework, persistence appears to be the decisive one. A small change that goes away is an event. A small change that stays becomes the environment, and the environment is the part people stop noticing.
+Of the five dimensions in the framework, persistence appears to matter most. A small shift that lasts for years becomes part of the background, and people stop noticing it.
 
 ## In addiction, the baseline is the medium
 
@@ -50,7 +50,7 @@ Caveat: This concerns dependence-type addiction. It is a reading of the allostat
 
 McLuhan built his account of media on stress physiology, on Hans Selye. The same tradition, through the concept of allostasis, produced the most influential modern model of addiction: Koob and Le Moal's account of a persistent shift in the brain's hedonic set point.
 
-Put the two together and something specific follows. In dependence, the drug never becomes invisible. It stays vivid. What becomes invisible is the shifted baseline itself, which is felt as how the world is rather than as a state someone is in. That baseline is the medium. The drug is its content.
+Combining the two gives a specific claim about dependence. The drug itself stays vivid. What becomes invisible is the shifted baseline itself, which is felt as how the world is rather than as a state someone is in. That baseline is the medium. The drug is its content.
 
 The paper on addiction describes two routes back. One turns reward gain down, as GLP-1 drugs and naltrexone appear to do. The other makes the ground briefly visible again.
 
