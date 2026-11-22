@@ -10,7 +10,7 @@ import { docTitle } from "../data";
 import { esc, linkPill, pill, shell } from "../layout";
 import { articleHtml, articleQuotes, inline } from "../md";
 import { kindColours, longDate, topicColours, topicSlug } from "../theme";
-import { citationMeta, citeBlock, jsonLd, statbox, toc } from "./article";
+import { citationMeta, citeBlock, doiChip, jsonLd, statbox, toc } from "./article";
 
 const GRADE_COLOURS: Record<Proposition["grade"], readonly [string, string]> = {
   Strong: ["#e3f0e6", "#1f5e36"],
@@ -77,12 +77,12 @@ function references(refs: Reference[], props: Proposition[], quoted: boolean): s
         r.url
           ? ` <a class="ref-u" href="${esc(r.url)}" rel="noopener">${esc(linkLabel(r.url))}</a>`
           : ` <span class="ref-u none">no open copy linked</span>`
-      }${by.length ? ` <span class="ref-by">Supports ${by.join(", ")}</span>` : ""}</li>`;
+      } · <span class="ref-read ${r.read}">${READ_LABEL[r.read]}</span>${by.length ? ` · <span class="ref-by">Supports ${by.join(", ")}</span>` : ""}</li>`;
     })
     .join("\n");
   return `<section class="refs" id="references" aria-labelledby="refs-h">
 <h2 id="refs-h">References</h2>
-<p class="refs-note">The studies behind the propositions${quoted ? ". The quotations above are checked word for word against the research document; these are its primary sources" : ""}.</p>
+<p class="refs-note">The studies behind the propositions${quoted ? ". The quotations above are checked word for word against the research document; these are its primary sources" : ""}. Each says what was read for this theory: ${readCounts(refs)}.</p>
 <ol class="ref-list">
 ${rows}
 </ol>
@@ -95,6 +95,21 @@ function linkLabel(url: string): string {
   if (/(^|\.)ncbi\.nlm\.nih\.gov$|europepmc\.org$/.test(host)) return "Free full text";
   if (host === "doi.org") return "Publisher";
   return host;
+}
+
+const READ_LABEL: Record<Reference["read"], string> = {
+  full: "Read in full",
+  abstract: "Abstract read",
+  secondary: "Cited from a secondary account",
+};
+
+function readCounts(refs: Reference[]): string {
+  const n = (k: Reference["read"]) => refs.filter((r) => r.read === k).length;
+  return [
+    `${n("full")} in full`,
+    `${n("abstract")} from the abstract`,
+    `${n("secondary")} from a secondary account`,
+  ].join(", ");
 }
 
 function hostOf(url: string): string {
@@ -230,7 +245,7 @@ export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): stri
     t.revised
       ? `<span class="chip">Revised <time datetime="${esc(t.revised)}">${esc(longDate(t.revised))}</time></span>`
       : ""
-  }<span class="chip">${t.propositions.length} propositions</span><span class="chip">${refs.length} references</span>${quotes ? `<span class="chip">${quotes} quotes</span>` : ""}</div>
+  }<span class="chip">${t.propositions.length} propositions</span><span class="chip">${refs.length} references</span>${doiChip(t.doi)}${quotes ? `<span class="chip">${quotes} quotes</span>` : ""}</div>
 </div>
 <section class="theory-card" aria-label="The theory in brief">
   <div class="tc-row"><span class="tc-l">Claim</span><p>${inline(t.claim)}</p></div>
@@ -279,6 +294,12 @@ export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): stri
         publisher: { "@type": "Organization", name: "Canopticon", url: "https://canopticon.com" },
         license: "https://creativecommons.org/licenses/by/4.0/",
         isBasedOn: based.map((b) => `https://canopticon.com/p/${b.id}`),
+        ...(t.doi
+          ? {
+              identifier: { "@type": "PropertyValue", propertyID: "DOI", value: t.doi },
+              sameAs: `https://doi.org/${t.doi}`,
+            }
+          : {}),
         citation: refs.map((r) =>
           r.url
             ? { "@type": "CreativeWork", name: r.text, url: r.url }
@@ -310,7 +331,7 @@ export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): stri
     ogType: "article",
     mainClass: "long",
     signedIn: opts.signedIn ?? false,
-    head: `${citationMeta(t.title, t.date, url)}\n<link rel="alternate" type="text/markdown" href="/theories/${esc(t.slug)}.md" />\n${jsonLd(ld)}`,
+    head: `${citationMeta(t.title, t.date, url, t.doi)}\n<link rel="alternate" type="text/markdown" href="/theories/${esc(t.slug)}.md" />\n${jsonLd(ld)}`,
     body: `<div class="rr">${col}${rail}</div>`,
   });
 }

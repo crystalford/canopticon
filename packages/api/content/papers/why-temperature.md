@@ -5,6 +5,7 @@ title: "Why Temperature"
 dek: "McLuhan never said why media are hot or cool. Read as regulation, hot and cool describe how much a medium supplies, how much it arouses, and whether the receiver predicts before the answer arrives. Working paper, second draft."
 topic: "McLuhan & media theory"
 date: "2026-11-22"
+theory: "cognitive-ectothermy"
 ---
 
 # Why Temperature

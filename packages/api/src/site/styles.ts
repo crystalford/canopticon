@@ -873,6 +873,8 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .ref-u { color: var(--cobalt); }
 .ref-u.none { color: var(--hint); }
 .ref-by { color: var(--hint); }
+.ref-read { color: var(--hint); }
+.ref-read.full { color: var(--green-ink); }
 .ref-by a { color: var(--hint); }
 @media (max-width: 520px) {
   .tc-row { grid-template-columns: 1fr; gap: 2px; }

@@ -6,7 +6,7 @@ topic: "Habits & maintenance"
 date: "2026-09-30"
 version: 1
 revised: "2026-11-22"
-claim: "For conditions with a standing cause, a maintenance routine that succeeds removes the symptom that both prompted and rewarded it. The routine therefore stops, the controlled state is mistaken for a cure (the remission-as-cure error), and the unchanged cause brings the symptom back. The cycle repeats until the routine is tied to something other than the symptom, or the cause itself is removed."
+claim: "For conditions with a standing cause, a maintenance routine that succeeds removes the symptom that both prompted and rewarded it. The routine therefore stops, the controlled state is mistaken for a cure (the remission-as-cure error), and the unchanged cause brings the symptom back, at a cost larger and slower to repay than the routine. Because the relapse comes long after the stopping, each cycle teaches the link only a little, and the cycle repeats until the routine is tied to something other than the symptom, or the cause itself is removed."
 coined: "Chris Telford, Canopticon, 30 September 2026"
 based_on:
   - id: when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten
@@ -63,36 +63,52 @@ cycle_cut: 5
 references:
   - text: "Meyer, D., Leventhal, H., & Gutmann, M. (1985). Common-sense models of illness: the example of hypertension. *Health Psychology*, 4(2), 115–135. doi:10.1037/0278-6133.4.2.115"
     url: "https://doi.org/10.1037/0278-6133.4.2.115"
+    read: "secondary"
   - text: "Halm, E. A., Mora, P., & Leventhal, H. (2006). No symptoms, no asthma: the acute episodic disease belief is associated with poor self-management among inner-city adults with persistent asthma. *Chest*, 129(3), 573–580. doi:10.1378/chest.129.3.573"
     url: "https://doi.org/10.1378/chest.129.3.573"
+    read: "abstract"
   - text: "Kazdin, A. E., et al. (2024). Patterns, predictors, and patient-reported reasons for antidepressant discontinuation in the WHO World Mental Health Surveys. *Psychological Medicine*, 54(1). doi:10.1017/S0033291723002507"
     url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10872517/"
+    read: "full"
   - text: "Vrijens, B., Vincze, G., Kristanto, P., Urquhart, J., & Burnier, M. (2008). Adherence to prescribed antihypertensive drug treatments: longitudinal study of electronically compiled dosing histories. *BMJ*, 336(7653), 1114–1117. doi:10.1136/bmj.39553.670231.25"
     url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC2386633/"
+    read: "abstract"
   - text: "Horne, R., Chapman, S. C., Parham, R., Freemantle, N., Forbes, A., & Cooper, V. (2013). Understanding patients' adherence-related beliefs about medicines prescribed for long-term conditions: a meta-analytic review of the Necessity-Concerns Framework. *PLoS ONE*, 8(12), e80633. doi:10.1371/journal.pone.0080633"
     url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3846635/"
+    read: "full"
   - text: "Maul, J.-T., Maul, L. V., Kägi, M., et al. (2020). Skin recovery after discontinuation of long-term moisturizer application: a split-face comparison pilot study. *Dermatology and Therapy*, 10(6), 1371–1382. doi:10.1007/s13555-020-00453-0"
     url: "https://doi.org/10.1007/s13555-020-00453-0"
+    read: "abstract"
   - text: "Löe, H., Theilade, E., & Jensen, S. B. (1965). Experimental gingivitis in man. *Journal of Periodontology*, 36(3), 177–187. doi:10.1902/jop.1965.36.3.177"
     url: "https://doi.org/10.1902/jop.1965.36.3.177"
+    read: "secondary"
   - text: "Lee, C.-T., Huang, H.-Y., Sun, T.-C., & Karimbux, N. (2015). Impact of patient compliance on tooth loss during supportive periodontal therapy: a systematic review and meta-analysis. *Journal of Dental Research*, 94(6), 777–786. doi:10.1177/0022034515578910"
     url: "https://doi.org/10.1177/0022034515578910"
+    read: "abstract"
   - text: "Rothman, A. J. (2000). Toward a theory-based analysis of behavioral maintenance. *Health Psychology*, 19(1, Suppl.), 64–69. doi:10.1037/0278-6133.19.suppl1.64"
     url: "https://doi.org/10.1037/0278-6133.19.suppl1.64"
+    read: "abstract"
   - text: "Ng, J. Y. Y., Ntoumanis, N., Thøgersen-Ntoumani, C., Deci, E. L., Ryan, R. M., Duda, J. L., & Williams, G. C. (2012). Self-determination theory applied to health contexts: a meta-analysis. *Perspectives on Psychological Science*, 7(4), 325–340. doi:10.1177/1745691612447309"
     url: "https://doi.org/10.1177/1745691612447309"
+    read: "abstract"
   - text: "Schmitt, J., von Kobyletzki, L., Svensson, Å., & Apfelbacher, C. (2011). Efficacy and tolerability of proactive treatment with topical corticosteroids and calcineurin inhibitors for atopic eczema: systematic review and meta-analysis of randomized controlled trials. *British Journal of Dermatology*, 164(2), 415–428. doi:10.1111/j.1365-2133.2010.10030.x"
     url: "https://doi.org/10.1111/j.1365-2133.2010.10030.x"
+    read: "abstract"
   - text: "Fineberg, H. V. (2013). The paradox of disease prevention: celebrated in principle, resisted in practice. *JAMA*, 310(1), 85–90. doi:10.1001/jama.2013.7518"
     url: "https://doi.org/10.1001/jama.2013.7518"
+    read: "secondary"
   - text: "Brown, F. M., III (2002). Inside every chronic patient is an acute patient wondering what happened. *Journal of Clinical Psychology*, 58(11), 1443–1449. doi:10.1002/jclp.10091"
     url: "https://doi.org/10.1002/jclp.10091"
+    read: "secondary"
   - text: "Evans, E. G., Dodman, B., Williamson, D. M., Brown, G. J., & Bowen, R. G. (1993). Comparison of terbinafine and clotrimazole in treating tinea pedis. *BMJ*, 307(6905), 645–647. doi:10.1136/bmj.307.6905.645"
     url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC1679014/"
+    read: "abstract"
   - text: "Kinane, D. F., Stathopoulou, P. G., & Papapanou, P. N. (2017). Periodontal diseases. *Nature Reviews Disease Primers*, 3, 17038. doi:10.1038/nrdp.2017.38"
     url: "https://doi.org/10.1038/nrdp.2017.38"
+    read: "abstract"
   - text: "Buehner, M. J., & May, J. (2003). Rethinking temporal contiguity and the judgement of causality: effects of prior knowledge, experience, and reinforcement procedure. *Quarterly Journal of Experimental Psychology A*, 56(5), 865–890. doi:10.1080/02724980244000675"
     url: "https://doi.org/10.1080/02724980244000675"
+    read: "abstract"
 cite: "Telford, C. (2026). Self-extinguishing maintenance: a theory of why working treatments are abandoned. Canopticon. canopticon.com/theories/self-extinguishing-maintenance"
 ---
 Some problems stay fixed only while you keep treating them. Two teeth that do not quite touch trap food; cleaning the gap keeps the gum healthy, and within a week it looks fine, so the cleaning stops and the gum becomes sore again. The same pattern appears with skin that stays soft only while moisturised, with toes pressed too tightly together, and with many medicines. Self-extinguishing maintenance is the name for the whole cycle. The research behind it found that the pieces were already studied but the cycle was not: <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Summary">No source names the whole cycle across conditions, and none treats structural anatomy as the cause that never goes away.</q>
@@ -140,7 +156,7 @@ The stopping is measured across very different conditions. Across surveys in 13 
 
 The relapse is measured too. After long-term moisturiser use stops, dryness <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">"reverted to baseline levels after 6 days" by objective assessment</q> [6]. Uncleaned gums <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">developed gingivitis within about 9–21 days</q> [7]. Over the long run, one meta-analysis <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">reported a pooled tooth-loss risk ratio of 0.56 for regular versus erratic compliers</q> [8].
 
-The repair costs more than the upkeep. Between the toes, a fungal infection was treated in a randomised trial with cream applied twice a day for one to four weeks [14], against seconds a day of moisturiser to keep the skin from splitting. Gums show the same asymmetry over a longer span: inflamed gums <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="D">returned to health about a week after hygiene resumed</q>, but <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="D">Repeated cycles at a site with food impaction can progress beyond reversible gingivitis to attachment loss.</q> Periodontitis, once established, persists until the biofilm is removed professionally or the tooth is lost [15].
+The repair costs more than the upkeep. Between the toes, a fungal infection was treated in a randomised trial with cream applied twice a day for one to four weeks [14], against seconds a day of moisturiser to keep the skin from splitting. Gums show the same asymmetry over a longer span: inflamed gums <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="D">returned to health about a week after hygiene resumed</q>. The research adds a warning: <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="D">Repeated cycles at a site with food impaction can progress beyond reversible gingivitis to attachment loss.</q> Periodontitis, once established, persists until the biofilm is removed professionally or the tooth is lost [15].
 
 The belief that predicts continuing is perceived need: <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Key findings">higher adherence went with stronger beliefs that the treatment is personally necessary (OR 1.742)</q> [5]. Where a field has built the maintenance-forever model into practice, it works. In eczema, a meta-analysis found <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">proactive fluticasone (RR 0.46) and tacrolimus (RR 0.78) reduced flare risk compared with vehicle</q> [11].
 

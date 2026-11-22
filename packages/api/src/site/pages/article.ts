@@ -7,7 +7,7 @@
 // author's work — no underlines — and sits in the McLuhan series.
 
 import type { Article, ArticleExtras, Paper } from "../content/store";
-import { articleExtras, researchPrompt } from "../content/store";
+import { articleExtras, researchPrompt, theory as theoryBySlug } from "../content/store";
 import {
   SERIES,
   SERIES_NAME,
@@ -90,8 +90,9 @@ function readNext(
     .join("")}</div></section>`;
 }
 
-export function citationMeta(title: string, date: string, url: string): string {
+export function citationMeta(title: string, date: string, url: string, doi?: string): string {
   return [
+    doi ? `<meta name="citation_doi" content="${esc(doi)}" />` : "",
     `<meta name="citation_title" content="${esc(title)}" />`,
     `<meta name="citation_author" content="Telford, Chris" />`,
     date
@@ -103,6 +104,13 @@ export function citationMeta(title: string, date: string, url: string): string {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/** A registered DOI, shown in the byline as a link to its resolver. */
+export function doiChip(doi?: string): string {
+  return doi
+    ? `<a class="chip" href="https://doi.org/${esc(doi)}" rel="noopener">DOI ${esc(doi)}</a>`
+    : "";
 }
 
 export function jsonLd(o: Record<string, unknown>): string {
@@ -334,14 +342,21 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
   const url = `https://canopticon.com/articles/${p.slug}`;
   const cite = `Telford, C. (${p.date.slice(0, 4)}). ${p.title}${subtitle ? `: ${subtitle}` : ""}. Canopticon. canopticon.com/articles/${p.slug}`;
   const dek = subtitle || p.dek || "";
+  // A paper outside the series builds on it rather than belonging to it.
+  const inSeries = SERIES.some((s) => s.slug === p.slug);
+  const drawn = p.theory ? theoryBySlug(p.theory) : null;
 
   const header = [
     `<div style="margin-bottom:24px">`,
     `<div class="kicker">${pill("Paper", kindColours("Paper"))}${linkPill(`/topics/${topicSlug(topic)}`, topic, topicColours(topic))}</div>`,
     `<h1 class="h-display">${esc(p.title)}</h1>`,
     dek ? `<p class="dek">${esc(dek)}</p>` : "",
-    `<div class="byline"><a href="/about#m-author" class="who">Chris Telford</a><time class="chip" datetime="${esc(p.date)}">${esc(longDate(p.date))}</time><span class="chip">${minutes} min</span>${refs ? `<span class="chip">${refs} references</span>` : ""}</div>`,
-    `<div class="based"><span class="based-l">Part of</span><a href="/articles/krasis">${esc(SERIES_NAME)}</a></div>`,
+    `<div class="byline"><a href="/about#m-author" class="who">Chris Telford</a><time class="chip" datetime="${esc(p.date)}">${esc(longDate(p.date))}</time><span class="chip">${minutes} min</span>${refs ? `<span class="chip">${refs} references</span>` : ""}${doiChip(p.doi)}</div>`,
+    `<div class="based"><span class="based-l">${inSeries ? "Part of" : "Builds on"}</span><a href="/articles/krasis">${esc(SERIES_NAME)}</a>${
+      drawn
+        ? `<span class="based-l">Theory</span><a href="/theories/${esc(drawn.slug)}">${esc(drawn.title)}</a>`
+        : ""
+    }</div>`,
     "</div>",
     abstract
       ? `<section class="inshort" id="s-0"><div class="inshort-h">In short</div>${documentHtml(abstract).html}</section>`
@@ -349,7 +364,7 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
   ].join("");
 
   const series = seriesPapers();
-  const seriesRail = `<div class="series"><div class="series-h"><span>In this series</span>${pill(`${series.length} papers`, kindColours("Paper"), "pill lg")}</div><ol>${series
+  const seriesRail = `<div class="series"><div class="series-h"><span>${inSeries ? "In this series" : "The series it builds on"}</span>${pill(`${series.length} papers`, kindColours("Paper"), "pill lg")}</div><ol>${series
     .map(({ item, paper }) =>
       paper.slug === p.slug
         ? `<li class="on" aria-current="page"><span class="t">${esc(paper.title)}</span><span class="s">${esc(item.short)}</span></li>`
@@ -377,7 +392,15 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
     datePublished: p.date,
     author: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
     publisher: { "@type": "Organization", name: "Canopticon", url: "https://canopticon.com" },
-    isPartOf: { "@type": "CreativeWorkSeries", name: SERIES_NAME },
+    ...(inSeries
+      ? { isPartOf: { "@type": "CreativeWorkSeries", name: SERIES_NAME } }
+      : { isBasedOn: "https://canopticon.com/articles/krasis" }),
+    ...(p.doi
+      ? {
+          identifier: { "@type": "PropertyValue", propertyID: "DOI", value: p.doi },
+          sameAs: `https://doi.org/${p.doi}`,
+        }
+      : {}),
     license: "https://creativecommons.org/licenses/by/4.0/",
   };
   return shell({
@@ -389,7 +412,7 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
     ogType: "article",
     mainClass: "long",
     signedIn: opts.signedIn ?? false,
-    head: `${citationMeta(p.title, p.date, url)}\n<link rel="alternate" type="text/markdown" href="/articles/${esc(p.slug)}.md" />\n${jsonLd(ld)}`,
+    head: `${citationMeta(p.title, p.date, url, p.doi)}\n<link rel="alternate" type="text/markdown" href="/articles/${esc(p.slug)}.md" />\n${jsonLd(ld)}`,
     body: `<div class="rr">${col}${rail}</div>`,
   });
 }

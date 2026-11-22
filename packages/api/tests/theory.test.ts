@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { parseFrontMatter } from "../scripts/build-content.mjs";
 import app from "../src/index";
 import { allTheories, libraryItems } from "../src/site/content/store";
+import { doiChip } from "../src/site/pages/article";
 
 const env = { LOG_LEVEL: "error" };
 const get = (path: string) => app.fetch(new Request(`http://test${path}`), env);
@@ -102,7 +103,25 @@ describe("theories", () => {
     expect(sem).toContain('href="/theories/cognitive-ectothermy"');
     const paper = await get("/articles/why-temperature");
     expect(paper.status).toBe(200);
-    expect(await paper.text()).toContain("cognitive ectothermy");
+    const ptext = await paper.text();
+    expect(ptext).toContain("cognitive ectothermy");
+    // Outside the series, it builds on it, and names its theory.
+    expect(ptext).toContain("Builds on");
+    expect(ptext).toContain('href="/theories/cognitive-ectothermy"');
+  });
+
+  it("every reference says what was read, and the page says so", async () => {
+    for (const t of allTheories())
+      for (const r of t.references) expect(["full", "abstract", "secondary"]).toContain(r.read);
+    const html = await (await get("/theories/self-extinguishing-maintenance")).text();
+    expect(html).toContain("Read in full");
+    expect(html).toContain("Cited from a secondary account");
+    expect(html).toMatch(/\d+ in full, \d+ from the abstract, \d+ from a secondary account/);
+  });
+
+  it("a DOI shows as a link to its resolver, and nothing shows without one", () => {
+    expect(doiChip("10.5281/zenodo.123")).toContain('href="https://doi.org/10.5281/zenodo.123"');
+    expect(doiChip(undefined)).toBe("");
   });
 
   it("the site calls itself a publication, not a notebook", async () => {

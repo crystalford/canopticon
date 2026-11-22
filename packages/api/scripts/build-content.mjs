@@ -258,10 +258,18 @@ function build() {
     const references = (Array.isArray(meta.references) ? meta.references : []).map((r) => ({
       text: String(r.text ?? ""),
       ...(r.url ? { url: String(r.url) } : {}),
+      read: String(r.read ?? ""),
     }));
     if (!references.length) failures.push(`theories/${f}: lists no references`);
-    for (const [i, r] of references.entries())
+    for (const [i, r] of references.entries()) {
       if (!r.text) failures.push(`theories/${f}: reference ${i + 1} has no text`);
+      // What was actually read, said on the page: never imply a paper was
+      // read in full when only its abstract, or a secondary account, was.
+      if (!["full", "abstract", "secondary"].includes(r.read))
+        failures.push(
+          `theories/${f}: reference ${i + 1} must say what was read (read: full | abstract | secondary)`,
+        );
+    }
     const NEEDS = { Strong: 2, Moderate: 1, Proposed: 0 };
     const props = (Array.isArray(meta.propositions) ? meta.propositions : []).map((p) => ({
       ...p,
@@ -297,6 +305,8 @@ function build() {
     )
       failures.push(`theories/${f}: cycle_cut must name one of the cycle's steps`);
     if (!meta.claim) failures.push(`theories/${f}: states no claim`);
+    if (meta.doi !== undefined && !/^10\.\d{4,9}\/\S+$/.test(String(meta.doi)))
+      failures.push(`theories/${f}: doi must look like 10.xxxx/…`);
     theories[slug] = {
       ...meta,
       slug,
@@ -308,6 +318,12 @@ function build() {
     };
   }
 
+  for (const p of Object.values(papers)) {
+    if (p.theory && !theories[p.theory])
+      failures.push(`papers/${p.slug}: theory ${p.theory} does not exist`);
+    if (p.doi !== undefined && !/^10\.\d{4,9}\/\S+$/.test(String(p.doi)))
+      failures.push(`papers/${p.slug}: doi must look like 10.xxxx/…`);
+  }
   // A theory may name another as related; the link must land.
   for (const t of Object.values(theories))
     for (const r of Array.isArray(t.related) ? t.related : [])

@@ -116,6 +116,10 @@ export interface Paper {
   /** Set once a paper has been revised: its version number and the date. */
   version?: number;
   revised?: string;
+  /** A registered DOI (e.g. from Zenodo), without the https://doi.org/ prefix. */
+  doi?: string;
+  /** The slug of a theory drawn from this paper. */
+  theory?: string;
   body: string;
 }
 
@@ -133,6 +137,9 @@ export interface Proposition {
 export interface Reference {
   text: string;
   url?: string;
+  /** What was read for this theory: the full text, the abstract, or only a
+   *  secondary account. Required at build, said on the page. */
+  read: "full" | "abstract" | "secondary";
 }
 
 /** A theory (content/theories/): a named idea stated formally — claim,
@@ -161,6 +168,8 @@ export interface Theory {
   /** The step (1-based) whose incoming arrow the way out cuts. */
   cycle_cut?: number;
   cite?: string;
+  /** A registered DOI (e.g. from Zenodo), without the https://doi.org/ prefix. */
+  doi?: string;
   body: string;
 }
 
