@@ -33,6 +33,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Two commits, so the last step can see which content files changed.
+          fetch-depth: 2
 
       - uses: pnpm/action-setup@v4
         with:
@@ -172,6 +175,40 @@ jobs:
       - name: Deploy Worker
         working-directory: packages/api
         run: pnpm exec wrangler deploy
+
+      # Pages that ship as files (theories, papers, hand-built articles) change
+      # only on deploy, so nothing else tells search engines about them. Map the
+      # content files this push changed to their addresses and send them to
+      # IndexNow through the operator API (behind Cloudflare Access). Skipped
+      # when no such file changed or the Access service token is not set; a
+      # failure here never fails the deploy.
+      - name: Tell search engines which pages changed
+        continue-on-error: true
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          if [ -z "$CF_ACCESS_CLIENT_ID" ] || [ -z "$CF_ACCESS_CLIENT_SECRET" ]; then
+            echo "No Access service token; skipping."; exit 0
+          fi
+          CHANGED="$(git diff --name-only HEAD~1 HEAD -- packages/api/content/theories packages/api/content/papers packages/api/content/articles 2>/dev/null || true)"
+          PATHS=""
+          for f in $CHANGED; do
+            [ -f "$f" ] || continue
+            slug="$(basename "$f" .md)"
+            case "$f" in
+              */theories/*) PATHS="$PATHS,/theories/$slug" ;;
+              */papers/versions/*) ;;
+              */papers/*|*/articles/*) PATHS="$PATHS,/articles/$slug" ;;
+            esac
+          done
+          if [ -z "$PATHS" ]; then echo "No theory, paper or article changed."; exit 0; fi
+          PATHS="${PATHS#,},/theories,/library,/sitemap.xml"
+          echo "Sending: $PATHS"
+          curl -sS -X POST --max-time 30 \
+            -H "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}" \
+            -H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}" \
+            "https://canopticon.com/v1/admin/indexnow?paths=${PATHS}" || true
 
       # Pages deploy removed in the PROBE pivot — the Worker serves
       # canopticon.com (public HTML at /*, operator HTML at /op/*, API

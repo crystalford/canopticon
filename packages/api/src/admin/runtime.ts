@@ -1910,6 +1910,33 @@ app.get("/finder", async (c) => {
  *  error, which for a model with a schema says what it expected). For
  *  learning a new model's shape from the live site, which the sandbox cannot
  *  reach. Cloudflare-hosted models only (@cf/…, the regular bill). */
+// Tell search engines (IndexNow: Bing, Yandex, Seznam, Naver; Bing feeds
+// several answer engines) that pages changed. The Publish button does this for
+// uploads and workspace articles; pages that ship as files in content/ only
+// change on deploy, so the deploy calls this with what changed. `?paths=` is a
+// comma list of site paths; with none, every theory, paper and article and the
+// indexes are sent. Only canopticon.com addresses are ever sent.
+app.post("/indexnow", async (c) => {
+  const { pingIndexNow } = await import("../lib/indexnow.ts");
+  const store = await import("../site/content/store.ts");
+  const { listedArticles } = await import("../site/data.ts");
+  const given = (c.req.query("paths") ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter((p) => /^\/[\w\-/.]*$/.test(p));
+  const paths = given.length
+    ? given
+    : [
+        "/theories",
+        "/library",
+        "/sitemap.xml",
+        ...store.allTheories().map((t) => `/theories/${t.slug}`),
+        ...store.allPapers().map((p) => `/articles/${p.slug}`),
+        ...listedArticles().map((a) => `/articles/${a.slug}`),
+      ];
+  return c.json(await pingIndexNow(c.env, paths));
+});
+
 app.post("/ai-run", async (c) => {
   const b = (await c.req.json().catch(() => ({}))) as { model?: unknown; input?: unknown };
   const model = String(b.model ?? "");

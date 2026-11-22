@@ -6,8 +6,8 @@
 // time" is simply deploying. Items carry full content, not just the dek. Every
 // feed names its WebSub hub, in the body and in a Link header.
 
-import type { Article, Paper } from "./content/store";
-import { allPapers, libraryItems, researchDoc } from "./content/store";
+import type { Article, Paper, Theory } from "./content/store";
+import { allPapers, allTheories, libraryItems, researchDoc } from "./content/store";
 import { docTitle, listedArticles, topicOf } from "./data";
 import { esc } from "./layout";
 import { articleHtml, documentHtml } from "./md";
@@ -16,7 +16,7 @@ import { topicSlug } from "./theme";
 export const SITE = "https://canopticon.com";
 export const HUB = "https://pubsubhubbub.appspot.com/";
 const DESCRIPTION =
-  "Questions researched in depth, and articles written from what the research found.";
+  "An independent research publication by Chris Telford: theories stated formally, papers, articles, and the research documents they draw on.";
 /** Newest-first items per feed. Full content makes a feed heavy; a reader
  *  that wants everything has llms-full.txt and the Library. */
 const MAX_ITEMS = 30;
@@ -61,9 +61,52 @@ function paperItem(p: Paper): FeedItem {
   };
 }
 
+/** A theory as Markdown: the claim, the graded propositions with the studies
+ *  each rests on, the body, and the references with what was read. */
+export function theoryMarkdown(t: Theory): string {
+  return [
+    `**Claim.** ${t.claim}`,
+    "",
+    "## Propositions",
+    "",
+    "Strong = measured directly in at least two independent studies. Moderate = follows from established findings; not tested as stated. Proposed = put forward here; not yet tested.",
+    "",
+    ...t.propositions.map(
+      (p, i) =>
+        `${i + 1}. ${p.statement} (${p.grade})${p.basis ? ` \u2014 ${p.basis}` : ""}${
+          p.refs.length ? ` References: ${p.refs.map((r) => `[${r}]`).join(" ")}.` : ""
+        }`,
+    ),
+    "",
+    t.body.trim(),
+    "",
+    "## References",
+    "",
+    ...t.references.map(
+      (r, i) => `${i + 1}. ${r.text}${r.url ? ` ${r.url}` : ""} (read: ${r.read})`,
+    ),
+  ].join("\n");
+}
+
+function theoryItem(t: Theory): FeedItem {
+  return {
+    url: `${SITE}/theories/${t.slug}`,
+    title: `${t.title} (theory)`,
+    summary: t.claim,
+    html: absolute(documentHtml(theoryMarkdown(t)).html),
+    date: t.revised ?? t.date,
+    topic: t.topic,
+    kind: "Theory",
+  };
+}
+
 /** Every publishable item, newest first. Investigations stay on their shelf. */
 export function feedItems(topics: string[] = []): FeedItem[] {
-  const items: FeedItem[] = [...listedArticles().map(articleItem), ...allPapers().map(paperItem)];
+  const items: FeedItem[] = [
+    ...allTheories().map(theoryItem),
+    ...listedArticles().map(articleItem),
+    ...allPapers().map(paperItem),
+  ];
   for (const r of libraryItems()) {
     if (r.kind !== "Research" || r.shelf === "investigation" || !r.doc) continue;
     const d = researchDoc(r.doc);
@@ -191,9 +234,9 @@ export function llmsTxt(): string {
   const out = [
     "# Canopticon",
     "",
-    "> Questions researched in depth, and articles written from what the research found. Every quote in an article links to the stored research document it came from. By Chris Telford. Licensed CC BY 4.0.",
+    "> An independent research publication by Chris Telford: theories stated formally (claim, propositions graded by their evidence, primary references), papers that cite the published literature, articles argued from the record, and the research documents themselves, kept whole. Every quote in an article or theory links to the stored document it came from. Licensed CC BY 4.0.",
     "",
-    `Feeds: ${SITE}/feed.xml (RSS), ${SITE}/feed.json (JSON Feed). Per-topic feeds live under ${SITE}/feeds/. Every document has a Markdown twin: add .md to its address. Full text of every article: ${SITE}/llms-full.txt`,
+    `Feeds: ${SITE}/feed.xml (RSS), ${SITE}/feed.json (JSON Feed). Per-topic feeds live under ${SITE}/feeds/. Every document has a Markdown twin: add .md to its address. Full text of every theory, article and paper: ${SITE}/llms-full.txt. Every theory on one page: ${SITE}/theories`,
     "",
   ];
   for (const [topic, list] of order) {
@@ -212,11 +255,23 @@ export function llmsTxt(): string {
  *  contract writes them, so a machine can check each one against its source. */
 export function llmsFullTxt(): string {
   const parts = [
-    "# Canopticon — every article and paper, in full",
+    "# Canopticon — every theory, article and paper, in full",
     "",
     '> By Chris Telford. CC BY 4.0. In articles, text inside <q doc="…"> is a verbatim quotation from the research document at https://canopticon.com/p/<doc>; everything else is the author\'s own.',
     "",
   ];
+  for (const t of allTheories()) {
+    parts.push(
+      "---",
+      "",
+      `# ${t.title} (theory)`,
+      "",
+      `URL: ${SITE}/theories/${t.slug} · version ${t.version ?? 1}, ${t.revised ?? t.date} · ${t.topic}${t.doi ? ` · DOI ${t.doi}` : ""}`,
+      "",
+      theoryMarkdown(t),
+      "",
+    );
+  }
   for (const a of listedArticles()) {
     parts.push(
       "---",

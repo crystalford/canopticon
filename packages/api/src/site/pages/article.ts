@@ -6,6 +6,7 @@
 // the author's own and is underlined to say so. A paper is entirely the
 // author's work — no underlines — and sits in the McLuhan series.
 
+import { AUTHOR } from "../author";
 import type { Article, ArticleExtras, Paper } from "../content/store";
 import { articleExtras, researchPrompt, theory as theoryBySlug } from "../content/store";
 import {
@@ -269,7 +270,7 @@ export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): str
     description: a.dek,
     url,
     datePublished: a.date,
-    author: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
+    author: AUTHOR,
     publisher: { "@type": "Organization", name: "Canopticon", url: "https://canopticon.com" },
     license: "https://creativecommons.org/licenses/by/4.0/",
     isBasedOn: based.map((b) => `https://canopticon.com/p/${b.id}`),
@@ -390,7 +391,7 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
     description: plain(abstract).slice(0, 300) || dek,
     url,
     datePublished: p.date,
-    author: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
+    author: AUTHOR,
     publisher: { "@type": "Organization", name: "Canopticon", url: "https://canopticon.com" },
     ...(inSeries
       ? { isPartOf: { "@type": "CreativeWorkSeries", name: SERIES_NAME } }

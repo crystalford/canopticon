@@ -4,6 +4,7 @@
 // figures picked from it, numbered section anchors (#s-N), and a rail that
 // follows the reader. Passage links (#q=…) are found and marked by /site.js.
 
+import { AUTHOR } from "../author";
 import type { AnsweredElsewhere, MeasuredElsewhere } from "../content/store";
 import { esc, linkPill, pill, shell } from "../layout";
 import { type InlineLink, spliceLinks } from "../links";
@@ -231,7 +232,7 @@ export function renderDocument(
     name: d.title,
     url: `https://canopticon.com/p/${d.id}`,
     ...(d.date ? { datePublished: d.date } : {}),
-    author: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
+    author: AUTHOR,
     publisher: { "@type": "Organization", name: "Canopticon", url: "https://canopticon.com" },
     license: "https://creativecommons.org/licenses/by/4.0/",
     about: d.topic,

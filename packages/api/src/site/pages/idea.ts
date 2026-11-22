@@ -3,6 +3,7 @@
 // pages/Canopticon Term.dc.html and Problem.dc.html. One renderer: the two
 // differ only in colour, label and what the status says.
 
+import { AUTHOR } from "../author";
 import type { Idea } from "../content/store";
 import {
   article as articleBySlug,
@@ -89,7 +90,7 @@ export function renderIdea(
         description: it.body,
         url: `https://canopticon.com${route}`,
         inDefinedTermSet: { "@type": "DefinedTermSet", name: "Canopticon concepts" },
-        author: { "@type": "Person", name: "Chris Telford" },
+        author: AUTHOR,
       }
     : {
         "@context": "https://schema.org",
@@ -97,7 +98,7 @@ export function renderIdea(
         name: it.title,
         text: it.body,
         url: `https://canopticon.com${route}`,
-        author: { "@type": "Person", name: "Chris Telford" },
+        author: AUTHOR,
       };
   return shell({
     title: it.title,

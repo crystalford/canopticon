@@ -4,6 +4,7 @@
 // the latest research and the topics. New articles do not appear here on
 // their own (author decision, 10 Oct) — the counts are live, the picks are not.
 
+import { AUTHOR } from "../author";
 import type { LibraryItem } from "../content/store";
 import { article, paper, term } from "../content/store";
 import {
@@ -158,7 +159,7 @@ export function renderFront(opts: { signedIn?: boolean } = {}): string {
         "@id": "https://canopticon.com/#org",
         name: "Canopticon",
         url: "https://canopticon.com/",
-        founder: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
+        founder: AUTHOR,
       },
       {
         "@type": "WebSite",
@@ -167,7 +168,7 @@ export function renderFront(opts: { signedIn?: boolean } = {}): string {
         url: "https://canopticon.com/",
         description: "An independent research publication by Chris Telford.",
         publisher: { "@id": "https://canopticon.com/#org" },
-        author: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
+        author: AUTHOR,
         potentialAction: {
           "@type": "SearchAction",
           target: "https://canopticon.com/search?q={query}",

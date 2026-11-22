@@ -63,10 +63,31 @@ export function cardPath(path: string): string {
   return "/card/index.png";
 }
 
+/** The <title> a search result can show whole: about 60 characters. A long
+ *  title keeps the part before its colon when that stands alone; otherwise it
+ *  is cut at a word. The page's own heading and og:title keep it in full. */
+export function searchTitle(t: string): string {
+  if (t.length <= 60) return t;
+  const head = t.split(/:\s/)[0] ?? t;
+  if (head.length >= 15 && head.length <= 60) return head;
+  return `${t.slice(0, 58).replace(/\s+\S*$/, "")}…`;
+}
+
+/** A description a result can show whole: at most 160 characters, cut at a
+ *  sentence where one ends late enough, else at a word. */
+export function searchDescription(d: string): string {
+  const t = d.replace(/\s+/g, " ").trim();
+  if (t.length <= 160) return t;
+  const cut = t.slice(0, 160);
+  const stop = cut.lastIndexOf(". ");
+  if (stop >= 90) return cut.slice(0, stop + 1);
+  return `${cut.slice(0, 157).replace(/\s+\S*$/, "")}…`;
+}
+
 export function shell(a: ShellArgs): string {
   const canonical = `${SITE}${a.path}`;
-  const title = a.title ? `${esc(a.title)} · Canopticon` : "Canopticon";
-  const desc = esc(a.description);
+  const title = a.title ? `${esc(searchTitle(a.title))} · Canopticon` : "Canopticon";
+  const desc = esc(searchDescription(a.description));
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -123,7 +144,7 @@ function header(a: ShellArgs): string {
 }
 
 function footer(): string {
-  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">An independent research publication by Chris Telford. Every quote links back to its source. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><a href="/library?kind=Article">Articles</a><a href="/library?kind=Research">Research</a><a href="/library?kind=Concept">Ideas</a><a href="/investigations">Investigations</a><a href="/follow">Follow</a><a href="/about">About</a><a href="/about#m-machines">Feed</a><a href="/about#m-machines">llms.txt</a></nav></div></footer>`;
+  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">An independent research publication by Chris Telford. Every quote links back to its source. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><a href="/theories">Theories</a><a href="/library?kind=Article">Articles</a><a href="/library?kind=Research">Research</a><a href="/library?kind=Concept">Ideas</a><a href="/investigations">Investigations</a><a href="/follow">Follow</a><a href="/about">About</a><a href="/about#m-machines">Feed</a><a href="/about#m-machines">llms.txt</a></nav></div></footer>`;
 }
 
 function beacon(token: string | undefined): string {

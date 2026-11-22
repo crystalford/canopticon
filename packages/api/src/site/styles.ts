@@ -864,6 +864,15 @@ a.xl.concept { border-bottom-color: var(--brick); }
   .prose .cycle-exit, .cycle-exit { display: block; margin: 12px 0 0; font-family: var(--sans); font-size: var(--t-sm); color: var(--brick); }
 }
 .cycle figcaption { margin-top: 8px; font-family: var(--sans); font-size: var(--t-sm); color: var(--muted); }
+/* /theories: every theory, its claim and what its propositions rest on. */
+.prose .th-list, .th-list { list-style: none; margin: 28px 0 0; padding: 0; }
+.th-row { padding: 22px 0; border-top: 1px solid var(--hair); }
+.th-row:last-child { border-bottom: 1px solid var(--hair); }
+.prose .th-t, .th-t { margin: 0 0 8px; font-size: var(--t-xl); }
+.th-t a { color: var(--ink); text-decoration: none; }
+.th-t a:hover { color: var(--cobalt); }
+.prose .th-claim, .th-claim { margin: 0 0 10px; }
+.prose .th-meta, .th-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-family: var(--sans); font-size: var(--t-xs); color: var(--muted); }
 /* A theory's primary references. */
 .refs { margin-top: 40px; }
 .prose .refs-note, .refs-note { font-family: var(--sans); font-size: var(--t-sm); color: var(--muted); }

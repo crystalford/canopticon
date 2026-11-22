@@ -52,13 +52,14 @@ import {
   llmsFullTxt,
   llmsTxt,
   rssFeed,
+  theoryMarkdown,
   topicsFromParam,
 } from "./feeds";
 import { html, setWaiting } from "./layout";
 import type { InlineLink } from "./links";
 import { passageHref } from "./md";
 import { renderAdmin } from "./pages/admin";
-import { renderArticle, renderPaper } from "./pages/article";
+import { citationMeta, renderArticle, renderPaper } from "./pages/article";
 import { renderChanges } from "./pages/changes";
 import { renderClaude } from "./pages/claude";
 import { type DocView, renderDocument } from "./pages/document";
@@ -73,6 +74,7 @@ import { receiptLine, renderReadBoard } from "./pages/read";
 import { renderSearch } from "./pages/search";
 import { withSpoken } from "./pages/spoken";
 import { renderStatic } from "./pages/static";
+import { renderTheories, theoriesMarkdown } from "./pages/theories";
 import { renderTheory } from "./pages/theory";
 import { renderTopic } from "./pages/topic";
 import { PREVIEW_FLAG, proposalCard, renderEmptyPreview, renderWorkspace } from "./pages/write";
@@ -520,6 +522,7 @@ app.get("/sitemap.xml", () => {
     ["/", ""],
     ["/library", ""],
     ["/ideas", ""],
+    ["/theories", ""],
     ["/investigations", ""],
     ["/about", ""],
     ["/follow", ""],
@@ -1077,7 +1080,10 @@ app.get("/articles/:slug", async (c, next) => {
     const built = staticPage(`/articles/${p.slug}`);
     if (built && !md) {
       const body = withSpoken(built.body, spokenCards(p.slug));
-      return html(renderStatic({ ...built, body }, { signedIn: signedIn(c) }));
+      // The hand-built page carries its own JSON-LD; the citation tags Google
+      // Scholar reads and the Markdown twin's address are added here.
+      const head = `${citationMeta(p.title, p.date, `https://canopticon.com/articles/${p.slug}`, p.doi)}\n<link rel="alternate" type="text/markdown" href="/articles/${p.slug}.md" />`;
+      return html(renderStatic({ ...built, body }, { signedIn: signedIn(c), head }));
     }
     if (md) {
       return markdownTwin(
@@ -1098,6 +1104,17 @@ app.get("/articles/:slug", async (c, next) => {
 });
 
 // ---- theories -----------------------------------------------------------------
+app.get("/theories", (c) => html(renderTheories({ signedIn: signedIn(c) })));
+app.get(
+  "/theories.md",
+  () =>
+    new Response(theoriesMarkdown(), {
+      headers: {
+        "content-type": "text/markdown; charset=utf-8",
+        "cache-control": "public, max-age=300",
+      },
+    }),
+);
 
 app.get("/theories/:slug", (c, next) => {
   const raw = c.req.param("slug");
@@ -1105,29 +1122,15 @@ app.get("/theories/:slug", (c, next) => {
   const t = theory(md ? raw.slice(0, -3) : raw);
   if (!t) return next();
   if (md) {
-    const props = t.propositions
-      .map(
-        (p, i) =>
-          `${i + 1}. ${p.statement} (${p.grade})${p.basis ? ` \u2014 ${p.basis}` : ""}${
-            p.refs.length ? ` References: ${p.refs.map((r) => `[${r}]`).join(" ")}.` : ""
-          }`,
-      )
-      .join("\n");
-    const refs = t.references
-      .map((r, i) => `${i + 1}. ${r.text}${r.url ? ` ${r.url}` : ""}`)
-      .join("\n");
-    const grading =
-      "Strong: measured directly in at least two independent studies. Moderate: follows from established findings; not tested as stated. Proposed: not yet tested.";
+    // One Markdown for the twin, the feeds and llms-full.txt (standing rule 3).
     return markdownTwin(
       {
         id: t.slug,
         title: t.title,
         kind: "Theory",
         topic: t.topic,
-        date: t.date,
-        body: `**Claim.** ${t.claim}\n\n## Propositions\n\n${grading}\n\n${props}\n\n${t.body}${
-          refs ? `\n\n## References\n\n${refs}` : ""
-        }`,
+        date: t.revised ?? t.date,
+        body: theoryMarkdown(t),
       },
       `/theories/${t.slug}`,
     );
