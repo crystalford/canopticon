@@ -43,13 +43,21 @@ propositions:
     grade: "Moderate"
     refs: "11"
     basis: "In eczema, scheduled (proactive) treatment of skin that has cleared reduced flares against vehicle (risk ratios 0.46 and 0.78) in a meta-analysis of randomised trials. Shown for one condition; not tested for the loop in general."
+  - statement: "Letting the routine lapse costs more, and takes longer to repay, than keeping it up, and repeated lapses can leave damage that does not reverse."
+    grade: "Moderate"
+    refs: "14,15,8"
+    basis: "Interdigital athlete's foot was treated with cream twice daily for one to four weeks in a randomised trial; gingivitis reverses within about a week, but periodontitis, once established, persists until the biofilm is removed professionally or the tooth is lost; erratic maintenance carries more tooth loss. The ratio of the two costs has not been measured as such."
+  - statement: "The link between stopping and relapse is learned slowly, often only after several relapses, because the relapse arrives long after the stopping; knowing the delay to expect makes the link easier to learn."
+    grade: "Moderate"
+    refs: "16"
+    basis: "In experiments on causal learning, delays between cause and effect hinder people's judgement of the link, and the hindrance is lessened when people know the timeframe to expect. Shown for causal judgement in the laboratory, not for health routines."
 cycle:
   - step: "Symptom appears|sore gum, dry skin"
   - step: "Symptom prompts|the routine"
   - step: "Routine works|symptom goes"
   - step: "Read as cured|remission-as-cure error"
   - step: "Routine stops|no cue, no reward"
-  - step: "Cause still there|symptom returns"
+  - step: "Cause still there|returns, harder to clear"
 cycle_exit: "Tie the routine to a fixed schedule, or remove the cause."
 cycle_cut: 5
 references:
@@ -79,6 +87,12 @@ references:
     url: "https://doi.org/10.1001/jama.2013.7518"
   - text: "Brown, F. M., III (2002). Inside every chronic patient is an acute patient wondering what happened. *Journal of Clinical Psychology*, 58(11), 1443–1449. doi:10.1002/jclp.10091"
     url: "https://doi.org/10.1002/jclp.10091"
+  - text: "Evans, E. G., Dodman, B., Williamson, D. M., Brown, G. J., & Bowen, R. G. (1993). Comparison of terbinafine and clotrimazole in treating tinea pedis. *BMJ*, 307(6905), 645–647. doi:10.1136/bmj.307.6905.645"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC1679014/"
+  - text: "Kinane, D. F., Stathopoulou, P. G., & Papapanou, P. N. (2017). Periodontal diseases. *Nature Reviews Disease Primers*, 3, 17038. doi:10.1038/nrdp.2017.38"
+    url: "https://doi.org/10.1038/nrdp.2017.38"
+  - text: "Buehner, M. J., & May, J. (2003). Rethinking temporal contiguity and the judgement of causality: effects of prior knowledge, experience, and reinforcement procedure. *Quarterly Journal of Experimental Psychology A*, 56(5), 865–890. doi:10.1080/02724980244000675"
+    url: "https://doi.org/10.1080/02724980244000675"
 cite: "Telford, C. (2026). Self-extinguishing maintenance: a theory of why working treatments are abandoned. Canopticon. canopticon.com/theories/self-extinguishing-maintenance"
 ---
 Some problems stay fixed only while you keep treating them. Two teeth that do not quite touch trap food; cleaning the gap keeps the gum healthy, and within a week it looks fine, so the cleaning stops and the gum becomes sore again. The same pattern appears with skin that stays soft only while moisturised, with toes pressed too tightly together, and with many medicines. Self-extinguishing maintenance is the name for the whole cycle. The research behind it found that the pieces were already studied but the cycle was not: <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Summary">No source names the whole cycle across conditions, and none treats structural anatomy as the cause that never goes away.</q>
@@ -114,6 +128,10 @@ The symptom does two jobs. It is the reminder to act, and its relief is the rewa
 
 The evidence that the routine matters also disappears while it works: <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">While the routine runs, you never see what would happen without it, so the healthy state gets credited to "my body healed" rather than "my routine is holding it."</q> The standard account of why people keep up a behaviour makes the problem worse rather than better. It holds that continuing depends on <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="A">perceived satisfaction with received outcomes</q> [9]. For a maintained condition, the satisfying outcome is the one that ends the routine.
 
+The decision to stop is made at a lopsided moment. The cost of continuing is visible every day: a minute of cleaning, a swipe of cream before socks go on. The cost of stopping is not visible at all, because it lies weeks ahead, and the last time it was paid is weeks or months behind. A person weighing the two sees only one of them.
+
+That is also why the lesson takes several relapses to learn. People judge one thing to cause another far less readily when a delay separates them, and the difficulty eases when they know how long a delay to expect [16]. The relapse comes days or weeks after the stopping, often looking like a new problem rather than the old one returning. Each recurrence adds a little to the evidence, until the pattern is plain and the person thinks, as after every previous time, that they should have kept going.
+
 The misreading is understandable. <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="B">The misreading is not stupidity. It is a reasonable generalization from most of one's experience, applied to the minority of conditions where it fails.</q>
 
 ## Evidence
@@ -122,25 +140,29 @@ The stopping is measured across very different conditions. Across surveys in 13 
 
 The relapse is measured too. After long-term moisturiser use stops, dryness <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">"reverted to baseline levels after 6 days" by objective assessment</q> [6]. Uncleaned gums <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">developed gingivitis within about 9–21 days</q> [7]. Over the long run, one meta-analysis <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">reported a pooled tooth-loss risk ratio of 0.56 for regular versus erratic compliers</q> [8].
 
+The repair costs more than the upkeep. Between the toes, a fungal infection was treated in a randomised trial with cream applied twice a day for one to four weeks [14], against seconds a day of moisturiser to keep the skin from splitting. Gums show the same asymmetry over a longer span: inflamed gums <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="D">returned to health about a week after hygiene resumed</q>, but <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="D">Repeated cycles at a site with food impaction can progress beyond reversible gingivitis to attachment loss.</q> Periodontitis, once established, persists until the biofilm is removed professionally or the tooth is lost [15].
+
 The belief that predicts continuing is perceived need: <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Key findings">higher adherence went with stronger beliefs that the treatment is personally necessary (OR 1.742)</q> [5]. Where a field has built the maintenance-forever model into practice, it works. In eczema, a meta-analysis found <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">proactive fluticasone (RR 0.46) and tacrolimus (RR 0.78) reduced flare risk compared with vehicle</q> [11].
 
 ## Measures
 
-Four quantities make the theory checkable for any routine.
+Five quantities make the theory checkable for any routine.
 
 1. **Standing cause.** Is the cause transient or persistent? The research's rule: <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Recommendations">Transient causes (injury, infection, one-off exposure) → heal and done. Persistent causes (anatomy, spacing, genetics, chronic physiology) → maintenance until the structure changes.</q>
 2. **Recurrence count.** How many times has the symptom returned at the same site with the same trigger? <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Recommendations">Two recurrences at the same site with the same trigger is strong evidence of a standing cause.</q>
 3. **Relapse latency.** How long after stopping does the symptom return? For skin it is days; for gums, weeks.
 4. **Cue source.** Is the routine prompted by the symptom, or by a fixed context that does not disappear when things go well?
+5. **Restoration ratio.** What did the last recovery cost, in time, effort and discomfort, against what the routine costs over the same span? Between the toes it is seconds a day of upkeep, against weeks of twice-daily treatment and the condition itself while it heals.
 
-A routine is at risk when the cause is standing, the cue source is the symptom, and the relapse latency is long enough for the person to stop noticing the link.
+A routine is at risk when the cause is standing, the cue source is the symptom, and the relapse latency is long enough for the person to stop noticing the link. The restoration ratio says how much the lapse will cost.
 
 ## Protocol
 
 1. **Name the cause.** Decide whether it is transient or persistent, using the recurrence count if unsure.
 2. **Move the cue.** <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Recommendations">Tie the routine to a fixed context: after the shower for the toes, after each meal for impaction sites.</q>
 3. **Understand the mechanism.** A rule followed only because someone said so does not survive success: <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">A child told "floss every day" without the mechanism learns pliance. Once parental enforcement is gone, the behavior has neither a social nor an experienced basis, so it falls apart.</q>
-4. **Remove the cause where possible.** <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Recommendations">Where the cause can be removed, removal beats lifelong maintenance.</q>
+4. **Write down what the last relapse cost.** How long recovery took and what it involved. At the moment of stopping that cost is invisible, and a written record keeps it in view; it also states the delay to expect, which makes the link easier to see.
+5. **Remove the cause where possible.** <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Recommendations">Where the cause can be removed, removal beats lifelong maintenance.</q>
 
 ## A four-question check
 
@@ -155,6 +177,8 @@ A yes to the first question means the theory applies. Each further yes adds to t
 
 **Worked example: a gap between two teeth.** The gap stays (1: yes). The gum has been sore there before, more than once (2: yes). Cleaning happens when it hurts (3: yes). Gums inflame within about 9–21 days of stopping (4: yes). Four yeses: clean the gap after every meal whether or not it hurts, and ask a dentist whether the contact can be restored.
 
+**Worked example: a gap between two toes.** The spacing stays (1: yes). The skin there has split and peeled before, more than once (2: yes). The cream goes on when the skin is sore (3: yes). It takes a week or more to come back (4: yes). Four yeses: a swipe of moisturiser every day before the socks go on, whether or not the skin looks fine. The restoration ratio settles any doubt: seconds a day, against a week or more of daily treatment once the skin has split, longer if it becomes infected [14].
+
 **Worked example outside the body: software updates.** New vulnerabilities keep appearing, so the cause stands (1: yes). Systems have been patched after past scares (2: yes). Updating happens after a warning or a breach (3: yes). The next exposure can take months to show (4: yes). Four yeses: update on a fixed day, or turn on automatic updates, which removes the need to remember. This case has not been studied under this name.
 
 ## Scope
@@ -168,5 +192,7 @@ The same structure appears beyond personal care. Public health describes it for 
 The parts of the theory are measured; the whole loop is not. The research states this plainly: <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Caveats">The reinforcement framing, the cue-loss framing, the proposed name, and the McLuhan reading are this report's synthesis. They are consistent with established principles but not tested as such.</q>
 
 Some of the supporting evidence is weak. For interdental cleaning, the research describes the evidence as <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">low-certainty</q>. People also differ in how fast they relapse: <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">Later work identified "fast," "slow," and "low" responder phenotypes.</q> A slow responder may stop and see nothing for a long time, which weakens the link the person would need to learn from.
+
+The asymmetry and the delayed learning are each measured somewhere, but not in the same people. Treatment courses are measured, not the restoration ratio itself, and the effect of delay on learning is shown in laboratory tasks lasting seconds, not in routines lapsing over weeks.
 
 No study has yet followed people with a known standing cause, recorded what cues their routine, and timed both the stopping and the return of the symptom.

@@ -57,7 +57,7 @@ describe("theories", () => {
       readFileSync("content/theories/self-extinguishing-maintenance.md", "utf8"),
     );
     expect(Array.isArray(meta.propositions)).toBe(true);
-    expect((meta.propositions as unknown[]).length).toBe(6);
+    expect((meta.propositions as unknown[]).length).toBe(8);
   });
 
   it("renders the claim, the propositions with grades, receipts and a citation", async () => {
@@ -66,7 +66,7 @@ describe("theories", () => {
     const html = await res.text();
     expect(html).toContain('class="theory-card"');
     expect(html).toContain('id="propositions"');
-    expect(html.match(/class="prop"/g)?.length).toBe(6);
+    expect(html.match(/class="prop"/g)?.length).toBe(8);
     expect(html).toContain(">Strong<");
     expect(html).toContain('href="/p/when-healed-is-the-treatment-working');
     expect(html).toContain("Cite this");
