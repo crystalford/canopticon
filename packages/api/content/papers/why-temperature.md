@@ -83,9 +83,9 @@ Whenever people have needed words for a living system keeping its balance agains
 
 **Medicine.** Greek medicine described health as a well-tempered mixture, *krasis*, of hot, cold, wet and dry. Latin translated *krasis* as *temperamentum*. As the physician and etymologist Jeffrey Aronson notes, "temperamentum meant the same as κρᾶσις," and the Greek word could also mean the temperature of the air. *Temperament* and *temperature* both come from the Latin *temperare*, to bring to the right strength by mixing. Until the seventeenth century the four temperaments could also be called the four temperatures. The Sensory Syncrasis series took its name from the same root.
 
-**Folk medicine.** The anthropologist George Foster described an "equilibrium model" of illness found across many cultures: health as balance, illness as imbalance. In Latin American folk medicine, foods, drinks and conditions are classed as hot or cold, and mixing them carelessly, such as a cold drink after a hot bath, is said to cause illness. Chinese and Ayurvedic medicine also class foods and conditions as heating or cooling.
+**Folk medicine.** The anthropologist George Foster described an equilibrium model of illness found across many cultures: health as balance, illness as imbalance. In Latin American folk medicine, foods, drinks and conditions are classed as hot or cold, and mixing them carelessly, such as a cold drink after a hot bath, is said to cause illness. Chinese and Ayurvedic medicine also class foods and conditions as heating or cooling.
 
-**Emotion.** Anger is described as heat in many languages: boiling over, a hothead, losing your cool. Linguists such as Zoltán Kövecses have traced how widespread the pattern is. The link has a physical side. Craig Anderson's review of heat and violence concludes that "excessive heat appears to cause increases in aggression in many settings."
+**Emotion.** Anger is described as heat in many languages: boiling over, a hothead, losing your cool. The linguist Zoltán Kövecses has traced the pattern across unrelated languages. The link has a physical side. Craig Anderson's review of heat and violence concludes that "excessive heat appears to cause increases in aggression in many settings."
 
 **Self-control.** Psychology's best-known model of willpower uses the same two words. Metcalfe and Mischel (1999) proposed "a cool, cognitive 'know' system and a hot, emotional 'go' system." The hot system is "impulsive and reflexive"; the cool one is "contemplative" and "flexible." The balance between them is "determined by stress, developmental level" and other factors. The strategies that help children wait are, in their words, "cooling strategies."
 
@@ -114,7 +114,7 @@ The family of meanings in section 2 shows that "hot" carries two senses, and McL
 
 **Supply.** A medium can deliver the finished output: the answer, the route, the conclusion, the fully lit image. This is McLuhan's own definition, and it is the sense the rest of this paper tests. In the series' vocabulary it concerns the precision of the signal, meaning how little is left for the receiver to infer.
 
-**Arousal.** A medium can also raise the receiver's arousal. This is how the media historian Brenton Malin reads McLuhan's heat: as "the idea that emotions were bodily temperatures being drawn out by technologies." In the series' vocabulary it concerns gain, the overall amplification that the series found to be the best-measured dimension across its cases.
+**Arousal.** A medium can also raise the receiver's arousal. The media historian Brenton Malin finds this sense of heat in the earliest media research, which was persuaded by "the idea that emotions were bodily temperatures being drawn out by technologies." In the series' vocabulary it concerns gain, the overall amplification that the series found to be the best-measured dimension across its cases.
 
 The two are different, and they can come apart. A tense phone call is high in arousal and still cool: you have to work out what the other person means. A calm, polished lecture is low in arousal and still hot: everything is supplied.
 
@@ -287,8 +287,6 @@ It also adds the capacity argument of section 8, which classroom research does n
 
 **Folk-medicine claims are summarised from secondary sources.** The Chinese and Ayurvedic hot-cold classifications in particular are not examined here.
 
-**Several McLuhan quotations come from reproductions.** They should be checked against the 1964 edition.
-
 ## How to cite
 
 Telford, C. (2026). *Why Temperature: McLuhan's hot and cool as a theory of regulation.* Canopticon. Draft 2, 22 November 2026.
@@ -297,56 +295,62 @@ Key terms introduced here: *completion share*, *order*, *overheating* (after McL
 
 ## References
 
-"Opened" means the source, or its abstract, was read for this draft. "Summary" means a reliable secondary account was read. Sources marked secondary or summary have not yet been checked against the original. The theory drawn from this paper, *Cognitive ectothermy* (canopticon.com/theories/cognitive-ectothermy), lists its primary references with links.
+Each entry gives its DOI or address and what was read for this paper. **Read** means the full text was read; **abstract** means the abstract or the published summary; **secondary** means the claim was taken from a reliable account of the work; **record only** means the work was identified and cited for a point it is known for, without being opened. McLuhan's words are quoted from *Understanding Media* and were checked word for word against a scanned text of the book on the Internet Archive. The theory drawn from this paper, *Cognitive ectothermy* (canopticon.com/theories/cognitive-ectothermy), grades each of its claims against these sources.
 
 **McLuhan and the hot and cool literature**
 
-| Reference | Status |
+| Reference | Read |
 | --- | --- |
-| McLuhan, M. (1964). Understanding Media, ch. 2–3. Quoted via Thompson, OSU, a reproduction and the University of Chicago glossary | Secondary; check against 1964 edition |
-| McLuhan on "the hotting-up of the medium of writing," quoted in Morrison, Marshall McLuhan: No Prophet without Honor | Secondary |
-| Mulvin, D., & Sterne, J. (eds.) (2014). Media, Hot and Cold. International Journal of Communication, 8; includes Malin, "Anal Probes and Overheated Media" | Opened |
-| Iskandar, I., et al. (2026). Hot-cool media theory and platform affordances. Asian Journal for Public Opinion Research, 14(3) | Opened |
-| Metaphors hot and cool. Maclean's | Opened |
+| McLuhan, M. (1964). *Understanding Media: The Extensions of Man*, ch. 2, "Media Hot and Cold", and ch. 3, "Reversal of the Overheated Medium". New York: McGraw-Hill. Checked against archive.org/details/ETC0624 | Text checked |
+| Mulvin, D., & Sterne, J. (2014). Media, hot and cold. Introduction: Temperature is a media problem. *International Journal of Communication*, 8, 2496–2503. ijoc.org/index.php/ijoc/article/view/3339 | Read |
+| Malin, B. J. (2014). Anal probes and overheated media: the physiological roots of contemporary media research. *International Journal of Communication*, 8, 2509–2512. ijoc.org/index.php/ijoc/article/view/3268 | Read |
+| Iskandar, I., Hidayat, D. R., Priyatna, C. C., & Ardiyanti, H. (2026). Platform affordances, audience engagement, and the continuing relevance of McLuhan's hot-cool media theory: evidence from Indonesian parliamentary social media. *Asian Journal for Public Opinion Research*, 14(3), 362–389. doi:10.15206/ajpor.2026.14.3.362 | Read |
+| Metaphors hot and cool. *Maclean's*. macleans.ca/general/metaphors-hot-and-cool | Read |
 
 **Temperature as regulation**
 
-| Reference | Status |
+| Reference | Read |
 | --- | --- |
-| Aronson, J. (2016). Mind your temper. BMJ | Opened |
-| "Temperament" and "temperature": former synonyms. Merriam-Webster | Opened |
-| Foster, G. (1976). Equilibrium model of naturalistic disease, via summary | Summary |
-| Kövecses, Z. Work on anger metaphors across languages | Not opened |
-| Anderson, C. A. (2001). Heat and violence. Current Directions in Psychological Science | Opened |
-| Metcalfe, J., & Mischel, W. (1999). A hot/cool-system analysis of delay of gratification. Psychological Review, 106(1) | Opened |
-| Skinner, D. (2014). How did cool become such a big deal? Humanities | Opened |
-| Brady, W. J., et al. (2017). Emotion shapes the diffusion of moralized content. PNAS | Opened |
+| Aronson, J. (2016, 9 September). When I use a word . . . Mind your temper. *The BMJ Opinion*. blogs.bmj.com/bmj/2016/09/09/jeffrey-aronson-when-i-use-a-word-mind-your-temper | Read |
+| "Temperament" and "temperature": former synonyms. Merriam-Webster | Read |
+| Foster, G. M. (1976). Disease etiologies in non-Western medical systems. *American Anthropologist*, 78(4), 773–782. doi:10.1525/aa.1976.78.4.02a00030 | Secondary |
+| Foster, G. M. (1994). *Hippocrates' Latin American Legacy: Humoral Medicine in the New World*. Langhorne, PA: Gordon and Breach | Secondary |
+| Kövecses, Z. (1995). Anger: its language, conceptualization, and physiology in the light of cross-cultural evidence. In J. R. Taylor & R. E. MacLaury (eds.), *Language and the Cognitive Construal of the World* (pp. 181–196). Berlin: Mouton de Gruyter. doi:10.1515/9783110809305.181 | Record only |
+| Anderson, C. A. (2001). Heat and violence. *Current Directions in Psychological Science*, 10(1), 33–38. doi:10.1111/1467-8721.00109 | Read |
+| Metcalfe, J., & Mischel, W. (1999). A hot/cool-system analysis of delay of gratification: dynamics of willpower. *Psychological Review*, 106(1), 3–19. doi:10.1037/0033-295X.106.1.3 | Read |
+| Skinner, D. (2014). How did cool become such a big deal? *Humanities*, 35(4). neh.gov/humanities/2014/julyaugust/feature/how-did-cool-become-such-big-deal-0 | Read |
+| Brady, W. J., Wills, J. A., Jost, J. T., Tucker, J. A., & Van Bavel, J. J. (2017). Emotion shapes the diffusion of moralized content in social networks. *PNAS*, 114(28), 7313–7318. doi:10.1073/pnas.1618923114 | Read |
 
 **Physiology**
 
-| Reference | Status |
+| Reference | Read |
 | --- | --- |
-| Cabanac, M. (1971). Physiological role of pleasure. Science, 173, 1103–1107. Abstract | Opened |
-| Thermoreception and paradoxical cold. Britannica | Opened; replace with a primary source |
-| van der Lans, A. A., et al. (2013). Cold acclimation recruits human brown fat and increases nonshivering thermogenesis. Journal of Clinical Investigation, 123(8) | Abstract opened |
-| van Marken Lichtenbelt, W., et al. (2017). Healthy excursions outside the thermal comfort zone. Building Research & Information | Abstract opened |
+| Cabanac, M. (1971). Physiological role of pleasure. *Science*, 173(4002), 1103–1107. doi:10.1126/science.173.4002.1103 | Abstract |
+| Dodt, E., & Zotterman, Y. (1952). The discharge of specific cold fibres at high temperatures (the paradoxical cold). *Acta Physiologica Scandinavica*, 26, 358–365. doi:10.1111/j.1748-1716.1952.tb00917.x | Record only |
+| van der Lans, A. A., Hoeks, J., Brans, B., et al. (2013). Cold acclimation recruits human brown fat and increases nonshivering thermogenesis. *Journal of Clinical Investigation*, 123(8), 3395–3403. doi:10.1172/JCI68993 | Read |
+| van Marken Lichtenbelt, W., Hanssen, M., Pallubinsky, H., Kingma, B., & Schellen, L. (2017). Healthy excursions outside the thermal comfort zone. *Building Research & Information*, 45(7), 819–827. doi:10.1080/09613218.2017.1307647 | Abstract |
 
 **Learning**
 
-| Reference | Status |
+| Reference | Read |
 | --- | --- |
-| Freeman, S., et al. (2014). Active learning increases student performance. PNAS | Opened |
-| Sinha, T., & Kapur, M. (2021). When problem solving followed by instruction works. Review of Educational Research | Abstract opened |
-| From problem-solving to sensemaking. Comparative meta-analysis, ETH Zurich | Abstract opened |
-| Richland, L. E., Kornell, N., & Kao, L. S. (2009). The pretesting effect. JEP: Applied | Opened |
-| Deslauriers, L., et al. (2019). Measuring actual learning versus feeling of learning. PNAS | Opened |
-| Bastani, H., et al. (2025). Generative AI without guardrails can harm learning. PNAS | Opened |
-| Ishikawa, T., et al. (2008). Journal of Environmental Psychology, via BPS | Summary |
-| James, K. H., & Engelhardt, L. (2012). Handwriting experience and brain development. Trends in Neuroscience and Education | Opened |
-| Kosmyna, N., et al. (2025). Your brain on ChatGPT. Preprint | Opened |
-| Henkel, L. A. (2014). Psychological Science | From the series |
-| Hembree & Dessart (1986); Ellington (2003), via Brookings | Summary |
-| Urry, H. L., et al. (2021). Replication of Mueller & Oppenheimer (2014), via APS | Summary |
-| Sparrow et al. (2011); replication by Camerer et al. (2018), via FLoRA | Replication record opened |
-| Kalyuga, S. (2007). Expertise reversal effect. Educational Psychology Review; Kalyuga et al. (2003) via summary | Abstract and summary |
-| Krasis and the Sensory Syncrasis series | From the series |
+| Freeman, S., Eddy, S. L., McDonough, M., et al. (2014). Active learning increases student performance in science, engineering, and mathematics. *PNAS*, 111(23), 8410–8415. doi:10.1073/pnas.1319030111 | Read |
+| Sinha, T., & Kapur, M. (2021). When problem solving followed by instruction works: evidence for productive failure. *Review of Educational Research*, 91(5), 761–798. doi:10.3102/00346543211019105 | Abstract |
+| Sinha, T., & Kapur, M. (2021). From problem-solving to sensemaking: a comparative meta-analysis of preparatory approaches. Preprint. doi:10.35542/osf.io/83p7e | Abstract |
+| Richland, L. E., Kornell, N., & Kao, L. S. (2009). The pretesting effect: do unsuccessful retrieval attempts enhance learning? *Journal of Experimental Psychology: Applied*, 15(3), 243–257. doi:10.1037/a0016496 | Read |
+| Deslauriers, L., McCarty, L. S., Miller, K., Callaghan, K., & Kestin, G. (2019). Measuring actual learning versus feeling of learning in response to being actively engaged in the classroom. *PNAS*, 116(39), 19251–19257. doi:10.1073/pnas.1821936116 | Read |
+| Bastani, H., Bastani, O., Sungu, A., Ge, H., Kabakcı, Ö., & Mariman, R. (2025). Generative AI without guardrails can harm learning: evidence from high school mathematics. *PNAS*. doi:10.1073/pnas.2422633122 | Read |
+| Woollett, K., & Maguire, E. A. (2011). Acquiring "the Knowledge" of London's layout drives structural brain changes. *Current Biology*, 21(24), 2109–2114. doi:10.1016/j.cub.2011.11.018 | Abstract |
+| Ishikawa, T., Fujiwara, H., Imai, O., & Okabe, A. (2008). Wayfinding with a GPS-based mobile navigation system: a comparison with maps and direct experience. *Journal of Environmental Psychology*, 28(1), 74–82. doi:10.1016/j.jenvp.2007.09.002 | Secondary |
+| James, K. H., & Engelhardt, L. (2012). The effects of handwriting experience on functional brain development in pre-literate children. *Trends in Neuroscience and Education*, 1(1), 32–42. doi:10.1016/j.tine.2012.08.001 | Read |
+| Kosmyna, N., et al. (2025). Your brain on ChatGPT: accumulation of cognitive debt when using an AI assistant for essay writing task. Preprint. arXiv:2506.08872 | Read |
+| Henkel, L. A. (2014). Point-and-shoot memories: the influence of taking photos on memory for a museum tour. *Psychological Science*, 25(2), 396–402. doi:10.1177/0956797613504438 | Secondary |
+| Hembree, R., & Dessart, D. J. (1986). Effects of hand-held calculators in precollege mathematics education: a meta-analysis. *Journal for Research in Mathematics Education*, 17(2), 83–99. doi:10.2307/749255 | Secondary |
+| Ellington, A. J. (2003). A meta-analysis of the effects of calculators on students' achievement and attitude levels in precollege mathematics classes. *Journal for Research in Mathematics Education*, 34(5), 433–463. doi:10.2307/30034795 | Secondary |
+| Mueller, P. A., & Oppenheimer, D. M. (2014). The pen is mightier than the keyboard: advantages of longhand over laptop note taking. *Psychological Science*, 25(6), 1159–1168. doi:10.1177/0956797614524581 | Secondary |
+| Urry, H. L., et al. (2021). Don't ditch the laptop just yet: a direct replication of Mueller and Oppenheimer's (2014) study 1 plus mini meta-analyses across similar studies. *Psychological Science*, 32(3), 326–339. doi:10.1177/0956797620965541 | Secondary |
+| Sparrow, B., Liu, J., & Wegner, D. M. (2011). Google effects on memory: cognitive consequences of having information at our fingertips. *Science*, 333(6043), 776–778. doi:10.1126/science.1207745 | Secondary |
+| Camerer, C. F., et al. (2018). Evaluating the replicability of social science experiments in Nature and Science between 2010 and 2015. *Nature Human Behaviour*, 2, 637–644. doi:10.1038/s41562-018-0399-z | Secondary |
+| Kalyuga, S., Ayres, P., Chandler, P., & Sweller, J. (2003). The expertise reversal effect. *Educational Psychologist*, 38(1), 23–31. doi:10.1207/S15326985EP3801_4 | Abstract |
+| Kalyuga, S. (2007). Expertise reversal effect and its implications for learner-tailored instruction. *Educational Psychology Review*, 19, 509–539. doi:10.1007/s10648-007-9054-3 | Abstract |
+| Telford, C. (2026). *Krasis* and the Sensory Syncrasis series. Canopticon. canopticon.com/articles/krasis | The author's own |

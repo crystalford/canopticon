@@ -42,6 +42,10 @@ On Zenodo: **New upload**, attach the PDF, then fill in:
 | Language | English |
 | Keywords | Below |
 | Related works | "Is identical to" → the canopticon.com address (URL) |
+| Notes | "Drafted with the assistance of Claude (Anthropic). The author is responsible for the content." (COPE's guidance on AI tools: disclose; an AI is never an author) |
+
+**Merge and deploy first.** Each deposit says it is identical to a page on
+canopticon.com, so the page must be live before the record points at it.
 
 Then **Publish**, and send the DOI back. It goes into the page's front matter
 as `doi: "10.5281/zenodo.NNNNNNN"`, and the page then shows it in the byline,
@@ -76,6 +80,7 @@ in its citation metadata (`citation_doi`) and in its JSON-LD
   learning; pretesting; productive failure; expertise reversal; cognitive
   offloading; generative AI; thermoregulation
 - **Date:** 2026-11-22 · **Version:** 2 (working paper, second draft)
+- **Checked 2026-11-22:** every McLuhan quotation against a scanned text of *Understanding Media*; every reference given a DOI or address and a status for what was read.
 
 ### 3. Cognitive ectothermy
 
