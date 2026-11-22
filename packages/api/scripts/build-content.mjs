@@ -291,6 +291,11 @@ function build() {
       .filter(Boolean);
     if (cycle.length && (cycle.length < 3 || cycle.length > 8))
       failures.push(`theories/${f}: a cycle has 3 to 8 steps`);
+    if (
+      meta.cycle_cut !== undefined &&
+      !(Number.isInteger(meta.cycle_cut) && meta.cycle_cut >= 1 && meta.cycle_cut <= cycle.length)
+    )
+      failures.push(`theories/${f}: cycle_cut must name one of the cycle's steps`);
     if (!meta.claim) failures.push(`theories/${f}: states no claim`);
     theories[slug] = {
       ...meta,

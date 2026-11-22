@@ -66,7 +66,7 @@ ${rows}
 </section>`;
 }
 
-function references(refs: Reference[], props: Proposition[]): string {
+function references(refs: Reference[], props: Proposition[], quoted: boolean): string {
   if (!refs.length) return "";
   const usedBy = (i: number) =>
     props.flatMap((p, k) => (p.refs.includes(i) ? [`<a href="#p${k + 1}">P${k + 1}</a>`] : []));
@@ -75,18 +75,26 @@ function references(refs: Reference[], props: Proposition[]): string {
       const by = usedBy(i + 1);
       return `<li id="ref-${i + 1}"><span class="ref-t">${inline(r.text)}</span>${
         r.url
-          ? ` <a class="ref-u" href="${esc(r.url)}" rel="noopener">${esc(hostOf(r.url))}</a>`
+          ? ` <a class="ref-u" href="${esc(r.url)}" rel="noopener">${esc(linkLabel(r.url))}</a>`
           : ` <span class="ref-u none">no open copy linked</span>`
       }${by.length ? ` <span class="ref-by">Supports ${by.join(", ")}</span>` : ""}</li>`;
     })
     .join("\n");
   return `<section class="refs" id="references" aria-labelledby="refs-h">
 <h2 id="refs-h">References</h2>
-<p class="refs-note">The studies behind the propositions. The quotations above are checked against the research document; these are its primary sources.</p>
+<p class="refs-note">The studies behind the propositions${quoted ? ". The quotations above are checked word for word against the research document; these are its primary sources" : ""}.</p>
 <ol class="ref-list">
 ${rows}
 </ol>
 </section>`;
+}
+
+/** What the link opens: a free full text, the publisher's record, or a site. */
+function linkLabel(url: string): string {
+  const host = hostOf(url);
+  if (/(^|\.)ncbi\.nlm\.nih\.gov$|europepmc\.org$/.test(host)) return "Free full text";
+  if (host === "doi.org") return "Publisher";
+  return host;
 }
 
 function hostOf(url: string): string {
@@ -101,7 +109,7 @@ function hostOf(url: string): string {
  *  "Head|detail". The way out sits in the middle, marked in brick, with a cut
  *  on the arrow into the step it prevents (the one whose head starts
  *  "Routine stops", else the fifth). */
-export function cycleSvg(steps: string[], exit?: string): string {
+export function cycleSvg(steps: string[], exit?: string, cut?: number): string {
   const W = 720;
   const H = 440;
   const cx = W / 2;
@@ -115,10 +123,7 @@ export function cycleSvg(steps: string[], exit?: string): string {
     const a = -Math.PI / 2 + (i * 2 * Math.PI) / n;
     return { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) };
   });
-  const cutAt = Math.max(
-    0,
-    steps.findIndex((s) => /^routine stops/i.test(s)),
-  );
+  const cutAt = cut ? cut - 1 : -1;
   const edge = (from: { x: number; y: number }, to: { x: number; y: number }) => {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
@@ -131,10 +136,10 @@ export function cycleSvg(steps: string[], exit?: string): string {
       const q = pts[(i + 1) % n] ?? p;
       const a = edge(p, q);
       const b = edge(q, p);
-      const cut = (i + 1) % n === cutAt && exit;
+      const cutHere = (i + 1) % n === cutAt;
       const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       return `<line class="cy-a" x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" marker-end="url(#cy-head)"/>${
-        cut
+        cutHere
           ? `<g class="cy-cut"><circle cx="${f(mid.x)}" cy="${f(mid.y)}" r="11"/><path d="M${f(mid.x - 5)} ${f(mid.y - 5)}l10 10M${f(mid.x + 5)} ${f(mid.y - 5)}l-10 10"/></g>`
           : ""
       }`;
@@ -164,12 +169,12 @@ export function cycleSvg(steps: string[], exit?: string): string {
   const list = `<ol class="cycle-list">${steps
     .map((s, i) => {
       const [head = "", detail] = s.split("|");
-      return `<li${exit && i === cutAt ? ' class="cut"' : ""}><b>${esc(head.trim())}</b>${detail ? ` <span>${esc(detail.trim())}</span>` : ""}</li>`;
+      return `<li${i === cutAt ? ' class="cut"' : ""}><b>${esc(head.trim())}</b>${detail ? ` <span>${esc(detail.trim())}</span>` : ""}</li>`;
     })
     .join(
       "",
     )}<li class="back">Back to the first step</li></ol>${exit ? `<p class="cycle-exit"><b>Where it breaks.</b> ${esc(exit)}</p>` : ""}`;
-  return `<figure class="cycle">${list}<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}"><defs><marker id="cy-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs>${arrows}${boxes}${centre}</svg><figcaption>The loop. Each step follows from the last; the cross marks where a fixed schedule, or removing the cause, cuts it.</figcaption></figure>`;
+  return `<figure class="cycle">${list}<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}"><defs><marker id="cy-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs>${arrows}${boxes}${centre}</svg><figcaption>The loop. Each step follows from the last${cutAt >= 0 ? "; the cross marks where it can be cut" : ""}.</figcaption></figure>`;
 }
 
 function wrap(text: string, width: number): string[] {
@@ -208,7 +213,7 @@ export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): stri
   const body = articleHtml(t.body, ctx);
   const refs = t.references ?? [];
   let bodyHtml = linkRefs(body.html, refs.length);
-  if (t.cycle?.length) bodyHtml = withCycle(bodyHtml, cycleSvg(t.cycle, t.cycle_exit));
+  if (t.cycle?.length) bodyHtml = withCycle(bodyHtml, cycleSvg(t.cycle, t.cycle_exit, t.cycle_cut));
   const quotes = articleQuotes(t.body).length;
   const url = `https://canopticon.com/theories/${t.slug}`;
   const cite =
@@ -225,7 +230,7 @@ export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): stri
     t.revised
       ? `<span class="chip">Revised <time datetime="${esc(t.revised)}">${esc(longDate(t.revised))}</time></span>`
       : ""
-  }<span class="chip">${t.propositions.length} propositions</span><span class="chip">${refs.length} references</span><span class="chip">${quotes} quotes</span></div>
+  }<span class="chip">${t.propositions.length} propositions</span><span class="chip">${refs.length} references</span>${quotes ? `<span class="chip">${quotes} quotes</span>` : ""}</div>
 </div>
 <section class="theory-card" aria-label="The theory in brief">
   <div class="tc-row"><span class="tc-l">Claim</span><p>${inline(t.claim)}</p></div>
@@ -247,8 +252,8 @@ export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): stri
       : ""
   }${related ? `<div><h3>Elsewhere in the record</h3><div class="src-list">${related}</div></div>` : ""}${citeBlock(cite)}</section>`;
 
-  const col = `<article class="col prose theory">${header}${propositions(t.propositions)}${bodyHtml}${references(refs, t.propositions)}${sources}</article>`;
-  const rail = `<aside class="rail">${statbox(t.topic, [String(t.propositions.length), "Propositions"], [String(quotes), "Quotes"])}${toc(
+  const col = `<article class="col prose theory">${header}${propositions(t.propositions)}${bodyHtml}${references(refs, t.propositions, quotes > 0)}${sources}</article>`;
+  const rail = `<aside class="rail">${statbox(t.topic, [String(t.propositions.length), "Propositions"], quotes ? [String(quotes), "Quotes"] : [String(refs.length), "References"])}${toc(
     "In this theory",
     [...body.heads, { n: "", text: "References", href: "#references" }],
     {

@@ -90,6 +90,21 @@ describe("theories", () => {
     expect((await get("/theories/nothing-here")).status).toBe(404);
   });
 
+  it("a second theory, its paper, and the two theories linking each other", async () => {
+    const ce = await get("/theories/cognitive-ectothermy");
+    expect(ce.status).toBe(200);
+    const html = await ce.text();
+    expect(html).toContain('href="/articles/why-temperature"');
+    expect(html).toContain('href="/theories/self-extinguishing-maintenance"');
+    expect(html).toContain("the cross marks where it can be cut");
+    expect(html).not.toContain("checked word for word against the research document");
+    const sem = await (await get("/theories/self-extinguishing-maintenance")).text();
+    expect(sem).toContain('href="/theories/cognitive-ectothermy"');
+    const paper = await get("/articles/why-temperature");
+    expect(paper.status).toBe(200);
+    expect(await paper.text()).toContain("cognitive ectothermy");
+  });
+
   it("the site calls itself a publication, not a notebook", async () => {
     const html = await (await get("/")).text();
     expect(html).toContain("An independent research publication by Chris Telford");

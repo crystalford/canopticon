@@ -158,6 +158,8 @@ export interface Theory {
   cycle?: string[];
   /** Where the loop breaks, drawn beneath it. */
   cycle_exit?: string;
+  /** The step (1-based) whose incoming arrow the way out cuts. */
+  cycle_cut?: number;
   cite?: string;
   body: string;
 }
