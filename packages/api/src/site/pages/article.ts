@@ -193,6 +193,12 @@ export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): str
   const ctx = { docTitle: titleOf, ...(opts.quoteOk ? { quoteOk: opts.quoteOk } : {}) };
   const body = articleHtml(a.body, ctx);
   const quotes = a.quotes ?? articleQuotes(a.body).length;
+  // An article on the published literature has no receipts; it has a
+  // numbered Sources list, and the page counts that instead.
+  const cited = sourcesCount(a.body);
+  const tally: [string, string] =
+    quotes || !cited ? [String(quotes), "Quotes"] : [String(cited), "Sources"];
+  const drawn = a.theory ? theoryBySlug(a.theory) : null;
   const minutes = articleMinutes(a);
   const url = `https://canopticon.com/articles/${a.slug}`;
   const cite =
@@ -214,7 +220,10 @@ export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): str
     `<div class="kicker">${pill("Article", kindColours("Article"))}${linkPill(`/topics/${topicSlug(a.topic)}`, a.topic, topicColours(a.topic))}</div>`,
     `<h1 class="h-display">${esc(a.title)}</h1>`,
     `<p class="dek">${esc(a.dek)}</p>`,
-    `<div class="byline"><a href="/about#m-author" class="who">Chris Telford</a><time class="chip" datetime="${esc(a.date)}">${esc(longDate(a.date))}</time><span class="chip">${minutes} min</span><span class="chip">${quotes} quotes</span></div>`,
+    `<div class="byline"><a href="/about#m-author" class="who">Chris Telford</a><time class="chip" datetime="${esc(a.date)}">${esc(longDate(a.date))}</time><span class="chip">${minutes} min</span><span class="chip">${tally[0]} ${tally[1].toLowerCase()}</span></div>`,
+    drawn
+      ? `<div class="based"><span class="based-l">Theory</span><a href="/theories/${esc(drawn.slug)}">${esc(drawn.title)}</a></div>`
+      : "",
     // More than three and the header names the count; the list is below.
     based.length > 3
       ? `<div class="based"><span class="based-l">Based on</span><span>${COUNT_WORDS[based.length] ?? based.length} documents across the record</span></div>`
@@ -261,7 +270,7 @@ export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): str
     ? `<div class="withdrawn"><strong>Withdrawn draft.</strong> ${esc(a.withdrawn)}</div>`
     : "";
   const col = `<article class="col prose">${withdrawn}${header}${body.html}${thread(extras.thread)}${emailPanel()}${sources}${readNext(next)}</article>`;
-  const rail = `<aside class="rail">${statbox(a.topic, [String(quotes), "Quotes"], [a.date.slice(8, 10).replace(/^0/, ""), monthYear(a.date)], extras.openProblem)}${toc("In this article", heads)}</aside>`;
+  const rail = `<aside class="rail">${statbox(a.topic, tally, [a.date.slice(8, 10).replace(/^0/, ""), monthYear(a.date)], extras.openProblem)}${toc("In this article", heads)}</aside>`;
 
   const ld = {
     "@context": "https://schema.org",
@@ -311,6 +320,19 @@ function paperParts(p: Paper): { subtitle: string; abstract: string; rest: strin
     src = src.replace(ab[0], "");
   }
   return { subtitle, abstract, rest: src };
+}
+
+/** Items in an article's own numbered "## Sources" list. */
+export function sourcesCount(body: string): number {
+  const i = body.search(/^##\s+Sources\s*$/m);
+  if (i < 0) return 0;
+  const rest = body.slice(i).split("\n").slice(1);
+  let n = 0;
+  for (const l of rest) {
+    if (/^##\s/.test(l)) break;
+    if (/^\d+\.\s/.test(l)) n++;
+  }
+  return n;
 }
 
 function referenceCount(p: Paper): number {

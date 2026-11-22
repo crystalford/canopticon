@@ -25,6 +25,15 @@ The bar: an essay must survive a hostile reader who opens every receipt. Slop is
 **Machine phrasing to avoid.** In titles and headings especially: "X has no Y" / "no one can…" negations, "not X but Y", "the missing…", "the real…", "nobody sells…". Say what is true, positively, with a concrete subject ("ads will be paid for by influence once an AI company counts it").
 5. **Form is flexible.** Headings say something. No fixed list of sections.
 
+**Sources outside the record (22 Nov 2026).** An article does not have to stand on a research document in the record. It may stand on the published literature, as the papers and theories do, or on both. The rule that carries over is the point of receipts: every factual claim has a source a reader can check. In practice:
+- A quotation from a document **in the record** is marked `<q doc section>` and checked word for word at build. That mark means "checked against a stored document" and is used for nothing else.
+- A quotation from **anything else** (a study, a book, an article) goes in ordinary quotation marks with a citation `[n]`, and is quoted exactly as the source has it.
+- The article ends with `## Sources`: a numbered list, one work per line, author, year, title, venue, and its DOI or address. The page counts it, and shows it in place of a quote count when the article has no receipts.
+- Read what is cited. Say in the text when a figure comes from a review rather than the study itself.
+- `based_on` lists record documents only; leave it out when there are none. `why` is the author's own reason, in his words; leave it out rather than write it for him.
+
+Everything else in this contract applies unchanged: the idea first, the objection answered where it bites, plain writing, no slop.
+
 **Revising.** One article at a time, only on a problem the author names. The new version is written beside the original with a list of exactly what changed; the author compares and chooses. Nothing is overwritten.
 
 Everything after this section — the title study, structure notes, article types, passage roles — is background guidance. It informs a draft; it does not gate one.

@@ -102,6 +102,8 @@ export interface Article {
   quotes?: number;
   words?: number;
   cite?: string;
+  /** The slug of a theory this article explains. */
+  theory?: string;
   body: string;
 }
 

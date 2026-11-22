@@ -318,6 +318,9 @@ function build() {
     };
   }
 
+  for (const a of Object.values(articles))
+    if (a.theory && !theories[a.theory])
+      failures.push(`articles/${a.slug}: theory ${a.theory} does not exist`);
   for (const p of Object.values(papers)) {
     if (p.theory && !theories[p.theory])
       failures.push(`papers/${p.slug}: theory ${p.theory} does not exist`);

@@ -30,6 +30,36 @@
   "route": "/theories/self-extinguishing-maintenance"
  },
  {
+  "kind": "Article",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-22",
+  "dateLabel": "22 Nov",
+  "title": "Guess before you look",
+  "dek": "An answer that arrives before you have made a guess leaves little behind. The same tool teaches or deskills depending on that order, and the effort it takes to guess first feels like learning less while it is the part that does the learning.",
+  "stat": "9 sources · 6 min",
+  "min": 6,
+  "quotes": 0,
+  "sources": 9,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/guess-before-you-look"
+ },
+ {
+  "kind": "Article",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-22",
+  "dateLabel": "22 Nov",
+  "title": "Seeing what you rely on",
+  "dek": "A tool, habit or substance in daily use stops being noticed, so it is judged only by what it is like to have it. Experiments that take things away find effects their users could not see, and sometimes the opposite of what having them seemed to do.",
+  "stat": "13 sources · 6 min",
+  "min": 6,
+  "quotes": 0,
+  "sources": 13,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/seeing-what-you-rely-on"
+ },
+ {
   "href": "Canopticon%20Essay%20Portraiture.dc.html",
   "kind": "Article",
   "topic": "Video & design",

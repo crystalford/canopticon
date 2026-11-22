@@ -162,6 +162,15 @@ describe("theories", () => {
     expect(html).toContain('href="/articles/krasis.md"');
   });
 
+  it("an article on the published literature counts its sources and names its theory", async () => {
+    const html = await (await get("/articles/seeing-what-you-rely-on")).text();
+    expect(html).toContain("13 sources");
+    expect(html).not.toContain("0 quotes");
+    expect(html).toContain('href="/theories/ground-blindness"');
+    const back = await (await get("/theories/ground-blindness")).text();
+    expect(back).toContain('href="/articles/seeing-what-you-rely-on"');
+  });
+
   it("a DOI shows as a link to its resolver, and nothing shows without one", () => {
     expect(doiChip("10.5281/zenodo.123")).toContain('href="https://doi.org/10.5281/zenodo.123"');
     expect(doiChip(undefined)).toBe("");

@@ -8,6 +8,8 @@ version: 1
 claim: "A tool, routine, substance or environment in steady use becomes ground: it drops out of notice, and it is judged only by its presence, when its contribution and its costs cannot be seen. Removing it reveals both, and the effect revealed on removal can be opposite in sign to the effect while present. A planned, brief, reversible removal is therefore the measure of what a thing does, and an unplanned one is how most people find out."
 coined: "Chris Telford, Canopticon, 22 November 2026"
 related:
+  - route: /articles/seeing-what-you-rely-on
+    label: "Article: Seeing what you rely on (the theory for general readers)"
   - route: /theories/self-extinguishing-maintenance
     label: "Theory: Self-extinguishing maintenance (the routine that is invisible while it works)"
   - route: /theories/cognitive-ectothermy
@@ -143,7 +145,7 @@ Each part of this has been seen before, in fields that rarely read each other.
 
 **What this theory adds.** It joins these into one claim about people and the things they rely on. It names the finding that the presence effect and the removal effect can have opposite signs, which makes a tool impossible to judge from either alone. It shows from experiments that judgements made while a thing is present are biased in a known direction. And it turns the clinic's and the engineer's method into an everyday one, with the cost of removal counted.
 
-Chesterton's fence is the opposite counsel and is partly right: a fence should not be torn down on a guess. This theory's answer is a gate rather than a demolition. Open it briefly, see what comes through, and close it again.
+Chesterton's fence is the opposite counsel and is partly right: a fence should not be torn down on a guess. This theory's answer is to treat the fence as a gate: open it briefly, see what comes through, and close it again.
 
 ## Mechanism
 
@@ -209,7 +211,7 @@ A no to any of them means the thing has become ground. Two or more noes are the 
 
 The theory applies to things in steady use long enough to have adapted the user or the setting around them: devices, automation, media, routines and habitual substances.
 
-It does not recommend removing things for its own sake. Many things that become ground are good, and removal is a measurement, not a verdict. Where the removal itself would do harm, as with stopping a prescribed medicine, a routine that holds back a standing cause, or a safety system, the test is not run that way: medicine withdraws treatment only under trial conditions [7], and a maintenance routine is checked through its cause, not by stopping it.
+It does not recommend removing things for its own sake. Many things that become ground are good, and a removal is a way of measuring them, after which most are put back. Where the removal itself would do harm, as with stopping a prescribed medicine, a routine that holds back a standing cause, or a safety system, the test is not run that way: medicine withdraws treatment only under trial conditions [7], and a maintenance routine is checked through its cause, not by stopping it.
 
 ## Counter-evidence
 
