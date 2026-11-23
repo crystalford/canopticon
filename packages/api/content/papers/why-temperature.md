@@ -2,7 +2,7 @@
 slug: "why-temperature"
 kind: "Paper"
 title: "Why Temperature"
-dek: "McLuhan never said why media are hot or cool. Read as regulation, hot and cool describe how much a medium supplies, how much it arouses, and whether the receiver predicts before the answer arrives. Working paper, second draft."
+dek: "McLuhan never said why media are hot or cool. Read as regulation, hot and cool describe how much a medium supplies, how much it arouses, and whether the receiver predicts before the answer arrives. Working paper."
 topic: "McLuhan & media theory"
 date: "2026-11-22"
 theory: "cognitive-ectothermy"
@@ -10,7 +10,7 @@ theory: "cognitive-ectothermy"
 
 # Why Temperature
 
-*McLuhan's hot and cool as a theory of regulation. Working paper, second draft.*
+*McLuhan's hot and cool as a theory of regulation. Working paper.*
 
 **Thesis.** McLuhan's hot and cool is a theory of regulation. A medium can supply what a person would otherwise produce, and it can raise their arousal. Both press on the same balance a body keeps with heat. Kept warm all the time, people lose the capacity to produce their own; brief, regular excursions into the cool rebuild it.
 
@@ -289,7 +289,7 @@ It also adds the capacity argument of section 8, which classroom research does n
 
 ## How to cite
 
-Telford, C. (2026). *Why Temperature: McLuhan's hot and cool as a theory of regulation.* Canopticon. Draft 2, 22 November 2026.
+Telford, C. (2026). *Why Temperature: McLuhan's hot and cool as a theory of regulation.* Working paper. Canopticon. canopticon.com/articles/why-temperature
 
 Key terms introduced here: *completion share*, *order*, *overheating* (after McLuhan), *cognitive ectothermy*, *cognitive endothermy*, *cool excursion*.
 

@@ -79,7 +79,7 @@ in its citation metadata (`citation_doi`) and in its JSON-LD
 - **Keywords:** Marshall McLuhan; hot and cool media; media theory; active
   learning; pretesting; productive failure; expertise reversal; cognitive
   offloading; generative AI; thermoregulation
-- **Date:** 2026-11-22 · **Version:** 2 (working paper, second draft)
+- **Date:** 2026-11-22 · **Version:** 1
 - **Checked 2026-11-22:** every McLuhan quotation against a scanned text of *Understanding Media*; every reference given a DOI or address and a status for what was read.
 
 ### 3. Cognitive ectothermy
