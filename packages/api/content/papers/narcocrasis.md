@@ -181,7 +181,7 @@ The two can coexist. Incentive sensitization describes the figure: the drug and 
 
 ### Disease or choice
 
-The long debate over whether addiction is a brain disease or a choice assumes the problem lives in one place. Even defenders of the disease model concede that brain imaging findings are not specific and are mostly cross-sectional (Heilig and colleagues, 2021). Epidemiological surveys find that most people who meet criteria for a substance use disorder eventually remit, many without treatment (Heyman, 2013).
+The long debate over whether addiction is a brain disease or a choice assumes the problem lives in one place. Even defenders of the disease model concede that brain imaging findings are not specific and are mostly cross-sectional (Heilig and colleagues, 2021). Epidemiological surveys find that most people who meet criteria for a substance use disorder eventually remit, many without treatment (Heyman, 2013). In a national US survey, the estimated lifetime chance of remission was 84% for nicotine dependence, 91% for alcohol, 97% for cannabis and 99% for cocaine (Lopez-Quintero and colleagues, 2011).
 
 A medium is neither a disease nor a choice. It is a relation between an organism and its environment. Narcocrasis places the problem in that relation: a configuration set by drug, body and setting together, and therefore one that can be changed by acting on any of them. High natural remission is what this view expects, not an anomaly.
 
@@ -197,7 +197,7 @@ McLuhan also connected the electric environment to psychedelics. In his 1969 *Pl
 
 ### Route one: revealing the ground
 
-The strongest controlled evidence comes from psilocybin. In a double-blind trial of 95 adults with alcohol use disorder, psilocybin plus psychotherapy reduced the percentage of heavy-drinking days to 9.7%, against 23.6% with an active placebo (Bogenschutz and colleagues, 2022). In a pilot trial for smoking, 40.5% of participants given psilocybin were continuously abstinent at six months, against 10% given a nicotine patch (Johnson and colleagues). An older meta-analysis of six LSD trials from the 1960s found a consistent benefit for alcohol misuse, though it faded by twelve months (Krebs & Johansen, 2012).
+The strongest controlled evidence comes from psilocybin. In a double-blind trial of 95 adults with alcohol use disorder, psilocybin plus psychotherapy reduced the percentage of heavy-drinking days to 9.7%, against 23.6% with an active placebo (Bogenschutz and colleagues, 2022). In a pilot trial for smoking, 40.5% of participants given psilocybin were still abstinent six months after their quit date, verified biochemically, against 10% given a nicotine patch (Johnson and colleagues, 2026). An older meta-analysis of six LSD trials from the 1960s found a consistent benefit for alcohol misuse, though it faded by twelve months (Krebs & Johansen, 2012).
 
 The leading account of how psychedelics might do this is Carhart-Harris and Friston's "REBUS" model (2019): psychedelics relax the confidence the brain places in its deepest expectations, letting bottom-up signals revise them. In the terms of this series, they loosen a fixed configuration. Work in mice adds a second mechanism. Nardou and colleagues (2023) found that several psychedelics, along with ketamine and MDMA, reopen a critical period for learning from social reward, for days to weeks depending on the drug.
 
@@ -290,55 +290,50 @@ The routes back follow from the structure. One turns the gain down. The other ma
 
 Several questions remain open. Does the person in dependence perceive the anti-reward ground at all, or only recognise it afterwards? Is withdrawal the moment ground briefly becomes figure? Do different drugs leave different narcocratic signatures? And what does a reopened window need to close on a new configuration rather than the old one? These are questions about media as much as about medicine, which is the point McLuhan was making all along.
 
-## References and verification status
+## References
 
-"Verified" means the source was checked during research for this paper. "Check" means a standard reference cited from knowledge, whose details must be confirmed before submission.
+Each entry gives its DOI or address where it has one, and what was checked for this paper. **Text checked**: the words quoted were found word for word in a scanned or transcribed copy. **Opened**: the source was retrieved and consulted in the research behind the paper. **Abstract read**: the abstract was read and the paper's figures checked against it. **Record checked**: the authors, year, title and journal match the work's Crossref or Europe PMC record; it is cited for a finding it is known for. **Secondary**: taken from a reliable account of the work, not from the work itself. **Cited**: a book or report cited for its argument or data, not reopened for this paper.
 
-| Reference | Used in | Status |
+| Reference | Used in | Checked |
 | --- | --- | --- |
-| McLuhan (1964), *Understanding Media*, ch. 4 "The Gadget Lover: Narcissus as Narcosis," pp. 41–47 (McGraw-Hill) | §2 | Verified wording; confirm pagination against edition |
-| Jonas (1962), *Irritation and Counterirritation*, Vantage Press | §2 | Verified (bibliographic records) |
-| Cavell (2002), *McLuhan in Space*, University of Toronto Press | §2 | Check (quoted via secondary source) |
-| Selye (1956), *The Stress of Life* | §3 | Check whether this is the Selye text McLuhan used |
-| Sterling & Eyer (1988), allostasis; Sterling (2012), *Physiology & Behavior* 106: 5–15 | §3 | Check |
-| Koob & Le Moal (2001), *Neuropsychopharmacology* 24: 97–129 | §3, §4 | Verified |
-| Solomon & Corbit (1974), *Psychological Review* 81: 119–145 | §4 | Check |
-| Koob & Volkow (2016), *Lancet Psychiatry* 3: 760–773 | §4 | Verified |
-| Koob (2020), *Biological Psychiatry* 87: 44–53; Koob (2021), *Pharmacological Reviews* 73(1): 163–201 | §4 | Verified |
-| Ahmed, Kenny, Koob & Markou (2002), *Nature Neuroscience* 5: 625–626 | §4, §7 | Verified |
-| Lee et al. (2009), *Journal of Neuroscience* 29(47): 14734 | §4 | Verified |
-| Naqvi et al. (2007), *Science* 315: 531–534 | §6 | Verified |
-| Abdolahi et al. (2015), *Addiction*; *Addictive Behaviors* 51: 24 | §6 | Verified |
-| Smith et al. (2020), *PLoS Computational Biology* 16(12): e1008484; Smith et al. (2021), *Scientific Reports* 11: 2108 | §6, §7 | Verified |
-| Gu & Filbey (2017), *JAMA Psychiatry* 74(4): 419–420; Gu (2018), *Neuropsychopharmacology* | §6, §10 | Verified |
-| Robinson & Berridge (1993), *Brain Research Reviews* 18: 247–291 | §8 | Check |
-| Hogarth (2020), *Neuropsychopharmacology* 45: 720–735 | §8 | Verified |
-| Miller, Kiverstein & Rietveld (2020), *Brain and Cognition* 138: 105495 | §8 | Verified |
-| Venniro et al. (2018), *Nature Neuroscience* 21: 1520–1529 | §8, §10 | Verified |
-| Heilig et al. (2021), *Neuropsychopharmacology* 46: 1715–1723 | §8 | Verified |
-| McLuhan (1967), "The Invisible Environment," *Perspecta* 11 | §9 | Verified wording; confirm page |
-| McLuhan (1968), *War and Peace in the Global Village* (fish and water) | §9 | Check exact wording and page |
-| McLuhan (1969), *Playboy* interview | §9 | Verified (full text) |
-| Bogenschutz et al. (2022), *JAMA Psychiatry* 79(10): 953–962 | §9 | Verified |
-| Johnson et al., psilocybin for smoking cessation (pilot and comparative trial) | §9 | Check final publication details |
-| Krebs & Johansen (2012), *Journal of Psychopharmacology* 26(7): 994–1002 | §9 | Verified |
-| Carhart-Harris & Friston (2019), *Pharmacological Reviews* 71(3): 316–344 | §9 | Verified |
-| Nardou et al. (2023), *Nature* 618: 790–798 | §9, §10 | Verified |
-| Noller, Frampton & Yazar-Klosinski (2018), *Am J Drug and Alcohol Abuse* 44(1): 37–46 | §9 | Verified |
-| Alper, Stajić & Gill (2012), *Journal of Forensic Sciences* 57(2): 398–412 | §9 | Verified |
-| Cherian et al. (2024), *Nature Medicine* 30: 373–381 | §9 | Verified |
-| Hendershot et al. (2025), *JAMA Psychiatry* 82(4): 395–405 | §9 | Verified |
-| Klausen et al. (2022), *JCI Insight* 7(19): e159863 | §9 | Verified |
-| Grabski et al. (2022), *American Journal of Psychiatry* 179(2): 152–162 | §9 | Verified |
-| Volkow et al. (2001), *Journal of Neuroscience* 21(23): 9414–9418 | §10 | Verified |
-| Garland et al. (2022), *JAMA Internal Medicine* 182(4): 407–417; Garland et al. (2025), *JAMA Psychiatry* 82(7): 654–662 | §7, §10 | Verified |
-| Price, Thompson, Crowell & Pike (2019), *Drug and Alcohol Dependence* 198: 140–149 | §10 | Verified |
-| Allcott, Gentzkow & Song (2022), *American Economic Review* 112(7): 2424–2463 | §11 | Verified |
-| Kardefelt-Winther et al. (2017), *Addiction* 112: 1709–1715 | §11 | Check |
-
-### Before submission
-
-- [ ] Confirm every "Check" reference and add page numbers, and add Heyman (2013) on remission with a primary epidemiological source
-- [ ] Confirm the *War and Peace in the Global Village* fish-and-water passage and the Cavell quotation against the original texts
-- [ ] Run exact-phrase searches for "narcocrasis" and "anacrasis" in Google Scholar, Google Books and PubMed
-- [ ] Consider a clinician or addiction researcher as a reader before submission, given the clinical material in section 9
+| McLuhan, M. (1964), *Understanding Media*, ch. 4 "The Gadget Lover: Narcissus as Narcosis," pp. 41–47 (McGraw-Hill; [scan](https://archive.org/details/ETC0624)) | §2 | Text checked |
+| Jonas (1962), *Irritation and Counterirritation*, Vantage Press | §2 | Record checked |
+| Cavell (2002), *McLuhan in Space*, University of Toronto Press, [doi:10.3138/9781442677135](https://doi.org/10.3138/9781442677135) | §2 | Secondary |
+| Selye (1956), *The Stress of Life* | §3 | Cited |
+| Sterling & Eyer (1988), allostasis; Sterling (2012), *Physiology & Behavior* 106: 5–15, [doi:10.1016/j.physbeh.2011.06.004](https://doi.org/10.1016/j.physbeh.2011.06.004) | §3 | Record checked |
+| Koob & Le Moal (2001), *Neuropsychopharmacology* 24: 97–129, [doi:10.1016/s0893-133x(00)00195-0](https://doi.org/10.1016/s0893-133x(00)00195-0) | §3, §4 | Opened |
+| Solomon & Corbit (1974), *Psychological Review* 81: 119–145, [doi:10.1037/h0036128](https://doi.org/10.1037/h0036128) | §4 | Record checked |
+| Koob & Volkow (2016), *Lancet Psychiatry* 3: 760–773, [doi:10.1016/s2215-0366(16)00104-8](https://doi.org/10.1016/s2215-0366(16)00104-8) | §4 | Opened |
+| Koob (2020), *Biological Psychiatry* 87: 44–53, [doi:10.1016/j.biopsych.2019.05.023](https://doi.org/10.1016/j.biopsych.2019.05.023); Koob (2021), *Pharmacological Reviews* 73(1): 163–201, [doi:10.1124/pharmrev.120.000083](https://doi.org/10.1124/pharmrev.120.000083) | §4 | Opened |
+| Ahmed, Kenny, Koob & Markou (2002), *Nature Neuroscience* 5: 625–626, [doi:10.1038/nn872](https://doi.org/10.1038/nn872) | §4, §7 | Opened |
+| Lee et al. (2009), *Journal of Neuroscience* 29(47): 14734, [doi:10.1523/jneurosci.3765-09.2009](https://doi.org/10.1523/jneurosci.3765-09.2009) | §4 | Opened |
+| Naqvi et al. (2007), *Science* 315: 531–534, [doi:10.1126/science.1135926](https://doi.org/10.1126/science.1135926) | §6 | Opened |
+| Abdolahi et al. (2015), *Addiction* 110(12): 1994–2003, [doi:10.1111/add.13061](https://doi.org/10.1111/add.13061); *Addictive Behaviors* 51: 24–30, [doi:10.1016/j.addbeh.2015.07.001](https://doi.org/10.1016/j.addbeh.2015.07.001) | §6 | Opened |
+| Smith et al. (2020), *PLoS Computational Biology* 16(12): e1008484, [doi:10.1371/journal.pcbi.1008484](https://doi.org/10.1371/journal.pcbi.1008484); Smith et al. (2021), *Scientific Reports* 11: 2108, [doi:10.1038/s41598-021-81307-3](https://doi.org/10.1038/s41598-021-81307-3) | §6, §7 | Opened |
+| Gu & Filbey (2017), *JAMA Psychiatry* 74(4): 419–420, [doi:10.1001/jamapsychiatry.2016.3823](https://doi.org/10.1001/jamapsychiatry.2016.3823); Gu (2018), *Neuropsychopharmacology*, [doi:10.1038/s41386-018-0108-7](https://doi.org/10.1038/s41386-018-0108-7) | §6, §10 | Opened |
+| Robinson & Berridge (1993), *Brain Research Reviews* 18: 247–291, [doi:10.1016/0165-0173(93)90013-p](https://doi.org/10.1016/0165-0173(93)90013-p) | §8 | Record checked |
+| Hogarth (2020), *Neuropsychopharmacology* 45: 720–735, [doi:10.1038/s41386-020-0600-8](https://doi.org/10.1038/s41386-020-0600-8) | §8 | Opened |
+| Miller, Kiverstein & Rietveld (2020), *Brain and Cognition* 138: 105495, [doi:10.1016/j.bandc.2019.105495](https://doi.org/10.1016/j.bandc.2019.105495) | §8 | Opened |
+| Venniro et al. (2018), *Nature Neuroscience* 21: 1520–1529, [doi:10.1038/s41593-018-0246-6](https://doi.org/10.1038/s41593-018-0246-6) | §8, §10 | Opened |
+| Heilig et al. (2021), *Neuropsychopharmacology* 46: 1715–1723, [doi:10.1038/s41386-020-00950-y](https://doi.org/10.1038/s41386-020-00950-y) | §8 | Opened |
+| McLuhan (1967), "The Invisible Environment," *Perspecta* 11, [doi:10.2307/1566945](https://doi.org/10.2307/1566945) | §9 | Secondary |
+| McLuhan (1968), *War and Peace in the Global Village* (fish and water) | §9 | Secondary |
+| McLuhan, M. (1969), interviewed by Eric Norden, *Playboy*, March 1969 ([transcript](https://web.cs.ucdavis.edu/~rogaway/classes/188/materials/mcluhan2.pdf)) | §9 | Text checked |
+| Bogenschutz et al. (2022), *JAMA Psychiatry* 79(10): 953–962, [doi:10.1001/jamapsychiatry.2022.2096](https://doi.org/10.1001/jamapsychiatry.2022.2096) | §9 | Opened |
+| Johnson, Garcia-Romeu, Cosimano & Griffiths (2014), Pilot study of the 5-HT2AR agonist psilocybin in the treatment of tobacco addiction, *Journal of Psychopharmacology* 28(11): 983–992, [doi:10.1177/0269881114548296](https://doi.org/10.1177/0269881114548296); Johnson, Naudé, Hendricks & Garcia-Romeu (2026), Psilocybin or nicotine patch for smoking cessation: a pilot randomized clinical trial, *JAMA Network Open* 9: e260972, [doi:10.1001/jamanetworkopen.2026.0972](https://doi.org/10.1001/jamanetworkopen.2026.0972) | §9 | Abstract read |
+| Krebs & Johansen (2012), *Journal of Psychopharmacology* 26(7): 994–1002, [doi:10.1177/0269881112439253](https://doi.org/10.1177/0269881112439253) | §9 | Opened |
+| Carhart-Harris & Friston (2019), *Pharmacological Reviews* 71(3): 316–344, [doi:10.1124/pr.118.017160](https://doi.org/10.1124/pr.118.017160) | §9 | Opened |
+| Nardou et al. (2023), *Nature* 618: 790–798, [doi:10.1038/s41586-023-06204-3](https://doi.org/10.1038/s41586-023-06204-3) | §9, §10 | Opened |
+| Noller, Frampton & Yazar-Klosinski (2018), *Am J Drug and Alcohol Abuse* 44(1): 37–46, [doi:10.1080/00952990.2017.1310218](https://doi.org/10.1080/00952990.2017.1310218) | §9 | Opened |
+| Alper, Stajić & Gill (2012), *Journal of Forensic Sciences* 57(2): 398–412, [doi:10.1111/j.1556-4029.2011.02008.x](https://doi.org/10.1111/j.1556-4029.2011.02008.x) | §9 | Opened |
+| Cherian et al. (2024), *Nature Medicine* 30: 373–381, [doi:10.1038/s41591-023-02705-w](https://doi.org/10.1038/s41591-023-02705-w) | §9 | Opened |
+| Hendershot et al. (2025), *JAMA Psychiatry* 82(4): 395–405, [doi:10.1001/jamapsychiatry.2024.4789](https://doi.org/10.1001/jamapsychiatry.2024.4789) | §9 | Opened |
+| Klausen et al. (2022), *JCI Insight* 7(19): e159863, [doi:10.1172/jci.insight.159863](https://doi.org/10.1172/jci.insight.159863) | §9 | Opened |
+| Grabski et al. (2022), *American Journal of Psychiatry* 179(2): 152–162, [doi:10.1176/appi.ajp.2021.21030277](https://doi.org/10.1176/appi.ajp.2021.21030277) | §9 | Opened |
+| Volkow et al. (2001), *Journal of Neuroscience* 21(23): 9414–9418, [doi:10.1523/jneurosci.21-23-09414.2001](https://doi.org/10.1523/jneurosci.21-23-09414.2001) | §10 | Opened |
+| Garland et al. (2022), *JAMA Internal Medicine* 182(4): 407–417, [doi:10.1001/jamainternmed.2022.0033](https://doi.org/10.1001/jamainternmed.2022.0033); Garland et al. (2025), *JAMA Psychiatry* 82(7): 654–662, [doi:10.1001/jamapsychiatry.2025.0569](https://doi.org/10.1001/jamapsychiatry.2025.0569) | §7, §10 | Opened |
+| Price, Thompson, Crowell & Pike (2019), *Drug and Alcohol Dependence* 198: 140–149, [doi:10.1016/j.drugalcdep.2019.02.012](https://doi.org/10.1016/j.drugalcdep.2019.02.012) | §10 | Opened |
+| Allcott, Gentzkow & Song (2022), *American Economic Review* 112(7): 2424–2463, [doi:10.1257/aer.20210867](https://doi.org/10.1257/aer.20210867) | §11 | Opened |
+| Kardefelt-Winther et al. (2017), *Addiction* 112: 1709–1715, [doi:10.1111/add.13763](https://doi.org/10.1111/add.13763) | §11 | Record checked |
+| Heyman, G. M. (2013), Addiction and choice: theory and new data, *Frontiers in Psychiatry* 4: 31, [doi:10.3389/fpsyt.2013.00031](https://doi.org/10.3389/fpsyt.2013.00031) | §8 | Opened |
+| Lopez-Quintero, C., et al. (2011), Probability and predictors of remission from life-time nicotine, alcohol, cannabis or cocaine dependence: results from NESARC, *Addiction* 106(3): 657–669, [doi:10.1111/j.1360-0443.2010.03194.x](https://doi.org/10.1111/j.1360-0443.2010.03194.x) | §8 | Abstract read |

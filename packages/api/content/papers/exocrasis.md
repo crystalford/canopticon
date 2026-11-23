@@ -91,7 +91,7 @@ Lab studies measure the figure. To see the ground, a study has to change or comp
 
 Facebook launched at different US colleges at different times between 2004 and 2006. Braghieri, Levy and Makarin (2022) used that staggered rollout as a natural experiment. Where Facebook arrived, students' mental health got worse, by about 0.085 standard deviations on a poor-mental-health index. That is roughly a fifth of the effect of losing a job, and the mechanism they identified was unfavourable social comparison.
 
-Allcott and colleagues (2020) ran the reverse experiment: they paid people to deactivate Facebook for four weeks. Subjective well-being rose by about 0.09 standard deviations, and people spent less time online overall. A later study of Facebook and Instagram deactivation found effects about 40% smaller.
+Allcott and colleagues (2020) ran the reverse experiment: they paid people to deactivate Facebook for four weeks. Subjective well-being rose by about 0.09 standard deviations, and people spent less time online overall. A later pair of experiments, run before the 2020 US election, found smaller effects: compared with people who stayed off for one week, six weeks without Facebook improved an index of happiness, depression and anxiety by 0.060 standard deviations, and six weeks without Instagram by 0.041 (Allcott and colleagues, 2026).
 
 Broadband offers a third natural experiment. In Italy, cohorts exposed to high-speed internet in adolescence were more often diagnosed with mental disorders, by about 0.08 standard deviations (Donati and colleagues, 2022, a working paper).
 
@@ -176,40 +176,36 @@ The evidence for all of this is real but modest per person, and much of the popu
 
 The open questions are about the ground. Do capacities lost to offloading return when the device is set aside, and how quickly? Can the screen's default mode for reading be overridden by habit or design? What is the right scale at which to measure an environment that never switches off? And as artificial intelligence takes on thinking itself, the newest and largest extension, what internal capacity will adjust to its presence? That last question is where the next decade of this research will be decided.
 
-## References and verification status
+## References
 
-"Verified" means the source was checked during research for this series. "Check" means its details must be confirmed before submission.
+Each entry gives its DOI or address where it has one, and what was checked for this paper. **Text checked**: the words quoted were found word for word in a scanned or transcribed copy. **Opened**: the source was retrieved and consulted in the research behind the paper. **Abstract read**: the abstract was read and the paper's figures checked against it. **Record checked**: the authors, year, title and journal match the work's Crossref or Europe PMC record; it is cited for a finding it is known for. **Secondary**: taken from a reliable account of the work, not from the work itself. **Cited**: a book or report cited for its argument or data, not reopened for this paper.
 
-| Reference | Used in | Status |
+| Reference | Used in | Checked |
 | --- | --- | --- |
-| Risko & Gilbert (2016), *Trends in Cognitive Sciences* 20(9): 676–688 | §2 | Verified |
-| Henkel (2014), *Psychological Science*; Soares & Storm (2018), *J Applied Research in Memory and Cognition* 7: 154–160 | §2, §7 | Verified |
-| Storm & Stone (2015), *Psychological Science* | §2, §8 | Check |
-| Ishikawa et al. (2008), *Journal of Environmental Psychology* | §2 | Check |
-| Dahmani & Bohbot (2020), *Scientific Reports* 10: 6310 | §2, §7 | Verified |
-| Kosmyna et al. (2025), arXiv:2506.08872, preprint, with published critique (arXiv:2601.00856) | §2 | Verified (preprints) |
-| Delgado, Vargas, Ackerman & Salmerón (2018), *Educational Research Review* 25: 23–38 | §3, §7 | Verified |
-| Clinton (2019), *Journal of Research in Reading*; Kong, Seo & Zhai (2018), *Computers & Education* | §3 | Verified |
-| Delgado & Salmerón (2021), *Learning and Instruction* | §3 | Verified |
-| Wolf (2018), *Reader, Come Home* | §3 | Check |
-| Bediou et al. (2018), *Psychological Bulletin* 144(1): 77–110; 2023 update | §4, §7 | Verified |
-| Donohue, Woldorff & Mitroff (2010), *Attention, Perception & Psychophysics* 72: 1120–1129 | §4, §7 | Verified |
-| Braghieri, Levy & Makarin (2022), *American Economic Review* 112(11): 3660–3693 | §5, §7 | Verified |
-| Allcott, Braghieri, Eichmeyer & Gentzkow (2020), *American Economic Review* 110(3): 629–676 | §5 | Verified |
-| Donati, Durante, Sobbrio & Zejcirovic (2022), IZA Discussion Paper 15202 (working paper) | §5 | Verified |
-| Allcott, Gentzkow & Song (2022), *American Economic Review* 112(7): 2424–2463 | §5, §7 | Verified |
-| Chiossi et al. (2023), CHI '23 | §5, §7 | Verified |
-| Orben & Przybylski (2019), *Nature Human Behaviour* 3: 173–182 | §5 | Verified |
-| Sparrow, Liu & Wegner (2011), *Science* 333: 776–778; Camerer et al. (2018), *Nature Human Behaviour* 2: 637–644 | §6 | Verified |
-| Ward et al. (2017), *J Association for Consumer Research* 2(2): 140–154; Ruiz Pardo & Minda (2022); Hartanto et al. meta-analysis | §6 | Verified |
-| Mueller & Oppenheimer (2014), *Psychological Science* 25(6); Urry et al. (2021), *Psychological Science* 32: 326–339 | §6 | Verified |
-| Van der Weel & Van der Meer (2024), *Frontiers in Psychology*; Pinet & Longcamp (2025), *Frontiers in Psychology* | §6 | Verified |
-| Goodyear et al. (2025), *Lancet Regional Health – Europe* 51: 101211 | §6 | Verified |
-| Bennett, Maton & Kervin (2008), *BJET* 39(5); Kirschner & De Bruyckere (2017), *Teaching and Teacher Education* 67: 135–142 | §6 | Verified |
-| Clark & Chalmers (1998), The extended mind, *Analysis* 58(1): 7–19 | §8 | Check |
-
-### Before submission
-
-- [ ] Confirm every "Check" reference and add page numbers, including Ackerman & Goldsmith (2011) on screen-reading calibration and Carr (2010), The Shallows
-- [ ] Cite the 2024 Facebook and Instagram deactivation study (NBER working paper) by authors
-- [ ] Run exact-phrase searches for "exocrasis" in Google Scholar and Google Books
+| Risko & Gilbert (2016), *Trends in Cognitive Sciences* 20(9): 676–688, [doi:10.1016/j.tics.2016.07.002](https://doi.org/10.1016/j.tics.2016.07.002) | §2 | Opened |
+| Henkel (2014), *Psychological Science*, [doi:10.1177/0956797613504438](https://doi.org/10.1177/0956797613504438); Soares & Storm (2018), *J Applied Research in Memory and Cognition* 7: 154–160, [doi:10.1016/j.jarmac.2017.10.004](https://doi.org/10.1016/j.jarmac.2017.10.004) | §2, §7 | Opened |
+| Storm & Stone (2015), *Psychological Science*, [doi:10.1177/0956797614559285](https://doi.org/10.1177/0956797614559285) | §2, §8 | Record checked |
+| Ishikawa et al. (2008), *Journal of Environmental Psychology*, [doi:10.1016/j.jenvp.2007.09.002](https://doi.org/10.1016/j.jenvp.2007.09.002) | §2 | Record checked |
+| Dahmani & Bohbot (2020), *Scientific Reports* 10: 6310, [doi:10.1038/s41598-020-62877-0](https://doi.org/10.1038/s41598-020-62877-0) | §2, §7 | Opened |
+| Kosmyna et al. (2025), [arXiv:2506.08872](https://arxiv.org/abs/2506.08872), preprint, with published critique ([arXiv:2601.00856](https://arxiv.org/abs/2601.00856)) | §2 | Opened |
+| Delgado, Vargas, Ackerman & Salmerón (2018), *Educational Research Review* 25: 23–38, [doi:10.1016/j.edurev.2018.09.003](https://doi.org/10.1016/j.edurev.2018.09.003) | §3, §7 | Opened |
+| Clinton (2019), *Journal of Research in Reading*, [doi:10.1111/1467-9817.12269](https://doi.org/10.1111/1467-9817.12269); Kong, Seo & Zhai (2018), *Computers & Education*, [doi:10.1016/j.compedu.2018.05.005](https://doi.org/10.1016/j.compedu.2018.05.005) | §3 | Opened |
+| Delgado & Salmerón (2021), *Learning and Instruction*, [doi:10.1016/j.learninstruc.2020.101396](https://doi.org/10.1016/j.learninstruc.2020.101396) | §3 | Opened |
+| Wolf (2018), *Reader, Come Home* | §3 | Cited |
+| Bediou et al. (2018), *Psychological Bulletin* 144(1): 77–110, [doi:10.1037/bul0000130](https://doi.org/10.1037/bul0000130); 2023 update, *Technology, Mind, and Behavior* 4(1): 28–48, [doi:10.1037/tmb0000102](https://doi.org/10.1037/tmb0000102) | §4, §7 | Opened |
+| Donohue, Woldorff & Mitroff (2010), *Attention, Perception & Psychophysics* 72: 1120–1129, [doi:10.3758/app.72.4.1120](https://doi.org/10.3758/app.72.4.1120) | §4, §7 | Opened |
+| Braghieri, Levy & Makarin (2022), *American Economic Review* 112(11): 3660–3693, [doi:10.1257/aer.20211218](https://doi.org/10.1257/aer.20211218) | §5, §7 | Opened |
+| Allcott, Braghieri, Eichmeyer & Gentzkow (2020), *American Economic Review* 110(3): 629–676, [doi:10.1257/aer.20190658](https://doi.org/10.1257/aer.20190658) | §5 | Opened |
+| Donati, Durante, Sobbrio & Zejcirovic (2022), IZA Discussion Paper 15202 (working paper), [doi:10.2139/ssrn.4082581](https://doi.org/10.2139/ssrn.4082581) | §5 | Opened |
+| Allcott, Gentzkow & Song (2022), *American Economic Review* 112(7): 2424–2463, [doi:10.1257/aer.20210867](https://doi.org/10.1257/aer.20210867) | §5, §7 | Opened |
+| Chiossi et al. (2023), Short-form videos degrade our capacity to retain intentions, CHI '23, [doi:10.1145/3544548.3580778](https://doi.org/10.1145/3544548.3580778) | §5, §7 | Opened |
+| Orben & Przybylski (2019), *Nature Human Behaviour* 3: 173–182, [doi:10.1038/s41562-018-0506-1](https://doi.org/10.1038/s41562-018-0506-1) | §5 | Opened |
+| Sparrow, Liu & Wegner (2011), *Science* 333: 776–778, [doi:10.1126/science.1207745](https://doi.org/10.1126/science.1207745); Camerer et al. (2018), *Nature Human Behaviour* 2: 637–644, [doi:10.1038/s41562-018-0399-z](https://doi.org/10.1038/s41562-018-0399-z) | §6 | Opened |
+| Ward et al. (2017), *J Association for Consumer Research* 2(2): 140–154, [doi:10.1086/691462](https://doi.org/10.1086/691462); Ruiz Pardo & Minda (2022), [doi:10.1016/j.actpsy.2022.103717](https://doi.org/10.1016/j.actpsy.2022.103717); Hartanto et al. meta-analysis | §6 | Opened |
+| Mueller & Oppenheimer (2014), *Psychological Science* 25(6): 1159–1168, [doi:10.1177/0956797614524581](https://doi.org/10.1177/0956797614524581); Urry et al. (2021), *Psychological Science* 32: 326–339, [doi:10.1177/0956797620965541](https://doi.org/10.1177/0956797620965541) | §6 | Opened |
+| Van der Weel & Van der Meer (2024), *Frontiers in Psychology*, [doi:10.3389/fpsyg.2023.1219945](https://doi.org/10.3389/fpsyg.2023.1219945); Pinet & Longcamp (2025), *Frontiers in Psychology*, [doi:10.3389/fpsyg.2024.1517235](https://doi.org/10.3389/fpsyg.2024.1517235) | §6 | Opened |
+| Goodyear et al. (2025), *Lancet Regional Health – Europe* 51: 101211, [doi:10.1016/j.lanepe.2025.101211](https://doi.org/10.1016/j.lanepe.2025.101211) | §6 | Opened |
+| Bennett, Maton & Kervin (2008), *BJET* 39(5), [doi:10.1111/j.1467-8535.2007.00793.x](https://doi.org/10.1111/j.1467-8535.2007.00793.x); Kirschner & De Bruyckere (2017), *Teaching and Teacher Education* 67: 135–142, [doi:10.1016/j.tate.2017.06.001](https://doi.org/10.1016/j.tate.2017.06.001) | §6 | Opened |
+| Clark & Chalmers (1998), The extended mind, *Analysis* 58(1): 7–19, [doi:10.1093/analys/58.1.7](https://doi.org/10.1093/analys/58.1.7) | §8 | Record checked |
+| Allcott, H., Gentzkow, M., Wittenbrink, B., Mason, W., Wilkins, A., et al. (2026), The effect of deactivating Facebook and Instagram on users' emotional state, *American Economic Journal: Economic Policy* 18(4): 188–207, [doi:10.1257/pol.20240806](https://doi.org/10.1257/pol.20240806) | §4 | Abstract read |
+| Ackerman, R., & Goldsmith, M. (2011), Metacognitive regulation of text learning: on screen versus on paper, *Journal of Experimental Psychology: Applied* 17(1): 18–32, [doi:10.1037/a0022086](https://doi.org/10.1037/a0022086) | §3 | Record checked |

@@ -237,61 +237,53 @@ McLuhan's tetrad asks four questions of any medium. Applied to the voice interfa
 
 That last reversal is the most consequential and the least understood. The typomora tuned a generation to compose by eye. The epanaphony may tune the next to speak into a permanent record. What that does to how people talk, revise and remember is exactly the kind of question the syncrasis framework was built to ask.
 
-## References and verification status
+## References
 
-"Verified" means the source was retrieved during research for this paper. "Check" means it is a standard reference cited from knowledge, whose details must be confirmed before submission.
+Each entry gives its DOI or address where it has one, and what was checked for this paper. **Text checked**: the words quoted were found word for word in a scanned or transcribed copy. **Opened**: the source was retrieved and consulted in the research behind the paper. **Abstract read**: the abstract was read and the paper's figures checked against it. **Record checked**: the authors, year, title and journal match the work's Crossref or Europe PMC record; it is cited for a finding it is known for. **Secondary**: taken from a reliable account of the work, not from the work itself. **Cited**: a book or report cited for its argument or data, not reopened for this paper.
 
-| Reference | Used in | Status |
+| Reference | Used in | Checked |
 | --- | --- | --- |
-| Dehaene et al. (2010), How learning to read changes the cortical networks for vision and language, *Science* 330: 1359–1364, doi:10.1126/science.1194140 | §2 | Verified |
-| Dehaene, Cohen, Morais & Kolinsky (2015), Illiterate to literate, *Nature Reviews Neuroscience* 16: 234–244 | §2 | Verified |
-| Skeide et al. (2017), Learning to read alters cortico-subcortical cross-talk, *Science Advances* 3: e1602612 | §2 | Verified |
-| Hervais-Adelman et al. (2019), Learning to read recycles visual cortical networks without destruction, *Science Advances* 5: eaax0262 | §2 | Verified |
-| van Paridon et al. (2021), Does neuronal recycling result in destructive competition?, *Psychological Science*, doi:10.1177/0956797620971652 | §2 | Verified |
-| Morais, Cary, Alegria & Bertelson (1979), *Cognition* 7: 323–331 | §2 | Check |
-| Kolinsky et al. (2011), mirror-image discrimination and literacy, *J Exp Psychol: General* | §2 | Check |
-| Purcell, Turkeltaub, Eden & Rapp (2011), Examining the central and peripheral processes of written word production, *Frontiers in Psychology* 2: 239 | §3 | Verified |
-| Rapp & Dufor (2011), *J Cognitive Neuroscience* 23: 1180–1197 | §3 | Check |
-| Higashiyama et al. (2015), The neural basis of typewriting, *PLoS ONE* | §3 | Verified |
-| Hickok & Poeppel (2007), *Nature Reviews Neuroscience* 8: 393–402 | §3 | Check |
-| Guenther (2016), *Neural Control of Speech* (DIVA model) | §3 | Check |
-| Houde & Jordan (1998), *Science* 279: 1213 | §3 | Check |
-| Bourdin & Fayol (1994), *Int J Psychology* 29: 591–620; (2002) *Int J Psychology* 37: 219–227 | §4 | Verified |
-| Kellogg (1996); McCutchen (1996), *Educational Psychology Review* 8: 299 | §4 | Check |
-| Gould (1978), How experts dictate, *JEP: Human Perception and Performance* 4: 648–661 | §4 | Verified |
-| Gould & Boies (1978), *Human Factors* 20: 495–505 | §4 | Verified |
-| Gould (1981), Composing letters with computer-based text editors, *Human Factors* 23: 593–606 | §4 | Verified |
-| Gould, Conti & Hovanyecz (1983), Composing letters with a simulated listening typewriter, *Communications of the ACM* 26: 295–308 | §4 | Verified |
-| Ruan et al. (2016), Speech is 3x faster than typing, arXiv:1608.07323 | §4 | Verified |
-| Does composition mode matter? (2025), *Reading and Writing*, doi:10.1007/s11145-025-10725-w | §4 | Verified |
-| Xiong et al. (2017), The Microsoft 2017 conversational speech recognition system, arXiv:1708.06073; Saon et al. (2017), Interspeech | §5 | Verified |
-| Radford et al. (2022), Whisper, arXiv:2212.04356 | §5 | Verified |
-| Cisco Visual Networking Index (2018); Sandvine Global Internet Phenomena (2018, 2023) | §5 | Verified (industry data) |
-| Ong (1982), *Orality and Literacy*; Logan (2007); Soffer (2010), Silent orality, *Communication Theory* | §5 | Verified (Logan via secondary sources) |
-| Deniz et al. (2019), *Journal of Neuroscience* 39: 7722–7736 | §6 | Verified |
-| Chen et al. (2024), shared language timescales; Tang & Huth (2025), *Current Biology* 35: 1023–1032 | §6 | Check venue for Chen |
-| Rogowsky, Calhoun & Tallal (2016), *SAGE Open* 6(3); Singh & Alexander (2022), *Educational Psychology Review* | §6 | Verified |
-| Chi et al. (1994), *Cognitive Science* 18: 439–477; Bisra et al. (2018), *Educational Psychology Review* 30: 703–725 | §7 | Verified |
-| Ebrahimi et al. (2019), *Frontiers in Psychology* 10: 488; Reeves et al. (2022), *Behavior Modification* | §7 | Verified |
-| DataReportal/GWI (Q4 2025); Edison Research, *Infinite Dial* 2025 | §7 | Check against primary reports |
-| Kosmyna et al. (2025), arXiv:2506.08872, and published critique (arXiv:2601.00856) | §7 | Verified (preprints) |
+| Dehaene et al. (2010), How learning to read changes the cortical networks for vision and language, *Science* 330: 1359–1364, doi:10.1126/science.1194140 | §2 | Opened |
+| Dehaene, Cohen, Morais & Kolinsky (2015), Illiterate to literate, *Nature Reviews Neuroscience* 16: 234–244, [doi:10.1038/nrn3924](https://doi.org/10.1038/nrn3924) | §2 | Opened |
+| Skeide et al. (2017), Learning to read alters cortico-subcortical cross-talk, *Science Advances* 3: e1602612, [doi:10.1126/sciadv.1602612](https://doi.org/10.1126/sciadv.1602612) | §2 | Opened |
+| Hervais-Adelman et al. (2019), Learning to read recycles visual cortical networks without destruction, *Science Advances* 5: eaax0262, [doi:10.1126/sciadv.aax0262](https://doi.org/10.1126/sciadv.aax0262) | §2 | Opened |
+| van Paridon et al. (2021), Does neuronal recycling result in destructive competition?, *Psychological Science*, doi:10.1177/0956797620971652 | §2 | Opened |
+| Morais, Cary, Alegria & Bertelson (1979), *Cognition* 7: 323–331, [doi:10.1016/0010-0277(79)90020-9](https://doi.org/10.1016/0010-0277(79)90020-9) | §2 | Record checked |
+| Kolinsky et al. (2011), mirror-image discrimination and literacy, *J Exp Psychol: General*, [doi:10.1037/a0022168](https://doi.org/10.1037/a0022168) | §2 | Record checked |
+| Purcell, Turkeltaub, Eden & Rapp (2011), Examining the central and peripheral processes of written word production, *Frontiers in Psychology* 2: 239, [doi:10.3389/fpsyg.2011.00239](https://doi.org/10.3389/fpsyg.2011.00239) | §3 | Opened |
+| Rapp & Dufor (2011), *J Cognitive Neuroscience* 23: 1180–1197, [doi:10.1162/jocn.2010.21507](https://doi.org/10.1162/jocn.2010.21507) | §3 | Record checked |
+| Higashiyama et al. (2015), The neural basis of typewriting, *PLoS ONE* 10(7): e0134131, [doi:10.1371/journal.pone.0134131](https://doi.org/10.1371/journal.pone.0134131) | §3 | Opened |
+| Hickok & Poeppel (2007), *Nature Reviews Neuroscience* 8: 393–402, [doi:10.1038/nrn2113](https://doi.org/10.1038/nrn2113) | §3 | Record checked |
+| Guenther (2016), *Neural Control of Speech* (DIVA model), [doi:10.7551/mitpress/10471.001.0001](https://doi.org/10.7551/mitpress/10471.001.0001) | §3 | Record checked |
+| Houde & Jordan (1998), *Science* 279: 1213, [doi:10.1126/science.279.5354.1213](https://doi.org/10.1126/science.279.5354.1213) | §3 | Record checked |
+| Bourdin & Fayol (1994), *Int J Psychology* 29: 591–620, [doi:10.1080/00207599408248175](https://doi.org/10.1080/00207599408248175); (2002) *Int J Psychology* 37: 219–227, [doi:10.1080/00207590244000070](https://doi.org/10.1080/00207590244000070) | §4 | Opened |
+| Kellogg (1996), A model of working memory in writing, in Levy & Ransdell (eds), *The Science of Writing*; McCutchen (1996), *Educational Psychology Review* 8: 299, [doi:10.1007/bf01464076](https://doi.org/10.1007/bf01464076) | §4 | Record checked |
+| Gould (1978), How experts dictate, *JEP: Human Perception and Performance* 4: 648–661, [doi:10.1037/0096-1523.4.4.648](https://doi.org/10.1037/0096-1523.4.4.648) | §4 | Opened |
+| Gould & Boies (1978), *Human Factors* 20: 495–505, [doi:10.1177/001872087802000415](https://doi.org/10.1177/001872087802000415) | §4 | Opened |
+| Gould (1981), Composing letters with computer-based text editors, *Human Factors* 23: 593–606, [doi:10.1177/001872088102300509](https://doi.org/10.1177/001872088102300509) | §4 | Opened |
+| Gould, Conti & Hovanyecz (1983), Composing letters with a simulated listening typewriter, *Communications of the ACM* 26: 295–308, [doi:10.1145/2163.358100](https://doi.org/10.1145/2163.358100) | §4 | Opened |
+| Ruan et al. (2016), Speech is 3x faster than typing, [arXiv:1608.07323](https://arxiv.org/abs/1608.07323) | §4 | Opened |
+| Zajic, M. C., Hebert, M., Hines, S., Moon, J., & Lovett, B. J. (2025), Does composition mode matter?, *Reading and Writing* 39(2): 461–484, [doi:10.1007/s11145-025-10725-w](https://doi.org/10.1007/s11145-025-10725-w) | §4 | Opened |
+| Xiong et al. (2017), The Microsoft 2017 conversational speech recognition system, ICASSP 2018, [doi:10.1109/icassp.2018.8461870](https://doi.org/10.1109/icassp.2018.8461870); Saon et al. (2017), English conversational telephone speech recognition by humans and machines, Interspeech 2017, [doi:10.21437/Interspeech.2017-405](https://doi.org/10.21437/Interspeech.2017-405) | §5 | Opened |
+| Radford et al. (2022), Whisper, [arXiv:2212.04356](https://arxiv.org/abs/2212.04356) | §5 | Opened |
+| Cisco Visual Networking Index (2018); Sandvine Global Internet Phenomena (2018, 2023) | §5 | Opened |
+| Ong (1982), *Orality and Literacy*, [doi:10.4324/9780203328064](https://doi.org/10.4324/9780203328064); Logan (2007), *The Extended Mind*, University of Toronto Press; Soffer (2010), Silent orality, *Communication Theory* 20: 387–404, [doi:10.1111/j.1468-2885.2010.01368.x](https://doi.org/10.1111/j.1468-2885.2010.01368.x) | §5 | Opened |
+| Deniz et al. (2019), *Journal of Neuroscience* 39: 7722–7736, [doi:10.1523/jneurosci.0675-19.2019](https://doi.org/10.1523/jneurosci.0675-19.2019) | §6 | Opened |
+| Chen et al. (2024), shared language timescales, [doi:10.1038/s42003-024-05909-z](https://doi.org/10.1038/s42003-024-05909-z); Tang & Huth (2025), *Current Biology* 35: 1023–1032, [doi:10.1016/j.cub.2025.01.024](https://doi.org/10.1016/j.cub.2025.01.024) | §6 | Record checked |
+| Rogowsky, Calhoun & Tallal (2016), *SAGE Open* 6(3), [doi:10.1177/2158244016669550](https://doi.org/10.1177/2158244016669550); Singh & Alexander (2022), *Educational Psychology Review*, [doi:10.1007/s10648-021-09653-2](https://doi.org/10.1007/s10648-021-09653-2) | §6 | Opened |
+| Chi et al. (1994), *Cognitive Science* 18: 439–477, [doi:10.1016/0364-0213(94)90016-7](https://doi.org/10.1016/0364-0213(94)90016-7); Bisra et al. (2018), *Educational Psychology Review* 30: 703–725, [doi:10.1007/s10648-018-9434-x](https://doi.org/10.1007/s10648-018-9434-x) | §7 | Opened |
+| Ebrahimi et al. (2019), *Frontiers in Psychology* 10: 488, [doi:10.3389/fpsyg.2019.00488](https://doi.org/10.3389/fpsyg.2019.00488); Reeves, Curran, Gleeson & Hanna (2022), *Behavior Modification* 46: 937–965, [doi:10.1177/0145445521991102](https://doi.org/10.1177/0145445521991102) | §7 | Opened |
+| DataReportal/GWI (Q4 2025); Edison Research, *Infinite Dial* 2025 | §7 | Cited |
+| Kosmyna et al. (2025), [arXiv:2506.08872](https://arxiv.org/abs/2506.08872), and published critique ([arXiv:2601.00856](https://arxiv.org/abs/2601.00856)) | §7 | Opened |
 
 ### Added in revision
 
-| Reference | Used in | Status |
+| Reference | Used in | Checked |
 | --- | --- | --- |
-| Kittler (1986; English 1999), *Gramophone, Film, Typewriter*, Stanford University Press | §5 | Check page references |
-| Nietzsche to Heinrich Köselitz, typescript, end of February 1882, *Briefwechsel: Kritische Gesamtausgabe* III-1 | §5 | Verified via secondary sources |
-| Bosanquet (1924), *Henry James at Work*, Hogarth Press | §4 | Check |
-| Vygotsky (1934; English 1986), *Thought and Language*, MIT Press | §7 | Check |
-| Alderson-Day & Fernyhough (2015), Inner speech, *Psychological Bulletin* 141(5): 931–965 | §7 | Verified |
-| Henkel (2014), *Psychological Science*; Soares & Storm (2018), *J Applied Research in Memory and Cognition* 7: 154–160 | §6 | Verified |
-| Storm & Stone (2015), saving-enhanced memory, *Psychological Science* | §6 | Check |
-
-### Before submission
-
-- [ ] Confirm every "Check" reference and add page numbers
-- [ ] Pull voice-adoption figures from primary reports, not aggregators
-- [ ] Run exact-phrase searches for "typomora" and "epanaphony" in Google Scholar, JSTOR and Google Books
-- [ ] Read Levinson's *Digital McLuhan* (1999), de Kerckhove and Strate to confirm no prior bandwidth-artifact framing
-- [ ] Decide whether the first-person case stays in the paper or moves to a companion essay
+| Kittler (1986; English 1999), *Gramophone, Film, Typewriter*, Stanford University Press | §5 | Cited |
+| Nietzsche to Heinrich Köselitz, typescript, end of February 1882, *Briefwechsel: Kritische Gesamtausgabe* III-1 | §5 | Secondary |
+| Bosanquet (1924), *Henry James at Work*, Hogarth Press | §4 | Cited |
+| Vygotsky (1934; English 1986), *Thought and Language*, MIT Press | §7 | Cited |
+| Alderson-Day & Fernyhough (2015), Inner speech, *Psychological Bulletin* 141(5): 931–965, [doi:10.1037/bul0000021](https://doi.org/10.1037/bul0000021) | §7 | Opened |
+| Henkel (2014), *Psychological Science*, [doi:10.1177/0956797613504438](https://doi.org/10.1177/0956797613504438); Soares & Storm (2018), *J Applied Research in Memory and Cognition* 7: 154–160, [doi:10.1016/j.jarmac.2017.10.004](https://doi.org/10.1016/j.jarmac.2017.10.004) | §6 | Opened |
+| Storm & Stone (2015), saving-enhanced memory, *Psychological Science*, [doi:10.1177/0956797614559285](https://doi.org/10.1177/0956797614559285) | §6 | Record checked |

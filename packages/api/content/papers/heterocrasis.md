@@ -71,7 +71,7 @@ The individual studies disagree. In one, 14 adults with ADHD were worse than 16 
 
 All three adult case-control studies used heartbeat counting, in which people silently count their heartbeats over a set period. That task is widely criticised, because scores are strongly influenced by what people believe about their own heart rate and by their ability to estimate time (Zamariola and colleagues, 2018). Since time estimation itself can differ in ADHD, the confound is especially serious here.
 
-A large 2026 study in *Nature Mental Health*, using better-designed tasks in hundreds of participants, found objective interoceptive performance largely unrelated to mental-health symptoms, including ADHD traits. And a study of adolescents found that those with more ADHD symptoms showed stronger, not weaker, brain responses to their own heartbeats (heartbeat-evoked potentials).
+A large 2026 study in *Nature Mental Health* (Banellis and colleagues), using better-designed tasks in hundreds of participants, found objective interoceptive performance largely unrelated to mental-health symptoms, including ADHD traits. And a study of adolescents found that those with more ADHD symptoms showed stronger, not weaker, brain responses to their own heartbeats (heartbeat-evoked potentials; Rapp and colleagues, 2023).
 
 ### What it means
 
@@ -81,7 +81,7 @@ The honest reading is that bodily self-perception may differ in ADHD, but the di
 
 A tempting story about ADHD says the senses are poorly bound together: sights and sounds drift apart, the world arrives in fragments, and attention scatters as a result. The evidence does not support it.
 
-The brain fuses a sight and a sound into one event if they arrive within a certain window of time, the "temporal binding window." A looser integration would mean a wider window. Panagiotidi, Overton and Stafford (2017) tested adults with high and low ADHD-like traits and found the opposite: a significantly *narrower* window in the high-trait group, with no shift in the point at which sights and sounds seemed simultaneous. A clinical study found audiovisual integration in adults with ADHD to be robust, varying with perceptual load (Schulze and colleagues, 2022). A 2025 study found that impulsivity did not affect how people weighed audiovisual evidence in decisions.
+The brain fuses a sight and a sound into one event if they arrive within a certain window of time, the "temporal binding window." A looser integration would mean a wider window. Panagiotidi, Overton and Stafford (2017) tested adults with high and low ADHD-like traits and found the opposite: a significantly *narrower* window in the high-trait group, with no shift in the point at which sights and sounds seemed simultaneous. A clinical study found audiovisual integration in adults with ADHD to be robust, varying with perceptual load (Schulze and colleagues, 2022). A 2025 study found that impulsivity did not affect how people weighed audiovisual evidence in decisions (Tuip and colleagues, 2025).
 
 What is well documented is that people with ADHD report more unusual sensory experiences. Questionnaire studies using the Sensory Profile find higher rates of both over-responsiveness and under-responsiveness to sensation in ADHD, in children and in adults (Ghanizadeh, 2011; Bijlenga and colleagues, 2017). These are self- and parent-reports, and they describe how sensation feels rather than how it is combined.
 
@@ -99,7 +99,7 @@ There was early support. Berk and Potts (1991) found that boys with ADHD used le
 
 ### What the newer evidence shows
 
-The newer evidence complicates the picture. Children with ADHD produce *more* private speech, much of it unrelated to the task (Corkum and colleagues, 2008). Preschoolers at risk for ADHD use more private speech, less tightly linked to how well they perform (Winsler and colleagues). In two large non-clinical samples of adults, higher ADHD-like traits were associated with *more* self-directed and inner speech, not less (Benfield and colleagues, 2025).
+The newer evidence complicates the picture. Children with ADHD produce *more* private speech, much of it unrelated to the task (Corkum and colleagues, 2008). Preschoolers at risk for ADHD use more private speech, less tightly linked to how well they perform (Winsler and colleagues, 2000; 2007). In two large non-clinical samples of adults, higher ADHD-like traits were associated with *more* self-directed and inner speech, not less (Benfield and colleagues, 2025).
 
 Inner speech in adults with diagnosed ADHD has barely been studied. When Alderson-Day and Fernyhough reviewed the field in 2015, they wrote that, to their knowledge, there had been no studies specifically of inner speech in ADHD.
 
@@ -155,7 +155,7 @@ This section is this paper's own synthesis. It describes a possibility the gain 
 
 **"Gain is just a new name for under-arousal theory."** In part, and the paper credits that lineage (Zentall; Sikström and Söderlund). What the syncrasis framework adds is placement: gain is one of five dimensions, and saying which dimension differs, and which do not, is more specific than saying arousal is low.
 
-**"ADHD already has better-established models: executive dysfunction, delay aversion."** It does, and this paper does not replace them. Executive-function and delay-aversion accounts, including Sonuga-Barke's dual-pathway model, describe how people with ADHD plan, inhibit and respond to waiting. Heterocrasis concerns a different level: the configuration of the senses those processes run on. A weak gain setting is compatible with, and may contribute to, both executive and motivational difficulties. The claim is narrower: of the five sensory dimensions, gain is where ADHD differs most clearly.
+**"ADHD already has better-established models: executive dysfunction, delay aversion."** It does, and this paper does not replace them. Executive-function and delay-aversion accounts, including Sonuga-Barke's dual-pathway model (2003), describe how people with ADHD plan, inhibit and respond to waiting. Heterocrasis concerns a different level: the configuration of the senses those processes run on. A weak gain setting is compatible with, and may contribute to, both executive and motivational difficulties. The claim is narrower: of the five sensory dimensions, gain is where ADHD differs most clearly.
 
 **"The noise effect is tiny."** It is small (g = 0.25) and not universal. Its value for this paper is less its size than its direction: the same noise that helps people with ADHD slightly impairs people without it. That reversal is what a difference in gain predicts.
 
@@ -177,47 +177,42 @@ Read this way, much that is described as deficit becomes a mismatch between a co
 
 The open questions are specific. Does interoception differ in ADHD when measured with discrimination tasks rather than counting? Does the benefit of noise follow the optimum that stochastic resonance implies, and does it depend on a person's baseline arousal? Is inner speech in adults with ADHD different in how it steers action, rather than in how much of it there is? And do people with ADHD use media to regulate their own gain, and does it help or overshoot? Each of these is a question about the configuration a person starts from, and how the media around them meet it.
 
-## References and verification status
+## References
 
-"Verified" means the source was checked during research for this series. "Check" means its details must be confirmed before submission.
+Each entry gives its DOI or address where it has one, and what was checked for this paper. **Text checked**: the words quoted were found word for word in a scanned or transcribed copy. **Opened**: the source was retrieved and consulted in the research behind the paper. **Abstract read**: the abstract was read and the paper's figures checked against it. **Record checked**: the authors, year, title and journal match the work's Crossref or Europe PMC record; it is cited for a finding it is known for. **Secondary**: taken from a reliable account of the work, not from the work itself. **Cited**: a book or report cited for its argument or data, not reopened for this paper.
 
-| Reference | Used in | Status |
+| Reference | Used in | Checked |
 | --- | --- | --- |
-| Aston-Jones & Cohen (2005), *Annual Review of Neuroscience* 28: 403–450 | §2 | Check |
-| Zentall & Zentall (1983), *Psychological Bulletin* 94: 446–471 | §2 | Check |
-| Sikström & Söderlund (2007), *Psychological Review* 114(4): 1047–1075 | §2 | Check |
-| Hauser, Fiore, Moutoussis & Dolan (2016), *Trends in Neurosciences* 39: 63–73 | §2 | Verified |
-| Nigg et al. (2024), *JAACAP* 63(8): 778–788 | §2, §8 | Verified |
-| Jostrup et al. (2024), *Journal of Attention Disorders* | §2 | Verified |
-| Hauser et al. (2014), *JAMA Psychiatry* 71(10): 1165–1173 | §2 | Verified |
-| Ziegler, Pedersen, Mowinckel & Biele (2016), PMID 27608958 | §2 | Check journal details |
-| Arnsten, stimulant effects on prefrontal signal-to-noise (e.g., 2009) | §2 | Check |
-| Bruton et al. (2025), *Psychophysiology* 62(2): e14750 | §3 | Verified |
-| Kutscheidt et al. (2019), *ADHD Attention Deficit and Hyperactivity Disorders* 11(4): 395–401 | §3 | Verified |
-| Wiersema & Godefroid (2018), *PLOS ONE* | §3 | Verified |
-| Göz Tebrizcik et al. (2025), *Biological Psychology* 202: 109161 | §3 | Verified |
-| Zamariola et al. (2018), *Biological Psychology* 137: 12–17 | §3 | Check |
-| Interoceptive performance and mental health symptoms (2026), *Nature Mental Health* | §3 | Verified; add authors |
-| Heartbeat-evoked potentials and ADHD symptoms in adolescents (PubMed 37775030) | §3 | Verified; add authors |
-| Panagiotidi, Overton & Stafford (2017), *Acta Psychologica* 181: 10–17 | §4 | Verified |
-| Schulze et al. (2022), *European Archives of Psychiatry and Clinical Neuroscience* | §4 | Verified |
-| Audiovisual decision-making and impulsivity (2025), *Scientific Reports* | §4 | Verified; add authors |
-| Ghanizadeh (2011), *Psychiatry Investigation* 8: 89–94; Bijlenga et al. (2017), *European Psychiatry* 43: 51–57 | §4 | Check |
-| Barkley (1997), *Psychological Bulletin* 121(1): 65–94 | §5 | Check |
-| Berk & Potts (1991), *Journal of Abnormal Child Psychology* 19(3): 357–377 | §5 | Verified |
-| Corkum et al. (2008), *Contemporary Educational Psychology* 33(1): 97–115 | §5 | Verified |
-| Winsler et al. (2000; 2007), private speech in children at risk for ADHD | §5 | Check |
-| Benfield et al. (2025), *British Journal of Psychology* | §5 | Verified |
-| Alderson-Day & Fernyhough (2015), *Psychological Bulletin* 141(5): 931–965 | §5 | Verified |
-| Shaw et al. (2014), *American Journal of Psychiatry* 171(3): 276–293 | §5 | Check |
-| Edel et al. (2010), *European Journal of Medical Research* 15(9): 403–409; Kiraz et al. (2021), *Turkish Journal of Psychiatry* 32(2): 109–117 | §5 | Verified |
-| Lieberman et al. (2007), *Psychological Science* 18(5): 421–428 | §5 | Check |
-| Ra et al. (2018), *JAMA* 320(3): 255–263 | §7 | Verified |
-| Beyens, Valkenburg & Piotrowski (2018), *PNAS* 115(40): 9875–9881 | §7 | Check |
-
-### Before submission
-
-- [ ] Confirm every "Check" reference and add page numbers, including Cortese et al. (2018) on comparative medication efficacy and Sonuga-Barke's dual-pathway model
-- [ ] Add author names for the three studies listed without them
-- [ ] Run exact-phrase searches for "heterocrasis" in Google Scholar and Google Books
-- [ ] Consider a reader with clinical ADHD expertise before submission
+| Aston-Jones & Cohen (2005), *Annual Review of Neuroscience* 28: 403–450, [doi:10.1146/annurev.neuro.28.061604.135709](https://doi.org/10.1146/annurev.neuro.28.061604.135709) | §2 | Record checked |
+| Zentall & Zentall (1983), *Psychological Bulletin* 94: 446–471, [doi:10.1037/0033-2909.94.3.446](https://doi.org/10.1037/0033-2909.94.3.446) | §2 | Record checked |
+| Sikström & Söderlund (2007), *Psychological Review* 114(4): 1047–1075, [doi:10.1037/0033-295x.114.4.1047](https://doi.org/10.1037/0033-295x.114.4.1047) | §2 | Record checked |
+| Hauser, Fiore, Moutoussis & Dolan (2016), *Trends in Neurosciences* 39: 63–73, [doi:10.1016/j.tins.2015.12.009](https://doi.org/10.1016/j.tins.2015.12.009) | §2 | Opened |
+| Nigg et al. (2024), *JAACAP* 63(8): 778–788, [doi:10.1016/j.jaac.2023.12.014](https://doi.org/10.1016/j.jaac.2023.12.014) | §2, §8 | Opened |
+| Jostrup et al. (2024), *Journal of Attention Disorders*, [doi:10.1177/10870547241273249](https://doi.org/10.1177/10870547241273249) | §2 | Opened |
+| Hauser et al. (2014), *JAMA Psychiatry* 71(10): 1165–1173, [doi:10.1001/jamapsychiatry.2014.1093](https://doi.org/10.1001/jamapsychiatry.2014.1093) | §2 | Opened |
+| Ziegler, Pedersen, Mowinckel & Biele (2016), PMID 27608958, [doi:10.1016/j.neubiorev.2016.09.002](https://doi.org/10.1016/j.neubiorev.2016.09.002) | §2 | Record checked |
+| Arnsten, A. F. T. (2009), ADHD and the prefrontal cortex, *Journal of Pediatrics* 154(5): I-S43, [doi:10.1016/j.jpeds.2009.01.018](https://doi.org/10.1016/j.jpeds.2009.01.018) | §2 | Record checked |
+| Bruton et al. (2025), *Psychophysiology* 62(2): e14750, [doi:10.1111/psyp.14750](https://doi.org/10.1111/psyp.14750) | §3 | Opened |
+| Kutscheidt et al. (2019), *ADHD Attention Deficit and Hyperactivity Disorders* 11(4): 395–401, [doi:10.1007/s12402-019-00299-3](https://doi.org/10.1007/s12402-019-00299-3) | §3 | Opened |
+| Wiersema & Godefroid (2018), *PLOS ONE*, [doi:10.1371/journal.pone.0205221](https://doi.org/10.1371/journal.pone.0205221) | §3 | Opened |
+| Göz Tebrizcik et al. (2025), *Biological Psychology* 202: 109161, [doi:10.1016/j.biopsycho.2025.109161](https://doi.org/10.1016/j.biopsycho.2025.109161) | §3 | Opened |
+| Zamariola et al. (2018), *Biological Psychology* 137: 12–17, [doi:10.1016/j.biopsycho.2018.06.006](https://doi.org/10.1016/j.biopsycho.2018.06.006) | §3 | Record checked |
+| Banellis, L., Nikolova, N., Ehmsen, J. F., Courtin, A. S., Vejlø, M., et al. (2026), Interoceptive performance is unrelated to mental health symptoms in a large multi-domain psychophysical investigation, *Nature Mental Health*, [doi:10.1038/s44220-026-00688-4](https://doi.org/10.1038/s44220-026-00688-4) | §3 | Record checked |
+| Rapp, L., Mai-Lippold, S. A., Georgiou, E., & Pollatos, O. (2023), Elevated EEG heartbeat-evoked potentials in adolescents with more ADHD symptoms, *Biological Psychology* 184: 108698, [doi:10.1016/j.biopsycho.2023.108698](https://doi.org/10.1016/j.biopsycho.2023.108698) | §3 | Record checked |
+| Panagiotidi, Overton & Stafford (2017), *Acta Psychologica* 181: 10–17, [doi:10.1016/j.actpsy.2017.10.001](https://doi.org/10.1016/j.actpsy.2017.10.001) | §4 | Opened |
+| Schulze et al. (2022), *European Archives of Psychiatry and Clinical Neuroscience*, [doi:10.1007/s00406-022-01401-z](https://doi.org/10.1007/s00406-022-01401-z) | §4 | Opened |
+| Tuip, R. R. M., Lorteije, J. A. M., Jansen, L. M. C., Dekkers, T. J., & Van Opstal, F. (2025), Audiovisual decision making and sensory evidence weighting is not affected by impulsivity, *Scientific Reports* 15: 40765, [doi:10.1038/s41598-025-24668-3](https://doi.org/10.1038/s41598-025-24668-3) | §4 | Abstract read |
+| Ghanizadeh (2011), *Psychiatry Investigation* 8: 89–94, [doi:10.4306/pi.2011.8.2.89](https://doi.org/10.4306/pi.2011.8.2.89); Bijlenga et al. (2017), *European Psychiatry* 43: 51–57, [doi:10.1016/j.eurpsy.2017.02.481](https://doi.org/10.1016/j.eurpsy.2017.02.481) | §4 | Record checked |
+| Barkley (1997), *Psychological Bulletin* 121(1): 65–94, [doi:10.1037/0033-2909.121.1.65](https://doi.org/10.1037/0033-2909.121.1.65) | §5 | Record checked |
+| Berk & Potts (1991), *Journal of Abnormal Child Psychology* 19(3): 357–377, [doi:10.1007/bf00911237](https://doi.org/10.1007/bf00911237) | §5 | Opened |
+| Corkum et al. (2008), *Contemporary Educational Psychology* 33(1): 97–115, [doi:10.1016/j.cedpsych.2006.12.003](https://doi.org/10.1016/j.cedpsych.2006.12.003) | §5 | Opened |
+| Winsler, A., Diaz, R. M., Atencio, D. J., McCarthy, E. M., & Chabay, L. A. (2000), Verbal self-regulation over time in preschool children at risk for attention and behavior problems, *Journal of Child Psychology and Psychiatry* 41(7): 875–886, [doi:10.1111/1469-7610.00675](https://doi.org/10.1111/1469-7610.00675); Winsler, A., Manfra, L., & Diaz, R. M. (2007), "Should I let them talk?": private speech and task performance among preschool children with and without behavior problems, *Early Childhood Research Quarterly* 22(2): 215–231, [doi:10.1016/j.ecresq.2007.01.001](https://doi.org/10.1016/j.ecresq.2007.01.001) | §5 | Record checked |
+| Benfield et al. (2025), *British Journal of Psychology*, [doi:10.1111/bjop.70027](https://doi.org/10.1111/bjop.70027) | §5 | Opened |
+| Alderson-Day & Fernyhough (2015), *Psychological Bulletin* 141(5): 931–965, [doi:10.1037/bul0000021](https://doi.org/10.1037/bul0000021) | §5 | Opened |
+| Shaw et al. (2014), *American Journal of Psychiatry* 171(3): 276–293, [doi:10.1176/appi.ajp.2013.13070966](https://doi.org/10.1176/appi.ajp.2013.13070966) | §5 | Record checked |
+| Edel et al. (2010), *European Journal of Medical Research* 15(9): 403–409, [doi:10.1186/2047-783x-15-9-403](https://doi.org/10.1186/2047-783x-15-9-403); Kiraz, Sertçelik & Erdoğan Taycan (2021), *Turkish Journal of Psychiatry* 32(2): 109–117, [doi:10.5080/u23775](https://doi.org/10.5080/u23775) | §5 | Opened |
+| Lieberman et al. (2007), *Psychological Science* 18(5): 421–428, [doi:10.1111/j.1467-9280.2007.01916.x](https://doi.org/10.1111/j.1467-9280.2007.01916.x) | §5 | Record checked |
+| Ra et al. (2018), *JAMA* 320(3): 255–263, [doi:10.1001/jama.2018.8931](https://doi.org/10.1001/jama.2018.8931) | §7 | Opened |
+| Beyens, Valkenburg & Piotrowski (2018), *PNAS* 115(40): 9875–9881, [doi:10.1073/pnas.1611611114](https://doi.org/10.1073/pnas.1611611114) | §7 | Record checked |
+| Cortese et al. (2018), Comparative efficacy and tolerability of medications for ADHD, *Lancet Psychiatry* 5(9): 727–738, [doi:10.1016/S2215-0366(18)30269-4](https://doi.org/10.1016/S2215-0366(18)30269-4) | §2 | Record checked |
+| Sonuga-Barke, E. J. S. (2003), The dual pathway model of AD/HD, *Neuroscience & Biobehavioral Reviews* 27(7): 593–604, [doi:10.1016/j.neubiorev.2003.08.005](https://doi.org/10.1016/j.neubiorev.2003.08.005) | §8 | Record checked |
