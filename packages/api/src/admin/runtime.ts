@@ -1906,6 +1906,38 @@ app.get("/finder", async (c) => {
   });
 });
 
+// POST /v1/admin/title {id, title} — set a document's title by hand, the way
+// Admin's title form does (the first rename keeps original_title; the title
+// counts as approved). For titles the pipeline got wrong whose original was a
+// file name, so "Put it back" would only restore the file name. One document
+// at a time, the operator's own uploads only.
+app.post("/title", async (c) => {
+  const { resolveOperatorId } = await import("../public/data.ts");
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  if (!userId) return c.json({ ok: false, error: "no operator user" }, 400);
+  const body = (await c.req.json().catch(() => ({}))) as { id?: unknown; title?: unknown };
+  const id = typeof body.id === "string" ? body.id : "";
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  if (!id || !title || title.length > 200)
+    return c.json({ ok: false, error: "needs id and a title of 1–200 characters" }, 400);
+  const before = await one<{ title: string }>(
+    c.env.DB,
+    "SELECT title FROM pieces WHERE id = ? AND user_id = ?",
+    [id, userId],
+  );
+  if (!before) return c.json({ ok: false, error: "not one of the operator's documents" }, 404);
+  const now = new Date().toISOString();
+  await run(
+    c.env.DB,
+    `UPDATE pieces
+        SET original_title = COALESCE(original_title, title), title = ?,
+            title_auto_at = NULL, title_approved_at = ?, updated_at = ?
+      WHERE id = ? AND user_id = ?`,
+    [title, now, now, id, userId],
+  );
+  return c.json({ ok: true, id, from: before.title, to: title });
+});
+
 /** One Workers AI call, raw: POST {model, input} → what came back (or the
  *  error, which for a model with a schema says what it expected). For
  *  learning a new model's shape from the live site, which the sandbox cannot
