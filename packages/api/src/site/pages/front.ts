@@ -1,12 +1,12 @@
 // / — the front page. docs/blackbox/README.md §Front; pages/Canopticon
 // Front.dc.html. Curated by the author: the McLuhan series as one numbered
-// card, three starting points, a hand-picked run of articles, three concepts,
+// card, the theories (live: every one is a deliberate act), three starting points, a hand-picked run of articles, three concepts,
 // the latest research and the topics. New articles do not appear here on
 // their own (author decision, 10 Oct) — the counts are live, the picks are not.
 
 import { AUTHOR } from "../author";
 import type { LibraryItem } from "../content/store";
-import { article, paper, term } from "../content/store";
+import { allTheories, article, paper, term } from "../content/store";
 import {
   latestResearch,
   listedArticles,
@@ -28,10 +28,10 @@ const START_HERE: Array<{ kind: "article" | "paper"; slug: string; title: string
     why: "The clearest example of what this site does: a pattern with no name, found in the research and named.",
   },
   {
-    kind: "article",
-    slug: "why-people-keep-scrolling",
-    title: "Why people keep scrolling",
-    why: "A popular explanation, checked against the evidence, and mostly wrong.",
+    kind: "paper",
+    slug: "why-temperature",
+    title: "Why Temperature",
+    why: "Why did McLuhan call media hot and cool? Read as regulation, the metaphor becomes a claim about learning.",
   },
   {
     kind: "paper",
@@ -84,6 +84,23 @@ function seriesCard(): string {
   const d1 = shortDate(first).split(" ")[0] ?? "";
   const span = first === last ? longDate(first) : `${d1}–${longDate(last)}`;
   return `<section aria-label="The McLuhan paper series" class="ser"><div class="ser-head"><div class="pills" style="margin-bottom:14px"><span class="pill lg" style="background:#e9dcf5;color:#5a2d82">Paper series</span><span class="pill lg" style="background:var(--card);color:#5a2d82">${series.length} papers · read in order or dip in</span></div><h2 class="ser-h">McLuhan said every medium changes the ratio among our senses. Seven papers take that literally.</h2><p class="ser-p">Six papers test it — from ADHD and typing to drugs and addiction — and the synthesis finds one configuration that media, drugs and illness all re-temper.</p></div><div>${rows}</div><p class="ser-foot">Each paper cites the published literature with numbered references · published ${esc(span)}</p></section>`;
+}
+
+/** Every theory, newest revision first: the publication's formal work, live
+ *  (there are few, and each one is a deliberate act of the author's). */
+function theoriesSection(): string {
+  const list = [...allTheories()].sort((a, b) =>
+    (b.revised ?? b.date).localeCompare(a.revised ?? a.date),
+  );
+  if (!list.length) return "";
+  const cards = list
+    .slice(0, 3)
+    .map((t) => {
+      const strong = t.propositions.filter((p) => p.grade === "Strong").length;
+      return `<a href="/theories/${esc(t.slug)}" class="card" style="align-items:flex-start">${pill("Theory", kindColours("Theory"))}<span class="tile-t">${esc(t.title)}</span><span class="tile-d">${esc(t.dek)}</span><span style="font-size:var(--t-xs);color:var(--muted)">${t.propositions.length} propositions · ${strong} strong · ${t.references.length} references</span></a>`;
+    })
+    .join("");
+  return `<section class="sec" aria-label="Theories"><div class="sec-h"><h2>Theories</h2></div><p style="margin:-6px 0 16px;color:var(--muted);max-width:720px">Named ideas stated formally: a claim, propositions graded by the evidence behind them, the primary studies they rest on, and what counts against them.</p><div class="grid3">${cards}</div><div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><a href="/theories" class="btn">All theories</a><a href="/lexicon" class="btn">Every coined term</a></div></section>`;
 }
 
 function startHere(): string {
@@ -184,6 +201,6 @@ export function renderFront(opts: { signedIn?: boolean } = {}): string {
     path: "/",
     signedIn: opts.signedIn ?? false,
     head: `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`,
-    body: `<h1 class="vh">canopticon — research, kept whole and written from</h1>${seriesCard()}${startHere()}${articlesList()}${namedHere()}${latest()}${checkable()}`,
+    body: `<h1 class="vh">canopticon — research, kept whole and written from</h1>${seriesCard()}${theoriesSection()}${startHere()}${articlesList()}${namedHere()}${latest()}${checkable()}`,
   });
 }

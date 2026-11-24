@@ -187,7 +187,7 @@ ${sections}
     description:
       "Every term coined at Canopticon: theories, the krasis family and the return of voice, each with its definition and the paper where it was first stated.",
     path: "/lexicon",
-    nav: "library",
+    nav: "lexicon",
     signedIn: opts.signedIn ?? false,
     head: `<link rel="alternate" type="text/markdown" href="/lexicon.md" />\n<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`,
     body,

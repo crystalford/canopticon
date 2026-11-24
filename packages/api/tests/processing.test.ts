@@ -56,7 +56,14 @@ vi.mock("../src/graph/lib/aeo-extract", () => ({
       findingsThrows--;
       throw new Error("model timed out");
     }
-    return { findings: 3, questions_new: 1, questions_merged: 0, killed: 1, model: "m" };
+    return {
+      findings: 3,
+      questions_new: 1,
+      questions_merged: 0,
+      killed: 1,
+      model: "m",
+      skipped: 0,
+    };
   },
 }));
 vi.mock("../src/graph/lib/lede", () => ({

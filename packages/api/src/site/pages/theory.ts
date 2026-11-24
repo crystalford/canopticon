@@ -328,7 +328,7 @@ export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): stri
     title: `${t.title}: a theory`,
     description: t.dek,
     path: `/theories/${t.slug}`,
-    nav: "library",
+    nav: "theories",
     progress: true,
     ogType: "article",
     mainClass: "long",
