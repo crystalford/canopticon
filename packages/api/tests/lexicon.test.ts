@@ -29,7 +29,12 @@ describe("the term standard", () => {
     const res = await get("/concepts/heterocrasis");
     expect(res.status).toBe(200);
     const html = await res.text();
-    for (const h of ["Where the word comes from", "Questions it answers", "Examples", "How it differs from existing terms"])
+    for (const h of [
+      "Where the word comes from",
+      "Questions it answers",
+      "Examples",
+      "How it differs from existing terms",
+    ])
       expect(html).toContain(h);
     expect(html).toContain("Pronounced <b>het-uh-ROK-ruh-sis</b>");
     expect(html).toContain('href="/lexicon#krasis"');
@@ -49,7 +54,9 @@ describe("the lexicon", () => {
     const html = await res.text();
     for (const id of ["theories", "krasis", "voice", "other"]) expect(html).toContain(`id="${id}"`);
     for (const t of terms()) expect(html).toContain(`href="${t.route}"`);
-    const set = ldOf(html)[0]["@graph"].find((x: { "@type": string }) => x["@type"] === "DefinedTermSet");
+    const set = ldOf(html)[0]["@graph"].find(
+      (x: { "@type": string }) => x["@type"] === "DefinedTermSet",
+    );
     expect(set["@id"]).toBe("https://canopticon.com/lexicon#set");
     expect(set.hasDefinedTerm.length).toBeGreaterThanOrEqual(terms().length + 3);
   });
@@ -57,7 +64,9 @@ describe("the lexicon", () => {
   it("has a Markdown twin, a sitemap entry and a line in llms.txt", async () => {
     const md = await (await get("/lexicon.md")).text();
     expect(md).toContain("# Lexicon");
-    expect(md).toContain("**[Sensory syncrasis](https://canopticon.com/concepts/sensory-syncrasis)**");
+    expect(md).toContain(
+      "**[Sensory syncrasis](https://canopticon.com/concepts/sensory-syncrasis)**",
+    );
     expect(await (await get("/sitemap.xml")).text()).toContain("https://canopticon.com/lexicon<");
     expect(await (await get("/llms.txt")).text()).toContain("https://canopticon.com/lexicon");
   });
