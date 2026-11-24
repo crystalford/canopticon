@@ -4,7 +4,14 @@
 
 import { AUTHOR } from "../author";
 import type { LibraryItem } from "../content/store";
-import { type Idea, libraryItems, problems, researchDoc, terms } from "../content/store";
+import {
+  type Idea,
+  ideaSourcePublic,
+  libraryItems,
+  problems,
+  researchDoc,
+  terms,
+} from "../content/store";
 import { esc, pill, shell } from "../layout";
 import { kindColours } from "../theme";
 
@@ -17,7 +24,7 @@ function entry(r: LibraryItem): Idea | null {
 /** "from <the document it came from>": the register's own words when it has
  *  them, otherwise the source document's title up to its colon. */
 function fromLine(it: Idea | null): string {
-  if (!it) return "";
+  if (!it || !ideaSourcePublic(it)) return "";
   if (it.from) return it.from;
   const id = /^\/p\/([^#?]+)/.exec(it.docRoute ?? "")?.[1];
   const title = id ? researchDoc(id)?.title : undefined;

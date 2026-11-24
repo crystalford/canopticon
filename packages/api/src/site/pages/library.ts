@@ -357,18 +357,23 @@ export function renderLibrary(
 
   const body = `<div><h1 class="h-page">${esc(shelf?.title ?? "Library")}</h1></div><p class="lede">${shelf?.lede ?? "Everything in one place. Articles argue from the research; papers are longer original work; research documents are kept whole; concepts and open problems are what the research turned up."}</p><section style="margin-top:28px"><form class="lib-search" role="search" method="get" action="${shelf?.base ?? "/library"}"><span aria-hidden="true">⌕</span>${hidden2}<input type="search" name="q" value="${esc(query.q ?? "")}" placeholder="${esc(shelf?.searchLabel ?? "Filter the library by title, summary or topic")}" aria-label="${esc(shelf ? `Filter ${shelf.title.toLowerCase()}` : "Filter the library")}" data-search-input /></form><div role="tablist" aria-label="Kind" class="seg">${tabs}</div><div class="tchips">${topicChips}</div>${members ? `<div class="mchips">${members}</div>` : ""}${subs}${hubTopic ? `<a href="/topics/${esc(topicSlug(topic))}" class="btn hub-link">Open the ${esc(topic)} topic page</a>` : ""}${sortBar}<div class="lib"${sort?.id === "useful" ? " data-useful-sort" : ""}><div class="lib-head"><span>${list.length} ${list.length === 1 ? "item" : "items"}</span><span>${groupId === "Figure" ? "Figure" : "Added"}</span></div>${note}${list.length ? rows : `<div class="lib-empty">Nothing matches. Try another topic or clear the filter.</div>`}${pager}</div></section>`;
 
+  // A shelf describes itself: its lede up to the first link, as plain text.
+  const description = shelf
+    ? shelf.lede
+        .split("<a")[0]
+        ?.replace(/<[^>]+>/g, "")
+        .trim() || shelf.title
+    : "Articles, papers, research documents, concepts and open problems by Chris Telford.";
   const ld = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: "Canopticon library",
-    description:
-      "Articles, papers, research documents, concepts and open problems by Chris Telford.",
+    name: shelf ? `Canopticon ${shelf.title.toLowerCase()}` : "Canopticon library",
+    description,
     author: AUTHOR,
   };
   return shell({
     title: shelf?.title ?? "Library",
-    description:
-      "Articles, papers, research documents, concepts and open problems by Chris Telford.",
+    description,
     path: shelf?.base ?? "/library",
     nav: "library",
     signedIn,

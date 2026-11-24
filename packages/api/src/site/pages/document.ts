@@ -6,7 +6,8 @@
 
 import { AUTHOR } from "../author";
 import type { AnsweredElsewhere, MeasuredElsewhere } from "../content/store";
-import { esc, linkPill, pill, shell } from "../layout";
+import { publicResearch } from "../content/store";
+import { cutTitle, esc, linkPill, pill, searchTitle, shell } from "../layout";
 import { type InlineLink, spliceLinks } from "../links";
 import { documentHtml, plain } from "../md";
 import { kindColours, topicColours, topicSlug } from "../theme";
@@ -132,6 +133,19 @@ function elsewhere(r?: { answered: AnsweredElsewhere[]; measured: MeasuredElsewh
   return `<div class="ev"><section class="ev-sec" aria-labelledby="ev-elsewhere"><h2 id="ev-elsewhere" class="ev-h">Elsewhere in the record</h2><p class="ew-note">Found by the words they share, not by a judgement that they agree.</p>${answered}${measured}</section></div>`;
 }
 
+/** The first paragraph of prose in a body: what a result shows when the
+ *  document has no summary block. Headings, lists, tables, quotations, rules
+ *  and one-line labels ("Research brief · …") are passed over. */
+export function firstProse(body: string): string {
+  for (const block of body.split(/\n\s*\n/)) {
+    const b = block.trim();
+    if (!b || /^(#|[-*+]\s|\d+\.\s|\||>|---|```|<)/.test(b)) continue;
+    const text = plain(b).replace(/\s+/g, " ").trim();
+    if (text.length >= 80) return text;
+  }
+  return "";
+}
+
 export function renderDocument(
   d: DocView,
   /** readIt: offer Read it; with the draft of a read already made, open it. */
@@ -238,9 +252,18 @@ export function renderDocument(
     about: d.topic,
     isAccessibleForFree: true,
   };
+  // Two documents can share the part before their colon ("The Medium Becomes
+  // the Ground: …"); then the result keeps more of the title, so they differ.
+  const short = searchTitle(d.title);
+  const clash = publicResearch().some((o) => o.id !== d.id && searchTitle(o.title) === short);
   return shell({
-    title: d.title,
-    description: plain(summary).slice(0, 300) || `${d.kind} · ${d.topic}`,
+    title: clash ? cutTitle(d.title) : d.title,
+    description:
+      plain(summary)
+        .replace(/^\s*[-*+]\s+/, "")
+        .slice(0, 300) ||
+      firstProse(rest).slice(0, 300) ||
+      `${d.kind} · ${d.topic}`,
     path: `/p/${d.id}`,
     nav: "library",
     progress: true,

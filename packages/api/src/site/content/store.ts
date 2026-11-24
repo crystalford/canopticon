@@ -818,6 +818,12 @@ export const terms = (): Idea[] =>
   ENTRIES.terms.length ? [...STORE.terms, ...ENTRIES.terms] : STORE.terms;
 export const problems = (): Idea[] =>
   ENTRIES.problems.length ? [...STORE.problems, ...ENTRIES.problems] : STORE.problems;
+/** Whether an idea's source document may be named and linked publicly: not
+ *  when it is a held document (stored, never served — and never pointed at). */
+export function ideaSourcePublic(it: Pick<Idea, "docRoute">): boolean {
+  const id = /^\/p\/([^/#?]+)/.exec(it.docRoute ?? "")?.[1];
+  return !id || STORE.research[id]?.visibility !== "held";
+}
 export const term = (id: string): Idea | null => terms().find((t) => t.id === id) ?? null;
 export const problem = (id: string): Idea | null => problems().find((t) => t.id === id) ?? null;
 

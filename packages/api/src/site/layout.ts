@@ -70,6 +70,13 @@ export function searchTitle(t: string): string {
   if (t.length <= 60) return t;
   const head = t.split(/:\s/)[0] ?? t;
   if (head.length >= 15 && head.length <= 60) return head;
+  return cutTitle(t);
+}
+
+/** A long title cut at a word, colon and all: for a page whose short form
+ *  (the part before the colon) another page already uses. */
+export function cutTitle(t: string): string {
+  if (t.length <= 60) return t;
   return `${t.slice(0, 58).replace(/\s+\S*$/, "")}…`;
 }
 
