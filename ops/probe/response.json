@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-11-24T09:48:23Z",
-  "run_id": "45368647407",
+  "requested_at": "2026-11-24T09:48:38Z",
+  "run_id": "45368691310",
   "method": "POST",
   "path": "/v1/admin/title",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"id\": \"57cd5d89-afec-4125-a44f-5b29458a5444\",\n  \"from\": \"Compiled: May 11, 2026\",\n  \"to\": \"The Carney-Era PCO/Pollara Contract and the Data Sciences/Nadeau Personnel Pattern\"\n}"
+  "body": "{\n  \"ok\": true,\n  \"id\": \"c417eded-4932-4ac4-ae18-6bea0386a0e6\",\n  \"from\": \"Gary Anandasangaree, Minister of Public Safety (Liberal, Scarborough—Rouge Park)\",\n  \"to\": \"Bill C-22 (Lawful Access Act, 2026): Dossier\"\n}"
 }
