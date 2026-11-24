@@ -14,6 +14,8 @@ based_on:
 related:
   - route: /articles/self-extinguishing-maintenance
     label: "Article: the cycle and the mistake behind it"
+  - route: /articles/why-people-stop-taking-medicine-that-works
+    label: "Article: why people stop taking medicine that works"
   - route: /theories/cognitive-ectothermy
     label: "Theory: Cognitive ectothermy (why understanding a routine helps it last)"
   - route: /theories/ground-blindness

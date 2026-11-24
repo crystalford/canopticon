@@ -79,3 +79,14 @@ describe("one page per term", () => {
     expect(res.headers.get("location")).toBe("/theories/self-extinguishing-maintenance");
   });
 });
+
+describe("links within the site", () => {
+  it("an article's [text](/path) link renders in place; //host and javascript: do not", async () => {
+    const { inline } = await import("../src/site/md");
+    expect(inline("[the theory](/theories/ground-blindness)")).toBe(
+      '<a href="/theories/ground-blindness" class="ulink">the theory</a>',
+    );
+    expect(inline("[x](//evil.example)")).not.toContain("<a");
+    expect(inline("[x](javascript:alert(1))")).not.toContain("<a");
+  });
+});

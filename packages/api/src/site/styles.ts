@@ -488,6 +488,9 @@ a.row.rrow { grid-template-columns: 56px minmax(0, 1fr); gap: 4px 16px; }
 .lx-t tr:last-child td { border-bottom: 0; }
 .lx-page .tbl-wrap { margin: 0 0 18px; }
 .lx-foot { margin-top: 40px; color: var(--muted); font-size: var(--t-sm); }
+/* Long addresses (DOIs in a Sources list) wrap instead of widening the page. */
+.prose li, .prose p { overflow-wrap: anywhere; }
+a.bare { color: inherit; border-bottom: 1px solid var(--rule); }
 .term-say { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0 0 22px; font-size: var(--t-sm); color: var(--muted); }
 .term-say b { font-weight: 600; color: var(--body); }
 .term-sec { margin-top: 36px; }

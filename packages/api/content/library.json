@@ -31,6 +31,21 @@
  },
  {
   "kind": "Article",
+  "topic": "Health & self-care",
+  "date": "2026-11-23",
+  "dateLabel": "23 Nov",
+  "title": "Why people stop taking medicine that works",
+  "dek": "About half of people prescribed a long-term medicine stop within a year or two, and the most common reason they give is that they feel better. For a condition whose cause is still there, feeling better means the medicine is working, and says nothing about whether it can stop.",
+  "stat": "11 sources · 6 min",
+  "min": 6,
+  "quotes": 0,
+  "sources": 11,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/why-people-stop-taking-medicine-that-works"
+ },
+ {
+  "kind": "Article",
   "topic": "McLuhan & media theory",
   "date": "2026-11-22",
   "dateLabel": "22 Nov",

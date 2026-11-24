@@ -39,17 +39,28 @@ export function passageHref(docId: string, passage: string): string {
   return `/p/${encodeURIComponent(docId)}#q=${enc}:~:text=${enc}`;
 }
 
-/** Inline Markdown: escapes first, then code, bold, italic, http links. */
+/** Inline Markdown: escapes first, then code, bold, italic, http links, and
+ *  links within the site ("/theories/…"), which open in place and carry no
+ *  nofollow: they are the publication pointing at itself. */
 export function inline(s: string): string {
-  return esc(s)
-    .replace(/\\([*_[\]()#`~>|-])/g, "$1")
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>")
-    .replace(
-      /\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener nofollow">$1</a>',
-    );
+  return (
+    esc(s)
+      .replace(/\\([*_[\]()#`~>|-])/g, "$1")
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>")
+      .replace(
+        /\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener nofollow">$1</a>',
+      )
+      .replace(/\[([^\]]+)\]\((\/[a-z0-9][^)\s]*)\)/g, '<a href="$2" class="ulink">$1</a>')
+      // A bare address (a DOI in a Sources list) becomes a link to itself; one
+      // already inside a link (after `"` or `>`) is left alone.
+      .replace(
+        /(^|[\s(])(https?:\/\/[^\s<"]*[^\s<".,;:)])/g,
+        '$1<a href="$2" class="bare" target="_blank" rel="noopener nofollow">$2</a>',
+      )
+  );
 }
 
 /** Plain text of an inline Markdown string — for TOC labels and summaries. */
