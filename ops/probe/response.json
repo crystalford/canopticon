@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-11-24T09:48:04Z",
-  "run_id": "45368600409",
+  "requested_at": "2026-11-24T09:48:23Z",
+  "run_id": "45368647407",
   "method": "POST",
   "path": "/v1/admin/title",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"id\": \"4f9b2126-044c-4074-88f4-b6a933794bca\",\n  \"from\": \"Carney as central banker / author\",\n  \"to\": \"Mark Carney's Mast: The Intellectual Case Against the Canada Strong Fund, Built by Carney Himself\"\n}"
+  "body": "{\n  \"ok\": true,\n  \"id\": \"57cd5d89-afec-4125-a44f-5b29458a5444\",\n  \"from\": \"Compiled: May 11, 2026\",\n  \"to\": \"The Carney-Era PCO/Pollara Contract and the Data Sciences/Nadeau Personnel Pattern\"\n}"
 }
