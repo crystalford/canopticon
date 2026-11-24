@@ -10,6 +10,8 @@ coined: "Chris Telford, Canopticon, 22 November 2026, in the working paper Why T
 related:
   - route: /articles/guess-before-you-look
     label: "Article: Guess before you look (the theory for general readers)"
+  - route: /articles/does-talking-to-ai-change-how-you-think
+    label: "Article: Does talking to AI change how you think? (who explains)"
   - route: /articles/why-temperature
     label: "Paper: Why Temperature"
   - route: /theories/self-extinguishing-maintenance

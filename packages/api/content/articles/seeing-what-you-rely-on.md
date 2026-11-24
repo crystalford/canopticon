@@ -52,7 +52,7 @@ The question "is this good for me?" is usually asked about things a person alrea
 1. Rogers, P. J., Heatherley, S. V., Mullings, E. L., & Smith, J. E. (2013). Faster but not smarter: effects of caffeine and caffeine withdrawal on alertness and performance. *Psychopharmacology*, 226(2), 229–240. https://doi.org/10.1007/s00213-012-2889-4
 2. James, J. E., & Rogers, P. J. (2005). Effects of caffeine on performance and mood: withdrawal reversal is the most plausible explanation. *Psychopharmacology*, 182(1), 1–8. https://doi.org/10.1007/s00213-005-0084-6
 3. Allcott, H., Braghieri, L., Eichmeyer, S., & Gentzkow, M. (2020). The welfare effects of social media. *American Economic Review*, 110(3), 629–676. https://doi.org/10.1257/aer.20190658
-4. Bastani, H., et al. (2025). Generative AI without guardrails can harm learning: evidence from high school mathematics. *PNAS*. https://doi.org/10.1073/pnas.2422633122
+4. Bastani, H., et al. (2025). Generative AI without guardrails can harm learning: evidence from high school mathematics. *PNAS*, 122(26), e2422633122. https://doi.org/10.1073/pnas.2422633122
 5. Dahmani, L., & Bohbot, V. D. (2020). Habitual use of GPS negatively impacts spatial memory during self-guided navigation. *Scientific Reports*, 10, 6310. https://doi.org/10.1038/s41598-020-62877-0
 6. Rankin, C. H., et al. (2009). Habituation revisited: an updated and revised description of the behavioral characteristics of habituation. *Neurobiology of Learning and Memory*, 92(2), 135–138. https://doi.org/10.1016/j.nlm.2008.09.012
 7. Koob, G. F., & Le Moal, M. (2001). Drug addiction, dysregulation of reward, and allostasis. *Neuropsychopharmacology*, 24(2), 97–129. https://doi.org/10.1016/S0893-133X(00)00195-0

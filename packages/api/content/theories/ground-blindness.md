@@ -10,6 +10,8 @@ coined: "Chris Telford, Canopticon, 22 November 2026"
 related:
   - route: /articles/seeing-what-you-rely-on
     label: "Article: Seeing what you rely on (the theory for general readers)"
+  - route: /articles/why-you-cant-see-your-own-addiction
+    label: "Article: Why you can't see your own addiction (the unseen baseline)"
   - route: /theories/self-extinguishing-maintenance
     label: "Theory: Self-extinguishing maintenance (the routine that is invisible while it works)"
   - route: /theories/cognitive-ectothermy

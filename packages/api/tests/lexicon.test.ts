@@ -90,3 +90,12 @@ describe("links within the site", () => {
     expect(inline("[x](javascript:alert(1))")).not.toContain("<a");
   });
 });
+
+describe("essays on the published literature", () => {
+  it("carry no own-words underline when nothing is quoted from the record", async () => {
+    const html = await (await get("/articles/why-people-stop-taking-medicine-that-works")).text();
+    expect(html).not.toContain('class="own"');
+    const quoted = await (await get("/articles/self-extinguishing-maintenance")).text();
+    expect(quoted).toContain('class="own"');
+  });
+});

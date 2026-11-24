@@ -192,6 +192,10 @@ export interface ArticleContext {
   docTitle: (id: string) => string | null;
   /** Set only by the workspace preview: false marks the quote as failing. */
   quoteOk?: (doc: string, text: string) => boolean;
+  /** Set by articleHtml when the article quotes no record document: with
+   *  nothing quoted there is nothing to tell the author's words apart from,
+   *  so they carry no underline (essays on the published literature). */
+  noMarks?: boolean;
 }
 
 const BAD_TITLE = "Not found word for word in the source";
@@ -210,7 +214,9 @@ export function articleInline(s: string, ctx: ArticleContext, own = true): strin
     if (!t) return;
     const h = inline(t);
     parts.push(
-      own && /[A-Za-z0-9]/.test(t) ? `<span class="own" title="${OWN_TITLE}">${h}</span>` : h,
+      own && !ctx.noMarks && /[A-Za-z0-9]/.test(t)
+        ? `<span class="own" title="${OWN_TITLE}">${h}</span>`
+        : h,
     );
   };
   for (const m of s.matchAll(re)) {
@@ -311,7 +317,8 @@ function figure(kind: string, attrs: string, lines: string[], ctx: ArticleContex
 }
 
 /** An article body → HTML and its section heads (#e-N). */
-export function articleHtml(src: string, ctx: ArticleContext): { html: string; heads: Head[] } {
+export function articleHtml(src: string, ctxIn: ArticleContext): { html: string; heads: Head[] } {
+  const ctx: ArticleContext = /<q\s|\]\(doc:/.test(src) ? ctxIn : { ...ctxIn, noMarks: true };
   const lines = src.split("\n");
   const out: string[] = [];
   const heads: Head[] = [];
