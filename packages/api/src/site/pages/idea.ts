@@ -8,6 +8,7 @@ import type { Idea } from "../content/store";
 import {
   article as articleBySlug,
   conceptUses,
+  ideaSourcePublic,
   libraryItems,
   paper as paperBySlug,
   problems,
@@ -57,9 +58,12 @@ export function renderIdea(
   // A withdrawn article is linked from nowhere; name the document instead.
   const artSlug = /^\/articles\/([^/#?]+)/.exec(it.artRoute ?? "")?.[1];
   const artLive = Boolean(it.artRoute) && !(artSlug && articleBySlug(artSlug)?.withdrawn);
+  // A held document is never linked or named from a public page: the entry
+  // stands without its source rather than pointing at one that is not served.
+  const docLive = Boolean(it.docRoute) && ideaSourcePublic(it);
   const source = artLive
     ? `<a href="${esc(it.artRoute)}" class="meta-link">${pill(it.artKind ?? "Article", kindColours(it.artKind ?? "Article"))}<span class="t">${esc(it.artTitle ?? "")}</span></a>`
-    : it.docRoute
+    : docLive
       ? `<a href="${esc(it.docRoute)}" class="meta-link">${pill("Research", kindColours("Research"))}<span class="t">${esc(it.from || "The research")}</span></a>`
       : "";
   const citeTitle = /[?!.]$/.test(it.title) ? it.title : `${it.title}.`;
@@ -173,7 +177,10 @@ export function renderIdea(
         author: AUTHOR,
       };
   return shell({
-    title: it.title,
+    // A coined term's page and the paper that coined it would otherwise share
+    // one <title> ("Heterocrasis") and compete for the one query that matters.
+    // This page answers what the word means; the paper keeps the name.
+    title: full ? `${it.title}: meaning and origin` : it.title,
     description: full ? (it.definition ?? it.body) : it.body,
     path: route,
     nav: "library",

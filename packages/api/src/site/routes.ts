@@ -932,7 +932,7 @@ function markdownTwin(
     "---",
     "",
   ].join("\n");
-  return new Response(fm + d.body.replace(/^---[\s\S]*?---\s*/, ""), {
+  return new Response(fm + d.body.replace(/^\uFEFF?\s*---\r?\n[\s\S]*?\r?\n---\s*/, ""), {
     headers: {
       "content-type": "text/markdown; charset=utf-8",
       "cache-control": "public, max-age=300",
@@ -983,7 +983,9 @@ async function uploadedDoc(env: Env, slug: string): Promise<DocView | null> {
 app.get("/p/:id", async (c, next) => {
   const raw = c.req.param("id");
   if (raw.endsWith(".md")) {
-    const d = researchDoc(raw.slice(0, -3));
+    // Uploads made after the handoff too: their stored body often opens with
+    // its own front matter, which the twin replaces rather than repeats.
+    const d = researchDoc(raw.slice(0, -3)) ?? (await uploadedDoc(c.env, raw.slice(0, -3)));
     return d ? markdownTwin(d, `/p/${d.id}`) : next();
   }
   if (raw.endsWith(".json")) {
