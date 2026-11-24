@@ -12,7 +12,10 @@ export function renderStatic(
   p: StaticPage,
   opts: { signedIn?: boolean; head?: string } = {},
 ): string {
-  const body = p.body.replace(/\{\{library_count\}\}/g, String(libraryItems().length));
+  const body = p.body.replace(
+    /\{\{library_count\}\}/g,
+    String(libraryItems().filter((r) => r.shelf !== "investigation").length),
+  );
   return shell({
     title: p.title,
     description: p.description,

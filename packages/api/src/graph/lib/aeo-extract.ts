@@ -100,6 +100,49 @@ export interface AeoStats {
   killed: number;
   /** Which model actually ran, so the caller can report it back. */
   model: string;
+  /** Parts of the document whose call timed out even when halved, skipped. */
+  skipped: number;
+}
+
+const timedOut = (e: unknown) => /exceeded \d+ms/.test(String((e as Error)?.message ?? e));
+
+/**
+ * Reads each chunk; a chunk whose call times out is read again as two halves,
+ * each its own call, and a half that still times out is skipped and counted.
+ * Any other error is thrown at once. If nothing could be read at all, the
+ * last timeout is thrown so the step fails where Retry can resume it.
+ */
+export async function readInHalves<T>(
+  chunks: string[],
+  read: (text: string, key: string) => Promise<T>,
+): Promise<{ units: Array<{ chunk: string; parsed: T }>; skipped: number }> {
+  const units: Array<{ chunk: string; parsed: T }> = [];
+  let skipped = 0;
+  let lastError: unknown = null;
+  for (const [i, whole] of chunks.entries()) {
+    try {
+      units.push({ chunk: whole, parsed: await read(whole, String(i)) });
+      continue;
+    } catch (e) {
+      if (!timedOut(e)) throw e;
+      lastError = e;
+    }
+    const halves = chunkText(whole, {
+      maxChars: Math.ceil(whole.length / 2) + 400,
+      overlapChars: 400,
+    }).slice(0, 3);
+    for (const [j, half] of halves.entries()) {
+      try {
+        units.push({ chunk: half, parsed: await read(half, `${i}.${j}`) });
+      } catch (e) {
+        if (!timedOut(e)) throw e;
+        lastError = e;
+        skipped++;
+      }
+    }
+  }
+  if (!units.length && lastError) throw lastError;
+  return { units, skipped };
 }
 
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
@@ -167,7 +210,7 @@ export async function extractAeoAtoms(
     [pieceId, userId],
   );
   if (!piece?.body_md)
-    return { findings: 0, questions_new: 0, questions_merged: 0, killed: 0, model };
+    return { findings: 0, questions_new: 0, questions_merged: 0, killed: 0, model, skipped: 0 };
 
   // The source node this piece's quotes hang from. The typed extractor makes
   // one per piece; reuse it so /q/ receipts resolve back to the document
@@ -186,9 +229,21 @@ export async function extractAeoAtoms(
   await clearAeoAtoms(env, userId, pieceId);
 
   const chunks = chunkText(piece.body_md).slice(0, MAX_CHUNKS);
-  const stats: AeoStats = { findings: 0, questions_new: 0, questions_merged: 0, killed: 0, model };
+  const stats: AeoStats = {
+    findings: 0,
+    questions_new: 0,
+    questions_merged: 0,
+    killed: 0,
+    model,
+    skipped: 0,
+  };
 
-  for (const [i, chunk] of chunks.entries()) {
+  // Reuses the `bulk_extraction` role deliberately (see below). A chunk whose
+  // call runs past the ceiling is retried once as two halves, each its own
+  // shorter call; a half that still times out is skipped and counted, so one
+  // slow call no longer fails the whole document (11 documents failed here
+  // at once, 2026-11-23). Only if nothing could be read does the step fail.
+  const read = async (text: string, key: string) => {
     // Reuses the `bulk_extraction` role deliberately, and a bigger model is
     // NOT an upgrade here. Measured live 2026-09-15 via /v1/admin/debug-model
     // on an AEO-shaped prompt at this exact max_tokens:
@@ -210,16 +265,22 @@ export async function extractAeoAtoms(
     const out = await callRole(env, "bulk_extraction", {
       userId,
       system: PROMPT,
-      messages: [{ role: "user", content: [{ type: "text", text: chunk }] }],
+      messages: [{ role: "user", content: [{ type: "text", text }] }],
       max_tokens: MAX_TOKENS,
       // Keyed on the model too: re-running the same piece under a different
       // model is a DIFFERENT call, and sharing a key would serve the first
       // model's cached answer for the second — silently comparing a model
       // against itself, which is the one way this toggle could lie.
-      idempotency_key: `${pieceId}:aeo:${model}:${i}`,
+      idempotency_key: `${pieceId}:aeo:${model}:${key}`,
       model,
     });
-    const { findings, questions } = parse(out.text);
+    return parse(out.text);
+  };
+  const { units, skipped } = await readInHalves(chunks, read);
+  stats.skipped = skipped;
+
+  for (const { chunk, parsed } of units) {
+    const { findings, questions } = parsed;
 
     for (const f of findings) {
       const figure = str(f.figure);

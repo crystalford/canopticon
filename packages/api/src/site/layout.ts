@@ -17,7 +17,7 @@ export interface ShellArgs {
   /** Path for the canonical link and og:url, e.g. "/library". */
   path: string;
   /** Which primary nav item is current. */
-  nav?: "library" | "about" | "search";
+  nav?: "library" | "theories" | "lexicon" | "about" | "search";
   /** Long pages carry the 2px reading-progress bar. */
   progress?: boolean;
   /** Signed in: shows the Admin pill (with its waiting count when known). */
@@ -138,7 +138,7 @@ function header(a: ShellArgs): string {
         waiting ? `<span class="admin-n" title="${waiting} things waiting">${waiting}</span>` : ""
       }</a>`
     : "";
-  return `<div class="hd${a.app ? " wide" : ""}"><header class="hd-in"><a href="/" class="wm">canopticon</a><nav aria-label="Primary" class="nav"><a href="/library"${cur("library")}>Library</a><a href="/about"${cur("about")}>About</a></nav><a href="/search" class="hd-search"${cur("search")}>Search</a>${admin}</header>${
+  return `<div class="hd${a.app ? " wide" : ""}"><header class="hd-in"><a href="/" class="wm">canopticon</a><nav aria-label="Primary" class="nav"><a href="/library"${cur("library")}>Library</a><a href="/theories"${cur("theories")}>Theories</a><a href="/lexicon"${cur("lexicon")}>Lexicon</a><a href="/about"${cur("about")}>About</a></nav><a href="/search" class="hd-search"${cur("search")}>Search</a>${admin}</header>${
     a.progress ? '<div class="rp"><div id="read-progress"></div></div>' : ""
   }</div>`;
 }

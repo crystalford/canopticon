@@ -1234,16 +1234,19 @@ a.xl.concept { border-bottom-color: var(--brick); }
   .seg::-webkit-scrollbar { display: none; }
   .ft-nav { grid-template-columns: repeat(3, max-content); gap: 8px 24px; }
 }
-/* A phone header holds the wordmark, the two links, a search icon and (signed
-   in) the Admin pill on one line. The word "Search" stays for screen readers. */
+/* A phone header holds the wordmark, the links, a search icon and (signed
+   in) the Admin pill on one line. The word "Search" stays for screen readers.
+   About leaves the bar on phones (it is in the footer) so Library, Theories
+   and Lexicon fit beside the search icon. */
 @media (max-width: 520px) {
-  .hd-in { flex-wrap: nowrap; gap: 14px; padding: 8px 14px; }
-  .nav { gap: 14px; }
+  .hd-in { flex-wrap: nowrap; gap: 12px; padding: 8px 14px; }
+  .nav { gap: 12px; }
+  .nav a[href="/about"] { display: none; }
   .hd-search { min-width: 0; width: 34px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
   .admin { padding: 0 9px; }
 }
 @media (max-width: 360px) {
-  .nav a[href="/about"] { display: none; }
+  .nav a[href="/lexicon"] { display: none; }
 }
 @media print {
   .hd, .ft, .rail, .drail, .panel.email { display: none !important; }

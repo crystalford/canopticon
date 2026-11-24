@@ -83,7 +83,7 @@ ${rows}
     description:
       "Named ideas stated formally: a claim, propositions graded by their evidence, primary references, measures, and what counts against each.",
     path: "/theories",
-    nav: "library",
+    nav: "theories",
     signedIn: opts.signedIn ?? false,
     head: `<link rel="alternate" type="text/markdown" href="/theories.md" />\n<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`,
     body,

@@ -346,7 +346,7 @@ export async function advanceProcessing(
       }
       case "findings": {
         const s = await extractAeoAtoms(env, userId, candidate.piece_id);
-        note = `${s.findings} figure${s.findings === 1 ? "" : "s"}, ${s.questions_new + s.questions_merged} question${s.questions_new + s.questions_merged === 1 ? "" : "s"}${s.killed ? `, ${s.killed} span${s.killed === 1 ? "" : "s"} discarded` : ""}`;
+        note = `${s.findings} figure${s.findings === 1 ? "" : "s"}, ${s.questions_new + s.questions_merged} question${s.questions_new + s.questions_merged === 1 ? "" : "s"}${s.killed ? `, ${s.killed} span${s.killed === 1 ? "" : "s"} discarded` : ""}${s.skipped ? `, ${s.skipped} part${s.skipped === 1 ? "" : "s"} too slow to read` : ""}`;
         await moveTo(env, candidate, "passage", s.model);
         break;
       }
