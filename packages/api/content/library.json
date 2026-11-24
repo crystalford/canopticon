@@ -4,6 +4,16 @@
   "topic": "McLuhan & media theory",
   "date": "2026-11-22",
   "dateLabel": "22 Nov",
+  "title": "Ground blindness",
+  "dek": "What works, or surrounds you, stops being seen while it is there. Only taking it away shows what it was doing, and what removal shows can be the opposite of what it seemed to do.",
+  "stat": "7 propositions · 2 strong",
+  "route": "/theories/ground-blindness"
+ },
+ {
+  "kind": "Theory",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-22",
+  "dateLabel": "22 Nov",
   "title": "Cognitive ectothermy",
   "dek": "Relying on the environment to supply understanding, as an ectotherm relies on outside heat: what a medium hands over before you have predicted it is not learned, and the capacity it replaces goes untrained.",
   "stat": "6 propositions · 2 strong",
@@ -18,6 +28,96 @@
   "dek": "A routine that works removes the symptom that cued and rewarded it, so the routine stops, and a cause that never went away brings the problem back.",
   "stat": "8 propositions · 2 strong",
   "route": "/theories/self-extinguishing-maintenance"
+ },
+ {
+  "kind": "Article",
+  "topic": "Drugs & public health",
+  "date": "2026-11-23",
+  "dateLabel": "23 Nov",
+  "title": "Why you can't see your own addiction",
+  "dek": "What usually gets called denial may be something harder to see past. In dependence the drug stays vivid; what drops out of notice is the person's own changed baseline, and it is measured against that baseline that the drug feels like the fix.",
+  "stat": "8 sources · 5 min",
+  "min": 5,
+  "quotes": 0,
+  "sources": 8,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/why-you-cant-see-your-own-addiction"
+ },
+ {
+  "kind": "Article",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-23",
+  "dateLabel": "23 Nov",
+  "title": "Does talking to AI change how you think?",
+  "dek": "Speaking costs less effort than writing, and saying your thoughts aloud changes nothing on its own. What changes thinking is explaining, and when you talk to an AI the question is which of you is doing it.",
+  "stat": "7 sources · 5 min",
+  "min": 5,
+  "quotes": 0,
+  "sources": 7,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/does-talking-to-ai-change-how-you-think"
+ },
+ {
+  "kind": "Article",
+  "topic": "ADHD & attention",
+  "date": "2026-11-23",
+  "dateLabel": "23 Nov",
+  "title": "Why some people focus better with background noise",
+  "dek": "White and pink noise help people with ADHD a little on attention tasks and hurt everyone else a little. The same split shows up with fidgeting, and it fits a brain whose overall gain is set lower, so it does better with some stimulation added from outside.",
+  "stat": "8 sources · 5 min",
+  "min": 5,
+  "quotes": 0,
+  "sources": 8,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/why-some-people-focus-better-with-background-noise"
+ },
+ {
+  "kind": "Article",
+  "topic": "Health & self-care",
+  "date": "2026-11-23",
+  "dateLabel": "23 Nov",
+  "title": "Why people stop taking medicine that works",
+  "dek": "About half of people prescribed a long-term medicine stop within a year or two, and the most common reason they give is that they feel better. For a condition whose cause is still there, feeling better means the medicine is working, and says nothing about whether it can stop.",
+  "stat": "11 sources · 7 min",
+  "min": 7,
+  "quotes": 0,
+  "sources": 11,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/why-people-stop-taking-medicine-that-works"
+ },
+ {
+  "kind": "Article",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-22",
+  "dateLabel": "22 Nov",
+  "title": "Guess before you look",
+  "dek": "An answer that arrives before you have made a guess leaves little behind. The same tool teaches or deskills depending on that order, and the effort it takes to guess first feels like learning less while it is the part that does the learning.",
+  "stat": "9 sources · 6 min",
+  "min": 6,
+  "quotes": 0,
+  "sources": 9,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/guess-before-you-look"
+ },
+ {
+  "kind": "Article",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-22",
+  "dateLabel": "22 Nov",
+  "title": "Seeing what you rely on",
+  "dek": "A tool, habit or substance in daily use stops being noticed, so it is judged only by what it is like to have it. Experiments that take things away find effects their users could not see, and sometimes the opposite of what having them seemed to do.",
+  "stat": "13 sources · 6 min",
+  "min": 6,
+  "quotes": 0,
+  "sources": 13,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/seeing-what-you-rely-on"
  },
  {
   "href": "Canopticon%20Essay%20Portraiture.dc.html",
@@ -363,7 +463,7 @@
   "dateLabel": "10 Oct",
   "title": "The visual detour",
   "dek": "The internet from about 1990 to 2022 as a fifty-year swing back toward print — screens of text and keyboards — inside the longer return to speech that McLuhan predicted, now ending as voice interfaces take over.",
-  "stat": "name check pending",
+  "stat": "no prior use found",
   "route": "/concepts/the-visual-detour"
  },
  {
@@ -787,7 +887,7 @@
   "dateLabel": "5 Oct",
   "title": "Narcocrasis",
   "dek": "In drug dependence, the part a person stops noticing is not the drug but their own shifted baseline: flatter pleasures, a restless body, a raised stress tone. The drug feels like the fix; the changed baseline feels like how the world is.",
-  "stat": "name check pending",
+  "stat": "no prior use found",
   "route": "/concepts/narcocrasis"
  },
  {
@@ -798,7 +898,7 @@
   "dateLabel": "5 Oct",
   "title": "Anacrasis",
   "dek": "Recovery as re-setting that baseline, not only removing the drug. The ancient Greek word anakrasis meant mixing with others, and the evidence points the same way: what helps the reset last is other people.",
-  "stat": "name check pending",
+  "stat": "no prior use found",
   "route": "/concepts/anacrasis"
  },
  {
@@ -809,7 +909,7 @@
   "dateLabel": "5 Oct",
   "title": "Pharmakrasis",
   "dek": "Every class of drug sets its own characteristic balance of the senses: cannabis speeds felt time, ketamine loosens the sense of owning a body, LSD deepens the response to music. A drug, on this view, is a technology of the senses, like a medium but more direct.",
-  "stat": "name check pending",
+  "stat": "no prior use found",
   "route": "/concepts/pharmakrasis"
  },
  {
@@ -820,7 +920,7 @@
   "dateLabel": "5 Oct",
   "title": "Heterocrasis",
   "dek": "People start from different balances of the senses before any medium touches them. ADHD may be one such starting point, most clearly in how loudly the brain turns all its signals up or down.",
-  "stat": "name check pending",
+  "stat": "no prior use found",
   "route": "/concepts/heterocrasis"
  },
  {
@@ -831,7 +931,7 @@
   "dateLabel": "5 Oct",
   "title": "Exocrasis",
   "dek": "Part of how we sense and remember now lives outside the body, in keyboards, search, saved files and the network. The computing environment holds some of the balance the brain used to hold.",
-  "stat": "name check pending",
+  "stat": "no prior use found",
   "route": "/concepts/exocrasis"
  },
  {
@@ -873,7 +973,7 @@
   "date": "2026-10-04",
   "dateLabel": "4 Oct",
   "title": "Sensory syncrasis",
-  "dek": "McLuhan meant his \"sense ratios\" literally. The brain science he reached for failed; predictive processing now gives the idea a mechanism, a name and five tests.",
+  "dek": "McLuhan meant his \"sense ratios\" literally. The brain science he reached for failed; predictive processing now gives the idea a mechanism, a name and five questions to measure.",
   "stat": "38 references · 20 min",
   "min": 20,
   "quotes": 38,
@@ -971,7 +1071,7 @@
   "dateLabel": "4 Oct",
   "title": "Sensory syncrasis",
   "dek": "The whole configuration of how the brain blends its senses: how much it trusts each one, how loud it turns them all, whether it fuses or separates them, the balance between body and world, and how long a setting lasts. From the Greek root of idiosyncrasy.",
-  "stat": "name check pending",
+  "stat": "no prior use found",
   "route": "/concepts/sensory-syncrasis"
  },
  {
@@ -982,7 +1082,7 @@
   "dateLabel": "4 Oct",
   "title": "Typomora",
   "dek": "The typed delay in McLuhan's predicted return to voice: fifty years in which the keyboard, not the medium, kept networked communication typographic. Typos, type, and mora, delay — also the unit of spoken time.",
-  "stat": "name check pending",
+  "stat": "no prior use found",
   "route": "/concepts/typomora"
  },
  {
@@ -993,7 +1093,7 @@
   "dateLabel": "4 Oct",
   "title": "Epanaphony",
   "dek": "The return of voice as the way we put language into machines — dictation, voice notes, talking to AI — that closes the typomora. Oral in production, typographic in storage.",
-  "stat": "name check pending",
+  "stat": "no prior use found",
   "route": "/concepts/epanaphony"
  },
  {
@@ -1258,17 +1358,6 @@
   "dek": "A task app for executive dysfunction: one task at a time, dispatched like a delivery order, with small rewards for finishing.",
   "stat": "4 documents",
   "route": "/library?kind=Research"
- },
- {
-  "href": "Canopticon%20Concept.dc.html",
-  "kind": "Concept",
-  "topic": "Health & self-care",
-  "date": "2026-09-30",
-  "dateLabel": "30 Sep",
-  "title": "Self-extinguishing maintenance",
-  "dek": "A routine that works so well it removes the thing that made you do it — so it stops, and the problem comes back.",
-  "stat": "approved definition",
-  "route": "/concepts/self-extinguishing-maintenance"
  },
  {
   "href": "Canopticon%20Concept%20CPAI.dc.html",

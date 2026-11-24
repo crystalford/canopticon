@@ -180,8 +180,11 @@ describe("an article: verbatim or nothing", () => {
       ];
       expect(receipts.length).toBe(quotes.length);
       for (const [, href] of receipts) expect(href).toMatch(/^\/p\/[a-z0-9-]+#q=[^&]+:~:text=/);
-      // The author's own sentences say so.
-      expect(html).toContain('class="own"');
+      // The author's own sentences say so, where there is a quote to tell
+      // them apart from; an essay on the published literature quotes no
+      // record document and carries no marks.
+      if (quotes.length) expect(html).toContain('class="own"');
+      else expect(html).not.toContain('class="own"');
     },
   );
 

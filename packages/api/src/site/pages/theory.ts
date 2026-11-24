@@ -5,6 +5,7 @@
 // counts against it. The body is in the article dialect: every <q> is a
 // quotation checked word for word at build, with a receipt to its passage.
 
+import { AUTHOR } from "../author";
 import type { Proposition, Reference, Theory } from "../content/store";
 import { docTitle } from "../data";
 import { esc, linkPill, pill, shell } from "../layout";
@@ -12,7 +13,7 @@ import { articleHtml, articleQuotes, inline } from "../md";
 import { kindColours, longDate, topicColours, topicSlug } from "../theme";
 import { citationMeta, citeBlock, doiChip, jsonLd, statbox, toc } from "./article";
 
-const GRADE_COLOURS: Record<Proposition["grade"], readonly [string, string]> = {
+export const GRADE_COLOURS: Record<Proposition["grade"], readonly [string, string]> = {
   Strong: ["#e3f0e6", "#1f5e36"],
   Moderate: ["#e4ecf7", "#1f4e8c"],
   Proposed: ["#fbe9df", "#8a3a1f"],
@@ -290,7 +291,7 @@ export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): stri
         ...(t.revised ? { dateModified: t.revised } : {}),
         version: String(version),
         genre: "Theory",
-        author: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
+        author: AUTHOR,
         publisher: { "@type": "Organization", name: "Canopticon", url: "https://canopticon.com" },
         license: "https://creativecommons.org/licenses/by/4.0/",
         isBasedOn: based.map((b) => `https://canopticon.com/p/${b.id}`),
@@ -315,8 +316,9 @@ export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): stri
         url,
         inDefinedTermSet: {
           "@type": "DefinedTermSet",
+          "@id": "https://canopticon.com/theories#set",
           name: "Canopticon theories",
-          url: "https://canopticon.com/library?kind=Theory",
+          url: "https://canopticon.com/theories",
         },
       },
     ],

@@ -151,32 +151,25 @@ The practical upshot is the one McLuhan himself drew. If the most important effe
 
 | Paper | Subject |
 | --- | --- |
-| [*Sensory Syncrasis*](https://claude.ai/code/artifact/30c6804b-7c9f-4ce1-9d67-514b97b85ad8) | McLuhan's sense ratios as a literal hypothesis; the five-dimensional framework |
-| [*Heterocrasis*](https://claude.ai/code/artifact/d3a14efb-b34f-45f8-8a0e-02d7d1bbd743) | ADHD as a different starting configuration |
-| [*Typomora*](https://claude.ai/code/artifact/af5ed7cb-d9a8-4d73-9195-91083b43c9d8) | The typed era as a delay in the return to voice |
-| [*Exocrasis*](https://claude.ai/code/artifact/e22e4993-337a-4d58-b7ab-91c7b547a86f) | The computing environment and offloaded capacities |
-| [*Pharmakrasis*](https://claude.ai/code/artifact/c297a2f1-834f-4453-b883-26a8058fa82d) | Drugs as sense-ratio technologies, and drug–media hybrids |
-| [*Narcocrasis*](https://claude.ai/code/artifact/91e13363-b443-4582-a1d4-406860826d8a) | Addiction as an invisible medium; anacrasis as recovery |
+| [*Sensory Syncrasis*](https://canopticon.com/articles/syncrasis) | McLuhan's sense ratios as a literal hypothesis; the five-dimensional framework |
+| [*Heterocrasis*](https://canopticon.com/articles/heterocrasis) | ADHD as a different starting configuration |
+| [*Typomora*](https://canopticon.com/articles/typomora) | The typed era as a delay in the return to voice |
+| [*Exocrasis*](https://canopticon.com/articles/exocrasis) | The computing environment and offloaded capacities |
+| [*Pharmakrasis*](https://canopticon.com/articles/pharmakrasis) | Drugs as sense-ratio technologies, and drug–media hybrids |
+| [*Narcocrasis*](https://canopticon.com/articles/narcocrasis) | Addiction as an invisible medium; anacrasis as recovery |
 
 ### Core references used in this synthesis
 
-Full references, with verification status, are in each paper.
+Full references are in each paper. Each entry gives its DOI or address where it has one, and what was checked for this paper. **Text checked**: the words quoted were found word for word in a scanned or transcribed copy. **Opened**: the source was retrieved and consulted in the research behind the paper. **Abstract read**: the abstract was read and the paper's figures checked against it. **Record checked**: the authors, year, title and journal match the work's Crossref or Europe PMC record; it is cited for a finding it is known for. **Secondary**: taken from a reliable account of the work, not from the work itself. **Cited**: a book or report cited for its argument or data, not reopened for this paper.
 
-| Reference | Status |
+| Reference | Checked |
 | --- | --- |
-| McLuhan (1960), *Report on Project in Understanding New Media*, National Association of Educational Broadcasters | Verified via secondary source; confirm against original |
-| McLuhan & Fiore (1967), *The Medium Is the Massage* ("no inevitability" quotation) | Check exact wording and page |
-| Ernst & Banks (2002), *Nature* 415: 429–433 | Check |
-| Nigg et al. (2024), *JAACAP* 63(8): 778–788; Hauser et al. (2014), *JAMA Psychiatry* 71(10): 1165–1173 | Verified |
-| Dehaene et al. (2010), *Science* 330: 1359–1364; Deniz et al. (2019), *Journal of Neuroscience* 39: 7722–7736 | Verified |
-| Henkel (2014); Dahmani & Bohbot (2020); Delgado et al. (2018); Bediou et al. (2018) | Verified |
-| Kaelen et al. (2018), *Psychopharmacology* 235(2): 505–519 | Verified |
-| Koob & Le Moal (2001), *Neuropsychopharmacology* 24: 97–129 | Verified |
-| Venniro et al. (2018), *Nature Neuroscience* 21: 1520–1529; Nardou et al. (2023), *Nature* 618: 790–798 | Verified |
-
-### Before publication
-
-- [ ] Bring *Sensory Syncrasis* in line with the later papers by removing its predictions and falsification framing
-- [ ] Complete the "Before submission" checklist in each paper
-- [ ] Run exact-phrase searches for every coined term in the series
-- [ ] Replace these working-draft links with published versions
+| McLuhan (1960), *Report on Project in Understanding New Media*, National Association of Educational Broadcasters | Secondary |
+| McLuhan & Fiore (1967), *The Medium Is the Massage* ("no inevitability" quotation; [scan](https://archive.org/details/Marshall.Mcluhan..The.Medium.Is.The.Massage.2001)) | Text checked |
+| Ernst & Banks (2002), *Nature* 415: 429–433, [doi:10.1038/415429a](https://doi.org/10.1038/415429a) | Record checked |
+| Nigg et al. (2024), *JAACAP* 63(8): 778–788, [doi:10.1016/j.jaac.2023.12.014](https://doi.org/10.1016/j.jaac.2023.12.014); Hauser et al. (2014), *JAMA Psychiatry* 71(10): 1165–1173, [doi:10.1001/jamapsychiatry.2014.1093](https://doi.org/10.1001/jamapsychiatry.2014.1093) | Opened |
+| Dehaene et al. (2010), *Science* 330: 1359–1364, [doi:10.1126/science.1194140](https://doi.org/10.1126/science.1194140); Deniz et al. (2019), *Journal of Neuroscience* 39: 7722–7736, [doi:10.1523/jneurosci.0675-19.2019](https://doi.org/10.1523/jneurosci.0675-19.2019) | Opened |
+| Henkel (2014), [doi:10.1177/0956797613504438](https://doi.org/10.1177/0956797613504438); Dahmani & Bohbot (2020), [doi:10.1038/s41598-020-62877-0](https://doi.org/10.1038/s41598-020-62877-0); Delgado et al. (2018), [doi:10.1016/j.edurev.2018.09.003](https://doi.org/10.1016/j.edurev.2018.09.003); Bediou et al. (2018), [doi:10.1037/bul0000130](https://doi.org/10.1037/bul0000130) | Opened |
+| Kaelen et al. (2018), *Psychopharmacology* 235(2): 505–519, [doi:10.1007/s00213-017-4820-5](https://doi.org/10.1007/s00213-017-4820-5) | Opened |
+| Koob & Le Moal (2001), *Neuropsychopharmacology* 24: 97–129, [doi:10.1016/s0893-133x(00)00195-0](https://doi.org/10.1016/s0893-133x(00)00195-0) | Opened |
+| Venniro et al. (2018), *Nature Neuroscience* 21: 1520–1529, [doi:10.1038/s41593-018-0246-6](https://doi.org/10.1038/s41593-018-0246-6); Nardou et al. (2023), *Nature* 618: 790–798, [doi:10.1038/s41586-023-06204-3](https://doi.org/10.1038/s41586-023-06204-3) | Opened |

@@ -4,6 +4,7 @@
 // the latest research and the topics. New articles do not appear here on
 // their own (author decision, 10 Oct) — the counts are live, the picks are not.
 
+import { AUTHOR } from "../author";
 import type { LibraryItem } from "../content/store";
 import { article, paper, term } from "../content/store";
 import {
@@ -51,7 +52,7 @@ const FRONT_ARTICLES = [
 const NAMED_HERE: Array<{ id: string; route: string; blurb: string }> = [
   {
     id: "self-extinguishing-maintenance",
-    route: "/concepts/self-extinguishing-maintenance",
+    route: "/theories/self-extinguishing-maintenance",
     blurb:
       "A routine that works so well it removes the thing that made you do it — so it stops, and the problem comes back.",
   },
@@ -123,7 +124,7 @@ function namedHere(): string {
       `<a href="${esc(n.route)}" class="card" style="padding:22px 22px 24px"><span style="font-size:20px;line-height:1.25;font-weight:500;letter-spacing:-.012em;color:var(--ink)">${esc(title)}</span><span style="font-size:15px;line-height:1.55;color:var(--ink-2)">${esc(n.blurb)}</span></a>`,
     ];
   });
-  return `<section class="sec"><div class="sec-h"><h2>Named here</h2></div><div class="grid3 wide">${cards.join("")}</div><div style="margin-top:14px"><a href="/library?kind=Concept" class="btn">See all concepts and open problems</a></div></section>`;
+  return `<section class="sec"><div class="sec-h"><h2>Named here</h2></div><div class="grid3 wide">${cards.join("")}</div><div style="margin-top:14px"><a href="/lexicon" class="btn">Every term, in the Lexicon</a></div></section>`;
 }
 
 function researchRow(r: LibraryItem, last: boolean): string {
@@ -158,7 +159,7 @@ export function renderFront(opts: { signedIn?: boolean } = {}): string {
         "@id": "https://canopticon.com/#org",
         name: "Canopticon",
         url: "https://canopticon.com/",
-        founder: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
+        founder: AUTHOR,
       },
       {
         "@type": "WebSite",
@@ -167,7 +168,7 @@ export function renderFront(opts: { signedIn?: boolean } = {}): string {
         url: "https://canopticon.com/",
         description: "An independent research publication by Chris Telford.",
         publisher: { "@id": "https://canopticon.com/#org" },
-        author: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
+        author: AUTHOR,
         potentialAction: {
           "@type": "SearchAction",
           target: "https://canopticon.com/search?q={query}",

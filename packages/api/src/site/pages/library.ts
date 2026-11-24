@@ -4,6 +4,7 @@
 // page is whole without JavaScript, every view has a URL, and a crawler sees
 // what a reader sees. Lists are finite: fifty rows a page, with an end.
 
+import { AUTHOR } from "../author";
 import type { DerivedRow, LibraryItem } from "../content/store";
 import { keyFigures, libraryItems, questions } from "../content/store";
 import { esc, shell } from "../layout";
@@ -362,7 +363,7 @@ export function renderLibrary(
     name: "Canopticon library",
     description:
       "Articles, papers, research documents, concepts and open problems by Chris Telford.",
-    author: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
+    author: AUTHOR,
   };
   return shell({
     title: shelf?.title ?? "Library",

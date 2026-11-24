@@ -8,10 +8,16 @@ version: 1
 claim: "A medium that supplies the output before the receiver has predicted it leaves little to be learned and leaves the receiver's capacity to produce that output untrained; regular, brief periods of producing before receiving train it, provided the receiver knows enough to predict."
 coined: "Chris Telford, Canopticon, 22 November 2026, in the working paper Why Temperature"
 related:
+  - route: /articles/guess-before-you-look
+    label: "Article: Guess before you look (the theory for general readers)"
+  - route: /articles/does-talking-to-ai-change-how-you-think
+    label: "Article: Does talking to AI change how you think? (who explains)"
   - route: /articles/why-temperature
     label: "Paper: Why Temperature"
   - route: /theories/self-extinguishing-maintenance
     label: "Theory: Self-extinguishing maintenance (P5, understanding why sustains a routine)"
+  - route: /theories/ground-blindness
+    label: "Theory: Ground blindness (what removal reveals)"
 propositions:
   - statement: "Whether a medium is hot or cool is a relation between the medium, the task and the receiver, not a fixed property of the medium."
     grade: "Moderate"

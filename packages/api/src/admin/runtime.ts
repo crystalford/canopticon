@@ -1910,6 +1910,118 @@ app.get("/finder", async (c) => {
  *  error, which for a model with a schema says what it expected). For
  *  learning a new model's shape from the live site, which the sandbox cannot
  *  reach. Cloudflare-hosted models only (@cf/…, the regular bill). */
+// What the Admin desk shows, as data, for the probe: uploads waiting for a
+// decision, files that could not be read, the processing queue, every
+// conversation with its one-line status (built from the drafts list, never a
+// draft's text), and which published uploads have been read. Read-only.
+app.get("/desk", async (c) => {
+  const { resolveOperatorId } = await import("../public/data.ts");
+  const { adminModel, processingModel } = await import("../site/admin-data.ts");
+  const { d1Drafts } = await import("../write/drafts.ts");
+  const { d1Reads } = await import("../write/read.ts");
+  const { draftRow } = await import("../site/pages/admin.ts");
+  const userId = await resolveOperatorId(c.env.DB).catch(() => null);
+  if (!userId) return c.json({ error: "no operator" }, 404);
+  const model = await adminModel(c.env, userId);
+  const reads = await d1Reads(c.env, userId).latestAll();
+  const drafts = await d1Drafts(c.env, userId)
+    .list()
+    .catch(() => []);
+  const byDraft = new Map(
+    [...reads.values()].filter((r) => r.draftId).map((r) => [r.draftId as string, r]),
+  );
+  const piece = (p: {
+    id: string;
+    slug: string;
+    title: string;
+    sortedAs: string;
+    createdAt: string;
+    chars: number;
+  }) => {
+    const r = reads.get(p.slug);
+    return {
+      id: p.id,
+      slug: p.slug,
+      title: p.title,
+      sorted: p.sortedAs,
+      created: p.createdAt.slice(0, 10),
+      chars: p.chars,
+      read: r ? { status: r.status, kept: r.kept, proposed: r.proposed ?? 0 } : null,
+    };
+  };
+  const published = await all<{ id: string; title: string; slug: string }>(
+    c.env.DB,
+    `SELECT id, title, slug FROM pieces
+      WHERE user_id = ? AND ${OWN_UPLOADS_SQL} AND publication_status = 'published'
+      ORDER BY created_at DESC LIMIT 400`,
+    [userId],
+  ).catch(() => []);
+  return c.json({
+    counts: {
+      waiting: model.waiting.length,
+      failed: model.failed.length,
+      kept_private: model.kept.length,
+      published_uploads: published.length,
+      published_never_read: published.filter((p) => !reads.has(p.slug)).length,
+      reads_with_cards_waiting: [...reads.values()].filter((r) => (r.proposed ?? 0) > 0).length,
+      drafts: drafts.length,
+    },
+    waiting: model.waiting.map(piece),
+    failed: model.failed.map(piece),
+    processing: await processingModel(c.env, userId),
+    conversations: drafts.map((d) => {
+      const row = draftRow(d, byDraft.get(d.id));
+      return {
+        id: d.id,
+        kind: d.kind,
+        title: row.title,
+        status: row.status,
+        finished: row.finished,
+        cents: d.usage.cents ?? 0,
+      };
+    }),
+    reads_needing_you: [...reads.values()]
+      .filter((r) => (r.proposed ?? 0) > 0)
+      .map((r) => ({
+        docId: r.docId,
+        draftId: r.draftId,
+        proposed: r.proposed,
+        kept: r.kept,
+        status: r.status,
+      })),
+    published_never_read: published
+      .filter((p) => !reads.has(p.slug))
+      .map((p) => ({ id: p.id, slug: p.slug, title: p.title })),
+  });
+});
+
+// Tell search engines (IndexNow: Bing, Yandex, Seznam, Naver; Bing feeds
+// several answer engines) that pages changed. The Publish button does this for
+// uploads and workspace articles; pages that ship as files in content/ only
+// change on deploy, so the deploy calls this with what changed. `?paths=` is a
+// comma list of site paths; with none, every theory, paper and article and the
+// indexes are sent. Only canopticon.com addresses are ever sent.
+app.post("/indexnow", async (c) => {
+  const { pingIndexNow } = await import("../lib/indexnow.ts");
+  const store = await import("../site/content/store.ts");
+  const { listedArticles } = await import("../site/data.ts");
+  const given = (c.req.query("paths") ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter((p) => /^\/[\w\-/.]*$/.test(p));
+  const paths = given.length
+    ? given
+    : [
+        "/theories",
+        "/library",
+        "/sitemap.xml",
+        ...store.allTheories().map((t) => `/theories/${t.slug}`),
+        ...store.allPapers().map((p) => `/articles/${p.slug}`),
+        ...listedArticles().map((a) => `/articles/${a.slug}`),
+      ];
+  return c.json(await pingIndexNow(c.env, paths));
+});
+
 app.post("/ai-run", async (c) => {
   const b = (await c.req.json().catch(() => ({}))) as { model?: unknown; input?: unknown };
   const model = String(b.model ?? "");

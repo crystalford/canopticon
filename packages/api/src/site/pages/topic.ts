@@ -4,6 +4,7 @@
 // problems, research, questions, key figures, and — only when the research
 // cites at least four dated works — the works it cites, by year.
 
+import { AUTHOR } from "../author";
 import type { DerivedRow, LibraryItem } from "../content/store";
 import { keyFigures, libraryItems, questions, researchDoc, timeline } from "../content/store";
 import { esc, pill, shell } from "../layout";
@@ -182,7 +183,7 @@ export function renderTopic(topic: string, opts: { signedIn?: boolean } = {}): s
     name: `${topic} · Canopticon`,
     url: `https://canopticon.com/topics/${slug}`,
     about: topic,
-    author: { "@type": "Person", name: "Chris Telford", url: "https://canopticon.com/about" },
+    author: AUTHOR,
   };
   return shell({
     title: topic,

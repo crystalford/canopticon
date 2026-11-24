@@ -468,6 +468,42 @@ a.row.rrow { grid-template-columns: 56px minmax(0, 1fr); gap: 4px 16px; }
 .idea-def.concept .idea-def-h { color: var(--green-ink); }
 .idea-def.problem .idea-def-h { color: var(--clay-ink); }
 .idea-def p { font-size: var(--t-quote); line-height: 1.45; margin: 0; letter-spacing: -.01em; color: var(--ink); }
+.lx-toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 8px; }
+.lx-toc .chipb span { color: var(--muted); margin-left: 6px; font-variant-numeric: tabular-nums; }
+.lx-g { margin-top: 44px; scroll-margin-top: 80px; }
+.lx-g h2 { font-size: var(--t-h2); font-weight: 600; letter-spacing: -.018em; color: var(--ink); margin: 0 0 8px; }
+.lx-i { color: var(--muted); margin: 0 0 18px; }
+.lx-g dl { margin: 0; border-top: 1px solid var(--hair); }
+.lx-e { padding: 16px 0; border-bottom: 1px solid var(--hair); scroll-margin-top: 80px; }
+.lx-e dt { font-size: var(--t-read); font-weight: 600; letter-spacing: -.01em; }
+.lx-e dt a { color: var(--ink); }
+.lx-e dt a:hover { color: var(--cobalt); }
+.lx-e dd { margin: 6px 0 0; }
+.lx-e dd p { margin: 0; }
+.lx-m { margin-top: 6px !important; font-size: var(--t-sm); color: var(--muted); }
+.lx-m b { font-weight: 600; color: var(--body); }
+.lx-t { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+.lx-t th, .lx-t td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--hair); vertical-align: top; }
+.lx-t th { font-weight: 600; color: var(--muted); }
+.lx-t tr:last-child td { border-bottom: 0; }
+.lx-page .tbl-wrap { margin: 0 0 18px; }
+.lx-foot { margin-top: 40px; color: var(--muted); font-size: var(--t-sm); }
+/* Long addresses (DOIs in a Sources list) wrap instead of widening the page. */
+.prose li, .prose p { overflow-wrap: anywhere; }
+a.bare { color: inherit; border-bottom: 1px solid var(--rule); }
+.term-say { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0 0 22px; font-size: var(--t-sm); color: var(--muted); }
+.term-say b { font-weight: 600; color: var(--body); }
+.term-sec { margin-top: 36px; }
+.term-sec h2 { font-size: var(--t-lg); font-weight: 600; letter-spacing: -.015em; color: var(--ink); margin: 0 0 10px; }
+.term-sec p, .term-sec li, .term-dl dd { font-size: var(--t-read); line-height: 1.6; color: var(--body); }
+.term-sec p { margin: 0; }
+.term-sec ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.term-dl { margin: 0; }
+.term-dl dt { font-weight: 600; color: var(--ink); font-size: var(--t-read); margin-top: 14px; }
+.term-dl dt:first-child { margin-top: 0; }
+.term-dl dd { margin: 4px 0 0; }
+.term-rel { line-height: 1.9; }
+.term-first { display: inline-block; margin-top: 6px; color: var(--muted); }
 .idea-more { margin-top: 48px; font-size: var(--t-lg); font-weight: 600; letter-spacing: -.015em; color: var(--ink); border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
 
 /* ---- ideas ------------------------------------------------------------------ */
@@ -864,6 +900,15 @@ a.xl.concept { border-bottom-color: var(--brick); }
   .prose .cycle-exit, .cycle-exit { display: block; margin: 12px 0 0; font-family: var(--sans); font-size: var(--t-sm); color: var(--brick); }
 }
 .cycle figcaption { margin-top: 8px; font-family: var(--sans); font-size: var(--t-sm); color: var(--muted); }
+/* /theories: every theory, its claim and what its propositions rest on. */
+.prose .th-list, .th-list { list-style: none; margin: 28px 0 0; padding: 0; }
+.th-row { padding: 22px 0; border-top: 1px solid var(--hair); }
+.th-row:last-child { border-bottom: 1px solid var(--hair); }
+.prose .th-t, .th-t { margin: 0 0 8px; font-size: var(--t-xl); }
+.th-t a { color: var(--ink); text-decoration: none; }
+.th-t a:hover { color: var(--cobalt); }
+.prose .th-claim, .th-claim { margin: 0 0 10px; }
+.prose .th-meta, .th-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-family: var(--sans); font-size: var(--t-xs); color: var(--muted); }
 /* A theory's primary references. */
 .refs { margin-top: 40px; }
 .prose .refs-note, .refs-note { font-family: var(--sans); font-size: var(--t-sm); color: var(--muted); }

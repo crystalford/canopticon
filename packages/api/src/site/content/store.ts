@@ -59,6 +59,21 @@ export interface Idea {
   artTitle?: string;
   artKind?: string;
   docRoute?: string;
+  /** Coined terms (terms.json) carry a full entry, required by the build
+   *  (docs: "The term standard" in CLAUDE.md); entries added from the
+   *  workspace (record_entries) may not, and render without these parts. */
+  definition?: string;
+  say?: string;
+  etymology?: string;
+  coined?: string;
+  plain?: string;
+  aka?: string[];
+  questions?: string[];
+  examples?: string[];
+  differs?: Array<{ term: string; how: string }>;
+  related?: string[];
+  family?: string;
+  checked?: string;
 }
 
 export interface TimelineWork {
@@ -102,6 +117,8 @@ export interface Article {
   quotes?: number;
   words?: number;
   cite?: string;
+  /** The slug of a theory this article explains. */
+  theory?: string;
   body: string;
 }
 

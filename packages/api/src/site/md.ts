@@ -39,17 +39,28 @@ export function passageHref(docId: string, passage: string): string {
   return `/p/${encodeURIComponent(docId)}#q=${enc}:~:text=${enc}`;
 }
 
-/** Inline Markdown: escapes first, then code, bold, italic, http links. */
+/** Inline Markdown: escapes first, then code, bold, italic, http links, and
+ *  links within the site ("/theories/…"), which open in place and carry no
+ *  nofollow: they are the publication pointing at itself. */
 export function inline(s: string): string {
-  return esc(s)
-    .replace(/\\([*_[\]()#`~>|-])/g, "$1")
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>")
-    .replace(
-      /\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener nofollow">$1</a>',
-    );
+  return (
+    esc(s)
+      .replace(/\\([*_[\]()#`~>|-])/g, "$1")
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>")
+      .replace(
+        /\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener nofollow">$1</a>',
+      )
+      .replace(/\[([^\]]+)\]\((\/[a-z0-9][^)\s]*)\)/g, '<a href="$2" class="ulink">$1</a>')
+      // A bare address (a DOI in a Sources list) becomes a link to itself; one
+      // already inside a link (after `"` or `>`) is left alone.
+      .replace(
+        /(^|[\s(])(https?:\/\/[^\s<"]*[^\s<".,;:)])/g,
+        '$1<a href="$2" class="bare" target="_blank" rel="noopener nofollow">$2</a>',
+      )
+  );
 }
 
 /** Plain text of an inline Markdown string — for TOC labels and summaries. */
@@ -181,6 +192,10 @@ export interface ArticleContext {
   docTitle: (id: string) => string | null;
   /** Set only by the workspace preview: false marks the quote as failing. */
   quoteOk?: (doc: string, text: string) => boolean;
+  /** Set by articleHtml when the article quotes no record document: with
+   *  nothing quoted there is nothing to tell the author's words apart from,
+   *  so they carry no underline (essays on the published literature). */
+  noMarks?: boolean;
 }
 
 const BAD_TITLE = "Not found word for word in the source";
@@ -199,7 +214,9 @@ export function articleInline(s: string, ctx: ArticleContext, own = true): strin
     if (!t) return;
     const h = inline(t);
     parts.push(
-      own && /[A-Za-z0-9]/.test(t) ? `<span class="own" title="${OWN_TITLE}">${h}</span>` : h,
+      own && !ctx.noMarks && /[A-Za-z0-9]/.test(t)
+        ? `<span class="own" title="${OWN_TITLE}">${h}</span>`
+        : h,
     );
   };
   for (const m of s.matchAll(re)) {
@@ -300,7 +317,8 @@ function figure(kind: string, attrs: string, lines: string[], ctx: ArticleContex
 }
 
 /** An article body → HTML and its section heads (#e-N). */
-export function articleHtml(src: string, ctx: ArticleContext): { html: string; heads: Head[] } {
+export function articleHtml(src: string, ctxIn: ArticleContext): { html: string; heads: Head[] } {
+  const ctx: ArticleContext = /<q\s|\]\(doc:/.test(src) ? ctxIn : { ...ctxIn, noMarks: true };
   const lines = src.split("\n");
   const out: string[] = [];
   const heads: Head[] = [];

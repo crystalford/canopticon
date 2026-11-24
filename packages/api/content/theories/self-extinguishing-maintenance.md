@@ -14,10 +14,12 @@ based_on:
 related:
   - route: /articles/self-extinguishing-maintenance
     label: "Article: the cycle and the mistake behind it"
-  - route: /concepts/self-extinguishing-maintenance
-    label: "Concept entry and its definition"
+  - route: /articles/why-people-stop-taking-medicine-that-works
+    label: "Article: why people stop taking medicine that works"
   - route: /theories/cognitive-ectothermy
     label: "Theory: Cognitive ectothermy (why understanding a routine helps it last)"
+  - route: /theories/ground-blindness
+    label: "Theory: Ground blindness (why what works is seen only when it is gone)"
 propositions:
   - statement: "Feeling better is the most commonly reported reason people stop treating long-term conditions."
     grade: "Strong"

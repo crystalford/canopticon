@@ -119,6 +119,58 @@ describe("theories", () => {
     expect(html).toMatch(/\d+ in full, \d+ from the abstract, \d+ from a secondary account/);
   });
 
+  it("the sitemap lists every theory, dated by its last revision", async () => {
+    const xml = await (await get("/sitemap.xml")).text();
+    for (const t of allTheories())
+      expect(xml).toContain(
+        `<loc>https://canopticon.com/theories/${t.slug}</loc><lastmod>${t.revised ?? t.date}</lastmod>`,
+      );
+  });
+
+  it("/theories lists every theory as one set, with a Markdown twin", async () => {
+    const res = await get("/theories");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    for (const t of allTheories()) expect(html).toContain(`href="/theories/${t.slug}"`);
+    expect(html).toContain('"@type":"DefinedTermSet"');
+    expect(html).toContain('"hasDefinedTerm"');
+    const md = await (await get("/theories.md")).text();
+    expect(md).toContain("# Theories");
+    // Each theory names the set it belongs to by the same @id.
+    const one = await (await get("/theories/cognitive-ectothermy")).text();
+    expect(one).toContain('"@id":"https://canopticon.com/theories#set"');
+  });
+
+  it("theories reach the feeds and llms-full.txt whole", async () => {
+    const full = await (await get("/llms-full.txt")).text();
+    const feed = await (await get("/feed.json")).text();
+    for (const t of allTheories()) {
+      expect(full).toContain(`# ${t.title} (theory)`);
+      expect(feed).toContain(`/theories/${t.slug}`);
+    }
+    expect(full).toContain("## References");
+  });
+
+  it("every page names the author by one @id", async () => {
+    for (const p of ["/", "/theories/self-extinguishing-maintenance", "/articles/why-temperature"])
+      expect(await (await get(p)).text()).toContain('"@id":"https://canopticon.com/about#chris"');
+  });
+
+  it("hand-built papers carry Scholar's citation tags and their Markdown twin", async () => {
+    const html = await (await get("/articles/krasis")).text();
+    expect(html).toContain('name="citation_title"');
+    expect(html).toContain('href="/articles/krasis.md"');
+  });
+
+  it("an article on the published literature counts its sources and names its theory", async () => {
+    const html = await (await get("/articles/seeing-what-you-rely-on")).text();
+    expect(html).toContain("13 sources");
+    expect(html).not.toContain("0 quotes");
+    expect(html).toContain('href="/theories/ground-blindness"');
+    const back = await (await get("/theories/ground-blindness")).text();
+    expect(back).toContain('href="/articles/seeing-what-you-rely-on"');
+  });
+
   it("a DOI shows as a link to its resolver, and nothing shows without one", () => {
     expect(doiChip("10.5281/zenodo.123")).toContain('href="https://doi.org/10.5281/zenodo.123"');
     expect(doiChip(undefined)).toBe("");
