@@ -2048,7 +2048,7 @@ app.post("/indexnow", async (c) => {
         "/library",
         "/sitemap.xml",
         ...store.allTheories().map((t) => `/theories/${t.slug}`),
-        ...store.allPapers().map((p) => `/articles/${p.slug}`),
+        ...store.allPapers().map((p) => `/papers/${p.slug}`),
         ...listedArticles().map((a) => `/articles/${a.slug}`),
       ];
   return c.json(await pingIndexNow(c.env, paths));

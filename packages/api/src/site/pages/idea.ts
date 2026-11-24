@@ -15,7 +15,7 @@ import {
   terms,
 } from "../content/store";
 import { esc, pill, shell } from "../layout";
-import { kindColours, topicColours } from "../theme";
+import { kindColours, kindLabel, topicColours } from "../theme";
 
 /** "prices & markets" → the library's "Prices & markets". */
 function topicName(kick: string | undefined): string {
@@ -45,7 +45,6 @@ export function renderIdea(
       ]
     : [["Open", "#fbe9df", "#8a3a1f"]];
   const route = concept ? `/concepts/${it.id}` : `/open/${it.id}`;
-  const listKind = concept ? "Concept" : "Open problem";
   // The prototype lists the other entries of the same register (terms.json or
   // problems.json), each with its topic as the register writes it.
   const others = (concept ? terms() : problems())
@@ -123,11 +122,11 @@ export function renderIdea(
   const sayLine = full
     ? `<p class="term-say">${it.say ? `<span>Pronounced <b>${esc(it.say)}</b></span>` : ""}${it.plain ? `<span>In plain words: <b>${esc(it.plain)}</b></span>` : ""}</p>`
     : "";
-  const artSlugFull = /^\/articles\/([^/#?]+)/.exec(it.artRoute ?? "")?.[1];
+  const artSlugFull = /^\/(?:articles|papers)\/([^/#?]+)/.exec(it.artRoute ?? "")?.[1];
   const coinedPaper = artSlugFull ? paperBySlug(artSlugFull) : null;
   const coinedYear = (it.coined ?? "2026").slice(0, 4);
 
-  const article = `<article class="idea-col"><div class="pills"><a href="/library?kind=${encodeURIComponent(listKind)}" class="pill lg" style="background:${kindColours(kind)[0]};color:${kindColours(kind)[1]}">${esc(kind)}</a>${topic ? pill(topic, topicColours(topic), "pill lg") : ""}</div><h1 class="h-display" style="max-width:none;margin:14px 0 ${full ? "10px" : "22px"}">${esc(it.title)}</h1>${sayLine}<section class="idea-def ${concept ? "concept" : "problem"}"><div class="idea-def-h">${concept ? "Definition" : "The problem"}</div><p>${esc(full ? (it.definition ?? it.body) : it.body)}</p></section>${termParts}${usesHtml}<div class="idea-more">More ${concept ? "concepts" : "open problems"}</div><div style="display:flex;flex-direction:column">${others}</div></article>`;
+  const article = `<article class="idea-col"><div class="pills"><a href="${concept ? "/lexicon" : "/open"}" class="pill lg" style="background:${kindColours(kind)[0]};color:${kindColours(kind)[1]}">${esc(kindLabel(kind))}</a>${topic ? pill(topic, topicColours(topic), "pill lg") : ""}</div><h1 class="h-display" style="max-width:none;margin:14px 0 ${full ? "10px" : "22px"}">${esc(it.title)}</h1>${sayLine}<section class="idea-def ${concept ? "concept" : "problem"}"><div class="idea-def-h">${concept ? "Definition" : "The problem"}</div><p>${esc(full ? (it.definition ?? it.body) : it.body)}</p></section>${termParts}${usesHtml}<div class="idea-more">More ${concept ? "terms" : "open questions"}</div><div style="display:flex;flex-direction:column">${others}</div></article>`;
 
   const rail = `<aside class="rail tight"><div class="meta"><div class="meta-r"><span>Kind</span><span>${pill(kind, kindColours(kind), "pill lg")}</span></div><div class="meta-r"><span>Topic</span><span>${topic ? pill(topic, topicColours(topic), "pill lg") : "—"}</span></div><div class="meta-r"><span>Status</span><span class="pills" style="justify-content:flex-end">${status
     .map(([l, bg, fg]) => pill(l, [bg, fg], "pill lg"))
@@ -183,7 +182,7 @@ export function renderIdea(
     title: full ? `${it.title}: meaning and origin` : it.title,
     description: full ? (it.definition ?? it.body) : it.body,
     path: route,
-    nav: "library",
+    nav: concept ? "lexicon" : "open",
     mainClass: "long",
     signedIn: opts.signedIn ?? false,
     head: `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`,

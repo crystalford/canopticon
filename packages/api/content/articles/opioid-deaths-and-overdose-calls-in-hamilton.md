@@ -2,6 +2,7 @@
 slug: "opioid-deaths-and-overdose-calls-in-hamilton"
 file: "Canopticon Essay Fentanyl.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Drugs & public health"
 title: "Opioid deaths and overdose calls in Hamilton: why the two counts moved in opposite directions"
 dek: "Hamilton's opioid deaths have fallen every year since 2021, while paramedic calls for overdoses more than doubled. The death count is measuring a drug supply that no longer exists."

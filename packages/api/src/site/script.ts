@@ -160,7 +160,7 @@ export const SITE_JS = `(function () {
 
   // ---- hovercards -------------------------------------------------------------
   var cards = null, loading = null, card = null, hideT = 0;
-  var CARDABLE = /^\\/(articles|p|concepts|open)\\/[^/#?]+$/;
+  var CARDABLE = /^\\/(articles|papers|theories|p|concepts|open)\\/[^/#?]+$/;
   function load() {
     if (cards || loading) return loading;
     loading = fetch("/hovercards.json").then(function (r) { return r.ok ? r.json() : {}; }).then(function (j) { cards = j; return j; }, function () { cards = {}; return cards; });

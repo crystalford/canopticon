@@ -12,6 +12,7 @@ import {
   type ResearchDoc,
   allArticles,
   allPapers,
+  isWriting,
   libraryItems,
   publicResearch,
   researchDoc,
@@ -22,6 +23,10 @@ import type { DocView } from "./pages/document";
 import { shortDate, topicSlug } from "./theme";
 
 export const articleRoute = (slug: string) => `/articles/${slug}`;
+export const paperRoute = (slug: string) => `/papers/${slug}`;
+/** Where a piece of writing lives: papers at /papers/, the rest at /articles/. */
+export const writingRoute = (a: { kind: string; slug: string }) =>
+  a.kind === "Paper" ? paperRoute(a.slug) : articleRoute(a.slug);
 
 // The lookups below are built once per store version: published uploads and
 // workspace articles join the store after start-up (storeVersion()).
@@ -68,7 +73,7 @@ export function citedBy(docId: string): Citation[] {
       for (const q of articleQuotes(a.body)) counts.set(q.doc, (counts.get(q.doc) ?? 0) + 1);
       for (const [doc, n] of counts) {
         const list = citations.get(doc) ?? [];
-        list.push({ route: articleRoute(a.slug), title: a.title, kind: "Article", quotes: n });
+        list.push({ route: articleRoute(a.slug), title: a.title, kind: a.form, quotes: n });
         citations.set(doc, list);
       }
     }
@@ -115,7 +120,7 @@ export function docTitle(id: string): string | null {
 export interface Writing {
   slug: string;
   route: string;
-  kind: "Article" | "Paper";
+  kind: "Essay" | "Brief" | "Paper";
   title: string;
   dek: string;
   topic: string;
@@ -139,14 +144,14 @@ export function paperMinutes(p: Paper): number {
 /** Articles listed in the library (Ground Pattern is stored but unlisted). */
 export function listedArticles(): Article[] {
   return allArticles()
-    .filter((a) => libraryRowForRoute(articleRoute(a.slug))?.kind === "Article")
+    .filter((a) => isWriting(libraryRowForRoute(articleRoute(a.slug))?.kind ?? ""))
     .sort((x, y) => y.date.localeCompare(x.date));
 }
 
 /** An article's topic: its own front matter, or its library row's when the
  *  front matter left it empty (several did). */
 export function topicOf(a: Article | Paper): string {
-  return a.topic || libraryRowForRoute(articleRoute(a.slug))?.topic || "McLuhan & media theory";
+  return a.topic || libraryRowForRoute(writingRoute(a))?.topic || "McLuhan & media theory";
 }
 
 export function writingFor(a: Article | Paper): Writing {
@@ -154,7 +159,7 @@ export function writingFor(a: Article | Paper): Writing {
     return {
       slug: a.slug,
       route: articleRoute(a.slug),
-      kind: "Article",
+      kind: a.form,
       title: a.title,
       dek: a.dek,
       topic: topicOf(a),
@@ -165,7 +170,7 @@ export function writingFor(a: Article | Paper): Writing {
   }
   return {
     slug: a.slug,
-    route: articleRoute(a.slug),
+    route: paperRoute(a.slug),
     kind: "Paper",
     title: a.title,
     dek: a.dek ?? "",

@@ -2,6 +2,7 @@
 slug: "measuring-the-economy-with-new-instruments"
 file: "Canopticon Essay Instruments.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Prices & markets"
 title: "Measuring the economy with new instruments: scraped prices, card-spending trackers and satellite imagery"
 dek: "Four old arguments explain why an economy resists being computed, and none of them have gone away. What computation did change is measurement — scraped prices, card records and satellite images that report what is happening weeks before the official numbers do."

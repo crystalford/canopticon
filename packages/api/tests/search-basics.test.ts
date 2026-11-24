@@ -31,7 +31,7 @@ describe("search results", () => {
 
   it("a coined term's page and the paper that coined it are titled apart", async () => {
     const concept = titleOf(await (await get("/concepts/heterocrasis")).text());
-    const paper = titleOf(await (await get("/articles/heterocrasis")).text());
+    const paper = titleOf(await (await get("/papers/heterocrasis")).text());
     expect(concept).toBe("Heterocrasis: meaning and origin · Canopticon");
     expect(paper).not.toBe(concept);
   });

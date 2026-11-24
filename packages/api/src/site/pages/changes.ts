@@ -117,12 +117,12 @@ export function renderChanges(
         : `<div class="chg-hunk">${changedHtml(b.ops)}</div>`,
     )
     .join("\n");
-  const path = `/articles/${p.slug}`;
+  const path = `/papers/${p.slug}`;
   return shell({
     title: `${p.title}: what changed`,
     description: `Every change between version ${from.n} and version ${to.n} of ${p.title}, word by word.`,
     path: `${path}/changes`,
-    nav: "library",
+    nav: "papers",
     signedIn: opts.signedIn ?? false,
     body: `<article class="chg">
 <p class="chg-kick"><a href="${path}">${esc(p.title)}</a> · What changed</p>

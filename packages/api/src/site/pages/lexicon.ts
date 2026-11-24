@@ -179,7 +179,7 @@ export function renderLexicon(opts: { signedIn?: boolean } = {}): string {
 <p class="dek">Every term coined at Canopticon, with the sentence that defines it, how to say it and where it was first stated. Each links to its own page, with the questions it answers, examples, how it differs from existing terms and how to cite it.</p>
 <nav class="lx-toc" aria-label="Sections">${toc}</nav>
 ${sections}
-<p class="lx-foot">Questions nobody has answered yet are on <a href="/ideas" class="ulink">Ideas</a>. The Markdown of this page: <a href="/lexicon.md" class="ulink">/lexicon.md</a>.</p>
+<p class="lx-foot">Questions nobody has answered yet are on <a href="/open" class="ulink">Open questions</a>. The Markdown of this page: <a href="/lexicon.md" class="ulink">/lexicon.md</a>.</p>
 </div>`;
 
   return shell({

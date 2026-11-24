@@ -151,12 +151,12 @@ The practical upshot is the one McLuhan himself drew. If the most important effe
 
 | Paper | Subject |
 | --- | --- |
-| [*Sensory Syncrasis*](https://canopticon.com/articles/syncrasis) | McLuhan's sense ratios as a literal hypothesis; the five-dimensional framework |
-| [*Heterocrasis*](https://canopticon.com/articles/heterocrasis) | ADHD as a different starting configuration |
-| [*Typomora*](https://canopticon.com/articles/typomora) | The typed era as a delay in the return to voice |
-| [*Exocrasis*](https://canopticon.com/articles/exocrasis) | The computing environment and offloaded capacities |
-| [*Pharmakrasis*](https://canopticon.com/articles/pharmakrasis) | Drugs as sense-ratio technologies, and drug–media hybrids |
-| [*Narcocrasis*](https://canopticon.com/articles/narcocrasis) | Addiction as an invisible medium; anacrasis as recovery |
+| [*Sensory Syncrasis*](https://canopticon.com/papers/syncrasis) | McLuhan's sense ratios as a literal hypothesis; the five-dimensional framework |
+| [*Heterocrasis*](https://canopticon.com/papers/heterocrasis) | ADHD as a different starting configuration |
+| [*Typomora*](https://canopticon.com/papers/typomora) | The typed era as a delay in the return to voice |
+| [*Exocrasis*](https://canopticon.com/papers/exocrasis) | The computing environment and offloaded capacities |
+| [*Pharmakrasis*](https://canopticon.com/papers/pharmakrasis) | Drugs as sense-ratio technologies, and drug–media hybrids |
+| [*Narcocrasis*](https://canopticon.com/papers/narcocrasis) | Addiction as an invisible medium; anacrasis as recovery |
 
 ### Core references used in this synthesis
 

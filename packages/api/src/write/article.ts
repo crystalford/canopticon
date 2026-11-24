@@ -32,6 +32,8 @@ export function draftArticle(d: Draft, titles: Map<string, string>): Article {
   return {
     slug: slugify(title),
     kind: "Article",
+    // The workspace drafts from the record: a question answered from it.
+    form: "Brief",
     topic: d.meta.topic || "Draft",
     title,
     dek: d.meta.dek ?? "",
@@ -54,6 +56,7 @@ export function draftMarkdown(d: Draft, titles: Map<string, string>): string {
     "---",
     `slug: ${q(a.slug)}`,
     `kind: "Article"`,
+    `form: ${q(a.form)}`,
     `topic: ${q(a.topic)}`,
     `title: ${q(a.title)}`,
     `dek: ${q(a.dek)}`,

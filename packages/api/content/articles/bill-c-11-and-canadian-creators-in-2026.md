@@ -2,6 +2,7 @@
 slug: "bill-c-11-and-canadian-creators-in-2026"
 file: "Canopticon Essay C11.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Canadian media"
 title: "Bill C-11 and Canadian creators in 2026: what the CRTC has actually imposed, and what is still a prediction"
 dek: "Creators were told the Online Streaming Act would cost them their foreign audiences by teaching recommendation systems that Canadian videos go unwatched. Three years after royal assent the regulator has imposed no discoverability requirement on anyone, the money is stayed by a court, and no study has measured the harm."

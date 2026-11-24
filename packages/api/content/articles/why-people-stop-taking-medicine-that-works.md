@@ -1,6 +1,7 @@
 ---
 slug: "why-people-stop-taking-medicine-that-works"
 kind: "Article"
+form: "Essay"
 topic: "Health & self-care"
 title: "Why people stop taking medicine that works"
 dek: "About half of people prescribed a long-term medicine stop within a year or two, and the most common reason they give is that they feel better. For a condition whose cause is still there, feeling better means the medicine is working, and says nothing about whether it can stop."

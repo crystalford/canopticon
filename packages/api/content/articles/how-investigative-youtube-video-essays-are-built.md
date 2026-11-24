@@ -2,6 +2,7 @@
 slug: "how-investigative-youtube-video-essays-are-built"
 file: "Canopticon Essay Video Essay.dc.html"
 kind: "Article"
+form: "Brief"
 topic: ""
 title: "How investigative YouTube video essays are built: the cold open, the late turn to meaning, and the channels that borrow the form without the evidence"
 dek: "The strongest forensic video essays open on an artifact, walk through evidence in the order a viewer would experience it, and say what it all means only late in the video. That delayed turn is what persuades, which is why the same structure works just as well for channels whose evidence does not hold up."

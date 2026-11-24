@@ -28,6 +28,7 @@ import {
   anyResearchDoc,
   article,
   conceptsNamedIn,
+  isWriting,
   libraryItems,
   measuredElsewhere,
   paper,
@@ -67,10 +68,10 @@ import { evidence } from "./pages/evidence";
 import { consentWording, followTopics, renderFollow } from "./pages/follow";
 import { renderFront } from "./pages/front";
 import { renderIdea } from "./pages/idea";
-import { renderIdeas } from "./pages/ideas";
 import { lexiconMarkdown, renderLexicon } from "./pages/lexicon";
-import { INVESTIGATIONS, type LibraryQuery, renderLibrary } from "./pages/library";
+import { type LibraryQuery, OPEN, RESEARCH, WRITING, renderLibrary } from "./pages/library";
 import { renderNotFound, renderNotice } from "./pages/notice";
+import { renderPapers } from "./pages/papers";
 import { receiptLine, renderReadBoard } from "./pages/read";
 import { renderSearch } from "./pages/search";
 import { withSpoken } from "./pages/spoken";
@@ -194,17 +195,19 @@ app.get("/library", (c) =>
   ),
 );
 
-app.get("/investigations", (c) =>
-  html(
-    renderLibrary(
-      libraryQuery((k) => c.req.query(k)),
-      {
-        signedIn: signedIn(c),
-        shelf: INVESTIGATIONS,
-      },
+// The shelves: one group of the Library at its own address (the ladder:
+// theories, papers, writing, research, terms, open questions).
+for (const shelf of [WRITING, RESEARCH, OPEN])
+  app.get(shelf.base, (c) =>
+    html(
+      renderLibrary(
+        libraryQuery((k) => c.req.query(k)),
+        { signedIn: signedIn(c), shelf },
+      ),
     ),
-  ),
-);
+  );
+app.get("/papers", (c) => html(renderPapers({ signedIn: signedIn(c) })));
+app.get("/investigations", (c) => c.redirect("/research?kind=Investigation", 301));
 
 // The page was /desk for its first hour; old links keep working.
 app.get("/desk", (c) => c.redirect(`/admin${new URL(c.req.url).search}`, 301));
@@ -522,19 +525,21 @@ app.get("/sitemap.xml", () => {
   const urls: Array<[string, string]> = [
     ["/", ""],
     ["/library", ""],
-    ["/ideas", ""],
     ["/theories", ""],
+    ["/papers", ""],
+    ["/writing", ""],
+    ["/research", ""],
     ["/lexicon", ""],
-    ["/investigations", ""],
+    ["/open", ""],
     ["/about", ""],
     ["/follow", ""],
     ...hubTopics().map((t): [string, string] => [`/topics/${t.slug}`, ""]),
     ...listedArticles().map((a): [string, string] => [`/articles/${a.slug}`, a.date]),
-    ...allPapers().map((p): [string, string] => [`/articles/${p.slug}`, p.revised ?? p.date]),
+    ...allPapers().map((p): [string, string] => [`/papers/${p.slug}`, p.revised ?? p.date]),
     // A theory's last change is its revision, not the day it was coined.
     ...allTheories().map((t): [string, string] => [`/theories/${t.slug}`, t.revised ?? t.date]),
     ...libraryItems()
-      .filter((r) => r.kind !== "Article" && r.kind !== "Paper" && r.kind !== "Project")
+      .filter((r) => !isWriting(r.kind) && r.kind !== "Paper" && r.kind !== "Project")
       .map((r): [string, string] => [r.route, r.date]),
   ];
   const seen = new Set<string>();
@@ -623,12 +628,12 @@ app.get("/unsubscribe", async (c) => {
 
 // ---- redirects from the live site (docs/blackbox/ROUTES.md) -------------------
 
-app.get("/essays", (c) => c.redirect("/library?kind=Article", 301));
-app.get("/articles", (c) => c.redirect("/library?kind=Article", 301));
+app.get("/essays", (c) => c.redirect("/writing?kind=Essay", 301));
+app.get("/briefs", (c) => c.redirect("/writing?kind=Brief", 301));
+app.get("/articles", (c) => c.redirect("/writing", 301));
 app.get("/essays/:slug", (c) =>
   c.redirect(`/articles/${encodeURIComponent(c.req.param("slug"))}`, 301),
 );
-app.get("/research", (c) => c.redirect("/library?kind=Research", 301));
 app.get("/method", (c) => c.redirect("/about#m-rules", 301));
 app.get("/methodology", (c) => c.redirect("/about#m-rules", 301));
 app.get("/how-it-works", (c) => c.redirect("/about#m-rules", 301));
@@ -650,7 +655,7 @@ const OLD_SECTIONS: Record<string, string> = {
 app.get("/research/:section", (c) => {
   const s = c.req.param("section").replace(/-and-/g, "-");
   const topic = OLD_SECTIONS[s];
-  return c.redirect(topic ? `/topics/${topic}` : "/library?kind=Research", 301);
+  return c.redirect(topic ? `/topics/${topic}` : "/research", 301);
 });
 
 /** A verbatim-quote receipt from the old site: go to the passage itself. */
@@ -713,7 +718,7 @@ app.get("/hovercards.json", () => {
     { kind: string; title: string; dek: string; meta: string; bg: string; fg: string }
   > = {};
   for (const r of libraryItems()) {
-    if (!/^\/(articles|p|concepts|open)\/[^/#?]+$/.test(r.route)) continue;
+    if (!/^\/(articles|papers|theories|p|concepts|open)\/[^/#?]+$/.test(r.route)) continue;
     const [bg, fg] = kindColours(r.kind);
     out[r.route] = { kind: r.kind, title: r.title, dek: r.dek ?? "", meta: r.stat ?? "", bg, fg };
   }
@@ -857,7 +862,8 @@ app.post("/follow", async (c) => {
   return html(renderFollow({ sent: email, topics, signedIn: signedIn(c) }));
 });
 
-app.get("/ideas", (c) => html(renderIdeas({ signedIn: signedIn(c) })));
+// Ideas held the terms and the open questions; each now has its own page.
+app.get("/ideas", (c) => c.redirect("/lexicon", 301));
 
 app.get("/search", (c) =>
   html(
@@ -1074,24 +1080,33 @@ app.get("/articles/:slug", async (c, next) => {
   if (a) {
     if (md) {
       return markdownTwin(
-        { id: a.slug, title: a.title, kind: "Article", topic: a.topic, date: a.date, body: a.body },
+        { id: a.slug, title: a.title, kind: a.form, topic: a.topic, date: a.date, body: a.body },
         `/articles/${a.slug}`,
       );
     }
     return html(renderArticle(a, { signedIn: signedIn(c) }));
   }
+  // Papers moved to /papers/ (2026-11-24): the old address still lands.
+  if (paper(slug)) return c.redirect(`/papers/${slug}${md ? ".md" : ""}`, 301);
+  return next();
+});
+
+app.get("/papers/:slug", (c, next) => {
+  const raw = c.req.param("slug");
+  const md = raw.endsWith(".md");
+  const slug = md ? raw.slice(0, -3) : raw;
   const p = paper(slug);
   if (p) {
     // The papers are hand-built in the prototype (term links, numbered
     // citations, the reference list, the series) and are ported as-is
     // (content/pages/paper-*.html). The Markdown stays the source for the
     // twin, the feeds and llms-full.txt.
-    const built = staticPage(`/articles/${p.slug}`);
+    const built = staticPage(`/papers/${p.slug}`);
     if (built && !md) {
       const body = withSpoken(built.body, spokenCards(p.slug));
       // The hand-built page carries its own JSON-LD; the citation tags Google
       // Scholar reads and the Markdown twin's address are added here.
-      const head = `${citationMeta(p.title, p.date, `https://canopticon.com/articles/${p.slug}`, p.doi)}\n<link rel="alternate" type="text/markdown" href="/articles/${p.slug}.md" />`;
+      const head = `${citationMeta(p.title, p.date, `https://canopticon.com/papers/${p.slug}`, p.doi)}\n<link rel="alternate" type="text/markdown" href="/papers/${p.slug}.md" />`;
       return html(renderStatic({ ...built, body }, { signedIn: signedIn(c), head }));
     }
     if (md) {
@@ -1104,7 +1119,7 @@ app.get("/articles/:slug", async (c, next) => {
           date: p.date,
           body: p.body,
         },
-        `/articles/${p.slug}`,
+        `/papers/${p.slug}`,
       );
     }
     return html(renderPaper(p, { signedIn: signedIn(c) }));
@@ -1162,7 +1177,10 @@ app.get("/theories/:slug", (c, next) => {
 
 // What changed between a paper's last kept version and the current one,
 // word by word (pages/changes.ts).
-app.get("/articles/:slug/changes", (c, next) => {
+app.get("/articles/:slug/changes", (c, next) =>
+  paper(c.req.param("slug")) ? c.redirect(`/papers/${c.req.param("slug")}/changes`, 301) : next(),
+);
+app.get("/papers/:slug/changes", (c, next) => {
   const p = paper(c.req.param("slug"));
   const kept = p ? paperVersions(p.slug) : [];
   const from = kept[kept.length - 1];
@@ -1172,9 +1190,14 @@ app.get("/articles/:slug/changes", (c, next) => {
 });
 
 // A paper's earlier versions, kept whole (content/pages/paper-<slug>-v<n>.html,
-// route /articles/<slug>/v<n>): revising a paper never erases what it said.
-app.get("/articles/:slug/:ver{v[0-9]+}", (c, next) => {
-  const built = staticPage(`/articles/${c.req.param("slug")}/${c.req.param("ver")}`);
+// route /papers/<slug>/v<n>): revising a paper never erases what it said.
+app.get("/articles/:slug/:ver{v[0-9]+}", (c, next) =>
+  paper(c.req.param("slug"))
+    ? c.redirect(`/papers/${c.req.param("slug")}/${c.req.param("ver")}`, 301)
+    : next(),
+);
+app.get("/papers/:slug/:ver{v[0-9]+}", (c, next) => {
+  const built = staticPage(`/papers/${c.req.param("slug")}/${c.req.param("ver")}`);
   if (!built) return next();
   return html(renderStatic(built, { signedIn: signedIn(c) }));
 });

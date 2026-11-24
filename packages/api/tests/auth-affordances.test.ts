@@ -185,8 +185,8 @@ describe("the operator can find where to upload", () => {
     // The Black Box header (docs/blackbox/README.md §Shared chrome): Library
     // and About for everyone, and an Admin pill to /admin only when signed in.
     const header = html.slice(html.indexOf('<header class="hd-in">'));
-    expect(header.slice(0, 600)).toContain('<a href="/library"');
-    expect(header.slice(0, 600)).toContain('<a href="/admin" class="admin">Admin');
+    expect(header.slice(0, 700)).toContain('<a href="/theories"');
+    expect(header.slice(0, 900)).toContain('<a href="/admin" class="admin">Admin');
     const anon = await (await app.fetch(new Request("http://test/"), env)).text();
     expect(anon).not.toContain('class="admin"');
     expect(html.match(/<nav aria-label="Primary"/g)?.length).toBe(1);

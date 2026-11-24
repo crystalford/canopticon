@@ -2,6 +2,7 @@
 slug: "alcohol-blackouts-how-ethanol-blocks-memory-formation"
 file: "Canopticon Essay Blackout.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Health & self-care"
 title: "Alcohol blackouts: how ethanol blocks memory formation, and why drinking speed decides it"
 dek: "In an alcohol blackout the drinker is awake, talking and deciding, while the brain's ability to save the night is chemically held shut. Nothing comes back afterwards because nothing was stored — and how fast the drinking goes decides whether it happens at all."

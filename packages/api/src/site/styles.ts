@@ -135,7 +135,9 @@ input[type="search"] { -webkit-appearance: none; appearance: none; }
 .ft-wm { flex: none; font-weight: 700; font-size: var(--t-md); letter-spacing: -.02em; }
 .ft-line { flex: 1 1 320px; font-size: var(--t-sm); line-height: 1.6; color: var(--ink-2); max-width: 56ch; }
 .ft-line a { color: var(--ink); border-bottom: 1px solid var(--green); }
-.ft-nav { margin-left: auto; display: grid; grid-template-columns: repeat(2, max-content); gap: 8px 32px; font-size: var(--t-sm); color: var(--ink-2); }
+.ft-nav { margin-left: auto; display: grid; grid-template-columns: repeat(3, max-content); gap: 20px 48px; font-size: var(--t-sm); color: var(--ink-2); }
+.ft-col { display: flex; flex-direction: column; gap: 9px; }
+.ft-h { font-size: var(--t-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
 .ft-nav a:hover { color: var(--ink); }
 
 /* ---- the grid (docs/blackbox/LAYOUT.md) ------------------------------- */
@@ -1202,6 +1204,89 @@ a.xl.concept { border-bottom-color: var(--brick); }
   .rail, .drail { position: static; max-width: none; }
   .rail-sticky { position: static; }
 }
+/* ---- The sections, as one ladder (2026-11-24) ----------------------------
+   The front page's masthead names the five sections in order, from the
+   author's own ideas down to the evidence under them; the same order runs
+   through the top bar, the footer and the rest of the front page. */
+.mast { padding: 44px 0 4px; }
+.mast-h { font-size: var(--t-display); line-height: 1.06; font-weight: 500; letter-spacing: -.03em; color: var(--ink); max-width: 20ch; margin: 0; }
+.mast-p { font-size: var(--t-lede); line-height: 1.5; color: var(--ink-2); max-width: 58ch; margin: 18px 0 0; }
+.lad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 36px; border: 1px solid var(--hair); border-radius: 16px; background: var(--card); overflow: hidden; }
+a.lad-s { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px 22px; border-left: 1px solid var(--hair); color: var(--ink); }
+a.lad-s:first-child { border-left: 0; }
+a.lad-s:hover { background: var(--tint-3); color: var(--ink); }
+.lad-top { display: flex; justify-content: space-between; align-items: baseline; }
+.lad-i { font-size: var(--t-xs); font-weight: 500; letter-spacing: .06em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lad-n { font-size: var(--t-h2); font-weight: 500; letter-spacing: -.02em; line-height: 1; color: var(--ink); }
+.lad-t { font-size: var(--t-lg); font-weight: 600; letter-spacing: -.012em; margin-top: 12px; }
+a.lad-s:hover .lad-t { color: var(--cobalt); }
+.lad-d { font-size: var(--t-sm); line-height: 1.5; color: var(--ink-2); }
+.sec-h h2 { margin: 0; }
+.sec-a { margin-left: auto; font-size: var(--t-ui); font-weight: 500; color: var(--ink-2); white-space: nowrap; }
+.sec-a::after { content: "\\2192"; margin-left: 6px; color: var(--muted); }
+.sec-a:hover { color: var(--ink); }
+.sec-a:hover::after { color: var(--cobalt); }
+.sec-p { margin: -6px 0 18px; max-width: 70ch; font-size: var(--t-md); line-height: 1.55; color: var(--muted); }
+.ser-head h3.ser-h { margin: 0; }
+.sec .ser-h { font-size: var(--t-h2); }
+a.term-card { gap: 10px; padding: 22px 22px 24px; }
+.term-card-say { font-size: var(--t-xs); color: var(--muted); letter-spacing: .02em; }
+.term-card-p { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--hair); font-size: var(--t-sm); color: var(--muted); }
+.wcols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.wcol { display: flex; flex-direction: column; padding: 6px 24px 8px; border: 1px solid var(--hair); border-radius: 16px; background: var(--card); min-width: 0; }
+.wcol-h { display: flex; align-items: center; gap: 10px; padding: 14px 0 12px; border-bottom: 1px solid var(--hair); font-size: var(--t-sm); color: var(--muted); }
+a.wrow { display: flex; flex-direction: column; gap: 6px; padding: 18px 0; border-bottom: 1px solid var(--hair); color: var(--ink); }
+.wrow-t { font-size: var(--t-read); font-weight: 500; line-height: 1.3; letter-spacing: -.012em; }
+a.wrow:hover .wrow-t { color: var(--cobalt); }
+.wrow-d { font-size: var(--t-ui); line-height: 1.5; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.wrow-m { display: flex; flex-wrap: wrap; gap: 4px 6px; font-size: var(--t-xs); color: var(--muted); }
+.wcol .row-more { border-top: 0; margin: 0 -12px; }
+a.open-line { display: flex; align-items: center; gap: 18px; margin-top: 12px; padding: 16px 22px; border: 1px solid var(--hair); border-radius: 14px; background: var(--card); font-size: var(--t-md); line-height: 1.5; color: var(--ink-2); }
+a.open-line strong { font-weight: 600; color: var(--ink); }
+a.open-line:hover { background: var(--tint-3); border-color: var(--rule); color: var(--ink-2); }
+.open-n { flex: none; min-width: 2ch; font-size: var(--t-xl); font-weight: 500; color: #8a3a1f; }
+.open-arrow { margin-left: auto; color: var(--muted); }
+a.open-line:hover .open-arrow { color: var(--cobalt); }
+.pp-mm { font-size: var(--t-xs); color: var(--muted); }
+/* /papers */
+.prose .pp-sec { margin-top: 52px; }
+.prose .pp-sh { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--ink); }
+.prose .pp-sh h2 { margin: 0; font-size: var(--t-h2); font-weight: 500; letter-spacing: -.02em; }
+.pp-sm { margin-left: auto; font-size: var(--t-sm); color: var(--muted); }
+.prose .pp-si { margin: 18px 0 6px; font-size: var(--t-md); line-height: 1.6; color: var(--ink-2); }
+.prose .pp-list { list-style: none; margin: 0; padding: 0; }
+.prose .pp-list .pp-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 4px 16px; margin: 0; padding: 24px 0; border-bottom: 1px solid var(--hair); }
+.pp-n { padding-top: 7px; font-size: var(--t-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.prose a.pp-t { font-size: var(--t-xl); font-weight: 500; letter-spacing: -.015em; line-height: 1.25; color: var(--ink); }
+.prose a.pp-t:hover { color: var(--cobalt); }
+.prose .pp-d { margin: 6px 0 12px; font-size: var(--t-md); line-height: 1.55; color: var(--ink-2); }
+.pp-f { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--t-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+.pp-x { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 12px; }
+.pp-l { font-size: var(--t-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.pp-x .pp-l ~ .pp-l { margin-left: 8px; }
+.prose a.pp-term { padding: 2px 10px; border-radius: 999px; background: #e3f0e6; color: #1f5e36; font-size: var(--t-sm); font-weight: 500; }
+.prose a.pp-term.th { background: #15171c; color: #f6f3ec; }
+.prose a.pp-term:hover { outline: 1px solid currentColor; }
+.pp-tag { padding-top: 4px; }
+@media (max-width: 860px) {
+  .lad { grid-template-columns: minmax(0, 1fr); }
+  a.lad-s { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; column-gap: 12px; row-gap: 2px; padding: 14px 18px; border-left: 0; border-top: 1px solid var(--hair); }
+  a.lad-s:first-child { border-top: 0; }
+  .lad-top { display: contents; }
+  .lad-i { grid-column: 1; grid-row: 1; align-self: center; }
+  .lad-t { grid-column: 2; grid-row: 1; margin: 0; }
+  .lad-n { grid-column: 3; grid-row: 1; align-self: center; font-size: var(--t-xl); }
+  .lad-d { grid-column: 2 / 4; grid-row: 2; }
+  .wcols { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .mast { padding: 22px 0 0; }
+  .wcol { padding: 4px 18px 6px; }
+  a.open-line { padding: 14px 16px; gap: 14px; }
+  .prose .pp-list .pp-row { grid-template-columns: 28px minmax(0, 1fr); }
+  .pp-tag { display: none; }
+}
+
 @media (max-width: 640px) {
   a.ser-row { grid-template-columns: 32px minmax(0, 1fr); padding: 14px 18px; }
   .ser-r { grid-column: 2; flex-direction: row; align-items: center; }
@@ -1232,21 +1317,26 @@ a.xl.concept { border-bottom-color: var(--brick); }
   /* The kind tabs scroll sideways rather than wrapping into a block. */
   .seg { display: flex; flex-wrap: nowrap; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
   .seg::-webkit-scrollbar { display: none; }
-  .ft-nav { grid-template-columns: repeat(3, max-content); gap: 8px 24px; }
+  .ft-nav { grid-template-columns: repeat(2, max-content); gap: 24px 40px; }
 }
-/* A phone header holds the wordmark, the links, a search icon and (signed
-   in) the Admin pill on one line. The word "Search" stays for screen readers.
-   About leaves the bar on phones (it is in the footer) so Library, Theories
-   and Lexicon fit beside the search icon. */
+/* Narrower than the five sections fit beside the wordmark, the sections
+   take their own row under it: the wordmark, search and (signed in) Admin
+   on the first line, Theories · Papers · Writing · Research · Lexicon on the
+   second, scrolling sideways if a phone is narrower still. */
+@media (max-width: 860px) {
+  .hd-in { padding: 10px 20px 0; gap: 0 14px; min-height: 0; }
+  .hd-in .wm { padding: 6px 0; }
+  .nav { order: 3; flex: 1 0 100%; gap: 22px; overflow-x: auto; scrollbar-width: none; padding: 4px 0 0; margin-top: 4px; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a { padding: 8px 0 12px; }
+  .nav a[aria-current="page"] { text-underline-offset: 7px; }
+}
+/* On a phone the search is an icon; the word stays for screen readers. */
 @media (max-width: 520px) {
-  .hd-in { flex-wrap: nowrap; gap: 12px; padding: 8px 14px; }
-  .nav { gap: 12px; }
-  .nav a[href="/about"] { display: none; }
+  .hd-in { padding: 8px 16px 0; }
+  .nav { gap: 20px; }
   .hd-search { min-width: 0; width: 34px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
   .admin { padding: 0 9px; }
-}
-@media (max-width: 360px) {
-  .nav a[href="/lexicon"] { display: none; }
 }
 @media print {
   .hd, .ft, .rail, .drail, .panel.email { display: none !important; }

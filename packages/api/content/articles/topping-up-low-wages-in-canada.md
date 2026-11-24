@@ -2,6 +2,7 @@
 slug: "topping-up-low-wages-in-canada"
 file: "Canopticon Essay Topup.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Economics"
 title: "Topping up low wages in Canada: the Canada Workers Benefit, employer capture, and the workers who never file"
 dek: "Canada already runs the alternative to a basic income — a refundable credit that tops up low earnings automatically. Two things decide whether it works: employers absorb part of any wage subsidy where no floor exists, and about 9% of eligible earners never file a return."

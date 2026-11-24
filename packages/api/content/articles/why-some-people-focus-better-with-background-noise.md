@@ -1,6 +1,7 @@
 ---
 slug: "why-some-people-focus-better-with-background-noise"
 kind: "Article"
+form: "Essay"
 topic: "ADHD & attention"
 title: "Why some people focus better with background noise"
 dek: "White and pink noise help people with ADHD a little on attention tasks and hurt everyone else a little. The same split shows up with fidgeting, and it fits a brain whose overall gain is set lower, so it does better with some stimulation added from outside."
@@ -36,7 +37,7 @@ The effect is also small. A benefit of a quarter of a standard deviation is real
 
 ## A different starting mix of the senses
 
-The idea that brains start from different settings has a name in this publication's papers on McLuhan and the senses: [heterocrasis](/concepts/heterocrasis), a configuration of the senses that differs before any medium acts on it. The paper that proposes it, [Heterocrasis](/articles/heterocrasis), argues that ADHD's clearest difference is in overall gain, and that external stimulation may supply some of what the nervous system does not. Background noise is one of the few places where that can be seen in a controlled study: the same input moves two groups in opposite directions.
+The idea that brains start from different settings has a name in this publication's papers on McLuhan and the senses: [heterocrasis](/concepts/heterocrasis), a configuration of the senses that differs before any medium acts on it. The paper that proposes it, [Heterocrasis](/papers/heterocrasis), argues that ADHD's clearest difference is in overall gain, and that external stimulation may supply some of what the nervous system does not. Background noise is one of the few places where that can be seen in a controlled study: the same input moves two groups in opposite directions.
 
 For anyone who works better with a fan on, the studies offer a practical reading. The preference may be doing something, and the people who find noise distracting may be right too.
 

@@ -2,6 +2,7 @@
 slug: "portraiture-as-a-research-method"
 file: "Canopticon Essay Portraiture.dc.html"
 kind: "Article"
+form: "Brief"
 topic: ""
 title: "Portraiture as a research method: Sara Lawrence-Lightfoot's \"painting with words\", how it differs from ethnography, and the case against it"
 dek: "Portraiture puts the researcher's own judgement at the centre of a study and measures success by whether readers recognise the truth of the portrait, not by whether anyone could repeat it. Its sharpest critic says that leaves no way to check the portraitist; its founder's answer is that a visible self demands more discipline, not less."

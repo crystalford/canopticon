@@ -2,6 +2,7 @@
 slug: "the-change-you-stop-seeing"
 file: "Canopticon Essay Ground Pattern.dc.html"
 kind: "Article"
+form: "Essay"
 topic: "McLuhan & media theory"
 title: "The change you stop seeing"
 dek: "Across health, addiction, prices, screens and typing, the research keeps finding the same thing: what changes is the background, and the background is the part we stop noticing. The thing in front of us stays the same."

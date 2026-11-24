@@ -1,15 +1,16 @@
-// / — the front page. docs/blackbox/README.md §Front; pages/Canopticon
-// Front.dc.html. Curated by the author: the McLuhan series as one numbered
-// card, the theories (live: every one is a deliberate act), three starting points, a hand-picked run of articles, three concepts,
-// the latest research and the topics. New articles do not appear here on
-// their own (author decision, 10 Oct) — the counts are live, the picks are not.
+// / — the front page, in the order of the site's sections (2026-11-24): the
+// masthead with the five sections as one strip, then Theories (live: every one
+// is a deliberate act), Papers (the McLuhan series as one numbered card),
+// Writing (hand-picked essays beside hand-picked briefs), the Lexicon and open
+// questions, and the newest research with the topics. New writing does not
+// appear here on its own (author decision, 10 Oct) — the counts are live, the
+// picks are not.
 
 import { AUTHOR } from "../author";
 import type { LibraryItem } from "../content/store";
-import { allTheories, article, paper, term } from "../content/store";
+import { allPapers, allTheories, article, isWriting, libraryItems, term } from "../content/store";
 import {
   latestResearch,
-  listedArticles,
   publicResearchCount,
   researchTopics,
   seriesPapers,
@@ -20,25 +21,12 @@ import { kindColours, longDate, shortDate, topicColours } from "../theme";
 
 /** The author's picks, in order. A slug that disappears is skipped, not
  *  replaced: a curated page does not quietly re-curate itself. */
-const START_HERE: Array<{ kind: "article" | "paper"; slug: string; title: string; why: string }> = [
-  {
-    kind: "article",
-    slug: "self-extinguishing-maintenance",
-    title: "Self-extinguishing maintenance",
-    why: "The clearest example of what this site does: a pattern with no name, found in the research and named.",
-  },
-  {
-    kind: "paper",
-    slug: "why-temperature",
-    title: "Why Temperature",
-    why: "Why did McLuhan call media hot and cool? Read as regulation, the metaphor becomes a claim about learning.",
-  },
-  {
-    kind: "paper",
-    slug: "krasis",
-    title: "Krasis",
-    why: "The long project: seven papers taking one of McLuhan’s claims literally.",
-  },
+const FRONT_ESSAYS = [
+  "guess-before-you-look",
+  "self-extinguishing-maintenance",
+  "the-counter-irritant-spiral",
+  "unverified-hunches-in-ai-assisted-software-work",
+  "seeing-what-you-rely-on",
 ];
 
 const FRONT_ARTICLES = [
@@ -49,33 +37,16 @@ const FRONT_ARTICLES = [
   "bill-c-11-and-canadian-creators-in-2026",
 ];
 
-const NAMED_HERE: Array<{ id: string; route: string; blurb: string }> = [
-  {
-    id: "self-extinguishing-maintenance",
-    route: "/theories/self-extinguishing-maintenance",
-    blurb:
-      "A routine that works so well it removes the thing that made you do it — so it stops, and the problem comes back.",
-  },
-  {
-    id: "sensory-syncrasis",
-    route: "/concepts/sensory-syncrasis",
-    blurb:
-      "The whole configuration of how the brain blends its senses: how much it trusts each one, how loud it turns them all, whether it fuses or separates them, the balance between body and world, and how long a setting lasts.",
-  },
-  {
-    id: "typomora",
-    route: "/concepts/typomora",
-    blurb:
-      "The typed delay in McLuhan's predicted return to voice: fifty years in which the keyboard, not the medium, kept networked communication typographic.",
-  },
-];
+/** The author's picks for the Lexicon section; each card is drawn from the
+ *  term's own entry (terms.json), so it always says what the term page says. */
+const NAMED_HERE = ["sensory-syncrasis", "narcocrasis", "typomora"];
 
 function seriesCard(): string {
   const series = seriesPapers();
   const rows = series
     .map(
       ({ item, paper: p }, i) =>
-        `<a href="/articles/${esc(p.slug)}" class="ser-row${i ? "" : " first"}"><span class="ser-n">${String(i + 1).padStart(2, "0")}</span><span style="min-width:0"><span class="ser-t">${esc(p.title)}</span><span class="ser-d">${esc(item.blurb)}</span></span><span class="ser-r">${pill(item.tag, item.tagPair, "pill lg")}<span class="ser-m">${item.minutes} min</span></span></a>`,
+        `<a href="/papers/${esc(p.slug)}" class="ser-row${i ? "" : " first"}"><span class="ser-n">${String(i + 1).padStart(2, "0")}</span><span style="min-width:0"><span class="ser-t">${esc(p.title)}</span><span class="ser-d">${esc(item.blurb)}</span></span><span class="ser-r">${pill(item.tag, item.tagPair, "pill lg")}<span class="ser-m">${item.minutes} min</span></span></a>`,
     )
     .join("");
   const days = series.map((s) => s.paper.date).sort();
@@ -83,7 +54,7 @@ function seriesCard(): string {
   const last = days[days.length - 1] ?? "";
   const d1 = shortDate(first).split(" ")[0] ?? "";
   const span = first === last ? longDate(first) : `${d1}–${longDate(last)}`;
-  return `<section aria-label="The McLuhan paper series" class="ser"><div class="ser-head"><div class="pills" style="margin-bottom:14px"><span class="pill lg" style="background:#e9dcf5;color:#5a2d82">Paper series</span><span class="pill lg" style="background:var(--card);color:#5a2d82">${series.length} papers · read in order or dip in</span></div><h2 class="ser-h">McLuhan said every medium changes the ratio among our senses. Seven papers take that literally.</h2><p class="ser-p">Six papers test it — from ADHD and typing to drugs and addiction — and the synthesis finds one configuration that media, drugs and illness all re-temper.</p></div><div>${rows}</div><p class="ser-foot">Each paper cites the published literature with numbered references · published ${esc(span)}</p></section>`;
+  return `<section aria-label="The McLuhan paper series" class="ser"><div class="ser-head"><div class="pills" style="margin-bottom:14px"><span class="pill lg" style="background:#e9dcf5;color:#5a2d82">Paper series</span><span class="pill lg" style="background:var(--card);color:#5a2d82">${series.length} papers · read in order or dip in</span></div><h3 class="ser-h">McLuhan said every medium changes the ratio among our senses. Seven papers take that literally.</h3><p class="ser-p">Six papers test it — from ADHD and typing to drugs and addiction — and the synthesis finds one configuration that media, drugs and illness all re-temper.</p></div><div>${rows}</div><p class="ser-foot">Each paper cites the published literature with numbered references · published ${esc(span)}</p></section>`;
 }
 
 /** Every theory, newest revision first: the publication's formal work, live
@@ -100,48 +71,92 @@ function theoriesSection(): string {
       return `<a href="/theories/${esc(t.slug)}" class="card" style="align-items:flex-start">${pill("Theory", kindColours("Theory"))}<span class="tile-t">${esc(t.title)}</span><span class="tile-d">${esc(t.dek)}</span><span style="font-size:var(--t-xs);color:var(--muted)">${t.propositions.length} propositions · ${strong} strong · ${t.references.length} references</span></a>`;
     })
     .join("");
-  return `<section class="sec" aria-label="Theories"><div class="sec-h"><h2>Theories</h2></div><p style="margin:-6px 0 16px;color:var(--muted);max-width:720px">Named ideas stated formally: a claim, propositions graded by the evidence behind them, the primary studies they rest on, and what counts against them.</p><div class="grid3">${cards}</div><div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><a href="/theories" class="btn">All theories</a><a href="/lexicon" class="btn">Every coined term</a></div></section>`;
+  return `<section class="sec" aria-labelledby="t-h"><div class="sec-h"><h2 id="t-h">Theories</h2><a href="/theories" class="sec-a">All theories</a></div><p class="sec-p">Named ideas stated formally: a claim, propositions graded by the evidence behind them, the primary studies they rest on, and what counts against them.</p><div class="grid3">${cards}</div></section>`;
 }
 
-function startHere(): string {
-  const cards = START_HERE.flatMap((s) => {
-    const exists = s.kind === "article" ? article(s.slug) : paper(s.slug);
-    if (!exists) return [];
-    const kind = s.kind === "article" ? "Article" : "Paper";
-    return [
-      `<a href="/articles/${esc(s.slug)}" class="card" style="align-items:flex-start">${pill(kind, kindColours(kind))}<span class="tile-t">${esc(s.title)}</span><span class="tile-d">${esc(s.why)}</span></a>`,
-    ];
-  });
-  return `<section style="margin-top:56px" aria-label="Start here"><div class="sec-h"><h2>New here? Start with these three</h2></div><div class="grid3">${cards.join("")}</div></section>`;
-}
-
-function articlesList(): string {
-  const picks = FRONT_ARTICLES.flatMap((slug) => {
-    const a = article(slug);
-    return a ? [writingFor(a)] : [];
-  });
-  const total = listedArticles().length;
-  const rows = picks
+/** The masthead: what the site is, in its own plain words, and its five
+ *  sections as one strip, each with its count. The order is the ladder:
+ *  from the author's own ideas down to the evidence under them. */
+function masthead(): string {
+  const rows = libraryItems();
+  const writing = rows.filter((r) => isWriting(r.kind));
+  const steps: Array<[string, string, number, string]> = [
+    [
+      "/theories",
+      "Theories",
+      allTheories().length,
+      "Named ideas, stated formally and graded by their evidence.",
+    ],
+    ["/papers", "Papers", allPapers().length, "Long original work, with numbered references."],
+    [
+      "/writing",
+      "Writing",
+      writing.length,
+      "Essays that argue an idea; briefs that answer one question.",
+    ],
+    [
+      "/research",
+      "Research",
+      publicResearchCount(),
+      "The reports underneath it all, each kept whole.",
+    ],
+    [
+      "/lexicon",
+      "Lexicon",
+      rows.filter((r) => r.kind === "Concept").length,
+      "Every term coined here, defined.",
+    ],
+  ];
+  const strip = steps
     .map(
-      (w) =>
-        `<a href="${esc(w.route)}" class="row"><span style="min-width:0"><span class="row-t">${esc(w.title)}</span><span class="row-d">${esc(w.dek)}</span></span><span class="row-r"><span class="row-date">${esc(shortDate(w.date))}</span><span style="margin-top:4px">${pill(w.topic, topicColours(w.topic))}</span></span></a>`,
+      ([href, name, n, what], i) =>
+        `<a href="${href}" class="lad-s"><span class="lad-top"><span class="lad-i">${String(i + 1).padStart(2, "0")}</span><span class="lad-n tnum">${n}</span></span><span class="lad-t">${name}</span><span class="lad-d">${what}</span></a>`,
     )
     .join("");
-  return `<section class="sec"><div class="sec-h"><h2>Articles &amp; papers</h2></div><div class="rows">${rows}<a href="/library?kind=Article" class="row-more">See all ${total} articles</a></div></section>`;
+  return `<section class="mast" aria-labelledby="mast-h"><h1 id="mast-h" class="mast-h">An independent research publication by Chris Telford.</h1><p class="mast-p">Theories and papers of his own, the essays and briefs written from them, and the research they stand on. Every quotation is copied word for word from a stored source and links back to it.</p><nav class="lad" aria-label="Sections">${strip}</nav></section>`;
+}
+
+/** Writing: the essays and the briefs side by side, each column the
+ *  author's own picks. */
+function writingSection(): string {
+  const col = (slugs: string[]) =>
+    slugs
+      .flatMap((slug) => {
+        const a = article(slug);
+        return a && !a.withdrawn ? [writingFor(a)] : [];
+      })
+      .map(
+        (w) =>
+          `<a href="${esc(w.route)}" class="wrow"><span class="wrow-t">${esc(w.title.split(/:\s/)[0] ?? w.title)}</span><span class="wrow-d">${esc(w.dek)}</span><span class="wrow-m"><span class="tnum">${esc(shortDate(w.date))}</span><span aria-hidden="true">·</span><span>${w.minutes} min</span><span aria-hidden="true">·</span><span>${esc(w.topic)}</span></span></a>`,
+      )
+      .join("");
+  const n = (form: string) => libraryItems().filter((r) => r.kind === form).length;
+  return `<section class="sec" aria-labelledby="w-h"><div class="sec-h"><h2 id="w-h">Writing</h2></div><div class="wcols"><div class="wcol"><div class="wcol-h">${pill("Essay", kindColours("Essay"), "pill lg")}<span>Argue one of the author\u2019s ideas</span></div>${col(FRONT_ESSAYS)}<a href="/writing?kind=Essay" class="row-more">All ${n("Essay")} essays</a></div><div class="wcol"><div class="wcol-h">${pill("Brief", kindColours("Brief"), "pill lg")}<span>Answer one question from the evidence</span></div>${col(FRONT_ARTICLES)}<a href="/writing?kind=Brief" class="row-more">All ${n("Brief")} briefs</a></div></div></section>`;
+}
+
+/** Papers: the series card, then the papers that build on it. */
+function papersSection(): string {
+  const inSeries = new Set(seriesPapers().map((s) => s.paper.slug));
+  const more = allPapers()
+    .filter((p) => !inSeries.has(p.slug))
+    .map(
+      (p) =>
+        `<a href="/papers/${esc(p.slug)}" class="card pp-more"><span class="pills">${pill("Paper", kindColours("Paper"))}<span class="pp-mm">Builds on the series</span></span><span class="tile-t">${esc(p.title)}</span><span class="tile-d">${esc(p.dek ?? "")}</span></a>`,
+    )
+    .join("");
+  return `<section class="sec" aria-labelledby="p-h"><div class="sec-h"><h2 id="p-h">Papers</h2><a href="/papers" class="sec-a">All papers</a></div>${seriesCard()}${more ? `<div class="grid3" style="margin-top:12px">${more}</div>` : ""}</section>`;
 }
 
 function namedHere(): string {
-  const cards = NAMED_HERE.flatMap((n) => {
-    const t = term(n.id);
-    const title =
-      t?.title ??
-      (n.id === "self-extinguishing-maintenance" ? "Self-extinguishing maintenance" : "");
-    if (!title) return [];
+  const cards = NAMED_HERE.flatMap((id) => {
+    const t = term(id);
+    if (!t) return [];
     return [
-      `<a href="${esc(n.route)}" class="card" style="padding:22px 22px 24px"><span style="font-size:20px;line-height:1.25;font-weight:500;letter-spacing:-.012em;color:var(--ink)">${esc(title)}</span><span style="font-size:15px;line-height:1.55;color:var(--ink-2)">${esc(n.blurb)}</span></a>`,
+      `<a href="${esc(t.route)}" class="card term-card"><span class="pills">${pill("Concept", kindColours("Concept"))}${t.say ? `<span class="term-card-say">${esc(t.say)}</span>` : ""}</span><span class="tile-t">${esc(t.title)}</span><span class="tile-d">${esc(t.definition ?? t.body)}</span>${t.plain ? `<span class="term-card-p">In plain words: ${esc(t.plain)}</span>` : ""}</a>`,
     ];
   });
-  return `<section class="sec"><div class="sec-h"><h2>Named here</h2></div><div class="grid3 wide">${cards.join("")}</div><div style="margin-top:14px"><a href="/lexicon" class="btn">Every term, in the Lexicon</a></div></section>`;
+  const open = libraryItems().filter((r) => r.kind === "Open problem").length;
+  return `<section class="sec" aria-labelledby="l-h"><div class="sec-h"><h2 id="l-h">Lexicon</h2><a href="/lexicon" class="sec-a">Every term</a></div><p class="sec-p">Names for patterns the work found that had none. Each has its own page with a definition, examples and how it differs from existing terms.</p><div class="grid3 wide">${cards.join("")}</div><a href="/open" class="open-line"><span class="open-n tnum">${open}</span><span><strong>Open questions.</strong> What the research raised and could not settle, each with what is known and what is missing.</span><span aria-hidden="true" class="open-arrow">\u2192</span></a></section>`;
 }
 
 function researchRow(r: LibraryItem, last: boolean): string {
@@ -151,11 +166,11 @@ function researchRow(r: LibraryItem, last: boolean): string {
 function latest(): string {
   const items = latestResearch(4);
   const topics = researchTopics();
-  return `<section class="sec"><div class="sec-h"><h2>Latest research</h2></div><div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start"><div style="flex:2 1 480px;min-width:0"><div class="rows slim">${items
+  return `<section class="sec" aria-labelledby="r-h"><div class="sec-h"><h2 id="r-h">Research</h2><a href="/research" class="sec-a">All ${publicResearchCount()} reports</a></div><p class="sec-p">The reports everything above stands on, each kept whole and published as it was written. The newest:</p><div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start"><div style="flex:2 1 480px;min-width:0"><div class="rows slim">${items
     .map((r) => researchRow(r, false))
     .join(
       "",
-    )}<a href="/library?kind=Research" class="row-more" style="border-top:0">See all ${publicResearchCount()} research documents</a></div></div><div class="card" style="flex:1 1 300px;min-width:0;padding:20px"><div style="font-size:16px;font-weight:600;color:var(--ink)">Browse by topic</div><div style="font-size:14px;color:var(--ink-2);margin:4px 0 14px">Everything in the library on one subject.</div><div class="pills" style="gap:8px">${topics
+    )}<a href="/research" class="row-more" style="border-top:0">See all ${publicResearchCount()} reports</a></div></div><div class="card" style="flex:1 1 300px;min-width:0;padding:20px"><div style="font-size:16px;font-weight:600;color:var(--ink)">Browse by topic</div><div style="font-size:14px;color:var(--ink-2);margin:4px 0 14px">Everything on one subject: theories, papers, writing and research.</div><div class="pills" style="gap:8px">${topics
     .map(
       (t) =>
         `<a href="/topics/${esc(t.slug)}" class="tpill" style="background:${topicColours(t.name)[0]};color:${topicColours(t.name)[1]}">${esc(t.name)}<span class="n">${t.count}</span></a>`,
@@ -201,6 +216,6 @@ export function renderFront(opts: { signedIn?: boolean } = {}): string {
     path: "/",
     signedIn: opts.signedIn ?? false,
     head: `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`,
-    body: `<h1 class="vh">canopticon — research, kept whole and written from</h1>${seriesCard()}${theoriesSection()}${startHere()}${articlesList()}${namedHere()}${latest()}${checkable()}`,
+    body: `${masthead()}${theoriesSection()}${papersSection()}${writingSection()}${namedHere()}${latest()}${checkable()}`,
   });
 }

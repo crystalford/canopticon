@@ -8,6 +8,14 @@ import type { StaticPage } from "../content/store";
 import { libraryItems } from "../content/store";
 import { shell } from "../layout";
 
+/** Which section of the top bar a hand-built page belongs to. */
+function navFor(route: string): "papers" | "lexicon" | "open" | "library" {
+  if (route.startsWith("/papers/")) return "papers";
+  if (route.startsWith("/concepts/")) return "lexicon";
+  if (route.startsWith("/open/")) return "open";
+  return "library";
+}
+
 export function renderStatic(
   p: StaticPage,
   opts: { signedIn?: boolean; head?: string } = {},
@@ -22,7 +30,7 @@ export function renderStatic(
     path: p.route,
     progress: p.progress === true,
     noindex: p.private === true,
-    ...(p.route === "/about" ? { nav: "about" as const } : { nav: "library" as const }),
+    ...(p.route === "/about" ? { nav: "about" as const } : { nav: navFor(p.route) }),
     signedIn: opts.signedIn ?? false,
     head: [
       opts.head ?? "",

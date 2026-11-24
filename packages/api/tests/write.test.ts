@@ -666,7 +666,7 @@ describe("proposals for the record", () => {
         await app.fetch(new Request("http://test/concepts/a-brand-new-pattern"), env)
       ).text();
       expect(page).toContain("My own words.");
-      const ideas = await (await app.fetch(new Request("http://test/ideas"), env)).text();
+      const ideas = await (await app.fetch(new Request("http://test/lexicon"), env)).text();
       expect(ideas).toContain("A brand-new pattern");
       expect(keyFigures().some((f) => f.v === PASSAGE.slice(5, 20))).toBe(true);
     } finally {

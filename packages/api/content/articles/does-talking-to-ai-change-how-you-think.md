@@ -1,6 +1,7 @@
 ---
 slug: "does-talking-to-ai-change-how-you-think"
 kind: "Article"
+form: "Essay"
 topic: "McLuhan & media theory"
 title: "Does talking to AI change how you think?"
 dek: "Speaking costs less effort than writing, and saying your thoughts aloud changes nothing on its own. What changes thinking is explaining, and when you talk to an AI the question is which of you is doing it."

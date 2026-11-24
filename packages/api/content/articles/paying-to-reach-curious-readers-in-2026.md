@@ -2,6 +2,7 @@
 slug: "paying-to-reach-curious-readers-in-2026"
 file: "Canopticon Essay Curious Attention.dc.html"
 kind: "Article"
+form: "Brief"
 topic: ""
 title: "Paying to reach curious readers in 2026: ChatGPT ads, feed ads, paid newsletter recommendations, and the labelling rules"
 dek: "ChatGPT now sells self-serve ads, but they cost about 3–8× more per impression than feed ads and are hard to measure, so the cheapest curious readers are still on Meta and Reddit. An ad can be the whole useful answer and still carry its label: the rules draw the line at fake people and hidden sponsors, not at ads that are worth reading."

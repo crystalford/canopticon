@@ -173,7 +173,7 @@ export function renderDocument(
   const topicHref = inv ? "/investigations" : `/topics/${topicSlug(d.topic)}`;
   const back = inv
     ? { href: "/investigations", label: "Investigations" }
-    : { href: "/library?kind=Research", label: "Research" };
+    : { href: "/research", label: "Research" };
 
   const head = [
     `<div class="crumbs"><a href="${back.href}">${back.label}</a>${back.label === d.kind ? "" : `<span aria-hidden="true" class="sep">/</span><span>${esc(d.kind)}</span>`}</div>`,
@@ -265,7 +265,7 @@ export function renderDocument(
       firstProse(rest).slice(0, 300) ||
       `${d.kind} · ${d.topic}`,
     path: `/p/${d.id}`,
-    nav: "library",
+    nav: "research",
     progress: true,
     ogType: "article",
     signedIn: opts.signedIn ?? false,

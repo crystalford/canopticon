@@ -46,13 +46,13 @@ function articleItem(a: Article): FeedItem {
     ),
     date: a.date,
     topic: topicOf(a),
-    kind: "Article",
+    kind: a.form,
   };
 }
 
 function paperItem(p: Paper): FeedItem {
   return {
-    url: `${SITE}/articles/${p.slug}`,
+    url: `${SITE}/papers/${p.slug}`,
     title: p.title,
     summary: p.dek ?? "",
     html: absolute(documentHtml(p.body).html),
@@ -235,9 +235,11 @@ export function llmsTxt(): string {
   const out = [
     "# Canopticon",
     "",
-    "> An independent research publication by Chris Telford: theories stated formally (claim, propositions graded by their evidence, primary references), papers that cite the published literature, articles argued from the record, and the research documents themselves, kept whole. Every quote in an article or theory links to the stored document it came from. Licensed CC BY 4.0.",
+    "> An independent research publication by Chris Telford, in five sections: theories stated formally (claim, propositions graded by their evidence, primary references); papers that cite the published literature; writing, in two forms — essays that argue one of the author's ideas and briefs that answer one question from the evidence; the research documents themselves, kept whole; and a lexicon of the terms coined here. Every quote in a brief, essay or theory links to the stored document it came from. Licensed CC BY 4.0.",
     "",
-    `Feeds: ${SITE}/feed.xml (RSS), ${SITE}/feed.json (JSON Feed). Per-topic feeds live under ${SITE}/feeds/. Every document has a Markdown twin: add .md to its address. Full text of every theory, article and paper: ${SITE}/llms-full.txt. Every theory on one page: ${SITE}/theories. Every coined term with its definition: ${SITE}/lexicon`,
+    `Sections: ${SITE}/theories · ${SITE}/papers · ${SITE}/writing · ${SITE}/research · ${SITE}/lexicon · open questions at ${SITE}/open.`,
+    "",
+    `Feeds: ${SITE}/feed.xml (RSS), ${SITE}/feed.json (JSON Feed). Per-topic feeds live under ${SITE}/feeds/. Every document has a Markdown twin: add .md to its address. Full text of every theory, essay, brief and paper: ${SITE}/llms-full.txt. Every coined term with its definition: ${SITE}/lexicon`,
     "",
   ];
   for (const [topic, list] of order) {
@@ -256,9 +258,9 @@ export function llmsTxt(): string {
  *  contract writes them, so a machine can check each one against its source. */
 export function llmsFullTxt(): string {
   const parts = [
-    "# Canopticon — every theory, article and paper, in full",
+    "# Canopticon — every theory, paper, essay and brief, in full",
     "",
-    '> By Chris Telford. CC BY 4.0. In articles, text inside <q doc="…"> is a verbatim quotation from the research document at https://canopticon.com/p/<doc>; everything else is the author\'s own.',
+    '> By Chris Telford. CC BY 4.0. In essays and briefs, text inside <q doc="…"> is a verbatim quotation from the research document at https://canopticon.com/p/<doc>; everything else is the author\'s own.',
     "",
   ];
   parts.push("---", "", lexiconMarkdown(), "");
@@ -288,7 +290,7 @@ export function llmsFullTxt(): string {
     );
   }
   for (const p of allPapers()) {
-    parts.push("---", "", `URL: ${SITE}/articles/${p.slug} · ${p.date}`, "", p.body.trim(), "");
+    parts.push("---", "", `URL: ${SITE}/papers/${p.slug} · ${p.date}`, "", p.body.trim(), "");
   }
   return parts.join("\n");
 }

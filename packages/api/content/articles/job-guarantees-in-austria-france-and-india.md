@@ -2,6 +2,7 @@
 slug: "job-guarantees-in-austria-france-and-india"
 file: "Canopticon Essay Jobs.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Economics"
 title: "Job guarantees in Austria, France and India: employment effects, cost per job, and the designs that trap people"
 dek: "A job for anyone who wants one sounds utopian. It has been tried — in an Austrian town, in 83 French territories and across rural India. It works, it costs money, and the design decides whether it is a springboard or a trap."

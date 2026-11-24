@@ -2,6 +2,7 @@
 slug: "why-people-keep-scrolling"
 file: "Canopticon Essay Feed.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Attention & feeds"
 title: "Why people keep scrolling: habit, infinite feeds, and the evidence against the dopamine explanation"
 dek: "The best evidence says people keep scrolling because of habit and a feed that never ends — not because of a dopamine jackpot. And engagement-ranked feeds keep showing people what they say they do not want."

@@ -2,6 +2,7 @@
 slug: "paying-yourself-to-do-your-own-tasks"
 file: "Canopticon Essay Dispatch.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "ADHD & attention"
 title: "Paying yourself to do your own tasks: what the incentive trials show, and whether an earn-back subscription could work"
 dek: "Financial incentives move behaviour while they run, and losses move people more than equal gains. Paying yourself a wage from your own pocket removes most of what the trials rely on; a subscription you earn back by doing the work is a loss-framed stake, and the research rates it the version most likely to work. Nobody has tested it."

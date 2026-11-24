@@ -33,6 +33,12 @@ export interface LibraryItem {
   shelf?: string;
 }
 
+/** The two forms of short writing. "Article" is still the document type
+ *  (its address is /articles/…) and is accepted wherever a kind is tested. */
+export const WRITING_KINDS = ["Essay", "Brief", "Article"] as const;
+export const isWriting = (kind: string): boolean =>
+  (WRITING_KINDS as readonly string[]).includes(kind);
+
 /** A question or a key figure: a derived row that links to its passage. */
 export interface DerivedRow {
   route: string;
@@ -104,6 +110,9 @@ export interface BasedOn {
 export interface Article {
   slug: string;
   kind: "Article";
+  /** Essay: argues one of the author's ideas. Brief: answers one question
+   *  from the evidence. The Library, pills and indexes show this, not "Article". */
+  form: "Essay" | "Brief";
   topic: string;
   title: string;
   dek: string;

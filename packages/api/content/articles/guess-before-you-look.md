@@ -1,6 +1,7 @@
 ---
 slug: "guess-before-you-look"
 kind: "Article"
+form: "Essay"
 topic: "McLuhan & media theory"
 title: "Guess before you look"
 dek: "An answer that arrives before you have made a guess leaves little behind. The same tool teaches or deskills depending on that order, and the effort it takes to guess first feels like learning less while it is the part that does the learning."

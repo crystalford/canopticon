@@ -95,13 +95,13 @@ describe("theories", () => {
     const ce = await get("/theories/cognitive-ectothermy");
     expect(ce.status).toBe(200);
     const html = await ce.text();
-    expect(html).toContain('href="/articles/why-temperature"');
+    expect(html).toContain('href="/papers/why-temperature"');
     expect(html).toContain('href="/theories/self-extinguishing-maintenance"');
     expect(html).toContain("the cross marks where it can be cut");
     expect(html).not.toContain("checked word for word against the research document");
     const sem = await (await get("/theories/self-extinguishing-maintenance")).text();
     expect(sem).toContain('href="/theories/cognitive-ectothermy"');
-    const paper = await get("/articles/why-temperature");
+    const paper = await get("/papers/why-temperature");
     expect(paper.status).toBe(200);
     const ptext = await paper.text();
     expect(ptext).toContain("cognitive ectothermy");
@@ -152,14 +152,14 @@ describe("theories", () => {
   });
 
   it("every page names the author by one @id", async () => {
-    for (const p of ["/", "/theories/self-extinguishing-maintenance", "/articles/why-temperature"])
+    for (const p of ["/", "/theories/self-extinguishing-maintenance", "/papers/why-temperature"])
       expect(await (await get(p)).text()).toContain('"@id":"https://canopticon.com/about#chris"');
   });
 
   it("hand-built papers carry Scholar's citation tags and their Markdown twin", async () => {
-    const html = await (await get("/articles/krasis")).text();
+    const html = await (await get("/papers/krasis")).text();
     expect(html).toContain('name="citation_title"');
-    expect(html).toContain('href="/articles/krasis.md"');
+    expect(html).toContain('href="/papers/krasis.md"');
   });
 
   it("an article on the published literature counts its sources and names its theory", async () => {

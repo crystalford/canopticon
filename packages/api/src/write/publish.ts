@@ -253,7 +253,7 @@ export async function liveArticles(
       article: a,
       row: {
         route: `/articles/${r.slug}`,
-        kind: "Article",
+        kind: a.form,
         topic: a.topic,
         date,
         dateLabel: shortDate(date),

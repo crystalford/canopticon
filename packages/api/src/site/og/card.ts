@@ -11,7 +11,7 @@
 // resvg does not wrap text, so the card wraps its own lines with Geist's real
 // advance widths (metrics.ts, generated from the font files).
 
-import type { LibraryItem } from "../content/store";
+import { type LibraryItem, isWriting } from "../content/store";
 import { kindColours, topicColours, topicSlug } from "../theme";
 import {
   MEDIUM_CHARS,
@@ -271,7 +271,7 @@ export function cardFromItem(i: LibraryItem): CardData {
   const date = longDate(i.date);
   const byline = [AUTHOR, date].filter(Boolean).join(" · ");
   let stat = "";
-  if (kind === "Article" && i.quotes) stat = `${i.quotes} quotations checked word for word`;
+  if (isWriting(kind) && i.quotes) stat = `${i.quotes} quotations checked word for word`;
   else if (kind === "Paper" && i.sources)
     stat = `${i.sources} references · ${i.min ?? ""} min`.replace(/ · $/, "");
   else if (kind === "Research")

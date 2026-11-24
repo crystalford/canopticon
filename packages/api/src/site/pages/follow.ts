@@ -9,7 +9,7 @@
 // they are ticked; the server computes the same sentence from what was
 // submitted and stores THAT as the consent wording (CASL).
 
-import { libraryItems } from "../content/store";
+import { isWriting, libraryItems } from "../content/store";
 import { listedArticles, writingFor } from "../data";
 import { esc, pill, shell } from "../layout";
 import { kindColours, shortDate, topicColours, topicSlug } from "../theme";
@@ -44,7 +44,7 @@ export function followTopics(): Array<{
   for (const r of libraryItems()) {
     if (r.shelf === "investigation" || !r.topic || r.topic === "Other") continue;
     const e = map.get(r.topic) ?? { articles: 0, research: 0 };
-    if (r.kind === "Article") e.articles++;
+    if (isWriting(r.kind)) e.articles++;
     else if (r.kind === "Research") e.research++;
     map.set(r.topic, e);
   }
@@ -108,7 +108,7 @@ export function renderFollow(
     // topic, from Everything's), so the box tells the truth without script.
     `<span aria-hidden="true" class="f-box" style="--fill:${fill}"></span>`;
   const totals = {
-    articles: libraryItems().filter((r) => r.kind === "Article").length,
+    articles: libraryItems().filter((r) => isWriting(r.kind)).length,
     research: libraryItems().filter((r) => r.kind === "Research" && r.shelf !== "investigation")
       .length,
   };

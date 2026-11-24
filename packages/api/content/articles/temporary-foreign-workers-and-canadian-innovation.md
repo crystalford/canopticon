@@ -2,6 +2,7 @@
 slug: "temporary-foreign-workers-and-canadian-innovation"
 file: "Canopticon Essay TFW.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Canadian economy & policy"
 title: "Temporary foreign workers and Canadian innovation: what the automation evidence shows, and the study nobody has run"
 dek: "The research that says immigration drives innovation studies points-selected skilled migration. Canada's intake since 2016 has been mostly temporary and low-wage, and the causal work on cheap labour runs the other way — a 1% rise in low-skill wages lifts automation patenting 2–5%. The Canadian version of that study has never been done."

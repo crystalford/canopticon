@@ -2,6 +2,7 @@
 slug: "language-models-and-idea-diversity"
 file: "Canopticon Essay Average.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "AI-directed development"
 title: "Language models and idea diversity: homogenisation within a session, across users, and between companies"
 dek: "Ask a language model for something new and it pulls toward what everyone else would say — across companies, over long sessions, and across everyone using it. Real novelty has a shape the models do not reach for on their own."
