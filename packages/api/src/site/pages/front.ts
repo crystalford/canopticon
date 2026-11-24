@@ -52,7 +52,7 @@ const FRONT_ARTICLES = [
 const NAMED_HERE: Array<{ id: string; route: string; blurb: string }> = [
   {
     id: "self-extinguishing-maintenance",
-    route: "/concepts/self-extinguishing-maintenance",
+    route: "/theories/self-extinguishing-maintenance",
     blurb:
       "A routine that works so well it removes the thing that made you do it — so it stops, and the problem comes back.",
   },
@@ -124,7 +124,7 @@ function namedHere(): string {
       `<a href="${esc(n.route)}" class="card" style="padding:22px 22px 24px"><span style="font-size:20px;line-height:1.25;font-weight:500;letter-spacing:-.012em;color:var(--ink)">${esc(title)}</span><span style="font-size:15px;line-height:1.55;color:var(--ink-2)">${esc(n.blurb)}</span></a>`,
     ];
   });
-  return `<section class="sec"><div class="sec-h"><h2>Named here</h2></div><div class="grid3 wide">${cards.join("")}</div><div style="margin-top:14px"><a href="/library?kind=Concept" class="btn">See all concepts and open problems</a></div></section>`;
+  return `<section class="sec"><div class="sec-h"><h2>Named here</h2></div><div class="grid3 wide">${cards.join("")}</div><div style="margin-top:14px"><a href="/lexicon" class="btn">Every term, in the Lexicon</a></div></section>`;
 }
 
 function researchRow(r: LibraryItem, last: boolean): string {

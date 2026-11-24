@@ -11,6 +11,7 @@ import { allPapers, allTheories, libraryItems, researchDoc } from "./content/sto
 import { docTitle, listedArticles, topicOf } from "./data";
 import { esc } from "./layout";
 import { articleHtml, documentHtml } from "./md";
+import { lexiconMarkdown } from "./pages/lexicon";
 import { topicSlug } from "./theme";
 
 export const SITE = "https://canopticon.com";
@@ -236,7 +237,7 @@ export function llmsTxt(): string {
     "",
     "> An independent research publication by Chris Telford: theories stated formally (claim, propositions graded by their evidence, primary references), papers that cite the published literature, articles argued from the record, and the research documents themselves, kept whole. Every quote in an article or theory links to the stored document it came from. Licensed CC BY 4.0.",
     "",
-    `Feeds: ${SITE}/feed.xml (RSS), ${SITE}/feed.json (JSON Feed). Per-topic feeds live under ${SITE}/feeds/. Every document has a Markdown twin: add .md to its address. Full text of every theory, article and paper: ${SITE}/llms-full.txt. Every theory on one page: ${SITE}/theories`,
+    `Feeds: ${SITE}/feed.xml (RSS), ${SITE}/feed.json (JSON Feed). Per-topic feeds live under ${SITE}/feeds/. Every document has a Markdown twin: add .md to its address. Full text of every theory, article and paper: ${SITE}/llms-full.txt. Every theory on one page: ${SITE}/theories. Every coined term with its definition: ${SITE}/lexicon`,
     "",
   ];
   for (const [topic, list] of order) {
@@ -260,6 +261,7 @@ export function llmsFullTxt(): string {
     '> By Chris Telford. CC BY 4.0. In articles, text inside <q doc="…"> is a verbatim quotation from the research document at https://canopticon.com/p/<doc>; everything else is the author\'s own.',
     "",
   ];
+  parts.push("---", "", lexiconMarkdown(), "");
   for (const t of allTheories()) {
     parts.push(
       "---",

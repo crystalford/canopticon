@@ -9,6 +9,7 @@ import {
   article as articleBySlug,
   conceptUses,
   libraryItems,
+  paper as paperBySlug,
   problems,
   terms,
 } from "../content/store";
@@ -74,22 +75,93 @@ export function renderIdea(
         .join("")}</div></section>`
     : "";
 
-  const article = `<article class="idea-col"><div class="pills"><a href="/library?kind=${encodeURIComponent(listKind)}" class="pill lg" style="background:${kindColours(kind)[0]};color:${kindColours(kind)[1]}">${esc(kind)}</a>${topic ? pill(topic, topicColours(topic), "pill lg") : ""}</div><h1 class="h-display" style="max-width:none;margin:14px 0 22px">${esc(it.title)}</h1><section class="idea-def ${concept ? "concept" : "problem"}"><div class="idea-def-h">${concept ? "Definition" : "The problem"}</div><p>${esc(it.body)}</p></section>${usesHtml}<div class="idea-more">More ${concept ? "concepts" : "open problems"}</div><div style="display:flex;flex-direction:column">${others}</div></article>`;
+  // The term standard (terms.json): how to say it, where the word comes from,
+  // the everyday questions it answers, examples, how it differs from the
+  // nearest names, and related entries. Entries without them (added from the
+  // workspace) render as before.
+  const full = concept && Boolean(it.definition);
+  const titleOf = (route: string) =>
+    libraryItems().find((r) => r.route === route)?.title ?? route.split("/").pop() ?? route;
+  const sec = (h: string, inner: string, id = "") =>
+    `<section class="term-sec"${id ? ` id="${id}"` : ""}><h2>${esc(h)}</h2>${inner}</section>`;
+  const termParts = full
+    ? [
+        it.etymology ? sec("Where the word comes from", `<p>${esc(it.etymology)}</p>`) : "",
+        it.questions?.length
+          ? sec(
+              "Questions it answers",
+              `<ul>${it.questions.map((q) => `<li>${esc(q)}</li>`).join("")}</ul>`,
+            )
+          : "",
+        it.examples?.length
+          ? sec("Examples", `<ul>${it.examples.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`)
+          : "",
+        it.differs?.length
+          ? sec(
+              "How it differs from existing terms",
+              `<dl class="term-dl">${it.differs.map((d) => `<dt>${esc(d.term)}</dt><dd>${esc(d.how)}</dd>`).join("")}</dl>`,
+            )
+          : "",
+        it.related?.length || it.family
+          ? sec(
+              "Related",
+              `<p class="term-rel">${(it.related ?? [])
+                .map((r) => `<a href="${esc(r)}" class="ulink">${esc(titleOf(r))}</a>`)
+                .join(" · ")}${
+                it.family
+                  ? `${it.related?.length ? " · " : ""}<a href="/lexicon#${esc(it.family)}" class="ulink">${it.family === "krasis" ? "The krasis family" : "The return of voice"}, in the Lexicon</a>`
+                  : ""
+              }</p>`,
+            )
+          : "",
+      ].join("")
+    : "";
+  const sayLine = full
+    ? `<p class="term-say">${it.say ? `<span>Pronounced <b>${esc(it.say)}</b></span>` : ""}${it.plain ? `<span>In plain words: <b>${esc(it.plain)}</b></span>` : ""}</p>`
+    : "";
+  const artSlugFull = /^\/articles\/([^/#?]+)/.exec(it.artRoute ?? "")?.[1];
+  const coinedPaper = artSlugFull ? paperBySlug(artSlugFull) : null;
+  const coinedYear = (it.coined ?? "2026").slice(0, 4);
+
+  const article = `<article class="idea-col"><div class="pills"><a href="/library?kind=${encodeURIComponent(listKind)}" class="pill lg" style="background:${kindColours(kind)[0]};color:${kindColours(kind)[1]}">${esc(kind)}</a>${topic ? pill(topic, topicColours(topic), "pill lg") : ""}</div><h1 class="h-display" style="max-width:none;margin:14px 0 ${full ? "10px" : "22px"}">${esc(it.title)}</h1>${sayLine}<section class="idea-def ${concept ? "concept" : "problem"}"><div class="idea-def-h">${concept ? "Definition" : "The problem"}</div><p>${esc(full ? (it.definition ?? it.body) : it.body)}</p></section>${termParts}${usesHtml}<div class="idea-more">More ${concept ? "concepts" : "open problems"}</div><div style="display:flex;flex-direction:column">${others}</div></article>`;
 
   const rail = `<aside class="rail tight"><div class="meta"><div class="meta-r"><span>Kind</span><span>${pill(kind, kindColours(kind), "pill lg")}</span></div><div class="meta-r"><span>Topic</span><span>${topic ? pill(topic, topicColours(topic), "pill lg") : "—"}</span></div><div class="meta-r"><span>Status</span><span class="pills" style="justify-content:flex-end">${status
     .map(([l, bg, fg]) => pill(l, [bg, fg], "pill lg"))
     .join(
       "",
-    )}</span></div>${when ? `<div class="meta-r"><span>${concept ? "Named" : "Added"}</span><span>${esc(when)}</span></div>` : ""}${source ? `<div class="meta-r stack-v"><span>${concept ? "Coined in" : "Stated in"}</span>${source}</div>` : ""}</div><div class="citebox"><div class="citebox-h">Cite this ${concept ? "concept" : "problem"}</div><div class="citebox-t">Telford, C. (2026). ${esc(citeTitle)} Canopticon.</div></div></aside>`;
+    )}</span></div>${when ? `<div class="meta-r"><span>${concept ? "Named" : "Added"}</span><span>${esc(when)}</span></div>` : ""}${source ? `<div class="meta-r stack-v"><span>${concept ? "Coined in" : "Stated in"}</span>${source}</div>` : ""}</div><div class="citebox"><div class="citebox-h">Cite this ${concept ? "concept" : "problem"}</div><div class="citebox-t">Telford, C. (${esc(coinedYear)}). ${esc(citeTitle)} Canopticon. canopticon.com${esc(route)}${full && it.artTitle ? `<br><span class="term-first">First stated in ${esc(it.artTitle)}${coinedPaper?.doi ? `, doi:${esc(coinedPaper.doi)}` : ""}.</span>` : ""}</div></div></aside>`;
 
   const ld = concept
     ? {
         "@context": "https://schema.org",
         "@type": "DefinedTerm",
+        "@id": `https://canopticon.com${route}#term`,
         name: it.title,
-        description: it.body,
+        ...(full
+          ? {
+              alternateName: [it.plain, ...(it.aka ?? [])].filter(Boolean),
+              dateCreated: it.coined,
+              ...(it.artRoute
+                ? {
+                    subjectOf: {
+                      "@type": coinedPaper ? "ScholarlyArticle" : "Article",
+                      name: it.artTitle,
+                      url: `https://canopticon.com${it.artRoute}`,
+                      ...(coinedPaper?.doi
+                        ? { identifier: `https://doi.org/${coinedPaper.doi}` }
+                        : {}),
+                    },
+                  }
+                : {}),
+            }
+          : {}),
+        description: full ? it.definition : it.body,
         url: `https://canopticon.com${route}`,
-        inDefinedTermSet: { "@type": "DefinedTermSet", name: "Canopticon concepts" },
+        inDefinedTermSet: {
+          "@type": "DefinedTermSet",
+          "@id": "https://canopticon.com/lexicon#set",
+          name: "Canopticon lexicon",
+        },
         author: AUTHOR,
       }
     : {
@@ -102,7 +174,7 @@ export function renderIdea(
       };
   return shell({
     title: it.title,
-    description: it.body,
+    description: full ? (it.definition ?? it.body) : it.body,
     path: route,
     nav: "library",
     mainClass: "long",

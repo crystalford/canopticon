@@ -333,6 +333,46 @@ function build() {
       if (String(r.route ?? "").startsWith("/theories/") && !theories[r.route.slice(10)])
         failures.push(`theories/${t.slug}: related theory ${r.route} does not exist`);
 
+  // The term standard (2026-11-23): every coined term in terms.json carries a
+  // full entry — the sentence an answer engine lifts ("X is …"), how to say
+  // it, where the word comes from, when and where it was coined, a plain
+  // English handle, the everyday questions it answers, two examples, how it
+  // differs from the nearest existing names, related entries that resolve,
+  // and the date of the prior-use check.
+  const termList = readJson("terms.json");
+  const conceptRoutes = new Set([
+    ...termList.map((t) => `/concepts/${t.id}`),
+    "/concepts/cpai",
+    "/concepts/the-overhearer",
+  ]);
+  for (const t of termList) {
+    const at = `terms.json ${t.id}`;
+    const def = String(t.definition ?? "");
+    if (!def.toLowerCase().startsWith(String(t.title).toLowerCase()))
+      failures.push(`${at}: definition must open with the term ("${t.title} is …")`);
+    if (def.split(/\s+/).length > 45) failures.push(`${at}: definition over 45 words`);
+    for (const k of ["say", "etymology", "plain", "checked"])
+      if (!t[k]) failures.push(`${at}: needs "${k}"`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(t.coined ?? "")))
+      failures.push(`${at}: coined must be a date (YYYY-MM-DD)`);
+    if (
+      !Array.isArray(t.questions) ||
+      t.questions.length < 2 ||
+      t.questions.some((q) => !/\?$/.test(q))
+    )
+      failures.push(`${at}: needs at least two questions, each ending in "?"`);
+    if (!Array.isArray(t.examples) || t.examples.length < 2)
+      failures.push(`${at}: needs at least two examples`);
+    if (!Array.isArray(t.differs) || !t.differs.length || t.differs.some((d) => !d.term || !d.how))
+      failures.push(`${at}: needs at least one "differs" entry (term and how)`);
+    for (const r of Array.isArray(t.related) ? t.related : [])
+      if (
+        !(r.startsWith("/theories/") ? theories[r.slice(10)] : conceptRoutes.has(r)) ||
+        r === `/concepts/${t.id}`
+      )
+        failures.push(`${at}: related ${r} does not resolve`);
+  }
+
   for (const a of [...Object.values(articles), ...Object.values(theories)]) {
     for (const m of a.body.matchAll(/<q\s+([^>]*)>([\s\S]*?)<\/q>/g)) {
       checked++;

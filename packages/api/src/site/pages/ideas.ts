@@ -57,11 +57,7 @@ export function renderIdeas(opts: { signedIn?: boolean } = {}): string {
   const all = libraryItems();
   const byDate = (a: LibraryItem, b: LibraryItem) => b.date.localeCompare(a.date);
   // The three hand-built concept pages lead, as on the prototype page.
-  const LEAD = [
-    "/concepts/self-extinguishing-maintenance",
-    "/concepts/the-overhearer",
-    "/concepts/cpai",
-  ];
+  const LEAD = ["/concepts/the-overhearer", "/concepts/cpai"];
   const rank = (r: LibraryItem) => (LEAD.includes(r.route) ? LEAD.indexOf(r.route) : LEAD.length);
   const concepts = all
     .filter((r) => r.kind === "Concept")
@@ -101,6 +97,6 @@ export function renderIdeas(opts: { signedIn?: boolean } = {}): string {
     nav: "library",
     signedIn: opts.signedIn ?? false,
     head: `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`,
-    body: `<div><h1 class="h-page">Ideas</h1></div><p class="lede" style="color:var(--muted)">Concepts are patterns that had no name, so the research gave them one; open problems are questions nobody has answered, or things nobody has built. Ideas stated formally, with graded evidence, are on <a href="/theories" class="ulink">Theories</a>.</p>${block("Concepts", "Concept", concepts)}${block("Open problems", "Open problem", open)}`,
+    body: `<div><h1 class="h-page">Ideas</h1></div><p class="lede" style="color:var(--muted)">Concepts are patterns that had no name, so the research gave them one; open problems are questions nobody has answered, or things nobody has built. Ideas stated formally, with graded evidence, are on <a href="/theories" class="ulink">Theories</a>, and every coined term with its definition is in the <a href="/lexicon" class="ulink">Lexicon</a>.</p>${block("Concepts", "Concept", concepts)}${block("Open problems", "Open problem", open)}`,
   });
 }

@@ -12,14 +12,45 @@
   "docHref": "Canopticon%20Doc.dc.html?d=price-without-discovery-from-the-signal-to-the-instruction",
   "route": "/concepts/the-price-as-instruction",
   "artRoute": "/articles/personalised-pricing-and-the-return-of-haggling",
-  "docRoute": "/p/price-without-discovery-from-the-signal-to-the-instruction"
+  "docRoute": "/p/price-without-discovery-from-the-signal-to-the-instruction",
+  "definition": "The price as instruction is a price computed for one buyer from their data rather than posted for everyone, so the number carries the seller's model of that buyer instead of the market's signal.",
+  "say": "the PRICE as in-STRUK-shun",
+  "etymology": "Plain English. It contrasts a price as a signal, which tells every buyer the same thing about the market, with a price as an instruction, aimed at one buyer.",
+  "coined": "2026-10-03",
+  "plain": "a price made for you",
+  "questions": [
+   "What is personalized pricing?",
+   "Do online prices change depending on who you are?"
+  ],
+  "examples": [
+   "Two shoppers seeing different prices for the same item because of what their device and history say about them.",
+   "An app's personal discount, computed from your purchase history to be just enough to make you buy."
+  ],
+  "differs": [
+   {
+    "term": "Price discrimination",
+    "how": "Economists' general term for charging different buyers different prices. The price as instruction stresses what the number now carries: a model of the person."
+   },
+   {
+    "term": "Surveillance pricing",
+    "how": "The US Federal Trade Commission's term (2024) for prices set from personal data. It names the data practice; the price as instruction names what happens to the price as a signal."
+   },
+   {
+    "term": "Administered prices (Means)",
+    "how": "Gardiner Means's term from the 1930s for prices set by firms rather than markets. The price as instruction carries the idea from the boardroom to the single shopper."
+   }
+  ],
+  "related": [
+   "/concepts/cpai"
+  ],
+  "checked": "2026-10-03, rechecked 2026-11-23: no prior use found; one recent counter-argument."
  },
  {
   "id": "sensory-syncrasis",
   "kick": "McLuhan & media theory",
   "title": "Sensory syncrasis",
   "body": "The whole configuration of how the brain blends its senses: how much it trusts each one, how loud it turns them all, whether it fuses or separates them, the balance between body and world, and how long a setting lasts. From the Greek root of idiosyncrasy.",
-  "foot": "proposed 4 Oct · web check 4 Oct: the word names only a wasp genus (Wikispecies); no use in perception · scholarly check pending",
+  "foot": "coined 4 Oct · name check 23 Nov: no prior use found",
   "from": "",
   "artHref": "Canopticon%20Paper%20Syncrasis.dc.html",
   "artTitle": "Sensory syncrasis",
@@ -27,14 +58,48 @@
   "docHref": "Canopticon%20Doc.dc.html?d=sensory-syncrasis-evidence-base-screens-paper-a-and-adhd-paper-b",
   "route": "/concepts/sensory-syncrasis",
   "artRoute": "/articles/syncrasis",
-  "docRoute": "/p/sensory-syncrasis-evidence-base-screens-paper-a-and-adhd-paper-b"
+  "docRoute": "/p/sensory-syncrasis-evidence-base-screens-paper-a-and-adhd-paper-b",
+  "definition": "Sensory syncrasis is the whole configuration of how a brain combines its senses: how much it trusts each one, how strongly it amplifies all of them, whether it fuses or separates them, the balance between body and world, and how long a setting lasts.",
+  "say": "SING-kruh-sis",
+  "etymology": "From Greek synkrasis, a mixing together or tempering: the root of idiosyncrasy (idios, one's own, and synkrasis), which once meant a person's own temperament.",
+  "coined": "2026-10-04",
+  "plain": "the balance of the senses",
+  "aka": [
+   "syncrasis"
+  ],
+  "questions": [
+   "Do screens change how your senses work?",
+   "What did McLuhan mean by sense ratios?",
+   "Does the brain trust some senses more than others?"
+  ],
+  "examples": [
+   "In the ventriloquist effect the brain trusts vision more than hearing for where a sound is, so the voice seems to come from the puppet's mouth: one setting of the configuration.",
+   "Standing in the dark, the brain shifts its trust for balance from the eyes to the body's own signals, and shifts back when the lights come on."
+  ],
+  "differs": [
+   {
+    "term": "Sense ratio (McLuhan)",
+    "how": "McLuhan's term names the proportion among the senses. Syncrasis keeps that as one part of a larger configuration, which also includes overall gain, fusion, the body–world balance and persistence."
+   },
+   {
+    "term": "Multisensory integration",
+    "how": "The established name for the process of combining senses. Syncrasis names the setting a person carries, and how media and drugs change it."
+   }
+  ],
+  "related": [
+   "/concepts/heterocrasis",
+   "/concepts/exocrasis",
+   "/theories/ground-blindness"
+  ],
+  "family": "krasis",
+  "checked": "2026-11-23: a web search for the exact term found no prior use in perception; the word otherwise names only a wasp genus."
  },
  {
   "id": "typomora",
   "kick": "McLuhan & media theory",
   "title": "Typomora",
   "body": "The typed delay in McLuhan's predicted return to voice: fifty years in which the keyboard, not the medium, kept networked communication typographic. Typos, type, and mora, delay — also the unit of spoken time.",
-  "foot": "proposed 4 Oct · web check 4 Oct: no use found · scholarly check pending",
+  "foot": "coined 4 Oct · name check 23 Nov: no prior use found",
   "from": "",
   "artHref": "Canopticon%20Paper%20Typomora.dc.html",
   "artTitle": "Typomora",
@@ -42,14 +107,43 @@
   "docHref": "Canopticon%20Doc.dc.html?d=typomora-neuroscience-naming-and-framing-for-paper-3-the-typed-delay-a",
   "route": "/concepts/typomora",
   "artRoute": "/articles/typomora",
-  "docRoute": "/p/typomora-neuroscience-naming-and-framing-for-paper-3-the-typed-delay-a"
+  "docRoute": "/p/typomora-neuroscience-naming-and-framing-for-paper-3-the-typed-delay-a",
+  "definition": "Typomora is the delay of roughly fifty years in which networked computing stayed typed rather than spoken, because bandwidth, computing power and speech recognition could not yet carry the voice.",
+  "say": "ty-poh-MOR-uh",
+  "etymology": "From typos, Greek for an impression or type, and mora, Latin for delay, which in linguistics is also the unit of spoken syllable timing.",
+  "coined": "2026-10-04",
+  "plain": "the typed delay",
+  "questions": [
+   "Why did we type to computers instead of talking to them?",
+   "Did McLuhan predict voice assistants?"
+  ],
+  "examples": [
+   "Usenet, email and early web forums, where all networked conversation was typed because audio could not yet be carried or recognised at scale.",
+   "Speech recognition matching human transcribers on conversational speech only around 2017, after which talking to machines became ordinary."
+  ],
+  "differs": [
+   {
+    "term": "Secondary orality (Ong)",
+    "how": "Ong's name for the oral quality of radio and television. Typomora explains why networked computing nonetheless stayed typographic for half a century."
+   },
+   {
+    "term": "Silent orality (Soffer)",
+    "how": "Oral features inside typed messages. Typomora is the delay itself and its cause at the input layer."
+   }
+  ],
+  "related": [
+   "/concepts/epanaphony",
+   "/concepts/the-visual-detour"
+  ],
+  "family": "voice",
+  "checked": "2026-11-23: a web search for the exact term found no prior use."
  },
  {
   "id": "epanaphony",
   "kick": "McLuhan & media theory",
   "title": "Epanaphony",
   "body": "The return of voice as the way we put language into machines — dictation, voice notes, talking to AI — that closes the typomora. Oral in production, typographic in storage.",
-  "foot": "proposed 4 Oct · web check 4 Oct: no use found; nearest is epanaphora · scholarly check pending",
+  "foot": "coined 4 Oct · name check 23 Nov: no prior use found",
   "from": "",
   "artHref": "Canopticon%20Paper%20Typomora.dc.html",
   "artTitle": "Typomora",
@@ -57,14 +151,43 @@
   "docHref": "Canopticon%20Doc.dc.html?d=typomora-neuroscience-naming-and-framing-for-paper-3-the-typed-delay-a",
   "route": "/concepts/epanaphony",
   "artRoute": "/articles/typomora",
-  "docRoute": "/p/typomora-neuroscience-naming-and-framing-for-paper-3-the-typed-delay-a"
+  "docRoute": "/p/typomora-neuroscience-naming-and-framing-for-paper-3-the-typed-delay-a",
+  "definition": "Epanaphony is the return of voice as the way people put language into machines, through dictation, voice notes and spoken conversation with AI, while what they say is still stored as text.",
+  "say": "ep-uh-NAF-uh-nee",
+  "etymology": "From Greek epi- and ana-, again and back, as in the rhetorical figure epanaphora, and phōnē, voice: the voice coming back.",
+  "coined": "2026-10-04",
+  "plain": "the return of voice",
+  "questions": [
+   "Does talking to AI change how you think?",
+   "Is dictating different from typing for thinking?"
+  ],
+  "examples": [
+   "Dictating a message into a phone and sending it as text.",
+   "Talking a problem through out loud with an AI voice assistant instead of typing a prompt."
+  ],
+  "differs": [
+   {
+    "term": "Voice user interface",
+    "how": "A technology. Epanaphony is the cultural shift the technology completes: production goes oral while storage stays typographic."
+   },
+   {
+    "term": "Secondary orality (Ong)",
+    "how": "The orality of broadcast media, which people listened to. Epanaphony is voice as the input people give to machines."
+   }
+  ],
+  "related": [
+   "/concepts/typomora",
+   "/concepts/the-visual-detour"
+  ],
+  "family": "voice",
+  "checked": "2026-11-23: a web search for the exact term found no prior use; the nearest word is the rhetorical figure epanaphora."
  },
  {
   "id": "narcocrasis",
   "kick": "McLuhan & media theory",
   "title": "Narcocrasis",
   "body": "In drug dependence, the part a person stops noticing is not the drug but their own shifted baseline: flatter pleasures, a restless body, a raised stress tone. The drug feels like the fix; the changed baseline feels like how the world is.",
-  "foot": "coined 5 Oct in Narcocrasis · name check pending",
+  "foot": "coined 5 Oct · name check 23 Nov: no prior use found",
   "from": "",
   "artHref": "Canopticon%20Paper%20Narcocrasis.dc.html",
   "artTitle": "Narcocrasis",
@@ -72,14 +195,45 @@
   "docHref": "Canopticon%20Doc.dc.html?d=the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
   "route": "/concepts/narcocrasis",
   "artRoute": "/articles/narcocrasis",
-  "docRoute": "/p/the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call"
+  "docRoute": "/p/the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
+  "definition": "Narcocrasis is the shifted baseline of drug dependence, with flatter pleasures, a restless body and a raised stress tone, which the person stops perceiving while the drug itself stays vividly noticed.",
+  "say": "nar-KOK-ruh-sis",
+  "etymology": "From Greek narkē, numbness (the root of narcotic and of McLuhan's narcosis), and krasis, a tempered mixture.",
+  "coined": "2026-10-05",
+  "plain": "the unnoticed baseline of dependence",
+  "questions": [
+   "Why can't people see their own addiction?",
+   "Why does the drug feel like the fix?",
+   "What is the allostatic model of addiction?"
+  ],
+  "examples": [
+   "A heavy drinker who feels normal only after the first drink, and takes the flatness before it for how mornings simply are.",
+   "A smoker who reads the irritability between cigarettes as their own temperament."
+  ],
+  "differs": [
+   {
+    "term": "Allostasis and anti-reward",
+    "how": "Koob and Le Moal's model names the shifted set point itself. Narcocrasis adds that it is the shift, not the drug, that drops out of notice, as McLuhan said the ground of a medium does."
+   },
+   {
+    "term": "Tolerance",
+    "how": "A weaker response to the drug. Narcocrasis is the changed baseline outside the drug's effect, the state the drug seems to relieve."
+   }
+  ],
+  "related": [
+   "/concepts/anacrasis",
+   "/theories/ground-blindness",
+   "/theories/self-extinguishing-maintenance"
+  ],
+  "family": "krasis",
+  "checked": "2026-11-23: a web search for the exact term found no prior use."
  },
  {
   "id": "anacrasis",
   "kick": "McLuhan & media theory",
   "title": "Anacrasis",
   "body": "Recovery as re-setting that baseline, not only removing the drug. The ancient Greek word anakrasis meant mixing with others, and the evidence points the same way: what helps the reset last is other people.",
-  "foot": "from Narcocrasis · ancient Greek, reused 5 Oct · name check pending",
+  "foot": "reused 5 Oct · name check 23 Nov: no modern use found",
   "from": "",
   "artHref": "Canopticon%20Paper%20Narcocrasis.dc.html",
   "artTitle": "Narcocrasis",
@@ -87,14 +241,42 @@
   "docHref": "Canopticon%20Doc.dc.html?d=the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
   "route": "/concepts/anacrasis",
   "artRoute": "/articles/narcocrasis",
-  "docRoute": "/p/the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call"
+  "docRoute": "/p/the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
+  "definition": "Anacrasis is recovery from dependence understood as re-tempering the shifted baseline, not only stopping the drug, a process the evidence ties to other people.",
+  "say": "uh-NAK-ruh-sis",
+  "etymology": "Reused from ancient Greek anakrasis, a mixing up, and in one sense a mixing with others; ana- means again.",
+  "coined": "2026-10-05",
+  "plain": "recovery as a reset of the baseline",
+  "questions": [
+   "What helps recovery from addiction last?",
+   "Why does social connection help people recover from addiction?"
+  ],
+  "examples": [
+   "In rats trained to self-administer drugs, the choice of time with another rat won over the drug and prevented addiction-like behaviour.",
+   "Someone in recovery whose cravings ease as they rebuild a social life, not only as days pass without the drug."
+  ],
+  "differs": [
+   {
+    "term": "Abstinence",
+    "how": "Removing the drug. Anacrasis is the slower reset of the configuration the drug left, which abstinence starts but does not finish."
+   },
+   {
+    "term": "Remission",
+    "how": "A clinical status: criteria no longer met. Anacrasis names the process, not the status."
+   }
+  ],
+  "related": [
+   "/concepts/narcocrasis"
+  ],
+  "family": "krasis",
+  "checked": "2026-11-23: an ancient Greek word reused; a web search found no modern use for recovery."
  },
  {
   "id": "pharmakrasis",
   "kick": "McLuhan & media theory",
   "title": "Pharmakrasis",
   "body": "Every class of drug sets its own characteristic balance of the senses: cannabis speeds felt time, ketamine loosens the sense of owning a body, LSD deepens the response to music. A drug, on this view, is a technology of the senses, like a medium but more direct.",
-  "foot": "coined 5 Oct in Pharmakrasis · name check pending",
+  "foot": "coined 5 Oct · name check 23 Nov: no prior use found",
   "from": "",
   "artHref": "Canopticon%20Paper%20Pharmakrasis.dc.html",
   "artTitle": "Pharmakrasis",
@@ -102,14 +284,44 @@
   "docHref": "Canopticon%20Doc.dc.html?d=the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
   "route": "/concepts/pharmakrasis",
   "artRoute": "/articles/pharmakrasis",
-  "docRoute": "/p/the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call"
+  "docRoute": "/p/the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
+  "definition": "Pharmakrasis is the characteristic configuration of the senses that a class of drug sets, such as cannabis speeding the felt passage of time or ketamine loosening the sense of owning a body.",
+  "say": "far-MAK-ruh-sis",
+  "etymology": "From Greek pharmakon, which meant drug, remedy and poison at once, and krasis, a tempered mixture.",
+  "coined": "2026-10-05",
+  "plain": "a drug's signature on the senses",
+  "questions": [
+   "How do different drugs change the senses?",
+   "Does cannabis change your sense of time?",
+   "Why does music feel different on psychedelics?"
+  ],
+  "examples": [
+   "People on cannabis judge a stretch of time as longer than it was: the felt clock runs fast.",
+   "Under ketamine, the rubber-hand illusion, in which a fake hand comes to feel like one's own, gets stronger."
+  ],
+  "differs": [
+   {
+    "term": "Pharmakon (Derrida, Stiegler)",
+    "how": "The philosophers' figure for a drug or technology that is remedy and poison at once. Pharmakrasis is narrower and measurable: the particular sensory configuration each class sets."
+   },
+   {
+    "term": "Set and setting",
+    "how": "The established name for the mindset and surroundings of a drug experience. Pharmakrasis treats the setting as half of a drug–medium hybrid rather than a confound."
+   }
+  ],
+  "related": [
+   "/concepts/sensory-syncrasis",
+   "/concepts/narcocrasis"
+  ],
+  "family": "krasis",
+  "checked": "2026-11-23: a web search for the exact term found no prior use."
  },
  {
   "id": "heterocrasis",
   "kick": "McLuhan & media theory",
   "title": "Heterocrasis",
   "body": "People start from different balances of the senses before any medium touches them. ADHD may be one such starting point, most clearly in how loudly the brain turns all its signals up or down.",
-  "foot": "coined 5 Oct in Heterocrasis · name check pending",
+  "foot": "coined 5 Oct · name check 23 Nov: no prior use found",
   "from": "",
   "artHref": "Canopticon%20Paper%20Heterocrasis.dc.html",
   "artTitle": "Heterocrasis",
@@ -117,14 +329,44 @@
   "docHref": "Canopticon%20Doc.dc.html?d=the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
   "route": "/concepts/heterocrasis",
   "artRoute": "/articles/heterocrasis",
-  "docRoute": "/p/the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call"
+  "docRoute": "/p/the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
+  "definition": "Heterocrasis is a configuration of the senses that differs from the usual one before any medium acts on it; ADHD is proposed as one, mainly as a different setting of overall gain.",
+  "say": "het-uh-ROK-ruh-sis",
+  "etymology": "From Greek hetero-, different, and krasis, a tempered mixture.",
+  "coined": "2026-10-05",
+  "plain": "a different starting mix of the senses",
+  "questions": [
+   "Why do some people with ADHD focus better with background noise?",
+   "Is ADHD a difference in how the brain handles the senses?",
+   "Do people with ADHD have less inner speech?"
+  ],
+  "examples": [
+   "A student with ADHD who works better with a fan or white noise on: a meta-analysis found a small, specific benefit of such noise, which fits a nervous system whose signal runs weak against its noise.",
+   "Children with ADHD who talk themselves through a task out loud more than their classmates, not less."
+  ],
+  "differs": [
+   {
+    "term": "Sensory processing differences",
+    "how": "Questionnaire profiles describe people as over- or under-responsive to sensation. Heterocrasis is a claim about the underlying setting, mainly overall gain, and does not treat the senses themselves as disordered."
+   },
+   {
+    "term": "Optimal stimulation theory",
+    "how": "Zentall and Zentall (1983) proposed that people with ADHD seek stimulation. Heterocrasis places that inside a wider configuration and adds a changed coupling between inner speech and action."
+   }
+  ],
+  "related": [
+   "/concepts/sensory-syncrasis",
+   "/theories/cognitive-ectothermy"
+  ],
+  "family": "krasis",
+  "checked": "2026-11-23: a web search for the exact term found no prior use."
  },
  {
   "id": "exocrasis",
   "kick": "McLuhan & media theory",
   "title": "Exocrasis",
   "body": "Part of how we sense and remember now lives outside the body, in keyboards, search, saved files and the network. The computing environment holds some of the balance the brain used to hold.",
-  "foot": "coined 5 Oct in Exocrasis · name check pending",
+  "foot": "coined 5 Oct · name check 23 Nov: no prior use found",
   "from": "",
   "artHref": "Canopticon%20Paper%20Exocrasis.dc.html",
   "artTitle": "Exocrasis",
@@ -132,14 +374,45 @@
   "docHref": "Canopticon%20Doc.dc.html?d=the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
   "route": "/concepts/exocrasis",
   "artRoute": "/articles/exocrasis",
-  "docRoute": "/p/the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call"
+  "docRoute": "/p/the-precision-ratio-revisited-why-ratio-is-half-right-and-what-to-call",
+  "definition": "Exocrasis is the shift of part of the configuration of the senses, and of memory, out of the body and into the computing environment: keyboards, stored files, search and the network.",
+  "say": "ek-SOK-ruh-sis",
+  "etymology": "From Greek exo-, outside, and krasis, a tempered mixture.",
+  "coined": "2026-10-05",
+  "plain": "senses and memory held outside the body",
+  "questions": [
+   "Does using GPS make your memory worse?",
+   "Does taking photos make you remember less?",
+   "Is reading on a screen worse than reading on paper?"
+  ],
+  "examples": [
+   "Photographing objects in a museum and later remembering fewer of them than the ones you only looked at.",
+   "Driving a familiar route by GPS for years, then finding you cannot find your way without it."
+  ],
+  "differs": [
+   {
+    "term": "Cognitive offloading",
+    "how": "Risko and Gilbert's term (2016) for the act of moving a mental task outside the head. Exocrasis is the standing configuration the whole computing environment leaves behind."
+   },
+   {
+    "term": "The extended mind",
+    "how": "Clark and Chalmers (1998) argued that tools can be part of the mind. Exocrasis asks McLuhan's question of that shift: what it enhances and what it pushes out."
+   }
+  ],
+  "related": [
+   "/concepts/sensory-syncrasis",
+   "/theories/cognitive-ectothermy",
+   "/theories/ground-blindness"
+  ],
+  "family": "krasis",
+  "checked": "2026-11-23: a web search for the exact term found no prior use."
  },
  {
   "id": "the-visual-detour",
   "kick": "McLuhan & media theory",
   "title": "The visual detour",
   "body": "The internet from about 1990 to 2022 as a fifty-year swing back toward print — screens of text and keyboards — inside the longer return to speech that McLuhan predicted, now ending as voice interfaces take over.",
-  "foot": "web check 10 Oct: no use found · scholarly check pending",
+  "foot": "named 10 Oct · name check 23 Nov: no prior use found",
   "from": "The Acoustic Return",
   "artHref": "",
   "artTitle": "",
@@ -147,6 +420,35 @@
   "docHref": "Canopticon%20Doc.dc.html?d=acoustic-return-research-pass-mcluhan-voice-interfaces-fifty-year",
   "route": "/concepts/the-visual-detour",
   "artRoute": "",
-  "docRoute": "/p/acoustic-return-research-pass-mcluhan-voice-interfaces-fifty-year"
+  "docRoute": "/p/acoustic-return-research-pass-mcluhan-voice-interfaces-fifty-year",
+  "definition": "The visual detour is the period from about 1990 to 2022 when the internet swung back toward print, to screens of text and keyboards, inside the longer return to speech that McLuhan predicted.",
+  "say": "VIZH-oo-ul DEE-toor",
+  "etymology": "Plain English: visual, McLuhan's word for the space of print, and detour, a way that leaves the road and rejoins it.",
+  "coined": "2026-10-10",
+  "plain": "the text era of the internet",
+  "questions": [
+   "Was the early internet a return to print?",
+   "What did McLuhan predict about the internet?"
+  ],
+  "examples": [
+   "A generation that grew up messaging, posting and emailing rather than calling.",
+   "Voice notes and spoken AI assistants taking over from typing in the 2020s, as the detour rejoins the road."
+  ],
+  "differs": [
+   {
+    "term": "Typomora",
+    "how": "Typomora names the cause, a bottleneck at the input. The visual detour names the period and its shape as seen from McLuhan's longer history."
+   },
+   {
+    "term": "Acoustic space (McLuhan)",
+    "how": "The destination McLuhan predicted. The visual detour is the swing away from it on the way there."
+   }
+  ],
+  "related": [
+   "/concepts/typomora",
+   "/concepts/epanaphony"
+  ],
+  "family": "voice",
+  "checked": "2026-11-23: a web search for the exact term found no prior use."
  }
 ]

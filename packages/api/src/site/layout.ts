@@ -144,7 +144,7 @@ function header(a: ShellArgs): string {
 }
 
 function footer(): string {
-  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">An independent research publication by Chris Telford. Every quote links back to its source. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><a href="/theories">Theories</a><a href="/library?kind=Article">Articles</a><a href="/library?kind=Research">Research</a><a href="/library?kind=Concept">Ideas</a><a href="/investigations">Investigations</a><a href="/follow">Follow</a><a href="/about">About</a><a href="/about#m-machines">Feed</a><a href="/about#m-machines">llms.txt</a></nav></div></footer>`;
+  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">An independent research publication by Chris Telford. Every quote links back to its source. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><a href="/theories">Theories</a><a href="/lexicon">Lexicon</a><a href="/library?kind=Article">Articles</a><a href="/library?kind=Research">Research</a><a href="/library?kind=Concept">Ideas</a><a href="/investigations">Investigations</a><a href="/follow">Follow</a><a href="/about">About</a><a href="/about#m-machines">Feed</a><a href="/about#m-machines">llms.txt</a></nav></div></footer>`;
 }
 
 function beacon(token: string | undefined): string {
