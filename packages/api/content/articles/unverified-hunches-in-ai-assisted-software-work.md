@@ -2,6 +2,7 @@
 slug: "unverified-hunches-in-ai-assisted-software-work"
 file: "Canopticon Essay Rightness.dc.html"
 kind: "Article"
+form: "Essay"
 topic: "AI-directed development"
 title: "Unverified hunches in AI-assisted software work: the certainty handoff and one-sided memory"
 dek: "A hunch that feels right gets handed to a collaborator as if it had been checked. When the collaborator is an AI that starts every session blank, nobody checks it at all."

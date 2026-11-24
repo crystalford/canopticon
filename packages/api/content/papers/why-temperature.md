@@ -289,7 +289,7 @@ It also adds the capacity argument of section 8, which classroom research does n
 
 ## How to cite
 
-Telford, C. (2026). *Why Temperature: McLuhan's hot and cool as a theory of regulation.* Working paper. Canopticon. canopticon.com/articles/why-temperature
+Telford, C. (2026). *Why Temperature: McLuhan's hot and cool as a theory of regulation.* Working paper. Canopticon. canopticon.com/papers/why-temperature
 
 Key terms introduced here: *completion share*, *order*, *overheating* (after McLuhan), *cognitive ectothermy*, *cognitive endothermy*, *cool excursion*.
 
@@ -353,4 +353,4 @@ Each entry gives its DOI or address and what was read for this paper. **Read** m
 | Camerer, C. F., et al. (2018). Evaluating the replicability of social science experiments in Nature and Science between 2010 and 2015. *Nature Human Behaviour*, 2, 637–644. doi:10.1038/s41562-018-0399-z | Secondary |
 | Kalyuga, S., Ayres, P., Chandler, P., & Sweller, J. (2003). The expertise reversal effect. *Educational Psychologist*, 38(1), 23–31. doi:10.1207/S15326985EP3801_4 | Abstract |
 | Kalyuga, S. (2007). Expertise reversal effect and its implications for learner-tailored instruction. *Educational Psychology Review*, 19, 509–539. doi:10.1007/s10648-007-9054-3 | Abstract |
-| Telford, C. (2026). *Krasis* and the Sensory Syncrasis series. Canopticon. canopticon.com/articles/krasis | The author's own |
+| Telford, C. (2026). *Krasis* and the Sensory Syncrasis series. Canopticon. canopticon.com/papers/krasis | The author's own |

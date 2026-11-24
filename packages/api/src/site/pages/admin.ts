@@ -196,7 +196,7 @@ function namesCard(): string {
     when: "",
     title: `${pending.length} ${pending.length === 1 ? "name needs" : "new names need"} a scholarly check`,
     note: `${pending.map((t) => esc(t.title)).join(", ")} passed a web search; none has been searched in Google Scholar yet. The register is <code>docs/blackbox/TERMS.md</code>.`,
-    act: `<a href="/ideas" class="btn">See them</a>`,
+    act: `<a href="/lexicon" class="btn">See them</a>`,
   });
 }
 

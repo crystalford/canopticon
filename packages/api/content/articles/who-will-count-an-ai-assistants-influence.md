@@ -2,6 +2,7 @@
 slug: "who-will-count-an-ai-assistants-influence"
 file: "Canopticon Essay Oracle.dc.html"
 kind: "Article"
+form: "Essay"
 topic: "Attribution & credit"
 title: "Who will count an AI assistant's influence: advertising attribution after the agent"
 dek: "Every shift in how advertising is paid for happened when a new party could count a new event. The agent that now does the buying can count the one that matters — and reports it to no one."

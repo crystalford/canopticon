@@ -2,6 +2,7 @@
 slug: "self-extinguishing-maintenance"
 file: "Canopticon Essay Healed.dc.html"
 kind: "Article"
+form: "Essay"
 topic: "Habits & maintenance"
 title: "Self-extinguishing maintenance: treatments that stop because they are working, and the relapse that follows"
 dek: "Some problems only stay fixed while you keep treating them — a gap between two teeth, toes pressed too tight. The treatment works, the problem vanishes, it looks cured, you stop, and it comes back. This research named the cycle and the mistake behind it."

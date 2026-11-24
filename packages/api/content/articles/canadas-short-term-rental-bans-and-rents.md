@@ -2,6 +2,7 @@
 slug: "canadas-short-term-rental-bans-and-rents"
 file: "Canopticon Essay Airbnb.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Housing"
 title: "Canada's short-term rental bans and rents: what returned to the long-term market, and what actually moved prices"
 dek: "Canadian cities restricted short-term rentals to bring homes back to renters. Few came back, rents fell for other reasons, and the bans squeezed a new kind of housing that sits between a hotel and a lease."

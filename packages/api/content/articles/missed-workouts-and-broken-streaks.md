@@ -2,6 +2,7 @@
 slug: "missed-workouts-and-broken-streaks"
 file: "Canopticon Essay Streak.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "ADHD & attention"
 title: "Missed workouts and broken streaks: how fast strength, mood and habit actually decay"
 dek: "Two weeks away from the gym costs almost nothing in muscle — strength holds and the body keeps a record that makes the regain fast. What drains in that time is mood, dopamine tone and the automatic habit, which is exactly what restarting runs on."

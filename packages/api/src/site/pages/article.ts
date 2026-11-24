@@ -217,7 +217,7 @@ export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): str
       ? `<div class="pair-note"><strong>One of a pair.</strong> ${esc(extras.pair.before)} <a href="${esc(extras.pair.route)}">${esc(extras.pair.label)}</a>${esc(extras.pair.after)}</div>`
       : "",
     `<div style="margin-bottom:24px">`,
-    `<div class="kicker">${pill("Article", kindColours("Article"))}${linkPill(`/topics/${topicSlug(a.topic)}`, a.topic, topicColours(a.topic))}</div>`,
+    `<div class="kicker">${pill(a.form, kindColours(a.form))}${linkPill(`/topics/${topicSlug(a.topic)}`, a.topic, topicColours(a.topic))}</div>`,
     `<h1 class="h-display">${esc(a.title)}</h1>`,
     `<p class="dek">${esc(a.dek)}</p>`,
     `<div class="byline"><a href="/about#m-author" class="who">Chris Telford</a><time class="chip" datetime="${esc(a.date)}">${esc(longDate(a.date))}</time><span class="chip">${minutes} min</span><span class="chip">${tally[0]} ${tally[1].toLowerCase()}</span></div>`,
@@ -260,7 +260,12 @@ export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): str
   // was not curated; a fallback would be a choice the author did not make.
   const next = (extras.readNext ?? []).map((r) => ({
     route: r.route,
-    kind: r.kind === "Paper" ? ("Paper" as const) : ("Article" as const),
+    kind:
+      r.kind === "Paper"
+        ? ("Paper" as const)
+        : r.kind === "Brief"
+          ? ("Brief" as const)
+          : ("Essay" as const),
     title: r.title,
     dek: r.dek,
     minutes: Number.parseInt(r.min, 10) || 0,
@@ -289,7 +294,7 @@ export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): str
     title: a.title,
     description: a.dek,
     path: `/articles/${a.slug}`,
-    nav: "library",
+    nav: "writing",
     progress: true,
     ogType: "article",
     mainClass: "long",
@@ -362,8 +367,8 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
   const topic = topicOf(p);
   const minutes = paperMinutes(p);
   const refs = Math.max(0, referenceCount(p));
-  const url = `https://canopticon.com/articles/${p.slug}`;
-  const cite = `Telford, C. (${p.date.slice(0, 4)}). ${p.title}${subtitle ? `: ${subtitle}` : ""}. Canopticon. canopticon.com/articles/${p.slug}`;
+  const url = `https://canopticon.com/papers/${p.slug}`;
+  const cite = `Telford, C. (${p.date.slice(0, 4)}). ${p.title}${subtitle ? `: ${subtitle}` : ""}. Canopticon. canopticon.com/papers/${p.slug}`;
   const dek = subtitle || p.dek || "";
   // A paper outside the series builds on it rather than belonging to it.
   const inSeries = SERIES.some((s) => s.slug === p.slug);
@@ -375,7 +380,7 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
     `<h1 class="h-display">${esc(p.title)}</h1>`,
     dek ? `<p class="dek">${esc(dek)}</p>` : "",
     `<div class="byline"><a href="/about#m-author" class="who">Chris Telford</a><time class="chip" datetime="${esc(p.date)}">${esc(longDate(p.date))}</time><span class="chip">${minutes} min</span>${refs ? `<span class="chip">${refs} references</span>` : ""}${doiChip(p.doi)}</div>`,
-    `<div class="based"><span class="based-l">${inSeries ? "Part of" : "Builds on"}</span><a href="/articles/krasis">${esc(SERIES_NAME)}</a>${
+    `<div class="based"><span class="based-l">${inSeries ? "Part of" : "Builds on"}</span><a href="/papers/krasis">${esc(SERIES_NAME)}</a>${
       drawn
         ? `<span class="based-l">Theory</span><a href="/theories/${esc(drawn.slug)}">${esc(drawn.title)}</a>`
         : ""
@@ -391,7 +396,7 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
     .map(({ item, paper }) =>
       paper.slug === p.slug
         ? `<li class="on" aria-current="page"><span class="t">${esc(paper.title)}</span><span class="s">${esc(item.short)}</span></li>`
-        : `<li><a href="/articles/${esc(paper.slug)}"><span class="t">${esc(paper.title)}</span><span class="s">${esc(item.short)}</span></a></li>`,
+        : `<li><a href="/papers/${esc(paper.slug)}"><span class="t">${esc(paper.title)}</span><span class="s">${esc(item.short)}</span></a></li>`,
     )
     .join("")}</ol></div>`;
 
@@ -417,7 +422,7 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
     publisher: { "@type": "Organization", name: "Canopticon", url: "https://canopticon.com" },
     ...(inSeries
       ? { isPartOf: { "@type": "CreativeWorkSeries", name: SERIES_NAME } }
-      : { isBasedOn: "https://canopticon.com/articles/krasis" }),
+      : { isBasedOn: "https://canopticon.com/papers/krasis" }),
     ...(p.doi
       ? {
           identifier: { "@type": "PropertyValue", propertyID: "DOI", value: p.doi },
@@ -429,13 +434,13 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
   return shell({
     title: p.title,
     description: dek || plain(abstract).slice(0, 200),
-    path: `/articles/${p.slug}`,
-    nav: "library",
+    path: `/papers/${p.slug}`,
+    nav: "papers",
     progress: true,
     ogType: "article",
     mainClass: "long",
     signedIn: opts.signedIn ?? false,
-    head: `${citationMeta(p.title, p.date, url, p.doi)}\n<link rel="alternate" type="text/markdown" href="/articles/${esc(p.slug)}.md" />\n${jsonLd(ld)}`,
+    head: `${citationMeta(p.title, p.date, url, p.doi)}\n<link rel="alternate" type="text/markdown" href="/papers/${esc(p.slug)}.md" />\n${jsonLd(ld)}`,
     body: `<div class="rr">${col}${rail}</div>`,
   });
 }

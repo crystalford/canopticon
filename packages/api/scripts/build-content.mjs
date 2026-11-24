@@ -321,6 +321,20 @@ function build() {
   for (const a of Object.values(articles))
     if (a.theory && !theories[a.theory])
       failures.push(`articles/${a.slug}: theory ${a.theory} does not exist`);
+  // Every article is an Essay (it argues one of the author's ideas) or a Brief
+  // (it answers one question from the evidence), and its Library row agrees.
+  {
+    const rows = new Map(readJson("library.json").map((r) => [r.route, r]));
+    for (const a of Object.values(articles)) {
+      if (a.form !== "Essay" && a.form !== "Brief")
+        failures.push(`articles/${a.slug}: form must be "Essay" or "Brief"`);
+      const row = rows.get(`/articles/${a.slug}`);
+      if (row && ["Essay", "Brief", "Article"].includes(row.kind) && row.kind !== a.form)
+        failures.push(
+          `library.json /articles/${a.slug}: kind ${row.kind} but the article says ${a.form}`,
+        );
+    }
+  }
   for (const p of Object.values(papers)) {
     if (p.theory && !theories[p.theory])
       failures.push(`papers/${p.slug}: theory ${p.theory} does not exist`);

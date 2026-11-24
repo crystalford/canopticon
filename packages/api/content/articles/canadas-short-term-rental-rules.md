@@ -2,6 +2,7 @@
 slug: "canadas-short-term-rental-rules"
 file: "Canopticon Essay Rent.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Housing"
 title: "Canada's short-term rental rules: supply, prices, and the mid-term rental tier that never formed"
 dek: "Short-term rentals add flexible supply, and competition lowers prices — that much is well documented. Canadian cities banned them anyway, and cut off a tier between a hotel and a lease just as it was forming. Whether that tier would lower long-term rents is the open question."

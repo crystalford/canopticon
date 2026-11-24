@@ -1,6 +1,7 @@
 ---
 slug: "seeing-what-you-rely-on"
 kind: "Article"
+form: "Essay"
 topic: "McLuhan & media theory"
 title: "Seeing what you rely on"
 dek: "A tool, habit or substance in daily use stops being noticed, so it is judged only by what it is like to have it. Experiments that take things away find effects their users could not see, and sometimes the opposite of what having them seemed to do."

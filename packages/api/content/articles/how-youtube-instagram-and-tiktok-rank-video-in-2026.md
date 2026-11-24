@@ -2,6 +2,7 @@
 slug: "how-youtube-instagram-and-tiktok-rank-video-in-2026"
 file: "Canopticon Essay Ranking.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Attention & feeds"
 title: "How YouTube, Instagram and TikTok rank video in 2026: satisfaction signals, AI content understanding, and penalties for reposting"
 dek: "Recommendation feeds have stopped scoring behaviour alone. A language model now watches the content and judges it — better than the crowd-sourced raters it replaced — while reposting is penalised in the ranking itself. Much of what creators are taught describes the system of a decade ago."

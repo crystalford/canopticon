@@ -2,6 +2,7 @@
 slug: "the-counter-irritant-spiral"
 file: "Canopticon Essay Ground.dc.html"
 kind: "Article"
+form: "Essay"
 topic: "McLuhan & media theory"
 title: "The counter-irritant spiral: McLuhan, Hans Selye, and relief that deepens the need for relief"
 dek: "In 1964 Marshall McLuhan, reading the stress researcher Hans Selye, wrote that relief \"usually proves a greater plague than the initial irritant, like a drug habit.\" Addiction science later measured the same spiral — and what users stop noticing is not the drug, but their own changed baseline."

@@ -2,6 +2,7 @@
 slug: "immigrants-temporary-residents-and-canadas-job-growth-since-2020"
 file: "Canopticon Essay Jobs Canada.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Canadian economy & policy"
 title: "Immigrants, temporary residents and Canada's job growth since 2020: what the Labour Force Survey can and cannot show"
 dek: "Nearly all of Canada's post-pandemic job growth went to immigrants and temporary residents. But no Canadian government table publishes that split the way the American one does — every version of the figure is built by hand from an annual series that undercounts the very group it counts."

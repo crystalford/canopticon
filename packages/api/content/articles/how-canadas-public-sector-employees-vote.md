@@ -2,6 +2,7 @@
 slug: "how-canadas-public-sector-employees-vote"
 file: "Canopticon Essay Public Sector.dc.html"
 kind: "Article"
+form: "Brief"
 topic: ""
 title: "How Canada's public-sector employees vote: the Canadian Election Study evidence, Ottawa's ridings, and the union endorsements"
 dek: "Public-sector workers in Canada lean modestly left of private-sector workers, and most of that lean belongs to unionized professionals and managers. The city crews whose unions endorse the NDP vote much like their private-sector counterparts, and no released poll gives a party-by-party split to settle it."

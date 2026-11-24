@@ -10,6 +10,8 @@ const SAND: Pair = ["#efebe1", "#15171c"];
 export const KIND_COLOURS: Record<string, Pair> = {
   Theory: ["#15171c", "#f6f3ec"],
   Article: ["#e4ecf7", "#1f4e8c"],
+  Essay: ["#e4ecf7", "#1f4e8c"],
+  Brief: ["#e1eeee", "#1d5a5e"],
   Paper: ["#efe6f6", "#5a2d82"],
   Research: SAND,
   Concept: ["#e3f0e6", "#1f5e36"],
@@ -43,6 +45,16 @@ export const TOPIC_COLOURS: Record<string, Pair> = {
 };
 
 export const kindColours = (kind: string): Pair => KIND_COLOURS[kind] ?? SAND;
+
+/** What a kind is called where a reader sees it. The stored kinds stay as
+ *  they are ("Concept", "Open problem"); the site's own words are the pages'
+ *  names: a term lives in the Lexicon, an open question on Open questions. */
+const KIND_LABELS: Record<string, string> = {
+  Concept: "Term",
+  "Open problem": "Open question",
+  Article: "Essay",
+};
+export const kindLabel = (kind: string): string => KIND_LABELS[kind] ?? kind;
 export const topicColours = (topic: string): Pair => TOPIC_COLOURS[topic] ?? SAND;
 
 /** The slug rule (site-records.schema.json): lowercase, & → and,

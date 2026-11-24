@@ -7,6 +7,7 @@
 // page is whole without it.
 
 import { siteStylesHash } from "./styles";
+import { kindLabel } from "./theme";
 
 export const SITE = "https://canopticon.com";
 
@@ -17,7 +18,16 @@ export interface ShellArgs {
   /** Path for the canonical link and og:url, e.g. "/library". */
   path: string;
   /** Which primary nav item is current. */
-  nav?: "library" | "theories" | "lexicon" | "about" | "search";
+  nav?:
+    | "library"
+    | "theories"
+    | "papers"
+    | "writing"
+    | "research"
+    | "lexicon"
+    | "open"
+    | "about"
+    | "search";
   /** Long pages carry the 2px reading-progress bar. */
   progress?: boolean;
   /** Signed in: shows the Admin pill (with its waiting count when known). */
@@ -58,7 +68,7 @@ export function setWaiting(n: number): void {
  *  a content page gets its own, anything else the record's. */
 export function cardPath(path: string): string {
   const clean = path.split(/[?#]/)[0] ?? "/";
-  if (/^\/(articles|p|concepts|open|topics)\/[A-Za-z0-9_-]+$/.test(clean))
+  if (/^\/(articles|papers|theories|p|concepts|open|topics)\/[A-Za-z0-9_-]+$/.test(clean))
     return `/card${clean}.png`;
   return "/card/index.png";
 }
@@ -145,13 +155,13 @@ function header(a: ShellArgs): string {
         waiting ? `<span class="admin-n" title="${waiting} things waiting">${waiting}</span>` : ""
       }</a>`
     : "";
-  return `<div class="hd${a.app ? " wide" : ""}"><header class="hd-in"><a href="/" class="wm">canopticon</a><nav aria-label="Primary" class="nav"><a href="/library"${cur("library")}>Library</a><a href="/theories"${cur("theories")}>Theories</a><a href="/lexicon"${cur("lexicon")}>Lexicon</a><a href="/about"${cur("about")}>About</a></nav><a href="/search" class="hd-search"${cur("search")}>Search</a>${admin}</header>${
+  return `<div class="hd${a.app ? " wide" : ""}"><header class="hd-in"><a href="/" class="wm">canopticon</a><nav aria-label="Primary" class="nav"><a href="/theories"${cur("theories")}>Theories</a><a href="/papers"${cur("papers")}>Papers</a><a href="/writing"${cur("writing")}>Writing</a><a href="/research"${cur("research")}>Research</a><a href="/lexicon"${cur("lexicon")}>Lexicon</a></nav><a href="/search" class="hd-search"${cur("search")}>Search</a>${admin}</header>${
     a.progress ? '<div class="rp"><div id="read-progress"></div></div>' : ""
   }</div>`;
 }
 
 function footer(): string {
-  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">An independent research publication by Chris Telford. Every quote links back to its source. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><a href="/theories">Theories</a><a href="/lexicon">Lexicon</a><a href="/library?kind=Article">Articles</a><a href="/library?kind=Research">Research</a><a href="/library?kind=Concept">Ideas</a><a href="/investigations">Investigations</a><a href="/follow">Follow</a><a href="/about">About</a><a href="/about#m-machines">Feed</a><a href="/about#m-machines">llms.txt</a></nav></div></footer>`;
+  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">An independent research publication by Chris Telford. Every quote links back to its source. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><div class="ft-col"><span class="ft-h">The work</span><a href="/theories">Theories</a><a href="/papers">Papers</a><a href="/writing">Writing</a><a href="/research">Research</a><a href="/lexicon">Lexicon</a><a href="/open">Open questions</a></div><div class="ft-col"><span class="ft-h">Browse</span><a href="/library">Everything</a><a href="/research?kind=Investigation">Investigations</a><a href="/writing?kind=Essay">Essays</a><a href="/writing?kind=Brief">Briefs</a><a href="/search">Search</a></div><div class="ft-col"><span class="ft-h">The site</span><a href="/about">About</a><a href="/about#m-rules">How it is checked</a><a href="/follow">Follow</a><a href="/feed.xml">RSS feed</a><a href="/llms.txt">llms.txt</a></div></nav></div></footer>`;
 }
 
 function beacon(token: string | undefined): string {
@@ -163,7 +173,7 @@ function beacon(token: string | undefined): string {
 
 /** A pill whose colours are data (a kind or a topic). */
 export function pill(label: string, pair: readonly [string, string], cls = "pill"): string {
-  return `<span class="${cls}" style="background:${pair[0]};color:${pair[1]}">${esc(label)}</span>`;
+  return `<span class="${cls}" style="background:${pair[0]};color:${pair[1]}">${esc(kindLabel(label))}</span>`;
 }
 
 export function linkPill(

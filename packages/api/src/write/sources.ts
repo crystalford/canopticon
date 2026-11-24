@@ -262,7 +262,7 @@ export function ownWriting(): OwnWriting[] {
     kind: "Paper" as const,
     topic: p.topic ?? "",
     date: p.date ?? "",
-    route: `/articles/${p.slug}`,
+    route: `/papers/${p.slug}`,
   }));
   return [...articles, ...papers].sort((a, b) => b.date.localeCompare(a.date));
 }
@@ -275,7 +275,7 @@ export function ownWritingText(
   if (a && !a.withdrawn)
     return { title: a.title, kind: "Article", route: `/articles/${id}`, text: a.body };
   const p = paper(id);
-  if (p) return { title: p.title, kind: "Paper", route: `/articles/${id}`, text: p.body };
+  if (p) return { title: p.title, kind: "Paper", route: `/papers/${id}`, text: p.body };
   return null;
 }
 

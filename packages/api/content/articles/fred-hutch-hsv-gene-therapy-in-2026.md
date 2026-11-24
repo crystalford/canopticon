@@ -2,6 +2,7 @@
 slug: "fred-hutch-hsv-gene-therapy-in-2026"
 file: "Canopticon Essay Herpes.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Drugs & public health"
 title: "Fred Hutch's HSV gene therapy in 2026: mouse and guinea-pig results, no human trial, and the antivirals arriving first"
 dek: "A gene therapy clears up to 97% of dormant herpes in mice. In the animal that relapses the way people do it clears above 30%, nobody has filed to test it in a person, and the drugs arriving first suppress the virus rather than remove it."

@@ -2,6 +2,7 @@
 slug: "personalised-pricing-and-the-return-of-haggling"
 file: "Canopticon Essay Haggle.dc.html"
 kind: "Article"
+form: "Essay"
 topic: "Prices & markets"
 title: "Personalised pricing software and the return of haggling, run from the seller's side"
 dek: "From the middle of the nineteenth century everyone paid the number on the tag. Pricing software is bringing the bazaar back — except this time the seller reads you, and you see nothing."

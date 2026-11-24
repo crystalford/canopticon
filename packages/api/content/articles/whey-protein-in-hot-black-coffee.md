@@ -2,6 +2,7 @@
 slug: "whey-protein-in-hot-black-coffee"
 file: "Canopticon Essay Whey.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Health & self-care"
 title: "Whey protein in hot black coffee: why it curdles, what the heat-stable versions cost, and what is coming"
 dek: "Collagen disappears into a hot cup; whey turns it into pale lumps that smell of sulfur. Coffee's acidity sits almost exactly where whey is least stable, and it is served above the temperature that unfolds the protein. The heat-stable ingredients that exist solve it by cutting the protein up, which makes it bitter."

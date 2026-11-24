@@ -47,7 +47,8 @@ export function invalidateUploads(): void {
 const KIND: Record<string, LibraryItem["kind"]> = {
   research: "Research",
   paper: "Paper",
-  article: "Article",
+  // An uploaded article is the author's own writing, arguing a case.
+  article: "Essay",
 };
 
 /** The first prose paragraph, for the row's dek. */

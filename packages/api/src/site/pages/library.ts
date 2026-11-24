@@ -8,7 +8,7 @@ import { AUTHOR } from "../author";
 import type { DerivedRow, LibraryItem } from "../content/store";
 import { keyFigures, libraryItems, questions } from "../content/store";
 import { esc, shell } from "../layout";
-import { kindColours, topicColours, topicSlug } from "../theme";
+import { kindColours, kindLabel, topicColours, topicSlug } from "../theme";
 
 type Row = (LibraryItem | DerivedRow) & { v?: string; sub?: string; shelf?: string };
 
@@ -23,46 +23,68 @@ interface Group {
 const GROUPS: Group[] = [
   { id: "all", label: "All", kinds: null },
   { id: "Theory", label: "Theories", kinds: ["Theory"] },
+  { id: "Paper", label: "Papers", kinds: ["Paper"] },
   {
     id: "Writing",
     label: "Writing",
-    kinds: ["Article", "Paper"],
+    kinds: ["Essay", "Brief", "Article"],
     members: [
-      ["Article", "Articles"],
-      ["Paper", "Papers"],
+      ["Essay", "Essays"],
+      ["Brief", "Briefs"],
     ],
   },
-  { id: "Research", label: "Research", kinds: ["Research"] },
   {
-    id: "Ideas",
-    label: "Ideas",
-    kinds: ["Concept", "Open problem", "Question"],
+    id: "Research",
+    label: "Research",
+    kinds: ["Research"],
     members: [
-      ["Concept", "Concepts"],
-      ["Open problem", "Open problems"],
-      ["Question", "Questions"],
+      ["Report", "Reports"],
+      ["Investigation", "Investigations"],
+    ],
+  },
+  { id: "Terms", label: "Terms", kinds: ["Concept"] },
+  {
+    id: "Open",
+    label: "Open questions",
+    kinds: ["Open problem", "Question"],
+    members: [
+      ["Open problem", "Open questions"],
+      ["Question", "Asked by the research"],
     ],
   },
   { id: "Figure", label: "Key figures", kinds: ["Figure"] },
   { id: "Project", label: "Projects", kinds: ["Project"], signedIn: true },
-  { id: "Investigation", label: "Investigations", kinds: null },
 ];
 
-/** ?kind= accepts a group or a member, as the prototype's ?k= did. */
+/** ?kind= accepts a group or a member, as the prototype's ?k= did. Old
+ *  names still land: Article → Writing, Ideas → Terms, Concept → Terms. */
 const KIND_PARAM: Record<string, [string, string]> = {
   Theory: ["Theory", "all"],
-  Article: ["Writing", "Article"],
-  Paper: ["Writing", "Paper"],
+  Paper: ["Paper", "all"],
   Writing: ["Writing", "all"],
-  Concept: ["Ideas", "Concept"],
-  "Open problem": ["Ideas", "Open problem"],
-  Question: ["Ideas", "Question"],
-  Ideas: ["Ideas", "all"],
+  Article: ["Writing", "all"],
+  Essay: ["Writing", "Essay"],
+  Brief: ["Writing", "Brief"],
   Research: ["Research", "all"],
+  Report: ["Research", "Report"],
+  Investigation: ["Research", "Investigation"],
+  Terms: ["Terms", "all"],
+  Concept: ["Terms", "all"],
+  Ideas: ["Terms", "all"],
+  Open: ["Open", "all"],
+  "Open problem": ["Open", "Open problem"],
+  Question: ["Open", "Question"],
   Figure: ["Figure", "all"],
   Project: ["Project", "all"],
-  Investigation: ["Investigation", "all"],
 };
+
+/** A member chip's test: most are a kind; Research splits by shelf. */
+function isMember(d: Row, id: string): boolean {
+  if (id === "Investigation") return d.shelf === "investigation";
+  if (id === "Report") return d.kind === "Research" && d.shelf !== "investigation";
+  if (id === "Essay") return d.kind === "Essay" || d.kind === "Article";
+  return d.kind === id;
+}
 
 const SORTS: Array<{
   id: string;
@@ -116,7 +138,9 @@ const subName = (d: Row) => {
 };
 
 function inGroup(d: Row, id: string): boolean {
-  if (id === "Investigation") return d.shelf === "investigation";
+  // Investigations are research, shown under Research; they stay out of
+  // "All" and the topics because they are working files, not conclusions.
+  if (id === "Research") return d.kind === "Research";
   if (d.shelf === "investigation") return false;
   if (id === "all") return !DERIVED.has(d.kind);
   const g = GROUPS.find((x) => x.id === id);
@@ -133,20 +157,41 @@ export interface LibraryQuery {
   topics?: string | undefined;
 }
 
-/** The investigations shelf is the same list, fixed to one shelf, at its
- *  own address (README §Investigations: "the same list shape"). */
+/** A shelf is one group of the same list at its own address, with its own
+ *  heading and lede: Writing, Research and Open questions. */
 export interface Shelf {
   base: string;
   title: string;
+  group: string;
+  /** The member shown when the address names none. */
+  member?: string;
   lede: string;
   searchLabel: string;
 }
 
-export const INVESTIGATIONS: Shelf = {
-  base: "/investigations",
-  title: "Investigations",
-  lede: 'Dossiers, fact-checks and stress tests on Canadian politics, finance and media. These are working files: open lines of inquiry, sourced but not conclusions, and kept apart from the main record. <a href="/library" class="ulink">← Back to the Library</a>',
-  searchLabel: "Filter investigations by title, summary or topic",
+export const WRITING: Shelf = {
+  base: "/writing",
+  title: "Writing",
+  group: "Writing",
+  lede: "Short pieces in two forms. An <strong>essay</strong> argues an idea of the author\u2019s: it names a pattern or applies one of the theories. A <strong>brief</strong> answers one question from the evidence, and every quotation in it is checked word for word against the research it comes from.",
+  searchLabel: "Filter essays and briefs by title, summary or topic",
+};
+
+export const RESEARCH: Shelf = {
+  base: "/research",
+  title: "Research",
+  group: "Research",
+  lede: "The reports everything else stands on, each kept whole and published as it was written. <strong>Investigations</strong> are the working files on Canadian politics, finance and media: sourced, but open lines of inquiry rather than conclusions.",
+  searchLabel: "Filter the research by title, summary or topic",
+};
+
+export const OPEN: Shelf = {
+  base: "/open",
+  title: "Open questions",
+  group: "Open",
+  member: "Open problem",
+  lede: "Questions the research raised and could not settle, each with what is known, what is missing and where it came from. <strong>Asked by the research</strong> lists the questions the research documents set out to answer, each linking to the passage that answers it.",
+  searchLabel: "Filter open questions by title or topic",
 };
 
 export function renderLibrary(
@@ -155,9 +200,10 @@ export function renderLibrary(
 ): string {
   const signedIn = opts.signedIn ?? false;
   const shelf = opts.shelf;
+  const asked = KIND_PARAM[query.kind ?? ""];
   const [group0, member0] = shelf
-    ? ["Investigation", "all"]
-    : (KIND_PARAM[query.kind ?? ""] ?? ["all", "all"]);
+    ? [shelf.group, asked && asked[0] === shelf.group ? asked[1] : (shelf.member ?? "all")]
+    : (asked ?? ["all", "all"]);
   const groupId = !signedIn && group0 === "Project" ? "all" : group0;
   const member = groupId === group0 ? member0 : "all";
   const group = GROUPS.find((g) => g.id === groupId) ?? GROUPS[0];
@@ -196,12 +242,12 @@ export function renderLibrary(
 
   // The kind tabs, counted within the chosen topic.
   const byTopic = all.filter((d) => topic === "all" || d.topic === topic);
-  const tabs = GROUPS.filter((g) => (shelf ? g.id === groupId : !g.signedIn || signedIn))
+  const tabs = GROUPS.filter((g) => !shelf && (!g.signedIn || signedIn))
     .map((g) => {
       const on = g.id === groupId;
       const n = byTopic.filter((d) => inGroup(d, g.id)).length;
-      const label = shelf ? `All ${shelf.title.toLowerCase()}` : g.label;
-      return `<a href="${esc(href({ kind: shelf || g.id === "all" ? undefined : g.id, sub: "all", topics: undefined }))}" role="tab" aria-current="${on}"${on ? ' aria-selected="true"' : ""}>${esc(label)}<span class="n">${n}</span></a>`;
+      const label = g.label;
+      return `<a href="${esc(href({ kind: g.id === "all" ? undefined : g.id, sub: "all", topics: undefined }))}" role="tab" aria-current="${on}"${on ? ' aria-selected="true"' : ""}>${esc(label)}<span class="n">${n}</span></a>`;
     })
     .join("");
 
@@ -219,7 +265,8 @@ export function renderLibrary(
           ? "background:var(--rule);color:var(--ink)"
           : `background:${fg};color:${bg}`
         : `background:${bg};color:${fg}`;
-      return `<a href="${esc(href({ kind: on ? group?.id : id }))}" aria-current="${on}" style="${style}">${esc(label)}<span class="n">${memberSrc.filter((d) => d.kind === id).length}</span></a>`;
+      const back = shelf ? undefined : group?.id;
+      return `<a href="${esc(href({ kind: on ? back : id }))}" aria-current="${on}" style="${style}">${esc(label)}<span class="n">${memberSrc.filter((d) => isMember(d, id)).length}</span></a>`;
     })
     .join("");
 
@@ -248,7 +295,7 @@ export function renderLibrary(
 
   // Research: "Kind of document".
   const subCount = new Map<string, number>();
-  if (groupId === "Research" || groupId === "Investigation") {
+  if (groupId === "Research") {
     for (const d of byKind) {
       if (d.kind !== "Research" || (topic !== "all" && d.topic !== topic)) continue;
       subCount.set(subName(d), (subCount.get(subName(d)) ?? 0) + 1);
@@ -274,11 +321,9 @@ export function renderLibrary(
   const list = byKind
     .filter(
       (d) =>
-        (member === "all" || d.kind === member) &&
+        (member === "all" || isMember(d, member)) &&
         (topic === "all" || d.topic === topic) &&
-        ((groupId !== "Research" && groupId !== "Investigation") ||
-          sub === "all" ||
-          subName(d) === sub) &&
+        (groupId !== "Research" || sub === "all" || subName(d) === sub) &&
         (!q || `${d.title} ${d.dek ?? ""} ${d.topic}`.toLowerCase().includes(q)),
     )
     .slice()
@@ -307,18 +352,16 @@ export function renderLibrary(
             : /approved/.test(d.stat ?? "")
               ? null
               : ["No prior use found", "#e3f0e6", "#1f5e36"]
-          : d.kind === "Open problem"
-            ? ["Open", "#fbe9df", "#8a3a1f"]
-            : null;
+          : null;
       const subLabel = d.kind === "Research" && d.sub && d.sub !== "Research" ? subName(d) : "";
       const dek = d.kind === "Research" && d.dek === d.sub ? "" : d.dek;
       const metric = d.kind === "Figure" ? (d.v ?? "") : (d.dateLabel ?? "");
-      return `<div class="lib-row"><span class="lib-rank">${String((page - 1) * perPage + i + 1).padStart(2, "0")}</span><span style="min-width:0"><a href="${esc(d.route)}" class="lib-t">${esc(d.title)}</a>${dek ? `<span class="lib-d">${esc(dek)}</span>` : ""}<span class="lib-m"><span class="pill kind" style="background:${kbg};color:${kfg}">${esc(d.kind)}</span>${subLabel ? `<span class="pill sub">${esc(subLabel)}</span>` : ""}<span class="pill" style="background:${tbg};color:${tfg}">${esc(d.topic)}</span>${status ? `<span class="pill" style="background:${status[1]};color:${status[2]}">${esc(status[0] ?? "")}</span>` : ""}${stat ? `<span class="st">${esc(stat)}</span>` : ""}</span></span><span class="lib-r"><span class="lib-metric">${esc(metric)}</span>${d.kind === "Figure" ? `<span class="lib-ml">${esc(d.dateLabel ?? "")}</span>` : ""}${signedIn ? `<button type="button" class="useful" data-useful="${esc(d.route)}" aria-pressed="false" hidden>☆ Mark useful</button>` : ""}</span></div>`;
+      return `<div class="lib-row"><span class="lib-rank">${String((page - 1) * perPage + i + 1).padStart(2, "0")}</span><span style="min-width:0"><a href="${esc(d.route)}" class="lib-t">${esc(d.title)}</a>${dek ? `<span class="lib-d">${esc(dek)}</span>` : ""}<span class="lib-m"><span class="pill kind" style="background:${kbg};color:${kfg}">${esc(kindLabel(d.kind))}</span>${subLabel ? `<span class="pill sub">${esc(subLabel)}</span>` : ""}<span class="pill" style="background:${tbg};color:${tfg}">${esc(d.topic)}</span>${status ? `<span class="pill" style="background:${status[1]};color:${status[2]}">${esc(status[0] ?? "")}</span>` : ""}${stat ? `<span class="st">${esc(stat)}</span>` : ""}</span></span><span class="lib-r"><span class="lib-metric">${esc(metric)}</span>${d.kind === "Figure" ? `<span class="lib-ml">${esc(d.dateLabel ?? "")}</span>` : ""}${signedIn ? `<button type="button" class="useful" data-useful="${esc(d.route)}" aria-pressed="false" hidden>☆ Mark useful</button>` : ""}</span></div>`;
     })
     .join("");
 
   const note =
-    groupId === "Investigation" && !shelf
+    member === "Investigation"
       ? `<div class="lib-note"><strong>Working files. </strong>Dossiers, fact-checks and stress tests on Canadian politics, finance and media — open lines of inquiry, sourced but not conclusions. They are kept out of "All" and the main topics.</div>`
       : member === "Question"
         ? `<div class="lib-note"><strong>Questions the research set out to answer. </strong>Each one is a question a document asks in its own words. Open the document to see the answer it reached and what it could not settle.</div>`
@@ -355,7 +398,7 @@ export function renderLibrary(
     .map(([k, v]) => `<input type="hidden" name="${k}" value="${esc(v ?? "")}" />`)
     .join("");
 
-  const body = `<div><h1 class="h-page">${esc(shelf?.title ?? "Library")}</h1></div><p class="lede">${shelf?.lede ?? "Everything in one place. Articles argue from the research; papers are longer original work; research documents are kept whole; concepts and open problems are what the research turned up."}</p><section style="margin-top:28px"><form class="lib-search" role="search" method="get" action="${shelf?.base ?? "/library"}"><span aria-hidden="true">⌕</span>${hidden2}<input type="search" name="q" value="${esc(query.q ?? "")}" placeholder="${esc(shelf?.searchLabel ?? "Filter the library by title, summary or topic")}" aria-label="${esc(shelf ? `Filter ${shelf.title.toLowerCase()}` : "Filter the library")}" data-search-input /></form><div role="tablist" aria-label="Kind" class="seg">${tabs}</div><div class="tchips">${topicChips}</div>${members ? `<div class="mchips">${members}</div>` : ""}${subs}${hubTopic ? `<a href="/topics/${esc(topicSlug(topic))}" class="btn hub-link">Open the ${esc(topic)} topic page</a>` : ""}${sortBar}<div class="lib"${sort?.id === "useful" ? " data-useful-sort" : ""}><div class="lib-head"><span>${list.length} ${list.length === 1 ? "item" : "items"}</span><span>${groupId === "Figure" ? "Figure" : "Added"}</span></div>${note}${list.length ? rows : `<div class="lib-empty">Nothing matches. Try another topic or clear the filter.</div>`}${pager}</div></section>`;
+  const body = `<div><h1 class="h-page">${esc(shelf?.title ?? "Library")}</h1></div><p class="lede">${shelf?.lede ?? "Everything on the site in one list: the theories, the papers, the essays and briefs, the research they stand on, and the terms and open questions the work turned up."}</p><section style="margin-top:28px"><form class="lib-search" role="search" method="get" action="${shelf?.base ?? "/library"}"><span aria-hidden="true">⌕</span>${hidden2}<input type="search" name="q" value="${esc(query.q ?? "")}" placeholder="${esc(shelf?.searchLabel ?? "Filter the library by title, summary or topic")}" aria-label="${esc(shelf ? `Filter ${shelf.title.toLowerCase()}` : "Filter the library")}" data-search-input /></form>${tabs ? `<div role="tablist" aria-label="Kind" class="seg">${tabs}</div>` : ""}<div class="tchips">${topicChips}</div>${members ? `<div class="mchips">${members}</div>` : ""}${subs}${hubTopic ? `<a href="/topics/${esc(topicSlug(topic))}" class="btn hub-link">Open the ${esc(topic)} topic page</a>` : ""}${sortBar}<div class="lib"${sort?.id === "useful" ? " data-useful-sort" : ""}><div class="lib-head"><span>${list.length} ${list.length === 1 ? "item" : "items"}</span><span>${groupId === "Figure" ? "Figure" : "Added"}</span></div>${note}${list.length ? rows : `<div class="lib-empty">Nothing matches. Try another topic or clear the filter.</div>`}${pager}</div></section>`;
 
   // A shelf describes itself: its lede up to the first link, as plain text.
   const description = shelf
@@ -375,7 +418,7 @@ export function renderLibrary(
     title: shelf?.title ?? "Library",
     description,
     path: shelf?.base ?? "/library",
-    nav: "library",
+    nav: shelf ? (shelf.base.slice(1) as "writing" | "research" | "open") : "library",
     signedIn,
     noindex: !!query.q,
     head: `<script type="application/ld+json">${JSON.stringify(ld)}</script>`,

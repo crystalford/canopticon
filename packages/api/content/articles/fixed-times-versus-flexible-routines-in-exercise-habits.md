@@ -2,6 +2,7 @@
 slug: "fixed-times-versus-flexible-routines-in-exercise-habits"
 file: "Canopticon Essay Flexible.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Habits & maintenance"
 title: "Fixed times versus flexible routines in exercise habits: what the paid-to-exercise trials found"
 dek: "Paid to exercise at a set time, people did less than those paid to exercise whenever they liked — and quit faster afterwards. What helps is a fixed start and an open workout."

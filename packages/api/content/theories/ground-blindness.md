@@ -16,7 +16,7 @@ related:
     label: "Theory: Self-extinguishing maintenance (the routine that is invisible while it works)"
   - route: /theories/cognitive-ectothermy
     label: "Theory: Cognitive ectothermy (the dependence that shows when the phone dies)"
-  - route: /articles/narcocrasis
+  - route: /papers/narcocrasis
     label: "Paper: Narcocrasis (the shifted baseline as the medium)"
 propositions:
   - statement: "Removing a tool, routine or substance that has been in steady use reveals effects that were not visible while it was in place."

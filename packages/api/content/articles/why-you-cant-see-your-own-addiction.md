@@ -1,6 +1,7 @@
 ---
 slug: "why-you-cant-see-your-own-addiction"
 kind: "Article"
+form: "Essay"
 topic: "Drugs & public health"
 title: "Why you can't see your own addiction"
 dek: "What usually gets called denial may be something harder to see past. In dependence the drug stays vivid; what drops out of notice is the person's own changed baseline, and it is measured against that baseline that the drug feels like the fix."

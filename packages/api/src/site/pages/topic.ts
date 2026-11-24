@@ -96,9 +96,16 @@ export function renderTopic(topic: string, opts: { signedIn?: boolean } = {}): s
     .map((d) => derivedRow(d, true));
 
   const parts: Array<[string, string, string, TopicRow[], number, string]> = [
-    ["writing", "Writing", "Article", of(["Article", "Paper"]).map(rowFor), 99, lib],
-    ["concepts", "Concepts named here", "Concept", of(["Concept"]).map(rowFor), 99, lib],
-    ["open", "Open problems", "Open problem", of(["Open problem"]).map(rowFor), 99, lib],
+    [
+      "writing",
+      "Writing",
+      "Essay",
+      of(["Paper", "Essay", "Brief", "Article"]).map(rowFor),
+      99,
+      lib,
+    ],
+    ["concepts", "Terms coined here", "Concept", of(["Concept"]).map(rowFor), 99, lib],
+    ["open", "Open questions", "Open problem", of(["Open problem"]).map(rowFor), 99, lib],
     ["research", "Research", "Research", of(["Research"]).map(rowFor), 12, `${lib}&kind=Research`],
     ["questions", "Questions it raises", "Question", qs, 8, `${lib}&kind=Question`],
     ["figures", "Key figures", "Figure", fs, 8, `${lib}&kind=Figure`],
@@ -138,11 +145,12 @@ export function renderTopic(topic: string, opts: { signedIn?: boolean } = {}): s
   const n = (k: string) => of([k]).length;
   const countPills = (
     [
-      ["Article", "article", "articles"],
       ["Paper", "paper", "papers"],
+      ["Essay", "essay", "essays"],
+      ["Brief", "brief", "briefs"],
       ["Research", "research document", "research documents"],
-      ["Concept", "concept", "concepts"],
-      ["Open problem", "open problem", "open problems"],
+      ["Concept", "term", "terms"],
+      ["Open problem", "open question", "open questions"],
     ] as const
   )
     .filter(([k]) => n(k))

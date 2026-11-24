@@ -109,7 +109,7 @@ describe("hovercards", () => {
     const res = await get("/hovercards.json");
     expect(res.status).toBe(200);
     const cards = (await res.json()) as Record<string, { kind: string; title: string }>;
-    expect(cards["/articles/krasis"]?.kind).toBe("Paper");
+    expect(cards["/papers/krasis"]?.kind).toBe("Paper");
     expect(Object.keys(cards).some((k) => k.startsWith("/admin"))).toBe(false);
     for (const id of HELD) expect(cards[`/p/${id}`]).toBeUndefined();
   });
@@ -284,9 +284,13 @@ describe("the machine face", () => {
 
 describe("the live site's addresses keep answering (ROUTES.md)", () => {
   it.each([
-    ["/essays", "/library?kind=Article"],
+    ["/essays", "/writing?kind=Essay"],
+    ["/articles", "/writing"],
+    ["/ideas", "/lexicon"],
+    ["/investigations", "/research?kind=Investigation"],
+    ["/articles/krasis", "/papers/krasis"],
+    ["/articles/krasis.md", "/papers/krasis.md"],
     ["/essays/some-essay", "/articles/some-essay"],
-    ["/research", "/library?kind=Research"],
     ["/research/housing-cities", "/topics/housing"],
     ["/method", "/about#m-rules"],
     ["/library/some-doc", "/p/some-doc"],
@@ -356,18 +360,28 @@ describe("the stylesheet", () => {
 });
 
 describe("no JavaScript required to read", () => {
-  it.each(["/", "/library", "/articles/krasis", "/topics/housing", "/ideas", "/about", "/follow"])(
-    "%s is complete in the HTML",
-    async (path) => {
-      const res = await get(path);
-      expect(res.status).toBe(200);
-      const html = await res.text();
-      expect(html).toContain("</footer>");
-      // The one script is deferred enhancement.
-      expect(html).toMatch(/<script defer src="\/site\.js\?v=/);
-      expect(html).not.toMatch(/<script>(?!.*ld\+json)/);
-    },
-  );
+  it.each([
+    "/",
+    "/library",
+    "/theories",
+    "/papers",
+    "/papers/krasis",
+    "/writing",
+    "/research",
+    "/lexicon",
+    "/open",
+    "/topics/housing",
+    "/about",
+    "/follow",
+  ])("%s is complete in the HTML", async (path) => {
+    const res = await get(path);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("</footer>");
+    // The one script is deferred enhancement.
+    expect(html).toMatch(/<script defer src="\/site\.js\?v=/);
+    expect(html).not.toMatch(/<script>(?!.*ld\+json)/);
+  });
 });
 
 describe("found in the walkthrough", () => {

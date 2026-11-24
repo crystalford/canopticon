@@ -2,6 +2,7 @@
 slug: "canadian-recessions-and-the-mortgage-channel"
 file: "Canopticon Essay Recessions.dc.html"
 kind: "Article"
+form: "Brief"
 topic: "Housing"
 title: "Canadian recessions and the mortgage channel: rate decisions, CMHC, and five decades of housing-led downturns"
 dek: "Every major Canadian downturn since 1980 carries a monetary-policy fingerprint, and housing is how the decision reaches people. The clearest case is 1990, where the campaign overshot its own target and Toronto prices did not pass their 1989 peak until 2002."

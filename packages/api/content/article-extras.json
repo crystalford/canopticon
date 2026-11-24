@@ -630,14 +630,14 @@
   ],
   "readNext": [
    {
-    "route": "/articles/krasis",
+    "route": "/papers/krasis",
     "kind": "Paper",
     "min": "12 min",
     "title": "Krasis",
     "dek": "The synthesis of the series. McLuhan said every medium changes the ratio among our senses; the paper series tests that literally, from ADHD and typing to drugs and addiction, and find one configuration that media, drugs and illness all re-temper."
    },
    {
-    "route": "/articles/exocrasis",
+    "route": "/papers/exocrasis",
     "kind": "Paper",
     "min": "16 min",
     "title": "Exocrasis",

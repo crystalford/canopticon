@@ -171,10 +171,11 @@ describe("public site is byte-stable for anonymous viewers (no regression)", () 
     // documents live at /research, so both go straight there — no chain.
     const pat = await app.fetch(new Request("http://test/patterns"), env);
     expect(pat.status).toBe(301);
-    expect(pat.headers.get("location")).toBe("/library?kind=Research");
-    // /investigations is a shelf again in the Black Box design.
+    expect(pat.headers.get("location")).toBe("/research");
+    // /investigations is a shelf inside Research since 2026-11-24.
     const inv = await app.fetch(new Request("http://test/investigations"), env);
-    expect(inv.status).toBe(200);
+    expect(inv.status).toBe(301);
+    expect(inv.headers.get("location")).toBe("/research?kind=Investigation");
   });
 
   // /about is a real page again — it answers "what is this publication",

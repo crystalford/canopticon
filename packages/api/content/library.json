@@ -30,7 +30,7 @@
   "route": "/theories/self-extinguishing-maintenance"
  },
  {
-  "kind": "Article",
+  "kind": "Essay",
   "topic": "Drugs & public health",
   "date": "2026-11-23",
   "dateLabel": "23 Nov",
@@ -45,7 +45,7 @@
   "route": "/articles/why-you-cant-see-your-own-addiction"
  },
  {
-  "kind": "Article",
+  "kind": "Essay",
   "topic": "McLuhan & media theory",
   "date": "2026-11-23",
   "dateLabel": "23 Nov",
@@ -60,7 +60,7 @@
   "route": "/articles/does-talking-to-ai-change-how-you-think"
  },
  {
-  "kind": "Article",
+  "kind": "Essay",
   "topic": "ADHD & attention",
   "date": "2026-11-23",
   "dateLabel": "23 Nov",
@@ -75,7 +75,7 @@
   "route": "/articles/why-some-people-focus-better-with-background-noise"
  },
  {
-  "kind": "Article",
+  "kind": "Essay",
   "topic": "Health & self-care",
   "date": "2026-11-23",
   "dateLabel": "23 Nov",
@@ -90,7 +90,7 @@
   "route": "/articles/why-people-stop-taking-medicine-that-works"
  },
  {
-  "kind": "Article",
+  "kind": "Essay",
   "topic": "McLuhan & media theory",
   "date": "2026-11-22",
   "dateLabel": "22 Nov",
@@ -105,7 +105,7 @@
   "route": "/articles/guess-before-you-look"
  },
  {
-  "kind": "Article",
+  "kind": "Essay",
   "topic": "McLuhan & media theory",
   "date": "2026-11-22",
   "dateLabel": "22 Nov",
@@ -121,7 +121,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Portraiture.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Video & design",
   "date": "2026-10-11",
   "dateLabel": "11 Oct",
@@ -137,7 +137,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Video%20Essay.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Video & design",
   "date": "2026-10-11",
   "dateLabel": "11 Oct",
@@ -153,7 +153,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Curious%20Attention.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Attention & feeds",
   "date": "2026-10-11",
   "dateLabel": "11 Oct",
@@ -169,7 +169,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Public%20Sector.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Canadian economy & policy",
   "date": "2026-10-11",
   "dateLabel": "11 Oct",
@@ -185,7 +185,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Dispatch.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "ADHD & attention",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -201,7 +201,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Recessions.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Housing",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -217,7 +217,7 @@
  },
  {
   "href": "Canopticon%20Essay%20TFW.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Canadian economy & policy",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -233,7 +233,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Whey.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Health & self-care",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -249,7 +249,7 @@
  },
  {
   "href": "Canopticon%20Essay%20C11.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Canadian media",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -265,7 +265,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Topup.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Economics",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -281,7 +281,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Ranking.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Attention & feeds",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -297,7 +297,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Instruments.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Prices & markets",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -313,7 +313,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Jobs%20Canada.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Canadian economy & policy",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -329,7 +329,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Streak.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "ADHD & attention",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -345,7 +345,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Blackout.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Health & self-care",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -361,7 +361,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Herpes.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Drugs & public health",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -377,7 +377,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Jobs.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Economics",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -393,7 +393,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Average.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "AI-directed development",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -409,7 +409,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Fentanyl.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Drugs & public health",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -425,7 +425,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Rent.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Housing",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -441,7 +441,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Airbnb.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Housing",
   "date": "2026-10-10",
   "dateLabel": "10 Oct",
@@ -567,7 +567,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Feed.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Attention & feeds",
   "date": "2026-10-09",
   "dateLabel": "9 Oct",
@@ -583,7 +583,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Rightness.dc.html",
-  "kind": "Article",
+  "kind": "Essay",
   "topic": "AI-directed development",
   "date": "2026-10-09",
   "dateLabel": "9 Oct",
@@ -797,7 +797,7 @@
   "sources": 38,
   "own": 0,
   "coined": 1,
-  "route": "/articles/why-temperature"
+  "route": "/papers/why-temperature"
  },
  {
   "href": "Canopticon%20Paper%20Krasis.dc.html",
@@ -813,7 +813,7 @@
   "sources": 9,
   "own": 0,
   "coined": 0,
-  "route": "/articles/krasis"
+  "route": "/papers/krasis"
  },
  {
   "href": "Canopticon%20Paper%20Exocrasis.dc.html",
@@ -829,7 +829,7 @@
   "sources": 25,
   "own": 0,
   "coined": 1,
-  "route": "/articles/exocrasis"
+  "route": "/papers/exocrasis"
  },
  {
   "href": "Canopticon%20Paper%20Heterocrasis.dc.html",
@@ -845,7 +845,7 @@
   "sources": 31,
   "own": 0,
   "coined": 1,
-  "route": "/articles/heterocrasis"
+  "route": "/papers/heterocrasis"
  },
  {
   "href": "Canopticon%20Paper%20Pharmakrasis.dc.html",
@@ -861,7 +861,7 @@
   "sources": 20,
   "own": 0,
   "coined": 1,
-  "route": "/articles/pharmakrasis"
+  "route": "/papers/pharmakrasis"
  },
  {
   "href": "Canopticon%20Paper%20Narcocrasis.dc.html",
@@ -877,7 +877,7 @@
   "sources": 40,
   "own": 0,
   "coined": 2,
-  "route": "/articles/narcocrasis"
+  "route": "/papers/narcocrasis"
  },
  {
   "href": "Canopticon%20Term.dc.html?p=narcocrasis",
@@ -936,7 +936,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Flexible.dc.html",
-  "kind": "Article",
+  "kind": "Brief",
   "topic": "Habits & maintenance",
   "date": "2026-10-04",
   "dateLabel": "4 Oct",
@@ -964,7 +964,7 @@
   "sources": 39,
   "own": 0,
   "coined": 2,
-  "route": "/articles/typomora"
+  "route": "/papers/typomora"
  },
  {
   "href": "Canopticon%20Paper%20Syncrasis.dc.html",
@@ -980,11 +980,11 @@
   "sources": 38,
   "own": 0,
   "coined": 1,
-  "route": "/articles/syncrasis"
+  "route": "/papers/syncrasis"
  },
  {
   "href": "Canopticon%20Essay%20Healed.dc.html",
-  "kind": "Article",
+  "kind": "Essay",
   "topic": "Habits & maintenance",
   "date": "2026-10-04",
   "dateLabel": "4 Oct",
@@ -1166,7 +1166,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Haggle.dc.html",
-  "kind": "Article",
+  "kind": "Essay",
   "topic": "Prices & markets",
   "date": "2026-10-03",
   "dateLabel": "3 Oct",
@@ -1281,7 +1281,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Oracle.dc.html",
-  "kind": "Article",
+  "kind": "Essay",
   "topic": "Attribution & credit",
   "date": "2026-10-02",
   "dateLabel": "2 Oct",
@@ -1297,7 +1297,7 @@
  },
  {
   "href": "Canopticon%20Essay%20Ground.dc.html",
-  "kind": "Article",
+  "kind": "Essay",
   "topic": "McLuhan & media theory",
   "date": "2026-10-01",
   "dateLabel": "1 Oct",

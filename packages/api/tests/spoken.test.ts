@@ -41,7 +41,7 @@ describe("spoken cards", () => {
   });
 
   it("Krasis shows its cards before the back matter, each linked to its passage", async () => {
-    const html = await (await get("/articles/krasis")).text();
+    const html = await (await get("/papers/krasis")).text();
     const cards = spokenCards("krasis");
     expect(cards.length).toBe(5);
     const at = html.indexOf('id="spoken"');
@@ -72,7 +72,7 @@ describe("what changed", () => {
   });
 
   it("a paper never revised has no changes page", async () => {
-    expect((await get("/articles/krasis/changes")).status).toBe(404);
-    expect((await get("/articles/krasis/v1")).status).toBe(404);
+    expect((await get("/papers/krasis/changes")).status).toBe(404);
+    expect((await get("/papers/krasis/v1")).status).toBe(404);
   });
 });

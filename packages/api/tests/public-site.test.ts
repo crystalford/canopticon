@@ -47,7 +47,7 @@ describe("public site — Phase 1 skeleton", () => {
     expect(html).toMatch(/<!doctype html>/i);
     expect(html).toMatch(/<title>Canopticon<\/title>/);
     expect(html).toContain("canopticon");
-    expect(html).toContain("research, kept whole and written from");
+    expect(html).toContain("An independent research publication by Chris Telford.");
     // The Black Box stylesheet, cache-busted by its own hash.
     expect(html).toMatch(/\/site\.css\?v=/);
     // Site-level identity, so every page's publisher resolves to one
@@ -58,15 +58,27 @@ describe("public site — Phase 1 skeleton", () => {
   });
 
   it("each primary destination renders real surfaces without JS", async () => {
-    // The Black Box doors: the Library and About in the nav, and the index
-    // pages the footer reaches. Every one is complete server-side.
-    for (const path of ["/library", "/about", "/ideas", "/investigations", "/follow", "/search"]) {
+    // The five sections in the top bar (2026-11-24), and the pages the
+    // footer reaches. Every one is complete server-side.
+    for (const path of [
+      "/theories",
+      "/papers",
+      "/writing",
+      "/research",
+      "/lexicon",
+      "/open",
+      "/library",
+      "/about",
+      "/follow",
+      "/search",
+    ]) {
       const res = await app.fetch(new Request(`http://test${path}`), env);
       expect(res.status, `path ${path}`).toBe(200);
       const html = await res.text();
       expect(html, `path ${path} shell`).toContain('class="wm"');
-      expect(html, `path ${path} nav`).toContain(">Library<");
-      expect(html, `path ${path} nav`).toContain(">About<");
+      for (const s of [">Theories<", ">Papers<", ">Writing<", ">Research<", ">Lexicon<"])
+        expect(html, `path ${path} nav`).toContain(s);
+      expect(html, `path ${path} footer`).toContain(">About<");
       expect(html).not.toContain("__NEXT_DATA__");
     }
   });
@@ -149,9 +161,9 @@ describe("retired rooms redirect to the surface that does their job", () => {
   for (const [from, to] of Object.entries({
     "/how-it-works": "/about#m-rules",
     "/method": "/about#m-rules",
-    "/patterns": "/library?kind=Research",
-    "/research": "/library?kind=Research",
-    "/essays": "/library?kind=Article",
+    "/patterns": "/research",
+    "/essays": "/writing?kind=Essay",
+    "/ideas": "/lexicon",
     "/watchlist": "/admin",
     "/videos": "/",
   })) {
