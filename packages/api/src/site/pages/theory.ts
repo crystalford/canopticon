@@ -67,7 +67,7 @@ ${rows}
 </section>`;
 }
 
-function references(refs: Reference[], props: Proposition[], quoted: boolean): string {
+function references(refs: Reference[], props: Proposition[]): string {
   if (!refs.length) return "";
   const usedBy = (i: number) =>
     props.flatMap((p, k) => (p.refs.includes(i) ? [`<a href="#p${k + 1}">P${k + 1}</a>`] : []));
@@ -83,7 +83,7 @@ function references(refs: Reference[], props: Proposition[], quoted: boolean): s
     .join("\n");
   return `<section class="refs" id="references" aria-labelledby="refs-h">
 <h2 id="refs-h">References</h2>
-<p class="refs-note">The studies behind the propositions${quoted ? ". The quotations above are checked word for word against the research document; these are its primary sources" : ""}. Each says what was read for this theory: ${readCounts(refs)}.</p>
+<p class="refs-note">The studies behind the propositions. Each says what was read for this theory: ${readCounts(refs)}.</p>
 <ol class="ref-list">
 ${rows}
 </ol>
@@ -268,7 +268,7 @@ export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): stri
       : ""
   }${related ? `<div><h3>Elsewhere in the record</h3><div class="src-list">${related}</div></div>` : ""}${citeBlock(cite)}</section>`;
 
-  const col = `<article class="col prose theory">${header}${propositions(t.propositions)}${bodyHtml}${references(refs, t.propositions, quotes > 0)}${sources}</article>`;
+  const col = `<article class="col prose theory">${header}${propositions(t.propositions)}${bodyHtml}${references(refs, t.propositions)}${sources}</article>`;
   const rail = `<aside class="rail">${statbox(t.topic, [String(t.propositions.length), "Propositions"], quotes ? [String(quotes), "Quotes"] : [String(refs.length), "References"])}${toc(
     "In this theory",
     [...body.heads, { n: "", text: "References", href: "#references" }],

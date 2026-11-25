@@ -292,7 +292,7 @@ describe("the live site's addresses keep answering (ROUTES.md)", () => {
     ["/articles/krasis.md", "/papers/krasis.md"],
     ["/essays/some-essay", "/articles/some-essay"],
     ["/research/housing-cities", "/topics/housing"],
-    ["/method", "/about#m-rules"],
+    ["/method", "/about"],
     ["/library/some-doc", "/p/some-doc"],
   ])("%s → %s", async (from, to) => {
     const res = await get(from);

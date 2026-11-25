@@ -33,7 +33,7 @@ describe("share card", () => {
   it("says what the page carries that can be checked", () => {
     const article = libraryItems().find((i) => i.kind === "Brief" && (i.quotes ?? 0) > 0);
     expect(article).toBeTruthy();
-    expect(cardFromItem(article as never).stat).toMatch(/quotations checked word for word$/);
+    expect(cardFromItem(article as never).stat).toMatch(/quotations from the research$/);
     expect(topicCard("Housing", 3).stat).toBe("3 in the record");
   });
 

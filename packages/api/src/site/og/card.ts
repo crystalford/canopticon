@@ -271,7 +271,7 @@ export function cardFromItem(i: LibraryItem): CardData {
   const date = longDate(i.date);
   const byline = [AUTHOR, date].filter(Boolean).join(" · ");
   let stat = "";
-  if (isWriting(kind) && i.quotes) stat = `${i.quotes} quotations checked word for word`;
+  if (isWriting(kind) && i.quotes) stat = `${i.quotes} quotations from the research`;
   else if (kind === "Paper" && i.sources)
     stat = `${i.sources} references · ${i.min ?? ""} min`.replace(/ · $/, "");
   else if (kind === "Research")
@@ -287,9 +287,7 @@ export function siteCard(title?: string, dek?: string): CardData {
   return {
     pills: [],
     title: title || "A research record you can cite",
-    dek:
-      dek ||
-      "Research, articles and papers by Chris Telford. Every quotation is checked word for word against the page it came from.",
+    dek: dek || "Theories, essays, papers and research by Chris Telford.",
     byline: "canopticon.com",
     stat: "",
   };

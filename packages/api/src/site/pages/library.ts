@@ -186,7 +186,7 @@ export const RESEARCH: Shelf = {
   title: "Research",
   group: "Research",
   section: "research",
-  lede: "The evidence. <strong>Reports</strong> are the research documents, each kept whole and published as it was written. <strong>Briefs</strong> are short answers to one question, written from those reports, with every quotation checked word for word against the one it comes from. <strong>Investigations</strong> are the working files on Canadian politics, finance and media: sourced, but open lines of inquiry rather than conclusions.",
+  lede: "The evidence. <strong>Reports</strong> are the research documents, each kept whole and published as it was written. <strong>Briefs</strong> are short answers to one question, written from those reports. <strong>Investigations</strong> are the working files on Canadian politics, finance and media: sourced, but open lines of inquiry rather than conclusions.",
   searchLabel: "Filter the research by title, summary or topic",
 };
 
