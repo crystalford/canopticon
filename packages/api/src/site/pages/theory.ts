@@ -224,6 +224,34 @@ function withCycle(html: string, figure: string): string {
   return html.slice(0, p + 4) + figure + html.slice(p + 4);
 }
 
+/** The short version, above everything else: a few words, the formula, one
+ *  sentence, and thirty seconds to say aloud (folded). */
+export function glance(t: Theory): string {
+  if (!t.glance_words && !t.glance_sentence) return "";
+  const lines = String(t.glance_formula ?? "")
+    .split("||")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const formula = lines.length
+    ? `<div class="gl-f" aria-label="As a formula">${lines
+        .map(
+          (l) =>
+            `<p>${esc(l)
+              .split("\u2192")
+              .map((part) => part.trim())
+              .join('<span class="gl-arrow" aria-hidden="true">\u2192</span>')}</p>`,
+        )
+        .join("")}</div>`
+    : "";
+  return `<section class="glance" aria-label="At a glance">
+  <div class="gl-l">At a glance</div>
+  ${t.glance_words ? `<p class="gl-w">${esc(t.glance_words)}</p>` : ""}
+  ${formula}
+  ${t.glance_sentence ? `<p class="gl-s">${inline(t.glance_sentence)}</p>` : ""}
+  ${t.glance_aloud ? `<details class="gl-a"><summary>Say it in thirty seconds</summary><p>${inline(t.glance_aloud)}</p></details>` : ""}
+</section>`;
+}
+
 export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): string {
   const ctx = { docTitle };
   const body = articleHtml(t.body, ctx);
@@ -248,6 +276,7 @@ export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): stri
       : ""
   }<span class="chip">${t.propositions.length} propositions</span><span class="chip">${refs.length} references</span>${doiChip(t.doi)}${quotes ? `<span class="chip">${quotes} quotes</span>` : ""}</div>
 </div>
+${glance(t)}
 <section class="theory-card" aria-label="The theory in brief">
   <div class="tc-row"><span class="tc-l">Claim</span><p>${inline(t.claim)}</p></div>
   <div class="tc-row"><span class="tc-l">Evidence</span><p>${esc(gradeCounts(t.propositions))} propositions, resting on ${refs.length} primary references. Strong means measured directly in at least two independent studies; moderate, that it follows from established findings but has not been tested as stated; proposed, not yet tested.</p></div>

@@ -64,6 +64,10 @@ cycle:
   - step: "Cause still there|returns, harder to clear"
 cycle_exit: "Tie the routine to a fixed schedule, or remove the cause."
 cycle_cut: 5
+glance_words: "Better, so you stop."
+glance_formula: "symptom → routine → relief → routine stops → symptom returns || relief = reminder gone + reward gone"
+glance_sentence: "When a routine makes a symptom go away, people stop doing it, and the cause that is still there brings the symptom back."
+glance_aloud: "Your gum gets sore, so you clean around it carefully. A week later it feels fine, and you stop. Two weeks after that it's sore again, and it feels like a new problem. It's the same one. The soreness was what reminded you to clean, and the relief was your reward for cleaning, so when the cleaning worked, both went away. The two teeth that trap food are still there. The same thing happens with blood-pressure pills, skin cream and antidepressants: feeling better is the most common reason people give for stopping."
 references:
   - text: "Meyer, D., Leventhal, H., & Gutmann, M. (1985). Common-sense models of illness: the example of hypertension. *Health Psychology*, 4(2), 115–135. doi:10.1037/0278-6133.4.2.115"
     url: "https://doi.org/10.1037/0278-6133.4.2.115"

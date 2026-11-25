@@ -56,6 +56,10 @@ cycle:
   - step: "Supply needed again|the phone dies"
 cycle_exit: "Predict, recall or explain before the answer arrives."
 cycle_cut: 2
+glance_words: "Borrowed heat."
+glance_formula: "answer before guess → nothing to correct → little learned → skill untrained || guess → answer → correction → learning"
+glance_sentence: "When answers arrive before you've made a guess, you learn little from them, and your own ability to produce them weakens."
+glance_aloud: "A lizard has to lie in the sun to get warm. People can live the same way with knowledge: the map gives the route, the search box gives the fact, the chatbot gives the explanation, all before we've tried. You drive to a friend's house a dozen times with the phone giving directions. Then the phone dies on the way, and you find you don't know the route. A guess gives the answer something to correct, and the correction is what you learn. So guess first, even badly, then look."
 references:
   - text: "Cabanac, M. (1971). Physiological role of pleasure. *Science*, 173(4002), 1103–1107. doi:10.1126/science.173.4002.1103"
     url: "https://doi.org/10.1126/science.173.4002.1103"

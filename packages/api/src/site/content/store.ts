@@ -212,6 +212,13 @@ export interface Theory {
   cycle_exit?: string;
   /** The step (1-based) whose incoming arrow the way out cuts. */
   cycle_cut?: number;
+  /** The short version, read before the long one: the idea in a few words,
+   *  as a formula (lines joined by " || "), in one sentence, and as about
+   *  thirty seconds said aloud. */
+  glance_words?: string;
+  glance_formula?: string;
+  glance_sentence?: string;
+  glance_aloud?: string;
   cite?: string;
   /** A registered DOI (e.g. from Zenodo), without the https://doi.org/ prefix. */
   doi?: string;

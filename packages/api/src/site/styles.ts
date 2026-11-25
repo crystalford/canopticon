@@ -862,6 +862,17 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .proc-act form { margin: 0; }
 .proc-note { margin: -2px 0 6px; font-size: var(--t-sm); color: var(--cobalt-ink); }
 
+/* The short version above a theory: a few words, the formula, one sentence. */
+.glance { margin: 0 0 20px; padding: 20px 22px 18px; border: 1px solid var(--rule); border-radius: 12px; background: var(--tint-3); display: grid; gap: 10px; }
+.gl-l { font-size: var(--t-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.gl-w { margin: 0; font-size: var(--t-xl); font-weight: 500; letter-spacing: -.01em; line-height: 1.25; color: var(--ink); }
+.gl-f { display: grid; gap: 4px; }
+.gl-f p { margin: 0; font-size: var(--t-md); line-height: 1.5; color: var(--ink-2); }
+.gl-arrow { display: inline-block; margin: 0 .45em; color: var(--hint); }
+.gl-s { margin: 0; font-size: var(--t-read); line-height: 1.55; color: var(--body); }
+.gl-a summary { cursor: pointer; font-size: var(--t-sm); font-weight: 500; color: var(--cobalt); }
+.gl-a p { margin: 8px 0 0; font-size: var(--t-read); line-height: 1.6; color: var(--body); }
+
 /* A theory: the claim in a card, then numbered propositions with their grade. */
 .theory-card { margin: 0 0 32px; padding: 18px 20px; border: 1px solid var(--rule); border-left: 3px solid var(--ink); border-radius: 12px; background: var(--card); display: grid; gap: 12px; }
 .tc-row { display: grid; grid-template-columns: 92px 1fr; gap: 12px; align-items: baseline; }

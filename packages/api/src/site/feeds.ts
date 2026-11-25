@@ -65,7 +65,27 @@ function paperItem(p: Paper): FeedItem {
 /** A theory as Markdown: the claim, the graded propositions with the studies
  *  each rests on, the body, and the references with what was read. */
 export function theoryMarkdown(t: Theory): string {
+  const glance =
+    t.glance_words || t.glance_sentence
+      ? [
+          "## At a glance",
+          "",
+          ...(t.glance_words ? [`**In a few words:** ${t.glance_words}`, ""] : []),
+          ...(t.glance_formula
+            ? [
+                `**As a formula:** ${String(t.glance_formula)
+                  .split("||")
+                  .map((l) => l.trim())
+                  .join("; ")}`,
+                "",
+              ]
+            : []),
+          ...(t.glance_sentence ? [`**In one sentence:** ${t.glance_sentence}`, ""] : []),
+          ...(t.glance_aloud ? [`**Said aloud:** ${t.glance_aloud}`, ""] : []),
+        ]
+      : [];
   return [
+    ...glance,
     `**Claim.** ${t.claim}`,
     "",
     "## Propositions",
