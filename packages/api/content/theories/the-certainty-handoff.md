@@ -66,6 +66,10 @@ cycle:
   - step: "Found at review|after the cost has grown"
 cycle_exit: "Hand on the reason with the conclusion, in a form the other side can run."
 cycle_cut: 3
+glance_words: "Confidence without reasons."
+glance_formula: "conclusion + confidence − reasons → acted on unchecked → error found late"
+glance_sentence: "When you hand someone a conclusion, your confidence goes with it and your reasons usually stay with you, so neither of you checks it."
+glance_aloud: "You ask an AI agent to rename something in your code. You know why the name is wrong, so you don't say, and the agent doesn't ask. It guesses at your reason and builds on the guess, and an hour later you're undoing the work. You skipped the check because the hunch felt right. The agent couldn't check it, because it never had your reasons. Hospitals meet the same problem at every shift change, which is why the nurse taking over repeats the handover back. It also runs the other way: an AI's smooth, confident answer hands you certainty it hasn't earned."
 references:
   - text: "Thompson, V. A., Prowse Turner, J. A., & Pennycook, G. (2011). Intuition, reason, and metacognition. *Cognitive Psychology*, 63(3), 107–140. doi:10.1016/j.cogpsych.2011.06.001"
     url: "https://doi.org/10.1016/j.cogpsych.2011.06.001"

@@ -53,6 +53,18 @@ describe("theories", () => {
     expect(html).toContain('"citation":[');
   });
 
+  it("every theory opens with its short version, on the page and in the twin", async () => {
+    for (const t of allTheories()) {
+      expect(t.glance_words, t.slug).toBeTruthy();
+      expect(t.glance_sentence, t.slug).toBeTruthy();
+      const html = await (await get(`/theories/${t.slug}`)).text();
+      expect(html).toContain('<section class="glance"');
+      expect(html.indexOf('class="glance"')).toBeLessThan(html.indexOf('class="theory-card"'));
+      const md = await (await get(`/theories/${t.slug}.md`)).text();
+      expect(md).toContain("## At a glance");
+    }
+  });
+
   it("the source file parses to the same propositions", () => {
     const { meta } = parseFrontMatter(
       readFileSync("content/theories/self-extinguishing-maintenance.md", "utf8"),

@@ -60,6 +60,10 @@ cycle:
   - step: "The ground appears|the whole cost at once"
 cycle_exit: "Take it away on purpose, briefly and reversibly, and look."
 cycle_cut: 3
+glance_words: "Unseen reliance."
+glance_formula: "steady use → background → judged only while present || removal → contrast → what it was doing"
+glance_sentence: "Anything you use every day drops out of view, and only going without it shows what it was doing for you, and to you."
+glance_aloud: "Most people who drink coffee every morning say it wakes them up. Studies of regular drinkers find that much of that lift is relief from a small withdrawal the coffee itself caused overnight. You can't feel the difference, because you never spend a morning without it. That's ground blindness: whatever is in steady use becomes background, and you judge it by what it's like to have it. The one way to see what it does is to go without it for a while, on purpose, and watch. Sometimes what you see is the reverse of what you expected."
 references:
   - text: "McLuhan, M., & McLuhan, E. (1988). *Laws of Media: The New Science*. Toronto: University of Toronto Press. (Figure and ground.)"
     read: "secondary"
