@@ -634,9 +634,9 @@ app.get("/articles", (c) => c.redirect("/writing", 301));
 app.get("/essays/:slug", (c) =>
   c.redirect(`/articles/${encodeURIComponent(c.req.param("slug"))}`, 301),
 );
-app.get("/method", (c) => c.redirect("/about#m-rules", 301));
-app.get("/methodology", (c) => c.redirect("/about#m-rules", 301));
-app.get("/how-it-works", (c) => c.redirect("/about#m-rules", 301));
+app.get("/method", (c) => c.redirect("/about", 301));
+app.get("/methodology", (c) => c.redirect("/about", 301));
+app.get("/how-it-works", (c) => c.redirect("/about", 301));
 app.get("/topics", (c) => c.redirect("/library", 301));
 
 /** The eight closed sections of the old site, mapped by hand to the topic

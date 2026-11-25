@@ -133,3 +133,19 @@ describe("one page system", () => {
     }
   });
 });
+
+describe("plain words", () => {
+  it("no public page advertises its own checking or linking", async () => {
+    for (const path of ["/", "/about", "/research", "/writing", "/theories", "/lexicon"]) {
+      const html = (await (await get(path)).text()).replace(/<script[\s\S]*?<\/script>/g, "");
+      for (const phrase of [
+        "word for word",
+        "links back to",
+        "traceable to its source",
+        "can be checked",
+        "How it is checked",
+      ])
+        expect(html, `${path}: ${phrase}`).not.toContain(phrase);
+    }
+  });
+});

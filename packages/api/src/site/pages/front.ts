@@ -107,7 +107,7 @@ function masthead(): string {
         `<a href="${href}" class="lad-s"><span class="lad-i">${String(i + 1).padStart(2, "0")}</span><span class="lad-t">${name}</span><span class="lad-d">${what}</span></a>`,
     )
     .join("");
-  return `<section class="mast" aria-labelledby="mast-h"><h1 id="mast-h" class="mast-h">An independent research publication by Chris Telford.</h1><p class="mast-p">Theories of his own, the essays and papers that argue them, and the research they stand on. Every quotation is copied word for word from a stored source and links back to it.</p><nav class="lad" aria-label="Sections">${strip}</nav></section>`;
+  return `<section class="mast" aria-labelledby="mast-h"><h1 id="mast-h" class="mast-h">An independent research publication by Chris Telford.</h1><p class="mast-p">Theories of his own, the essays and papers that argue them, and the research they stand on.</p><nav class="lad" aria-label="Sections">${strip}</nav></section>`;
 }
 
 /** One row of writing: title, summary, date · length · topic, and its form. */
@@ -148,11 +148,11 @@ function researchSection(): string {
         `<a href="/topics/${esc(t.slug)}" class="tpill" style="background:${topicColours(t.name)[0]};color:${topicColours(t.name)[1]}">${esc(t.name)}<span class="n">${t.count}</span></a>`,
     )
     .join("");
-  return `<section class="sec" aria-labelledby="r-h"><div class="sec-h"><h2 id="r-h">Research</h2><a href="/research" class="sec-a">All research</a></div><p class="sec-p">The evidence everything above stands on. Reports are kept whole, as they were written; briefs answer one question from them, quoting them word for word.</p><div class="wcols"><div class="wcol"><div class="wcol-h">${pill("Brief", kindColours("Brief"), "pill lg")}<span>One question, answered from the reports</span></div>${briefs}<a href="/research?kind=Brief" class="row-more">All ${nBriefs} briefs</a></div><div class="wcol"><div class="wcol-h">${pill("Research", kindColours("Research"), "pill lg")}<span>The newest reports</span></div><div class="rows slim wcol-rows">${reports}</div><a href="/research?kind=Report" class="row-more">All ${publicResearchCount()} reports</a></div></div><div class="topics-card"><span class="topics-h">Browse by topic</span><div class="pills" style="gap:8px">${topics}</div></div></section>`;
+  return `<section class="sec" aria-labelledby="r-h"><div class="sec-h"><h2 id="r-h">Research</h2><a href="/research" class="sec-a">All research</a></div><p class="sec-p">The evidence everything above stands on: the reports, and briefs that each answer one question from them.</p><div class="wcols"><div class="wcol"><div class="wcol-h">${pill("Brief", kindColours("Brief"), "pill lg")}<span>One question, answered from the reports</span></div>${briefs}<a href="/research?kind=Brief" class="row-more">All ${nBriefs} briefs</a></div><div class="wcol"><div class="wcol-h">${pill("Research", kindColours("Research"), "pill lg")}<span>The newest reports</span></div><div class="rows slim wcol-rows">${reports}</div><a href="/research?kind=Report" class="row-more">All ${publicResearchCount()} reports</a></div></div><div class="topics-card"><span class="topics-h">Browse by topic</span><div class="pills" style="gap:8px">${topics}</div></div></section>`;
 }
 
 function checkable(): string {
-  return `<section class="sec card checkable"><div class="checkable-l"><strong>Everything here can be checked.</strong>Every figure and quote is copied word for word from a stored document, and links back to it. Nothing goes live until the author publishes it. <a href="/about" class="glink">How the record is read</a></div><div class="checkable-r"><span style="font-size:14px;line-height:1.5;color:var(--body)"><strong style="font-weight:600;color:var(--ink)">Get new research by email.</strong> One email a week, only when something new is published. Unsubscribe any time.</span><form class="form-row" method="get" action="/follow"><label for="home-email" class="vh">Email address</label><input id="home-email" class="field" style="height:40px;border-radius:8px;font-size:14px" type="email" name="email" placeholder="you@example.com" autocomplete="email" required /><button type="submit" class="btn" style="height:40px;border-radius:8px;padding:0 16px">Get the weekly email</button></form><div style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:var(--ink-2)"><a href="/follow" class="ulink">Follow one topic</a><a href="/about#m-machines" class="ulink">RSS feed</a><a href="/about#m-machines" class="ulink">llms.txt for agents</a></div></div></section>`;
+  return `<section class="sec card checkable"><div class="checkable-l"><strong>Follow along.</strong>New theories, essays and research as they are published, by email, by topic or by feed.</div><div class="checkable-r"><span style="font-size:14px;line-height:1.5;color:var(--body)"><strong style="font-weight:600;color:var(--ink)">Get new research by email.</strong> One email a week, only when something new is published. Unsubscribe any time.</span><form class="form-row" method="get" action="/follow"><label for="home-email" class="vh">Email address</label><input id="home-email" class="field" style="height:40px;border-radius:8px;font-size:14px" type="email" name="email" placeholder="you@example.com" autocomplete="email" required /><button type="submit" class="btn" style="height:40px;border-radius:8px;padding:0 16px">Get the weekly email</button></form><div style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:var(--ink-2)"><a href="/follow" class="ulink">Follow one topic</a><a href="/about#m-machines" class="ulink">RSS feed</a><a href="/about#m-machines" class="ulink">llms.txt for agents</a></div></div></section>`;
 }
 
 export function renderFront(opts: { signedIn?: boolean } = {}): string {
@@ -185,7 +185,7 @@ export function renderFront(opts: { signedIn?: boolean } = {}): string {
   return shell({
     title: "",
     description:
-      "An independent research publication by Chris Telford. Every quote links back to its source.",
+      "An independent research publication by Chris Telford: theories, the essays and papers that argue them, and the research they stand on.",
     path: "/",
     signedIn: opts.signedIn ?? false,
     head: `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`,

@@ -159,8 +159,8 @@ describe("public site — Phase 1 skeleton", () => {
 // A reachable page that describes the wrong product is worse than no page.
 describe("retired rooms redirect to the surface that does their job", () => {
   for (const [from, to] of Object.entries({
-    "/how-it-works": "/about#m-rules",
-    "/method": "/about#m-rules",
+    "/how-it-works": "/about",
+    "/method": "/about",
     "/patterns": "/research",
     "/essays": "/writing?kind=Essay",
     "/ideas": "/lexicon",
@@ -192,10 +192,16 @@ describe("retired rooms redirect to the surface that does their job", () => {
       "The lenses",
       "signed analysis",
       "second, independent judge",
+      // The site does not advertise its own plumbing (2026-11-24): the
+      // author found these lines gobbledygook.
+      "word for word",
+      "traceable to its source",
+      "links back to",
+      "can be checked",
     ]) {
       expect(html, stale).not.toContain(stale);
     }
     expect(html).toContain("Who writes this");
-    expect(html).toContain('id="m-rules"');
+    expect(html).not.toContain('id="m-rules"');
   });
 });

@@ -188,7 +188,7 @@ describe("public site is byte-stable for anonymous viewers (no regression)", () 
 
     const methodology = await app.fetch(new Request("http://test/methodology"), env);
     expect(methodology.status).toBe(301);
-    expect(methodology.headers.get("location")).toBe("/about#m-rules");
+    expect(methodology.headers.get("location")).toBe("/about");
 
     const method = await app.fetch(new Request("http://test/method"), env);
     expect(method.status).toBe(301);
