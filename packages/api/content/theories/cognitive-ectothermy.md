@@ -114,7 +114,7 @@ Cognitive ectothermy is the name for the first case, made general. It is drawn f
 
 **Cognitive endothermy** is the trained capacity to produce one's own predictions, recall and explanations.
 
-Unlike the animal kinds, these are not fixed. People move between them according to how they spend their time.
+Unlike the animal kinds, these change: people move between them according to how they spend their time.
 
 Two terms carry the rest. A medium is **hot**, for a given task and receiver, when it supplies most of the output in the part of the task being learned before the receiver has predicted it. It is **cool** when the receiver produces much of that output, or predicts it before the answer arrives. A **cool excursion** is a brief, deliberate period of producing before receiving, within a mostly warm environment.
 
@@ -208,7 +208,7 @@ The theory applies when a person wants to keep or build the capacity a medium su
 
 It does not say hot media are bad. For a beginner, a hot medium is often the right start, and for a task the person will never need to do unaided, supply is the point.
 
-The physiology is used as a model of regulation, not as a claim that information has temperature.
+The physiology serves as a model of regulation. Information has no temperature.
 
 ## Counter-evidence
 
@@ -220,4 +220,4 @@ The capacity argument has no direct test. Cold acclimation is measured in bodies
 
 The arousal half joins separate findings. The link from hot media to the fast, reflexive system has not been tested as one claim.
 
-Finally, the reading of McLuhan is a reading. He may have taken hot and cool from the slang of his day without thinking about bodies. The claim is that the metaphor carries a physiology that fits his definitions, not that he intended it.
+Finally, the reading of McLuhan is a reading. *Understanding Media* does not say why he chose temperature. A year later he described the senses in a thermostat's terms, which points the same way. The claim here rests on the physiology fitting his definitions, and leaves open what he intended.
