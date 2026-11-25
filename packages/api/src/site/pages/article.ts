@@ -11,6 +11,7 @@ import type { Article, ArticleExtras, Paper } from "../content/store";
 import {
   articleExtras,
   joinedTheories,
+  paperVersions,
   researchPrompt,
   theory as theoryBySlug,
 } from "../content/store";
@@ -426,7 +427,20 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
         .map((s) => ({ ...writingFor(s.paper), dek: s.item.blurb }));
 
   const sources = `<section class="panel cols" aria-label="Sources and citation">${citeBlock(cite)}</section>`;
-  const col = `<article class="col prose paper">${header}<div class="pbody">${body.html}</div>${emailPanel()}${sources}${readNext(next)}</article>`;
+  // Every version is kept whole; the newest says why it changed.
+  const earlier = paperVersions(p.slug);
+  const versions = earlier.length
+    ? `<section class="panel versions" id="versions" aria-labelledby="versions-h"><h2 id="versions-h">Versions</h2><ul><li><strong>Version ${p.version ?? earlier.length + 1}</strong>, ${esc(longDate(p.revised ?? p.date))}${p.revision ? `: ${inline(p.revision)}` : ""} · <a class="ulink" href="/papers/${esc(p.slug)}/changes">What changed</a></li>${[
+        ...earlier,
+      ]
+        .reverse()
+        .map(
+          (v) =>
+            `<li>Version ${v.n}, ${esc(longDate(v.date))} · <a class="ulink" href="/papers/${esc(p.slug)}/v${v.n}">Read it</a></li>`,
+        )
+        .join("")}</ul></section>`
+    : "";
+  const col = `<article class="col prose paper">${header}<div class="pbody">${body.html}</div>${versions}${emailPanel()}${sources}${readNext(next)}</article>`;
   const rail = `<aside class="rail">${seriesRail}${statbox(topic, [String(refs || "—"), "References"], [p.date.slice(8, 10).replace(/^0/, ""), monthYear(p.date)])}${toc("In this paper", body.heads, abstract ? { text: "Summary", href: "#s-0" } : undefined)}</aside>`;
 
   const ld = {

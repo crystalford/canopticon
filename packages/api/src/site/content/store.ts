@@ -148,6 +148,8 @@ export interface Paper {
   /** Set once a paper has been revised: its version number and the date. */
   version?: number;
   revised?: string;
+  /** Why the latest version changed, in a sentence or two. */
+  revision?: string;
   /** A registered DOI (e.g. from Zenodo), without the https://doi.org/ prefix. */
   doi?: string;
   /** The slug of a theory drawn from this paper. */
