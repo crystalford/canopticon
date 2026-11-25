@@ -101,6 +101,21 @@
  },
  {
   "kind": "Essay",
+  "topic": "Attention & feeds",
+  "date": "2026-11-25",
+  "dateLabel": "25 Nov",
+  "title": "Why streamers never take a day off",
+  "dek": "Playing games for donations does not look like a job, so some streamers prove it is one with visible hardship: no days off, long shifts, the grind. They left the workplace and brought its rules with them, then put the rules on camera.",
+  "stat": "15 sources · 6 min",
+  "min": 6,
+  "quotes": 0,
+  "sources": 15,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/why-streamers-never-take-a-day-off"
+ },
+ {
+  "kind": "Essay",
   "topic": "McLuhan & media theory",
   "date": "2026-11-25",
   "dateLabel": "25 Nov",
