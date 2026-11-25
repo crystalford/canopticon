@@ -7,8 +7,7 @@
 import { AUTHOR } from "../author";
 import type { Idea } from "../content/store";
 import { allTheories, libraryItems, terms } from "../content/store";
-import { esc, pill, shell } from "../layout";
-import { inline } from "../md";
+import { esc, pageHead, pill, shell } from "../layout";
 import { kindColours, longDate } from "../theme";
 
 export const LEXICON_URL = "https://canopticon.com/lexicon";
@@ -105,16 +104,14 @@ export function lexicon(): Array<{ id: string; title: string; intro: string; ent
 }
 
 function entryHtml(e: Entry): string {
-  const meta = [
-    e.say ? `Pronounced <b>${esc(e.say)}</b>` : "",
-    e.plain ? `in plain words, <b>${esc(e.plain)}</b>` : "",
+  const first =
     e.first && e.firstRoute && e.kind === "Concept"
-      ? `first stated in <a href="${esc(e.firstRoute)}" class="ulink">${esc(e.first)}</a>${e.date ? `, ${esc(longDate(e.date))}` : ""}`
+      ? `First stated in ${esc(e.first)}${e.date ? `, ${esc(longDate(e.date))}` : ""}`
       : e.date
-        ? `stated ${esc(longDate(e.date))}`
-        : "",
-  ].filter(Boolean);
-  return `<div class="lx-e" id="${esc(e.route.split("/").pop() ?? "")}"><dt><a href="${esc(e.route)}">${esc(e.name)}</a></dt><dd><p>${inline(e.definition)}</p>${meta.length ? `<p class="lx-m">${meta.join(" · ")}</p>` : ""}</dd></div>`;
+        ? `Stated ${esc(longDate(e.date))}`
+        : "";
+  const foot = [e.plain ? `In plain words: ${esc(e.plain)}` : "", first].filter(Boolean);
+  return `<a href="${esc(e.route)}" class="card term-card" id="${esc(e.route.split("/").pop() ?? "")}"><span class="pills">${pill(e.kind, kindColours(e.kind))}${e.say ? `<span class="term-card-say">${esc(e.say)}</span>` : ""}</span><span class="tile-t">${esc(e.name)}</span><span class="tile-d">${esc(e.definition)}</span>${foot.length ? `<span class="term-card-p">${foot.join("<br />")}</span>` : ""}</a>`;
 }
 
 export function renderLexicon(opts: { signedIn?: boolean } = {}): string {
@@ -126,17 +123,10 @@ export function renderLexicon(opts: { signedIn?: boolean } = {}): string {
         `<a href="#${g.id}" class="chipb">${esc(g.title)} <span>${g.entries.length}</span></a>`,
     )
     .join("");
-  const krasisTable = (entries: Entry[]) =>
-    `<div class="tbl-wrap"><table class="lx-t"><thead><tr><th>Term</th><th>Pronounced</th><th>In plain words</th></tr></thead><tbody>${entries
-      .map(
-        (e) =>
-          `<tr><td><a href="${esc(e.route)}">${esc(e.name)}</a></td><td>${esc(e.say ?? "")}</td><td>${esc(e.plain ?? "")}</td></tr>`,
-      )
-      .join("")}</tbody></table></div>`;
   const sections = groups
     .map(
       (g) =>
-        `<section class="lx-g" id="${g.id}" aria-labelledby="${g.id}-h"><h2 id="${g.id}-h">${esc(g.title)}</h2><p class="lx-i">${esc(g.intro)}</p>${g.id === "krasis" ? krasisTable(g.entries) : ""}<dl>${g.entries.map(entryHtml).join("")}</dl></section>`,
+        `<section class="sec lx-g" id="${g.id}" aria-labelledby="${g.id}-h"><div class="sec-h"><h2 id="${g.id}-h">${esc(g.title)}</h2><span class="sec-m">${g.entries.length} ${g.entries.length === 1 ? "entry" : "entries"}</span></div><p class="sec-p">${esc(g.intro)}</p><div class="grid3 wide">${g.entries.map(entryHtml).join("")}</div></section>`,
     )
     .join("");
 
@@ -173,14 +163,15 @@ export function renderLexicon(opts: { signedIn?: boolean } = {}): string {
     ],
   };
 
-  const body = `<div class="col prose lx-page">
-<div class="kicker">${pill("Concept", kindColours("Concept"))}</div>
-<h1 class="h-display">Lexicon</h1>
-<p class="dek">Every term coined at Canopticon, with the sentence that defines it, how to say it and where it was first stated. Each links to its own page, with the questions it answers, examples, how it differs from existing terms and how to cite it.</p>
-<nav class="lx-toc" aria-label="Sections">${toc}</nav>
+  const body = `${pageHead({
+    title: "Lexicon",
+    section: "lexicon",
+    dek: "Every term coined at Canopticon, with the sentence that defines it, how to say it and where it was first stated. Each links to its own page, with the questions it answers, examples, how it differs from existing terms and how to cite it.",
+    after: `<nav class="ph-toc" aria-label="Sections">${toc}</nav>`,
+  })}
 ${sections}
-<p class="lx-foot">Questions nobody has answered yet are on <a href="/open" class="ulink">Open questions</a>. The Markdown of this page: <a href="/lexicon.md" class="ulink">/lexicon.md</a>.</p>
-</div>`;
+<a href="/open" class="open-line"><span class="open-n tnum">${libraryItems().filter((r) => r.kind === "Open problem").length}</span><span><strong>Open questions.</strong> What the research raised and could not settle, each with what is known and what is missing.</span><span aria-hidden="true" class="open-arrow">\u2192</span></a>
+<p class="lx-foot">The Markdown of this page: <a href="/lexicon.md" class="ulink">/lexicon.md</a>.</p>`;
 
   return shell({
     title: "Lexicon",

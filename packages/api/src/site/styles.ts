@@ -288,6 +288,9 @@ a.lrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 24p
 
 .kicker { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: var(--t-xs); color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
 .h-display { font-size: var(--t-display); line-height: 1.08; font-weight: 500; letter-spacing: -.025em; margin: 14px 0 18px; max-width: 24ch; }
+/* A title past ~70 characters steps down a size, so it reads in three lines, not five. */
+.h-display.long { font-size: var(--t-h1); line-height: 1.12; max-width: 32ch; }
+.pill.outline { outline: 1px solid var(--hair); outline-offset: -1px; }
 .h-page { font-size: var(--t-h2); line-height: 1.15; font-weight: 500; letter-spacing: -.02em; margin: 0; max-width: 900px; }
 .lede { font-size: var(--t-md); line-height: 1.5; color: var(--ink-2); margin: 10px 0 0; max-width: 80ch; }
 .dek { font-size: var(--t-lede); line-height: 1.45; font-weight: 400; color: var(--body); letter-spacing: -.005em; margin: 0 0 26px; }
@@ -471,7 +474,7 @@ a.row.rrow { grid-template-columns: 56px minmax(0, 1fr); gap: 4px 16px; }
 .idea-def.problem .idea-def-h { color: var(--clay-ink); }
 .idea-def p { font-size: var(--t-quote); line-height: 1.45; margin: 0; letter-spacing: -.01em; color: var(--ink); }
 .lx-toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 8px; }
-.lx-toc .chipb span { color: var(--muted); margin-left: 6px; font-variant-numeric: tabular-nums; }
+.lx-toc .chipb span, .ph-toc .chipb span { color: var(--muted); margin-left: 6px; font-variant-numeric: tabular-nums; }
 .lx-g { margin-top: 44px; scroll-margin-top: 80px; }
 .lx-g h2 { font-size: var(--t-h2); font-weight: 600; letter-spacing: -.018em; color: var(--ink); margin: 0 0 8px; }
 .lx-i { color: var(--muted); margin: 0 0 18px; }
@@ -1204,6 +1207,32 @@ a.xl.concept { border-bottom-color: var(--brick); }
   .rail, .drail { position: static; max-width: none; }
   .rail-sticky { position: static; }
 }
+/* ---- One page header (2026-11-24) -------------------------------------------
+   Every index page wears the same header: a small label naming its section
+   (the number and job from the front page's strip), one title size, one intro
+   paragraph, optional actions, a rule. Detail pages keep their own header. */
+.ph { padding: 40px 0 28px; margin-bottom: 36px; border-bottom: 1px solid var(--hair); }
+.ph-k { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: var(--t-xs); font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.ph-n { color: var(--ink); font-variant-numeric: tabular-nums; }
+.ph-t { margin: 12px 0 0; font-size: var(--t-display); line-height: 1.06; font-weight: 500; letter-spacing: -.028em; color: var(--ink); max-width: 22ch; }
+.ph-d { margin: 16px 0 0; max-width: 64ch; font-size: var(--t-lede); line-height: 1.5; color: var(--ink-2); }
+.ph-a { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 20px; }
+.ph-a .pills { margin-right: 6px; }
+.ph-toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.sec-m { margin-left: auto; font-size: var(--t-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.ph + .sec, .ph + section.sec { margin-top: 0; }
+/* /theories: one card per theory, its claim inside. */
+.th-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 16px; }
+a.th-card { display: flex; flex-direction: column; gap: 10px; padding: 24px 26px 22px; }
+.th-card-v { font-size: var(--t-xs); color: var(--muted); }
+.th-card-t { font-size: var(--t-xl); font-weight: 500; letter-spacing: -.015em; line-height: 1.2; color: var(--ink); }
+a.th-card:hover .th-card-t { color: var(--cobalt); }
+.th-card-d { font-size: var(--t-md); line-height: 1.5; color: var(--ink-2); }
+.th-card-c { display: block; padding: 12px 14px; border-left: 2px solid var(--ink); background: var(--tint-3); font-size: var(--t-sm); line-height: 1.55; color: var(--body); }
+.th-card-l { display: block; margin-bottom: 4px; font-size: var(--t-xs); font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.th-card-m { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: auto; padding-top: 6px; font-size: var(--t-xs); color: var(--muted); }
+.th-grid + .prop-key { margin-top: 20px; }
+
 /* ---- The sections, as one ladder (2026-11-24) ----------------------------
    The front page's masthead names the five sections in order, from the
    author's own ideas down to the evidence under them; the same order runs
@@ -1254,24 +1283,20 @@ a.open-line:hover { background: var(--tint-3); border-color: var(--rule); color:
 a.open-line:hover .open-arrow { color: var(--cobalt); }
 .pp-mm { font-size: var(--t-xs); color: var(--muted); }
 /* /papers */
-.prose .pp-sec { margin-top: 52px; }
-.prose .pp-sh { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--ink); }
-.prose .pp-sh h2 { margin: 0; font-size: var(--t-h2); font-weight: 500; letter-spacing: -.02em; }
-.pp-sm { margin-left: auto; font-size: var(--t-sm); color: var(--muted); }
-.prose .pp-si { margin: 18px 0 6px; font-size: var(--t-md); line-height: 1.6; color: var(--ink-2); }
-.prose .pp-list { list-style: none; margin: 0; padding: 0; }
-.prose .pp-list .pp-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 4px 16px; margin: 0; padding: 24px 0; border-bottom: 1px solid var(--hair); }
+.pp-list { list-style: none; margin: 0; padding: 0 28px; border: 1px solid var(--hair); border-radius: 16px; background: var(--card); }
+.pp-list .pp-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 4px 20px; margin: 0; padding: 24px 0; border-bottom: 1px solid var(--hair); }
+.pp-list .pp-row:last-child { border-bottom: 0; }
 .pp-n { padding-top: 7px; font-size: var(--t-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
-.prose a.pp-t { font-size: var(--t-xl); font-weight: 500; letter-spacing: -.015em; line-height: 1.25; color: var(--ink); }
-.prose a.pp-t:hover { color: var(--cobalt); }
-.prose .pp-d { margin: 6px 0 12px; font-size: var(--t-md); line-height: 1.55; color: var(--ink-2); }
+a.pp-t { font-size: var(--t-xl); font-weight: 500; letter-spacing: -.015em; line-height: 1.25; color: var(--ink); }
+a.pp-t:hover { color: var(--cobalt); }
+.pp-d { max-width: 72ch; margin: 6px 0 12px; font-size: var(--t-md); line-height: 1.55; color: var(--ink-2); }
 .pp-f { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--t-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
 .pp-x { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 12px; }
 .pp-l { font-size: var(--t-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .pp-x .pp-l ~ .pp-l { margin-left: 8px; }
-.prose a.pp-term { padding: 2px 10px; border-radius: 999px; background: #e3f0e6; color: #1f5e36; font-size: var(--t-sm); font-weight: 500; }
-.prose a.pp-term.th { background: #15171c; color: #f6f3ec; }
-.prose a.pp-term:hover { outline: 1px solid currentColor; }
+a.pp-term { padding: 2px 10px; border-radius: 999px; background: #e3f0e6; color: #1f5e36; font-size: var(--t-sm); font-weight: 500; }
+a.pp-term.th { background: #15171c; color: #f6f3ec; }
+a.pp-term:hover { outline: 1px solid currentColor; }
 .pp-tag { padding-top: 4px; }
 @media (max-width: 860px) {
   .lad { grid-template-columns: minmax(0, 1fr); }
@@ -1287,9 +1312,12 @@ a.open-line:hover .open-arrow { color: var(--cobalt); }
 }
 @media (max-width: 640px) {
   .mast { padding: 22px 0 0; }
+  .ph { padding: 24px 0 22px; margin-bottom: 26px; }
+  .ph-d { margin-top: 12px; }
   .wcol { padding: 4px 18px 6px; }
   a.open-line { padding: 14px 16px; gap: 14px; }
-  .prose .pp-list .pp-row { grid-template-columns: 28px minmax(0, 1fr); }
+  .pp-list { padding: 0 18px; }
+  .pp-list .pp-row { grid-template-columns: 28px minmax(0, 1fr); }
   .pp-tag { display: none; }
 }
 

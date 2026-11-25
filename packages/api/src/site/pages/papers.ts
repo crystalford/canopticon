@@ -7,7 +7,7 @@ import { AUTHOR } from "../author";
 import type { Paper } from "../content/store";
 import { allPapers, terms, theory } from "../content/store";
 import { SERIES_NAME, paperMinutes, paperRoute, seriesPapers } from "../data";
-import { esc, pill, shell } from "../layout";
+import { esc, pageHead, pill, shell } from "../layout";
 import { kindColours, longDate, shortDate } from "../theme";
 
 const SITE = "https://canopticon.com";
@@ -95,21 +95,22 @@ export function renderPapers(opts: { signedIn?: boolean } = {}): string {
     })),
   };
 
-  const body = `<div class="col prose pp-page">
-<div class="kicker">${pill("Paper", kindColours("Paper"))}</div>
-<h1 class="h-display">Papers</h1>
-<p class="dek">Long original work. Each paper states a claim, works it through the published research with numbered references, and names what it finds. The terms they coin are in the <a href="/lexicon" class="ulink">Lexicon</a>; the ideas stated formally are the <a href="/theories" class="ulink">Theories</a>.</p>
-<section class="pp-sec" aria-labelledby="pp-series">
-<div class="pp-sh"><h2 id="pp-series">${esc(SERIES_NAME)}</h2><span class="pp-sm">${series.length} papers · ${esc(span)}</span></div>
-<p class="pp-si">Marshall McLuhan said every medium changes \u201cthe ratio among our senses.\u201d The claim was filed as metaphor. These papers read it literally, test it against modern neuroscience from ADHD and typing to drugs and addiction, and end in a synthesis: one configuration of the senses that media, drugs and illness all re-temper. Read in order, or start anywhere.</p>
+  const body = `${pageHead({
+    title: "Papers",
+    section: "writing",
+    label: "Papers",
+    dek: 'Long original work. Each paper states a claim, works it through the published research with numbered references, and names what it finds. The terms they coin are in the <a href="/lexicon" class="ulink">Lexicon</a>; the ideas stated formally are the <a href="/theories" class="ulink">Theories</a>.',
+  })}
+<section class="sec pp-sec" aria-labelledby="pp-series">
+<div class="sec-h"><h2 id="pp-series">${esc(SERIES_NAME)}</h2><span class="sec-m">${series.length} papers · ${esc(span)}</span></div>
+<p class="sec-p">Marshall McLuhan said every medium changes \u201cthe ratio among our senses.\u201d The claim was filed as metaphor. These papers read it literally, test it against modern neuroscience from ADHD and typing to drugs and addiction, and end in a synthesis: one configuration of the senses that media, drugs and illness all re-temper. Read in order, or start anywhere.</p>
 <ol class="pp-list">${seriesRows}</ol>
 </section>
 ${
   otherRows
-    ? `<section class="pp-sec" aria-labelledby="pp-more"><div class="pp-sh"><h2 id="pp-more">Building on the series</h2><span class="pp-sm">${others.length} ${others.length === 1 ? "paper" : "papers"}</span></div><ol class="pp-list">${otherRows}</ol></section>`
+    ? `<section class="sec pp-sec" aria-labelledby="pp-more"><div class="sec-h"><h2 id="pp-more">Building on the series</h2><span class="sec-m">${others.length} ${others.length === 1 ? "paper" : "papers"}</span></div><ol class="pp-list">${otherRows}</ol></section>`
     : ""
-}
-</div>`;
+}`;
 
   return shell({
     title: "Papers",

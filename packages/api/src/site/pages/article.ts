@@ -218,7 +218,7 @@ export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): str
       : "",
     `<div style="margin-bottom:24px">`,
     `<div class="kicker">${pill(a.form, kindColours(a.form))}${linkPill(`/topics/${topicSlug(a.topic)}`, a.topic, topicColours(a.topic))}</div>`,
-    `<h1 class="h-display">${esc(a.title)}</h1>`,
+    `<h1 class="h-display${a.title.length > 70 ? " long" : ""}">${esc(a.title)}</h1>`,
     `<p class="dek">${esc(a.dek)}</p>`,
     `<div class="byline"><a href="/about#m-author" class="who">Chris Telford</a><time class="chip" datetime="${esc(a.date)}">${esc(longDate(a.date))}</time><span class="chip">${minutes} min</span><span class="chip">${tally[0]} ${tally[1].toLowerCase()}</span></div>`,
     drawn
