@@ -18,6 +18,8 @@ related:
     label: "Theory: Self-extinguishing maintenance (P5, understanding why sustains a routine)"
   - route: /theories/ground-blindness
     label: "Theory: Ground blindness (what removal reveals)"
+  - route: /theories/the-certainty-handoff
+    label: "Theory: The certainty handoff (what passes unchecked when understanding is handed over)"
 propositions:
   - statement: "Whether a medium is hot or cool is a relation between the medium, the task and the receiver, not a fixed property of the medium."
     grade: "Moderate"

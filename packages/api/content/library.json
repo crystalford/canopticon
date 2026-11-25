@@ -1,6 +1,16 @@
 [
  {
   "kind": "Theory",
+  "topic": "AI-directed development",
+  "date": "2026-11-24",
+  "dateLabel": "24 Nov",
+  "title": "The certainty handoff",
+  "dek": "A conclusion handed to someone else carries the sender's confidence in it, and leaves the reasons behind. The sender does not check because it feels right; the receiver cannot, because the reasons stayed with the sender.",
+  "stat": "8 propositions · 6 strong",
+  "route": "/theories/the-certainty-handoff"
+ },
+ {
+  "kind": "Theory",
   "topic": "McLuhan & media theory",
   "date": "2026-11-22",
   "dateLabel": "22 Nov",
