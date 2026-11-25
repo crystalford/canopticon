@@ -10,7 +10,7 @@ import { publicResearch } from "../content/store";
 import { cutTitle, esc, linkPill, pill, searchTitle, shell } from "../layout";
 import { type InlineLink, spliceLinks } from "../links";
 import { documentHtml, plain } from "../md";
-import { kindColours, topicColours, topicSlug } from "../theme";
+import { kindColours, longDate, topicColours, topicSlug } from "../theme";
 import type { Evidence } from "./evidence";
 
 export interface DocView {
@@ -170,15 +170,17 @@ export function renderDocument(
   const figs = keyFigures(summary, label, rest);
   const chars = d.body.length;
   const minutes = Math.max(1, Math.round(chars / 1500));
-  const topicHref = inv ? "/investigations" : `/topics/${topicSlug(d.topic)}`;
+  const topicHref = inv ? "/research?kind=Investigation" : `/topics/${topicSlug(d.topic)}`;
   const back = inv
-    ? { href: "/investigations", label: "Investigations" }
+    ? { href: "/research?kind=Investigation", label: "Investigations" }
     : { href: "/research", label: "Research" };
 
   const head = [
-    `<div class="crumbs"><a href="${back.href}">${back.label}</a>${back.label === d.kind ? "" : `<span aria-hidden="true" class="sep">/</span><span>${esc(d.kind)}</span>`}</div>`,
-    `<div class="pills" style="margin-top:14px">${pill(d.kind, kindColours("Research"), "pill lg")}${linkPill(topicHref, d.topic, topicColours(d.topic), "pill lg")}${d.dateLabel ? pill(d.dateLabel, kindColours("Research"), "pill lg") : ""}${pill(`${minutes} min read`, kindColours("Research"), "pill lg")}</div>`,
-    `<h1 class="h-doc">${esc(d.title)}</h1>`,
+    // The same header as an essay or brief: what it is and its topic, the
+    // title, then who, when and how long (2026-11-24).
+    `<div class="kicker"><a href="${back.href}" class="pill" style="background:${kindColours("Research")[0]};color:${kindColours("Research")[1]}">${esc(back.label === "Investigations" ? "Investigation" : "Research")}</a>${back.label === d.kind || d.kind === "Research" ? "" : pill(d.kind, ["var(--card)", "var(--ink-2)"], "pill outline")}${linkPill(topicHref, d.topic, topicColours(d.topic))}</div>`,
+    `<h1 class="h-display${d.title.length > 70 ? " long" : ""}">${esc(d.title)}</h1>`,
+    `<div class="byline"><a href="/about#m-author" class="who">Chris Telford</a>${d.date ? `<time class="chip" datetime="${esc(d.date)}">${esc(longDate(d.date))}</time>` : d.dateLabel ? `<span class="chip">${esc(d.dateLabel)}</span>` : ""}<span class="chip">${minutes} min</span></div>`,
     inv
       ? `<div class="inv-note"><strong>Working file. </strong>An investigation — an open line of inquiry, sourced but not a conclusion, kept on its own shelf.</div>`
       : "",
@@ -237,7 +239,8 @@ export function renderDocument(
         d.shares.length > 6 ? `<div class="shares-more">and ${d.shares.length - 6} more</div>` : ""
       }</div>`
     : "";
-  const rail = `<aside class="drail">${toc}${meta}${readIt}${citedBy}${shared}</aside>`;
+  // Facts first, then the contents: the order an essay's and a theory's side column keep.
+  const rail = `<aside class="drail">${meta}${toc}${readIt}${citedBy}${shared}</aside>`;
 
   const ld = {
     "@context": "https://schema.org",

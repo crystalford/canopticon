@@ -8,7 +8,7 @@
 
 import type { DerivedRow, LibraryItem } from "../content/store";
 import { keyFigures, libraryItems, publicResearch, questions } from "../content/store";
-import { esc, shell } from "../layout";
+import { esc, pageHead, shell } from "../layout";
 import { passageHref, plain } from "../md";
 import { type Pair, kindColours, topicColours, topicSlug } from "../theme";
 
@@ -154,10 +154,10 @@ export function renderSearch(query: SearchQuery, opts: { signedIn?: boolean } = 
       .join("")}</div></div>`;
   };
 
-  const box = `<form class="sbox" role="search" method="get" action="/search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5a5e6b" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input id="search-input" type="search" name="q" value="${esc(q)}" placeholder="A phrase, a figure, a name" aria-label="Search everything on the site" data-search-input${qt ? "" : " autofocus"} />${qt ? '<a href="/search" class="btn sm" style="height:30px;padding:0 10px">Clear</a>' : ""}</form><p class="s-note">Searches articles, papers, research documents, concepts, open problems, key figures and the full text of every document. Put a phrase in quotes to match it exactly.</p>`;
+  const box = `<form class="sbox" role="search" method="get" action="/search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5a5e6b" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input id="search-input" type="search" name="q" value="${esc(q)}" placeholder="A phrase, a figure, a name" aria-label="Search everything on the site" data-search-input${qt ? "" : " autofocus"} />${qt ? '<a href="/search" class="btn sm" style="height:30px;padding:0 10px">Clear</a>' : ""}</form>`;
 
   if (!qt) {
-    const body = `<div class="s-wrap"><div class="s-col"><h1 class="h-search">Search</h1>${box}<section style="margin-top:32px"><h2 style="font-size:15px;font-weight:600;margin:0 0 10px">Try</h2><div class="pills" style="gap:8px">${TRIES.map(
+    const body = `${pageHead({ title: "Search", label: "Search", dek: "Every essay, paper, brief, research document, term and open question, by title and full text. Put a phrase in quotes to match it exactly." })}<div class="s-wrap"><div class="s-col">${box}<section style="margin-top:32px"><h2 style="font-size:15px;font-weight:600;margin:0 0 10px">Try</h2><div class="pills" style="gap:8px">${TRIES.map(
       (t) =>
         `<a href="/search?q=${esc(encodeURIComponent(t))}" class="btn sm" style="height:34px;font-size:14px">${esc(t)}</a>`,
     ).join("")}</div></section></div><aside class="s-rail">${topicsHtml()}</aside></div>`;
@@ -310,7 +310,7 @@ export function renderSearch(query: SearchQuery, opts: { signedIn?: boolean } = 
           .join("")}</div></div>`
       : "";
 
-  const body = `<div class="s-wrap"><div class="s-col"><h1 class="h-search">Search</h1>${box}<div role="tablist" aria-label="Show" class="seg s-tabs">${tabs}</div>${
+  const body = `${pageHead({ title: "Search", label: "Search" })}<div class="s-wrap"><div class="s-col">${box}<div role="tablist" aria-label="Show" class="seg s-tabs">${tabs}</div>${
     total
       ? groupsHtml
       : `<div class="lib-empty" style="padding:28px 0">Nothing on the site matches “${esc(qt)}”. Try fewer words, or a single name or number.</div>`

@@ -11,7 +11,7 @@
 
 import { isWriting, libraryItems } from "../content/store";
 import { listedArticles, writingFor } from "../data";
-import { esc, pill, shell } from "../layout";
+import { esc, pageHead, pill, shell } from "../layout";
 import { kindColours, shortDate, topicColours, topicSlug } from "../theme";
 
 /** The prototype's order (pages/Canopticon Follow.dc.html); a topic it did
@@ -125,7 +125,7 @@ export function renderFollow(
 
   const feedUrl = feedAddress(picks);
 
-  const col = `<div class="f-col"><h1 class="h-topic" style="margin:0">New research, once a week</h1><p class="f-lede">One email a week, sent only when something new is published: the latest articles and research documents in the topics you choose. Free.</p><form method="post" action="/follow" class="f-form" data-follow-form>${form}<h2 class="f-h2">What this week's email would include</h2>${preview}<h2 class="f-h2">Choose topics <span>· optional</span></h2><p class="f-sub">Leave it on Everything, or narrow the email to the subjects you care about.</p><div class="f-topics">${everything}<div class="f-or">Or choose topics</div>${topicRows}</div></form></div>`;
+  const col = `<div class="f-col"><form method="post" action="/follow" class="f-form" data-follow-form>${form}<h2 class="f-h2">What this week's email would include</h2>${preview}<h2 class="f-h2">Choose topics <span>· optional</span></h2><p class="f-sub">Leave it on Everything, or narrow the email to the subjects you care about.</p><div class="f-topics">${everything}<div class="f-or">Or choose topics</div>${topicRows}</div></form></div>`;
 
   const rail = `<aside class="f-rail"><div class="card f-card"><h2>Prefer a feed reader?</h2><p>Your choices as one RSS feed. Each topic also has its own.</p><div class="cite-row" style="padding:8px 8px 8px 12px;align-items:center"><code class="cite-t f-code" data-cite-text data-feed-url>${esc(feedUrl)}</code><button type="button" class="btn sm" data-copy-cite><span>Copy</span></button></div></div><div class="card f-card"><h2>For AI tools and agents</h2><p>llms.txt lists every document in plain text so AI tools and agents can find it. Each article also carries standard citation metadata.</p><div class="pills"><a href="/llms.txt" class="tpill" style="background:#e4ecf7;color:#1f4e8c;font-size:13px;padding:3px 11px">llms.txt</a><a href="/about#m-machines" class="tpill" style="background:var(--tint);color:var(--ink);font-size:13px;padding:3px 11px">How it works</a></div></div></aside>`;
 
@@ -135,6 +135,6 @@ export function renderFollow(
       "One email a week, sent only when something new is published — or follow by RSS, one feed or one per topic.",
     path: "/follow",
     signedIn: opts.signedIn ?? false,
-    body: `<div class="f-wrap">${col}${rail}</div>`,
+    body: `${pageHead({ title: "New research, once a week", label: "Follow", dek: "One email a week, sent only when something new is published: the latest essays, briefs and research documents in the topics you choose. Free." })}<div class="f-wrap">${col}${rail}</div>`,
   });
 }

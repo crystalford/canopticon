@@ -172,6 +172,35 @@ function beacon(token: string | undefined): string {
 }
 
 /** A pill whose colours are data (a kind or a topic). */
+/** The sections, in order: the number and the job a section's pages carry
+ *  in their header, the same words as the front page's strip. */
+export const SECTIONS = {
+  theories: ["01", "The ideas"],
+  writing: ["02", "The arguments"],
+  research: ["03", "The evidence"],
+  lexicon: ["04", "The words"],
+} as const;
+
+/** The one header every index page wears (2026-11-24): a small label naming
+ *  the section (or what the page is), one title size, one intro paragraph,
+ *  optional actions, and a rule under it. Detail pages keep their own
+ *  header: kind and topic pills, the title, the summary. */
+export function pageHead(a: {
+  title: string;
+  dek?: string;
+  section?: keyof typeof SECTIONS;
+  label?: string;
+  after?: string;
+}): string {
+  const sec = a.section ? SECTIONS[a.section] : null;
+  const k = sec
+    ? `<span class="ph-n">${sec[0]}</span><span>${esc(sec[1])}</span>${a.label ? `<span aria-hidden="true">·</span><span>${esc(a.label)}</span>` : ""}`
+    : a.label
+      ? `<span>${esc(a.label)}</span>`
+      : "";
+  return `<header class="ph">${k ? `<div class="ph-k">${k}</div>` : ""}<h1 class="ph-t">${esc(a.title)}</h1>${a.dek ? `<p class="ph-d">${a.dek}</p>` : ""}${a.after ?? ""}</header>`;
+}
+
 export function pill(label: string, pair: readonly [string, string], cls = "pill"): string {
   return `<span class="${cls}" style="background:${pair[0]};color:${pair[1]}">${esc(kindLabel(label))}</span>`;
 }

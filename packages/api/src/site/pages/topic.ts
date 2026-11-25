@@ -7,7 +7,7 @@
 import { AUTHOR } from "../author";
 import type { DerivedRow, LibraryItem } from "../content/store";
 import { keyFigures, libraryItems, questions, researchDoc, timeline } from "../content/store";
-import { esc, pill, shell } from "../layout";
+import { esc, pageHead, pill, shell } from "../layout";
 import { passageHref } from "../md";
 import { kindColours, topicSlug } from "../theme";
 
@@ -170,7 +170,12 @@ export function renderTopic(topic: string, opts: { signedIn?: boolean } = {}): s
   const latestLabel = m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : "—";
 
   const note = NOTES[topic];
-  const head = `<div style="margin-bottom:44px"><div class="pills">${pill("Topic", kindColours("Topic"), "pill lg")}${countPills}</div><h1 class="h-topic">${esc(topic)}</h1>${note ? `<p class="topic-note">${esc(note)}</p>` : ""}<div class="pills" style="gap:8px"><a href="/follow?topic=${esc(encodeURIComponent(topic))}" class="btn">Follow this topic</a><a href="${esc(lib)}" class="btn">Browse it in the Library</a></div></div>`;
+  const head = pageHead({
+    title: topic,
+    label: "Topic",
+    ...(note ? { dek: esc(note) } : {}),
+    after: `<div class="ph-a"><span class="pills">${countPills}</span><a href="/follow?topic=${esc(encodeURIComponent(topic))}" class="btn sm">Follow this topic</a><a href="${esc(lib)}" class="btn sm">Browse it in the Library</a></div>`,
+  });
 
   const body = items.length
     ? sections + worksHtml
@@ -201,6 +206,6 @@ export function renderTopic(topic: string, opts: { signedIn?: boolean } = {}): s
     path: `/topics/${slug}`,
     signedIn: opts.signedIn ?? false,
     head: `<link rel="alternate" type="application/rss+xml" title="${esc(topic)} · Canopticon" href="/feeds/${slug}.xml" />\n<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`,
-    body: `<div class="rr"><div class="col">${head}${body}</div>${rail}</div>`,
+    body: `${head}<div class="rr"><div class="col">${body}</div>${rail}</div>`,
   });
 }

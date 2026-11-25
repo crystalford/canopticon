@@ -7,7 +7,7 @@
 import { AUTHOR } from "../author";
 import type { DerivedRow, LibraryItem } from "../content/store";
 import { keyFigures, libraryItems, questions } from "../content/store";
-import { esc, shell } from "../layout";
+import { esc, pageHead, shell } from "../layout";
 import { kindColours, kindLabel, topicColours, topicSlug } from "../theme";
 
 type Row = (LibraryItem | DerivedRow) & { v?: string; sub?: string; shelf?: string };
@@ -165,6 +165,9 @@ export interface Shelf {
   group: string;
   /** The member shown when the address names none. */
   member?: string;
+  /** The section it belongs to, and a label after it in the header. */
+  section?: "theories" | "writing" | "research" | "lexicon";
+  label?: string;
   lede: string;
   searchLabel: string;
 }
@@ -173,6 +176,7 @@ export const WRITING: Shelf = {
   base: "/writing",
   title: "Writing",
   group: "Writing",
+  section: "writing",
   lede: 'The author\u2019s own arguments, short and long. An <strong>essay</strong> argues one idea in a few minutes\u2019 reading; a <strong>paper</strong> works an idea through the published research with numbered references. Seven of the papers are <a href="/papers">a series on McLuhan and the senses</a>.',
   searchLabel: "Filter essays and papers by title, summary or topic",
 };
@@ -181,6 +185,7 @@ export const RESEARCH: Shelf = {
   base: "/research",
   title: "Research",
   group: "Research",
+  section: "research",
   lede: "The evidence. <strong>Reports</strong> are the research documents, each kept whole and published as it was written. <strong>Briefs</strong> are short answers to one question, written from those reports, with every quotation checked word for word against the one it comes from. <strong>Investigations</strong> are the working files on Canadian politics, finance and media: sourced, but open lines of inquiry rather than conclusions.",
   searchLabel: "Filter the research by title, summary or topic",
 };
@@ -189,6 +194,8 @@ export const OPEN: Shelf = {
   base: "/open",
   title: "Open questions",
   group: "Open",
+  section: "lexicon",
+  label: "Beside the Lexicon",
   member: "Open problem",
   lede: "Questions the research raised and could not settle, each with what is known, what is missing and where it came from. <strong>Asked by the research</strong> lists the questions the research documents set out to answer, each linking to the passage that answers it.",
   searchLabel: "Filter open questions by title or topic",
@@ -398,7 +405,14 @@ export function renderLibrary(
     .map(([k, v]) => `<input type="hidden" name="${k}" value="${esc(v ?? "")}" />`)
     .join("");
 
-  const body = `<div><h1 class="h-page">${esc(shelf?.title ?? "Library")}</h1></div><p class="lede">${shelf?.lede ?? "Everything on the site in one list: the theories, the papers, the essays and briefs, the research they stand on, and the terms and open questions the work turned up."}</p><section style="margin-top:28px"><form class="lib-search" role="search" method="get" action="${shelf?.base ?? "/library"}"><span aria-hidden="true">⌕</span>${hidden2}<input type="search" name="q" value="${esc(query.q ?? "")}" placeholder="${esc(shelf?.searchLabel ?? "Filter the library by title, summary or topic")}" aria-label="${esc(shelf ? `Filter ${shelf.title.toLowerCase()}` : "Filter the library")}" data-search-input /></form>${tabs ? `<div role="tablist" aria-label="Kind" class="seg">${tabs}</div>` : ""}<div class="tchips">${topicChips}</div>${members ? `<div class="mchips">${members}</div>` : ""}${subs}${hubTopic ? `<a href="/topics/${esc(topicSlug(topic))}" class="btn hub-link">Open the ${esc(topic)} topic page</a>` : ""}${sortBar}<div class="lib"${sort?.id === "useful" ? " data-useful-sort" : ""}><div class="lib-head"><span>${list.length} ${list.length === 1 ? "item" : "items"}</span><span>${groupId === "Figure" ? "Figure" : "Added"}</span></div>${note}${list.length ? rows : `<div class="lib-empty">Nothing matches. Try another topic or clear the filter.</div>`}${pager}</div></section>`;
+  const body = `${pageHead({
+    title: shelf?.title ?? "Library",
+    ...(shelf?.section ? { section: shelf.section } : {}),
+    label: shelf ? (shelf.label ?? "") : "Everything",
+    dek:
+      shelf?.lede ??
+      "Everything on the site in one list: the theories, the essays and papers that argue them, the research they stand on, and the terms and open questions the work turned up.",
+  })}<section><form class="lib-search" role="search" method="get" action="${shelf?.base ?? "/library"}"><span aria-hidden="true">⌕</span>${hidden2}<input type="search" name="q" value="${esc(query.q ?? "")}" placeholder="${esc(shelf?.searchLabel ?? "Filter the library by title, summary or topic")}" aria-label="${esc(shelf ? `Filter ${shelf.title.toLowerCase()}` : "Filter the library")}" data-search-input /></form>${tabs ? `<div role="tablist" aria-label="Kind" class="seg">${tabs}</div>` : ""}<div class="tchips">${topicChips}</div>${members ? `<div class="mchips">${members}</div>` : ""}${subs}${hubTopic ? `<a href="/topics/${esc(topicSlug(topic))}" class="btn hub-link">Open the ${esc(topic)} topic page</a>` : ""}${sortBar}<div class="lib"${sort?.id === "useful" ? " data-useful-sort" : ""}><div class="lib-head"><span>${list.length} ${list.length === 1 ? "item" : "items"}</span><span>${groupId === "Figure" ? "Figure" : "Added"}</span></div>${note}${list.length ? rows : `<div class="lib-empty">Nothing matches. Try another topic or clear the filter.</div>`}${pager}</div></section>`;
 
   // A shelf describes itself: its lede up to the first link, as plain text.
   const description = shelf

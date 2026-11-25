@@ -6,7 +6,7 @@
 import { AUTHOR } from "../author";
 import type { Theory } from "../content/store";
 import { allTheories } from "../content/store";
-import { esc, pill, shell } from "../layout";
+import { esc, pageHead, pill, shell } from "../layout";
 import { inline } from "../md";
 import { kindColours, longDate } from "../theme";
 import { GRADE_COLOURS, GRADE_MEANING } from "./theory";
@@ -28,11 +28,8 @@ export function renderTheories(opts: { signedIn?: boolean } = {}): string {
   );
   const rows = list
     .map(
-      (t) => `<li class="th-row">
-  <h2 class="th-t"><a href="/theories/${esc(t.slug)}">${esc(t.title)}</a></h2>
-  <p class="th-claim">${inline(t.claim)}</p>
-  <p class="th-meta">${counts(t)} <span>${t.propositions.length} propositions · ${t.references.length} primary references · version ${t.version ?? 1}, ${esc(longDate(t.revised ?? t.date))}</span></p>
-</li>`,
+      (t) =>
+        `<a href="/theories/${esc(t.slug)}" class="card th-card"><span class="pills">${pill("Theory", kindColours("Theory"))}<span class="th-card-v">Version ${t.version ?? 1} · ${esc(longDate(t.revised ?? t.date))}</span></span><span class="th-card-t">${esc(t.title)}</span><span class="th-card-d">${esc(t.dek)}</span><span class="th-card-c"><span class="th-card-l">Claim</span>${inline(t.claim)}</span><span class="th-card-m">${counts(t)}<span>${t.propositions.length} propositions · ${t.references.length} primary references</span></span></a>`,
     )
     .join("\n");
   const scale = (["Strong", "Moderate", "Proposed"] as const)
@@ -68,15 +65,15 @@ export function renderTheories(opts: { signedIn?: boolean } = {}): string {
     ],
   };
 
-  const body = `<div class="col prose th-page">
-<div class="kicker">${pill("Theory", kindColours("Theory"))}</div>
-<h1 class="h-display">Theories</h1>
-<p class="dek">Named ideas stated formally. Each gives its claim, the mechanism, propositions graded by the evidence behind them, the primary studies they rest on, how to measure it, what to do about it, where it applies, and what counts against it.</p>
-<ol class="th-list">
+  const body = `${pageHead({
+    title: "Theories",
+    section: "theories",
+    dek: "Named ideas stated formally. Each gives its claim, the mechanism, propositions graded by the evidence behind them, the primary studies they rest on, how to measure it, what to do about it, where it applies, and what counts against it.",
+  })}
+<div class="th-grid">
 ${rows}
-</ol>
-<div class="prop-key"><span class="prop-key-h">How propositions are graded</span>${scale}</div>
-</div>`;
+</div>
+<div class="prop-key"><span class="prop-key-h">How propositions are graded</span>${scale}</div>`;
 
   return shell({
     title: "Theories",

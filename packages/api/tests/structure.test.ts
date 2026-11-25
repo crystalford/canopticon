@@ -91,3 +91,45 @@ describe("papers", () => {
     }
   });
 });
+
+describe("one page system", () => {
+  it("every index page wears the same header: a section label, one title, a rule", async () => {
+    for (const [path, label] of [
+      ["/theories", "01"],
+      ["/writing", "02"],
+      ["/papers", "02"],
+      ["/research", "03"],
+      ["/lexicon", "04"],
+      ["/open", "04"],
+      ["/library", "Everything"],
+      ["/search", "Search"],
+      ["/topics/housing", "Topic"],
+      ["/about", "About"],
+      ["/follow", "Follow"],
+    ] as const) {
+      const html = await (await get(path)).text();
+      expect(html, path).toContain('<header class="ph">');
+      expect(html.match(/<h1[\s>]/g)?.length, path).toBe(1);
+      expect(html, path).toMatch(/<h1 class="ph-t">/);
+      expect(
+        html.slice(html.indexOf('class="ph-k"'), html.indexOf('class="ph-t"')),
+        path,
+      ).toContain(label);
+    }
+  });
+
+  it("detail pages keep their own header: kind and topic first, then the title", async () => {
+    for (const path of [
+      "/articles/why-you-cant-see-your-own-addiction",
+      "/theories/ground-blindness",
+      "/concepts/heterocrasis",
+      "/concepts/cpai",
+      "/open/hot-coffee-whey",
+    ]) {
+      const html = await (await get(path)).text();
+      expect(html, path).not.toContain('<header class="ph">');
+      expect(html, path).toMatch(/<h1 class="h-display/);
+      expect(html, path).not.toMatch(/nowrap">(Concept|Open problem)</);
+    }
+  });
+});
