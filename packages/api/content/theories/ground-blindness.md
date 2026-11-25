@@ -123,7 +123,7 @@ cite: "Telford, C. (2026). Ground blindness: a theory of why what works is seen 
 
 A phone dies on the way to a friend's house, and the driver finds they do not know the route. A routine is dropped because the problem it treated has gone, and the problem comes back. A student who did well with an AI tutor sits the exam without it and does worse than students who never had one. Each time, something had been doing work that nobody could see while it was there, and the work showed only when it stopped.
 
-This theory names that condition and draws a rule from it. McLuhan called the part of an environment that goes unnoticed its ground, and the part that is noticed its figure [1]. Ground blindness is not being able to see the ground while standing on it.
+This theory names that condition and draws a rule from it. McLuhan called the part of an environment that goes unnoticed its ground, and the part that is noticed its figure [1]. Ground blindness is being unable to see the ground while you stand on it.
 
 ## Definition
 
@@ -157,7 +157,7 @@ Chesterton's fence is the opposite counsel and is partly right: a fence should n
 
 Three things combine.
 
-The first is habituation. A steady, unchanging stimulus stops drawing a response [10], and what draws no response stops being noticed. A tool used every day, a routine done every morning, a level of caffeine kept constant, all become part of how things are rather than something one is doing.
+The first is habituation. A steady, unchanging stimulus stops drawing a response [10], and what draws no response stops being noticed. A tool used every day, a routine done every morning, a level of caffeine kept constant, all become part of how things are, and stop feeling like something you do.
 
 The second is adaptation. A body or a habit adjusts to what is always there. In dependence, the brain's reward set point shifts to offset the drug, so the drug comes to restore a baseline it has itself moved [16]. Caffeine works the same way on a smaller scale: in habitual users, much of what feels like a boost is the reversal of withdrawal [15], and they find themselves wanting it partly to avoid the withdrawal [20]. Skills adjust too. A skill handed to a machine goes unpractised, and "physical skills deteriorate when they are not used" [4].
 
@@ -209,7 +209,7 @@ A no to any of them means the thing has become ground. Two or more noes are the 
 
 **Worked example: navigation.** The driver has not gone a day without GPS (1: no), cannot reach the friend's house unaided (2: no), started using it for unfamiliar trips (3: yes) and does not know what would happen without it (4: no). Three noes: drive the familiar routes without it for a week, and see which ones are actually known.
 
-**Worked example: coffee.** Two cups every morning for years (1: no), work feels impossible without it (2: no), started for early shifts (3: yes), and the effect of stopping is unknown (4: no). Three noes. A week without it is the test; the first two to four days will feel worse, which is withdrawal and not the coffee's benefit [20]. What is left after a week is the comparison that counts [15].
+**Worked example: coffee.** Two cups every morning for years (1: no), work feels impossible without it (2: no), started for early shifts (3: yes), and the effect of stopping is unknown (4: no). Three noes. A week without it is the test; the first two to four days will feel worse, and that is withdrawal, a cost of stopping [20]. What is left after a week is the comparison that counts [15].
 
 **Worked example outside the body: a software system.** The team cannot say what fails if one service goes down (4: no). The practice is to take it down on purpose, at a time and scale chosen in advance, and watch [9].
 
