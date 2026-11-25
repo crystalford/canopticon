@@ -70,7 +70,7 @@ describe("writing", () => {
 
   it("a brief lights up Research in the top bar, an essay or paper Writing", async () => {
     const cur = (html: string) =>
-      /<nav aria-label="Primary"[^]*?<a href="(\/[a-z]+)" aria-current="page"/.exec(html)?.[1];
+      /<nav aria-label="Primary"[\s\S]*?<a href="(\/[a-z]+)" aria-current="page"/.exec(html)?.[1];
     const brief = allArticles().find((a) => a.form === "Brief" && !a.withdrawn);
     const essay = allArticles().find((a) => a.form === "Essay" && !a.withdrawn);
     expect(cur(await (await get(`/articles/${brief?.slug}`)).text())).toBe("/research");
