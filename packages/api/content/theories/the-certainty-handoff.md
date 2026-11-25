@@ -21,6 +21,8 @@ related:
     label: "Theory: Cognitive ectothermy (the same exchange seen from the receiver's side)"
   - route: /theories/ground-blindness
     label: "Theory: Ground blindness (what is in steady use stops being checked)"
+  - route: /papers/false-quiet
+    label: "Paper: False Quiet (the mechanism this theory shares with the other three)"
 propositions:
   - statement: "The feeling that a conclusion is right is a signal separate from whether it is right, and it decides whether the conclusion gets checked."
     grade: "Strong"

@@ -338,6 +338,11 @@ function build() {
   for (const p of Object.values(papers)) {
     if (p.theory && !theories[p.theory])
       failures.push(`papers/${p.slug}: theory ${p.theory} does not exist`);
+    for (const j of String(p.joins ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean))
+      if (!theories[j]) failures.push(`papers/${p.slug}: joins theory ${j}, which does not exist`);
     if (p.doi !== undefined && !/^10\.\d{4,9}\/\S+$/.test(String(p.doi)))
       failures.push(`papers/${p.slug}: doi must look like 10.xxxx/…`);
   }

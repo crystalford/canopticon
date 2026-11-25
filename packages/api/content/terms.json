@@ -450,5 +450,55 @@
   ],
   "family": "voice",
   "checked": "2026-11-23: a web search for the exact term found no prior use."
+ },
+ {
+  "id": "false-quiet",
+  "kick": "McLuhan & media theory",
+  "title": "False quiet",
+  "body": "A warning signal that goes silent because of the response to a problem, or a stand-in for the check, while the problem is still there. From inside, it feels the same as the problem being solved.",
+  "foot": "coined 24 Nov · name check 24 Nov: no prior use found",
+  "from": "",
+  "artHref": "",
+  "artTitle": "False Quiet",
+  "artKind": "Paper",
+  "docHref": "",
+  "route": "/concepts/false-quiet",
+  "artRoute": "/papers/false-quiet",
+  "docRoute": "",
+  "definition": "False quiet is the silence of a warning signal produced by the response to a problem, or by something standing in for the check, rather than by the problem going away; from inside, it cannot be told apart from resolution.",
+  "say": "FAWLS KWY-ut",
+  "etymology": "Plain English, after a false alarm: a false alarm is a signal with no problem behind it, and a false quiet is a problem with no signal in front of it.",
+  "coined": "2026-11-24",
+  "plain": "quiet that is not resolution",
+  "questions": [
+   "Why do I stop doing things that are working?",
+   "How can I tell if a problem is really gone?",
+   "Why do people stop taking medicine when they feel better?"
+  ],
+  "examples": [
+   "A gum stops hurting after a week of careful cleaning, the cleaning stops, and the soreness returns because the gap that traps food is still there.",
+   "A developer is sure a rename is right, so no one checks it, and the error surfaces only after a day of work built on it."
+  ],
+  "differs": [
+   {
+    "term": "False negative",
+    "how": "A test result that misses a condition. A false quiet is a miss produced by the response itself: the routine, the tool or the feeling that silences the signal."
+   },
+   {
+    "term": "Preparedness paradox",
+    "how": "Successful prevention makes the threat look exaggerated. It names the institutional case of one form, the suppressed signal; false quiet adds three more forms and a remedy for each."
+   },
+   {
+    "term": "Anti-environment (McLuhan)",
+    "how": "McLuhan's name for what lets people see an environment they are inside. False quiet names what the anti-environment is needed for, in four specific mechanisms."
+   }
+  ],
+  "related": [
+   "/theories/self-extinguishing-maintenance",
+   "/theories/ground-blindness",
+   "/theories/cognitive-ectothermy",
+   "/theories/the-certainty-handoff"
+  ],
+  "checked": "2026-11-24: a web search for the exact phrase found no use as a term."
  }
 ]

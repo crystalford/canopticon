@@ -20,6 +20,8 @@ related:
     label: "Theory: Cognitive ectothermy (why understanding a routine helps it last)"
   - route: /theories/ground-blindness
     label: "Theory: Ground blindness (why what works is seen only when it is gone)"
+  - route: /papers/false-quiet
+    label: "Paper: False Quiet (the mechanism this theory shares with the other three)"
 propositions:
   - statement: "Feeling better is the most commonly reported reason people stop treating long-term conditions."
     grade: "Strong"

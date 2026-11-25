@@ -5,7 +5,7 @@
 
 import { AUTHOR } from "../author";
 import type { Paper } from "../content/store";
-import { allPapers, terms, theory } from "../content/store";
+import { allPapers, joinedTheories, terms, theory } from "../content/store";
 import { SERIES_NAME, paperMinutes, paperRoute, seriesPapers } from "../data";
 import { esc, pageHead, pill, shell } from "../layout";
 import { kindColours, longDate, shortDate } from "../theme";
@@ -22,6 +22,7 @@ function coinedIn(slug: string): Array<{ title: string; route: string }> {
 function facts(p: Paper, minutes: number): string {
   const coined = coinedIn(p.slug);
   const th = p.theory ? theory(p.theory) : null;
+  const joined = joinedTheories(p);
   const bits = [
     `<span>${minutes} min</span>`,
     `<span>${esc(shortDate(p.revised ?? p.date))}</span>`,
@@ -32,6 +33,11 @@ function facts(p: Paper, minutes: number): string {
     ...(coined.length
       ? [
           `<span class="pp-l">Coins</span>${coined.map((c) => `<a href="${esc(c.route)}" class="pp-term">${esc(c.title)}</a>`).join("")}`,
+        ]
+      : []),
+    ...(joined.length
+      ? [
+          `<span class="pp-l">Joins</span>${joined.map((t) => `<a href="/theories/${esc(t.slug)}" class="pp-term th">${esc(t.title)}</a>`).join("")}`,
         ]
       : []),
     ...(th
@@ -46,9 +52,14 @@ function facts(p: Paper, minutes: number): string {
 export function renderPapers(opts: { signedIn?: boolean } = {}): string {
   const series = seriesPapers();
   const inSeries = new Set(series.map((s) => s.paper.slug));
+  const byDate = (a: Paper, b: Paper) => (b.revised ?? b.date).localeCompare(a.revised ?? a.date);
+  // Papers that join theories stand on their own; the rest build on the series.
+  const joining = allPapers()
+    .filter((p) => !inSeries.has(p.slug) && joinedTheories(p).length)
+    .sort(byDate);
   const others = allPapers()
-    .filter((p) => !inSeries.has(p.slug))
-    .sort((a, b) => (b.revised ?? b.date).localeCompare(a.revised ?? a.date));
+    .filter((p) => !inSeries.has(p.slug) && !joinedTheories(p).length)
+    .sort(byDate);
 
   const seriesRows = series
     .map(
@@ -57,6 +68,9 @@ export function renderPapers(opts: { signedIn?: boolean } = {}): string {
     )
     .join("");
 
+  const row = (p: Paper) =>
+    `<li class="pp-row"><span class="pp-n" aria-hidden="true">·</span><div class="pp-b"><a href="${esc(paperRoute(p.slug))}" class="pp-t">${esc(p.title)}</a><p class="pp-d">${esc(p.dek ?? "")}</p>${facts(p, paperMinutes(p))}</div><span class="pp-tag">${pill("Paper", kindColours("Paper"), "pill lg")}</span></li>`;
+  const joiningRows = joining.map(row).join("");
   const otherRows = others
     .map(
       (p) =>
@@ -75,7 +89,7 @@ export function renderPapers(opts: { signedIn?: boolean } = {}): string {
         ? `${Number(first.slice(8))}\u2013${longDate(last)}`
         : `${longDate(first)} to ${longDate(last)}`;
 
-  const all = [...series.map((s) => s.paper), ...others];
+  const all = [...series.map((s) => s.paper), ...others, ...joining];
   const ld = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -83,7 +97,7 @@ export function renderPapers(opts: { signedIn?: boolean } = {}): string {
     url: `${SITE}/papers`,
     name: "Papers",
     description:
-      "Long original papers by Chris Telford: a seven-paper series reading McLuhan's sense ratios literally, and the papers that build on it.",
+      "Long original papers by Chris Telford: a seven-paper series reading McLuhan's sense ratios literally, the papers that build on it, and a paper joining the theories.",
     author: AUTHOR,
     hasPart: all.map((p) => ({
       "@type": "ScholarlyArticle",
@@ -109,6 +123,10 @@ export function renderPapers(opts: { signedIn?: boolean } = {}): string {
 ${
   otherRows
     ? `<section class="sec pp-sec" aria-labelledby="pp-more"><div class="sec-h"><h2 id="pp-more">Building on the series</h2><span class="sec-m">${others.length} ${others.length === 1 ? "paper" : "papers"}</span></div><ol class="pp-list">${otherRows}</ol></section>`
+    : ""
+}${
+  joiningRows
+    ? `<section class="sec pp-sec" aria-labelledby="pp-join"><div class="sec-h"><h2 id="pp-join">Across the theories</h2><span class="sec-m">${joining.length} ${joining.length === 1 ? "paper" : "papers"}</span></div><ol class="pp-list">${joiningRows}</ol></section>`
     : ""
 }`;
 

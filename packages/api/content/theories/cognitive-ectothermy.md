@@ -20,6 +20,8 @@ related:
     label: "Theory: Ground blindness (what removal reveals)"
   - route: /theories/the-certainty-handoff
     label: "Theory: The certainty handoff (what passes unchecked when understanding is handed over)"
+  - route: /papers/false-quiet
+    label: "Paper: False Quiet (the mechanism this theory shares with the other three)"
 propositions:
   - statement: "Whether a medium is hot or cool is a relation between the medium, the task and the receiver, not a fixed property of the medium."
     grade: "Moderate"
