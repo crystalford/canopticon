@@ -1163,6 +1163,44 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .sortbar a { display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border-radius: 8px; font-size: var(--t-sm); font-weight: 500; color: var(--ink-2); }
 .sortbar a:hover { color: var(--ink); background: rgba(21, 23, 28, .05); }
 .sortbar a[aria-current="true"] { color: var(--ink); background: var(--card); outline: 1px solid var(--rule); }
+/* The Library's filters (2026-11-24): labelled rows in one panel — what to
+   show (one segmented control), the topic (quiet text chips), and for reports
+   the kind of document folded behind one line. Sort sits on the list header. */
+.filters { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; padding: 16px 20px; border: 1px solid var(--hair); border-radius: 14px; background: var(--tint-3); }
+.frow { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: start; gap: 12px; }
+.frow-l { padding-top: 9px; font-size: var(--t-xs); font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.filters .seg { margin-top: 0; justify-self: start; }
+.filters .tchips { margin-top: 0; gap: 2px 4px; }
+.filters .tchips a { height: 32px; padding: 0 10px; }
+.filters .tchips a[aria-current="true"] { background: var(--card); color: var(--ink); outline: 1px solid var(--rule); }
+.filters .tchips a[aria-current="true"] .n { background: var(--cobalt-soft); color: var(--cobalt); }
+.fsub { border-top: 1px solid var(--hair); padding-top: 10px; }
+.fsub > summary { display: grid; grid-template-columns: 64px auto auto; justify-content: start; align-items: center; gap: 12px; cursor: pointer; list-style: none; }
+.fsub > summary::-webkit-details-marker { display: none; }
+.fsub > summary .frow-l { padding-top: 0; }
+.fsub-v { font-size: var(--t-sm); font-weight: 500; color: var(--ink); }
+.fsub-c { font-size: var(--t-xs); color: var(--muted); transition: transform .15s; }
+.fsub[open] .fsub-c { transform: rotate(180deg); }
+.fsub > .tchips { margin: 10px 0 0 76px; }
+.lib-sort { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px; text-transform: none; letter-spacing: 0; }
+.lib-sort .l { margin-right: 6px; font-size: var(--t-xs); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.lib-sort a { white-space: nowrap; padding: 3px 8px; border-radius: 6px; font-size: var(--t-xs); font-weight: 500; color: var(--ink-2); }
+.lib-sort a:hover { color: var(--ink); background: rgba(21, 23, 28, .05); }
+.lib-sort a[aria-current="true"] { color: var(--ink); background: var(--tint); font-weight: 600; }
+.lib-head { align-items: center; }
+.hub-link { margin-top: 12px; }
+@media (max-width: 640px) {
+  .filters { padding: 14px 14px; gap: 10px; }
+  .frow { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .frow-l { padding-top: 0; }
+  .filters .seg { max-width: 100%; flex-wrap: wrap; overflow: visible; }
+  .filters .tchips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px; }
+  .filters .tchips::-webkit-scrollbar { display: none; }
+  .fsub > .tchips { margin: 8px -14px 0; }
+  .fsub > summary { grid-template-columns: auto auto auto; }
+  .fsub > .tchips { margin-left: 0; }
+  .lib-head { flex-wrap: wrap; }
+}
 .lib { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--hair); border-radius: 14px; padding: 0 24px; margin-top: 16px; }
 .lib-head { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--rule); font-size: var(--t-xs); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; }
 .lib-note { margin: 14px 0; padding: 12px 16px; border-radius: 12px; background: var(--tint-2); font-size: var(--t-ui); line-height: 1.55; color: var(--body); }

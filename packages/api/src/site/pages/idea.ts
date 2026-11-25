@@ -12,6 +12,7 @@ import {
   libraryItems,
   paper as paperBySlug,
   problems,
+  sayOf,
   terms,
 } from "../content/store";
 import { esc, pill, shell } from "../layout";
@@ -120,7 +121,7 @@ export function renderIdea(
       ].join("")
     : "";
   const sayLine = full
-    ? `<p class="term-say">${it.say ? `<span>Pronounced <b>${esc(it.say)}</b></span>` : ""}${it.plain ? `<span>In plain words: <b>${esc(it.plain)}</b></span>` : ""}</p>`
+    ? `<p class="term-say">${sayOf(it) ? `<span>Pronounced <b>${esc(sayOf(it) ?? "")}</b></span>` : ""}${it.plain ? `<span>In plain words: <b>${esc(it.plain)}</b></span>` : ""}</p>`
     : "";
   const artSlugFull = /^\/(?:articles|papers)\/([^/#?]+)/.exec(it.artRoute ?? "")?.[1];
   const coinedPaper = artSlugFull ? paperBySlug(artSlugFull) : null;

@@ -9,7 +9,7 @@
 
 import { AUTHOR } from "../author";
 import type { LibraryItem } from "../content/store";
-import { allPapers, allTheories, article, libraryItems, term } from "../content/store";
+import { allPapers, allTheories, article, libraryItems, sayOf, term } from "../content/store";
 import {
   latestResearch,
   publicResearchCount,
@@ -80,7 +80,7 @@ function namedHere(): string {
     const t = term(id);
     if (!t) return [];
     return [
-      `<a href="${esc(t.route)}" class="card term-card"><span class="pills">${pill("Concept", kindColours("Concept"))}${t.say ? `<span class="term-card-say">${esc(t.say)}</span>` : ""}</span><span class="tile-t">${esc(t.title)}</span><span class="tile-d">${esc(t.definition ?? t.body)}</span>${t.plain ? `<span class="term-card-p">In plain words: ${esc(t.plain)}</span>` : ""}</a>`,
+      `<a href="${esc(t.route)}" class="card term-card"><span class="pills">${pill("Concept", kindColours("Concept"))}${sayOf(t) ? `<span class="term-card-say">${esc(sayOf(t) ?? "")}</span>` : ""}</span><span class="tile-t">${esc(t.title)}</span><span class="tile-d">${esc(t.definition ?? t.body)}</span>${t.plain ? `<span class="term-card-p">In plain words: ${esc(t.plain)}</span>` : ""}</a>`,
     ];
   });
   const open = libraryItems().filter((r) => r.kind === "Open problem").length;
