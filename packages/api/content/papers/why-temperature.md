@@ -5,6 +5,9 @@ title: "Why Temperature"
 dek: "McLuhan never said why media are hot or cool. Read as regulation, hot and cool describe how much a medium supplies, how much it arouses, and whether the receiver predicts before the answer arrives. Working paper."
 topic: "McLuhan & media theory"
 date: "2026-11-22"
+version: 2
+revised: "2026-11-25"
+revision: "McLuhan's essay of November 1965, \"The Relation of Environment to Anti-Environment,\" describes the senses in the language of a thermostat. Version 2 adds it and no longer suggests he may never have connected his temperatures to the body."
 theory: "cognitive-ectothermy"
 ---
 
@@ -55,7 +58,7 @@ theory: "cognitive-ectothermy"
 
 ## Abstract
 
-McLuhan divided media into hot and cool. Hot media are "well filled with data" and ask little of the audience; cool media ask the audience to complete them. He never said why the distinction is one of temperature, and critics have treated it as his least useful idea.
+McLuhan divided media into hot and cool. Hot media are "well filled with data" and ask little of the audience; cool media ask the audience to complete them. *Understanding Media* never says why the distinction is one of temperature, and critics have treated it as his least useful idea. A year later, in a little-known essay, McLuhan described what new media do to the senses in the language of a thermostat.
 
 This paper reads it as a theory of regulation. Temperature is the oldest language people have for regulation, in medicine, emotion and self-control. A medium can heat a person in two ways: by supplying the output they would otherwise produce, and by raising their arousal. A body warmed from outside stops making its own heat. A mind handed a finished answer makes no prediction of its own, and experiments show that predicting first is what makes learning last.
 
@@ -73,9 +76,11 @@ In 1964 Marshall McLuhan drew a distinction that bears on exactly this. In *Unde
 
 His examples: radio is hot and the telephone cool; a photograph is hot and a cartoon cool; a lecture is hot and a seminar cool. "The hot form excludes, and the cool one includes."
 
-He never explained why the distinction is one of temperature. His readers mostly treat the words as provocation. A *Maclean's* critic wrote that the distinction "has never served as a useful addition to any media critic's toolbox." The most serious attempt to take McLuhan's temperatures literally, a 2014 journal section edited by Dylan Mulvin and Jonathan Sterne, followed them into data centres, thermal imaging, weather maps and the calorie. It did not follow them into the body of the person receiving the medium.
+In *Understanding Media* he never explained why the distinction is one of temperature. His readers mostly treat the words as provocation. A *Maclean's* critic wrote that the distinction "has never served as a useful addition to any media critic's toolbox." The most serious attempt to take McLuhan's temperatures literally, a 2014 journal section edited by Dylan Mulvin and Jonathan Sterne, followed them into data centres, thermal imaging, weather maps and the calorie. It did not follow them into the body of the person receiving the medium.
 
-This paper does. Its answer is that temperature is how people have always talked about regulation. McLuhan's hot and cool describes how a medium loads the regulation of the person using it. That account explains why the route never stuck, and it suggests what to do about it.
+The nearest McLuhan came to an explanation is in a short essay dated November 1965, "The Relation of Environment to Anti-Environment," published the next year in the *University of Windsor Review*. There he wrote that "new environments reset our sensory thresholds," and asked for "the means of measuring sensory thresholds and of discovering exactly what changes occur in these thresholds as a result of the advent of any particular technology." Such knowledge, he wrote, "would be the equivalent of a thermostatic control for room temperatures. It would seem only reasonable to extend such controls to all the sensory thresholds of our being." The essay does not use the words hot and cool. But a year after sorting media by temperature, McLuhan described the senses as a setting that each new technology moves, and that could be measured and kept, as a thermostat keeps a room.
+
+This paper follows that thermostat into the body. Its answer is that temperature is how people have always talked about regulation. McLuhan's hot and cool describes how a medium loads the regulation of the person using it. That account explains why the route never stuck, and it suggests what to do about it.
 
 ## 2. Temperature is the oldest language of regulation
 
@@ -106,7 +111,7 @@ Take McLuhan's metaphor as body physiology, the way the Sensory Syncrasis series
 
 The first row carries the argument. On this reading, McLuhan's *participation* is the receiver producing something, as a cold body produces its own heat. A hot medium arrives finished and leaves the receiver nothing to produce. A cool medium arrives incomplete and leaves the receiver to complete it.
 
-Whether McLuhan intended this is a separate question. He may have taken the words from the slang of his time without thinking about bodies at all. The claim here is that the metaphor carries a physiology that fits his definitions, which would explain why it has lasted despite never being explained.
+Whether McLuhan intended this when he wrote *Understanding Media* cannot be settled from that book, and he may have taken the words partly from the slang of his time. His essay of the following year points the same way as this paper: it treats the senses as a setting that technology resets and that a thermostat could measure and keep. The claim here is that the metaphor carries a physiology that fits his definitions, which would explain why it has lasted without being explained.
 
 ## 4. Two ways a medium heats a person
 
@@ -263,7 +268,7 @@ Regularity matters more than intensity, as with cold exposure. Fuel matters too.
 
 It also adds the capacity argument of section 8, which classroom research does not address.
 
-**"It is only a metaphor."** It is a metaphor, and the paper's claim is about why it works. Temperature is the language people have used for regulation in medicine, emotion and self-control. McLuhan's version lines up with measured physiology at two strong points. A metaphor that lasts sixty years without an explanation may be carrying something real. The work here was to find out what.
+**"It is only a metaphor."** It is a metaphor, and the paper's claim is about why it works. McLuhan himself reached for the thermostat when he described what technology does to the senses. Temperature is the language people have used for regulation in medicine, emotion and self-control. McLuhan's version lines up with measured physiology at two strong points. A metaphor that lasts sixty years without an explanation may be carrying something real. The work here was to find out what.
 
 **"The fit was found after the fact."** Partly true, which is why section 3 ranks the correspondences and section 6 includes the studies that cut against the reading. The two strongest correspondences match McLuhan's two defining claims, completion by the audience and dependence on the receiving culture. Both were written in 1964, before the learning studies. A blind second coder, in section 6, agreed on which condition was cooler in all thirteen pairs.
 
@@ -301,6 +306,7 @@ Each entry gives its DOI or address and what was read for this paper. **Read** m
 
 | Reference | Read |
 | --- | --- |
+| McLuhan, M. (1966). The relation of environment to anti-environment. *University of Windsor Review*, 2(1). Quoted from page 8 of the typescript dated November 1965 | Text checked |
 | McLuhan, M. (1964). *Understanding Media: The Extensions of Man*, ch. 2, "Media Hot and Cold", and ch. 3, "Reversal of the Overheated Medium". New York: McGraw-Hill. Checked against archive.org/details/ETC0624 | Text checked |
 | Mulvin, D., & Sterne, J. (2014). Media, hot and cold. Introduction: Temperature is a media problem. *International Journal of Communication*, 8, 2496–2503. ijoc.org/index.php/ijoc/article/view/3339 | Read |
 | Malin, B. J. (2014). Anal probes and overheated media: the physiological roots of contemporary media research. *International Journal of Communication*, 8, 2509–2512. ijoc.org/index.php/ijoc/article/view/3268 | Read |
