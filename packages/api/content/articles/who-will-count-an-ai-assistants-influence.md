@@ -5,10 +5,10 @@ kind: "Article"
 form: "Essay"
 topic: "Attribution & credit"
 title: "Who will count an AI assistant's influence: advertising attribution after the agent"
-dek: "Every shift in how advertising is paid for happened when a new party could count a new event. The agent that now does the buying can count the one that matters — and reports it to no one."
+dek: "Every shift in how advertising is paid for happened when a new party could count a new event. The agent that now does the buying can count the one that matters, and reports it to no one."
 date: "2026-10-02"
 why: "I got into online advertising as it moved from paying per view, to per click, to per sale — three shifts in tracking that built performance marketing as it is today. I commissioned this research to find out whether the next one is coming, and who it would belong to."
-thesis: "A paradigm shift in attribution needs a new event and a new counter. In 2026 the event exists — an agent's choice, shaped by sources — and so does the counter. What is missing is the counter's willingness to count for anyone but itself."
+thesis: "A paradigm shift in attribution needs a new event and a new counter. In 2026 the event exists (an agent's choice, shaped by sources), and so does the counter. What is missing is the counter's willingness to count for anyone but itself."
 based_on: 
   - id: what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-
     label: "What Makes an Attribution Paradigm Shift"
@@ -16,7 +16,7 @@ quotes: 50
 words: 1906
 cite: "Telford, C. (2026). Who will count an AI assistant's influence: advertising attribution after the agent. Canopticon. canopticon.com/articles/who-will-count-an-ai-assistants-influence"
 ---
-Online advertising has changed what it charges for three times: for showing an ad, then for a click, then for a sale. Each change needed someone everyone would trust to count the new event — the website that served the ad, the search engine that logged the click, the shop whose checkout recorded the sale. The research calls that trusted counter the oracle. This article argues the fourth change has already begun: AI assistants now do the choosing, and the only company that could count what persuaded them is the AI company itself, which reports nothing.
+Online advertising has changed what it charges for three times: for showing an ad, then for a click, then for a sale. Each change needed someone everyone would trust to count the new event: the website that served the ad, the search engine that logged the click, the shop whose checkout recorded the sale. The research calls that trusted counter the oracle. This article argues the fourth change has already begun: AI assistants now do the choosing, and the only company that could count what persuaded them is the AI company itself, which reports nothing.
 
 ## Three shifts, one shape
 
@@ -38,7 +38,7 @@ The third shift handed the count to the advertiser. Paying for referrals is olde
 
 ## What a shift is not
 
-Most of what has been called transformation since 2002 fails the test. Real-time bidding <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Key findings">changed who prices an impression and when (per-impression auction instead of pre-negotiated rates). It did not change what gets verified.</q> The end of the cookie <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Key findings">produced patches, not a paradigm.</q> And signing — the thing every current proposal reaches for — turns out to be old: Apple has signed install postbacks since 2018, and <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Key findings">Signing tells you *who* made a claim, not whether it is true.</q>
+Most of what has been called transformation since 2002 fails the test. Real-time bidding <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Key findings">changed who prices an impression and when (per-impression auction instead of pre-negotiated rates). It did not change what gets verified.</q> The end of the cookie <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Key findings">produced patches, not a paradigm.</q> And signing, the thing every current proposal reaches for, turns out to be old: Apple has signed install postbacks since 2018, and <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Key findings">Signing tells you *who* made a claim, not whether it is true.</q>
 
 The research compresses the diagnostic to one question: <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="The diagnostic">"After this, what can the payer know that no one could know before, and who is now trusted to report it?" If the answer is "the same event, more reliably, securely or privately," it is a feature or a patch, however sophisticated.</q> By that question, server-side conversion APIs, multi-touch models, blockchain ledgers and credential-signed receipts all land on the same side of the line.
 
@@ -56,7 +56,7 @@ The size of what goes unseen has a first measurement. Partnerize's 2026 index pu
 
 > **Objection: The size of the gap rests on one vendor's number**
 >
-> It does — a company with an interest in the answer measured it, and figures like it vary by source. The argument should hold the 3.84× loosely and itself firmly: it needs the gap only to be larger than zero, and no one disputes that.
+> It does: a company with an interest in the answer measured it, and figures like it vary by source. The argument should hold the 3.84× loosely and itself firmly: it needs the gap only to be larger than zero, and no one disputes that.
 
 ## The oracle exists and will not speak
 
@@ -66,7 +66,7 @@ The transaction protocols sign the wrong thing. AP2's mandates are verifiable cr
 
 > **Objection: The AI companies may simply never report it**
 >
-> That is the strongest objection, and history backs it: <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part C">Google has never shared organic-ranking "influence" with publishers as a payable unit.</q> The history of search says the platform keeps the signal. But that does not undo the argument; it decides which version of the shift arrives. If AI companies never report, influence gets paid for privately, on each platform's own terms — the closed version the next section describes.
+> That is the strongest objection, and history backs it: <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part C">Google has never shared organic-ranking "influence" with publishers as a payable unit.</q> The history of search says the platform keeps the signal. But that does not undo the argument; it decides which version of the shift arrives. If AI companies never report, influence gets paid for privately, on each platform's own terms: the closed version the next section describes.
 
 Where influence is already paid for, it is paid inside one platform. Perplexity's programme <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part B — The 2026 Substrate Check">gives publishers 80% of revenue from an initial $42.5 million pool, split by visits, citations and agent actions</q>, and another start-up <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part B — The 2026 Substrate Check">pays 50% by contribution share</q>. The research's verdict: <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part B — The 2026 Substrate Check">Neither is a cross-platform standard.</q> The open standard for reporting influence was founded by <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part B — The 2026 Substrate Check">the BBC, FT, Guardian, Sky News and Telegraph</q>. So far: <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part B — The 2026 Substrate Check">No AI agent platform has publicly adopted it.</q> Some intermediaries have announced plans, which the research calls <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part B — The 2026 Substrate Check">intent, not adoption</q>. Amazon <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part B — The 2026 Substrate Check">uses neither ACP nor UCP</q>.
 
@@ -74,7 +74,7 @@ Where influence is already paid for, it is paid inside one platform. Perplexity'
 
 The research names the shift that is forming, in the register of the three before it: <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part C">**CPA → CPAI (cost per attested influence):** payment for a provable role in an agent's selection, rather than for a human click or a cookie-linked conversion.</q> What would become verifiable is not whether a human clicked or a sale occurred but <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part C">"which sources did the agent ground on and cite in the session that produced this purchase?"</q> And the risk would move the way it moved in 2002 and 1996: <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part C">Under CPAI, the platform becomes the oracle and takes on reporting liability. Merchants pay for demonstrated influence. Publishers stop subsidizing agents' judgement for free.</q>
 
-What is missing is not research. <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part C">Condition 1 is a business decision by roughly four companies, not a research problem.</q> The research's own weighing of the evidence — proprietary publisher-pay programmes, default-off sharing flags, no confirmed use of the one field built for this — <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part C">points to *closed, per-platform* influence payment arriving before any *open, portable* one.</q>
+What is missing is a decision. <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part C">Condition 1 is a business decision by roughly four companies, not a research problem.</q> The research's own weighing of the evidence (proprietary publisher-pay programmes, default-off sharing flags, no confirmed use of the one field built for this) <q doc="what-makes-an-attribution-paradigm-shift-and-whether-one-is-available-" section="Part C">points to *closed, per-platform* influence payment arriving before any *open, portable* one.</q>
 
 ## The shift starts when an AI company reports what persuaded its assistant
 

@@ -9,7 +9,7 @@ dek: "Across health, addiction, prices, screens and typing, the research keeps f
 date: "2026-10-10"
 withdrawn: "Pulled 10 Oct: it asserts one pattern across five fields by quoting a line from each, which is analogy, not evidence. Not linked from the site."
 why: "Researching very different things — a skin routine, addiction, rent prices, my own scrolling, the return of voice — I kept arriving at the same shape. I wanted to see whether it was one idea or a habit of mine."
-thesis: "In each case the research looked at, the visible thing stayed the same while the background it sat in moved — and the move went unnoticed precisely because it was background. McLuhan called this figure and ground. The record shows it working in five places that have nothing else in common."
+thesis: "In each case the research looked at, the visible thing stayed the same while the background it sat in moved, and the move went unnoticed because it was background. McLuhan called this figure and ground. The record shows it working in five places that have nothing else in common."
 based_on: 
   - id: when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten
     label: "When “Healed” Is the Treatment Working"
@@ -35,7 +35,7 @@ The first case is the simplest. Some problems only stay fixed while you keep tre
 
 ## In addiction, the baseline moves, not the drug
 
-Addiction looks like the opposite case — the drug is all a person notices. The research makes the distinction that resolves it: <q doc="the-medium-becomes-the-ground-mcluhan-s-media-theory-and-the-allostati" section="TL;DR">In the allostatic model, the thing that becomes the unperceived "ground" is not the drug. It is the drug's opponent process: the anti-reward, stress-surfeit baseline. The drug stays a hyper-salient figure.</q> The craving is in plain view. The shifted normal it answers to is not. McLuhan, in 1964, put it in four words: <q doc="the-medium-becomes-the-ground-mcluhan-s-media-theory-and-the-allostati" section="Part 2">Self-amputation forbids self-recognition.</q>
+Addiction looks like the opposite case, since the drug is all a person notices. The research makes the distinction that resolves it: <q doc="the-medium-becomes-the-ground-mcluhan-s-media-theory-and-the-allostati" section="TL;DR">In the allostatic model, the thing that becomes the unperceived "ground" is not the drug. It is the drug's opponent process: the anti-reward, stress-surfeit baseline. The drug stays a hyper-salient figure.</q> The craving is in plain view. The shifted normal it answers to is not. McLuhan, in 1964, put it in three words: <q doc="the-medium-becomes-the-ground-mcluhan-s-media-theory-and-the-allostati" section="Part 2">Self-amputation forbids self-recognition.</q>
 
 ## A price can change meaning without changing number
 
@@ -51,13 +51,13 @@ The pattern also works at the scale of a culture. For thirty years, talking to c
 
 > **Objection: This is just McLuhan’s figure and ground**
 >
-> Yes — and the name is his. What the record adds is the range. The same mechanism turns up in a skin routine, a nervous system, a price, a habit and a medium, in research that was never looking for McLuhan. A frame that keeps appearing where it was not invited is doing work, not decoration.
+> Yes, and the name is his. What the record adds is the range. The same mechanism turns up in a skin routine, a nervous system, a price, a habit and a medium, in research that was never looking for McLuhan. A frame that keeps turning up where nobody looked for it is probably describing something real.
 
 ## Seeing the background takes work
 
-If the change hides in the background, noticing it is a skill, not an accident. One of the record's reviews of how thinking watches itself frames it this way: <q doc="examined-cognition-substrates-metacognition-methods-looking-looking" section="Key Findings">metacognition is the labor of dragging ground into figure</q>. Every case above has the same remedy: make the background visible on purpose. Keep the routine after the symptom is gone. Name the baseline, not the craving. Ask how a price was set, not just what it is. Count the hours, not the swipes. Notice the keyboard.
+If the change hides in the background, it has to be looked for on purpose. One of the record's reviews of how thinking watches itself frames it this way: <q doc="examined-cognition-substrates-metacognition-methods-looking-looking" section="Key Findings">metacognition is the labor of dragging ground into figure</q>. Every case above has the same remedy: make the background visible on purpose. Keep the routine after the symptom is gone. Name the baseline under the craving. Ask how a price was set as well as what it is. Count the hours spent scrolling. Notice the keyboard.
 
 ## What this explains
 
-It explains why so many problems come back after they look solved: what fixed them was a background condition, and nobody was watching it. It explains why the most powerful changes are the quiet ones — a price that means something new, a habit that becomes a default, a medium that becomes the room. And it explains why the research kept finding the same shape: not because one idea explains everything, but because people attend to what is in front of them, and the world changes behind it.
+It explains why so many problems come back after they look solved: what fixed them was a background condition, and nobody was watching it. It explains why the most powerful changes are the quiet ones: a price that means something new, a habit that becomes a default, a medium that becomes the room. And it explains why the research kept finding the same shape: people attend to what is in front of them, and the world changes behind it.
 

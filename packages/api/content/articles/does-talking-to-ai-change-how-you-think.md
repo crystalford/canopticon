@@ -34,7 +34,7 @@ The fair summary is that explaining helps, and speaking to someone tends to prod
 
 ## What changes when the listener talks back?
 
-An AI is not the imagined student of these experiments. It answers, and it can explain better and faster than the person talking to it. That changes who is doing the work.
+An AI differs from the imagined student of these experiments: it answers, and it can explain better and faster than the person talking to it. That changes who is doing the work.
 
 A field experiment with nearly a thousand high-school maths students shows what is at stake. Students who used a version of GPT-4 that gave answers did far better on practice problems while they had it, and scored 17% below students who never had it once it was taken away for the exam; students whose version gave hints instead of answers scored about the same as those who never had it [7]. The difference was whether the student or the machine produced the next step. The same applies to a spoken conversation: a person who talks a problem through with an AI and does the explaining is doing the thing that helps, and a person who asks and listens is receiving an explanation someone else produced. This publication's essay [Guess before you look](/articles/guess-before-you-look) and the theory of [cognitive ectothermy](/theories/cognitive-ectothermy) follow that difference further.
 
