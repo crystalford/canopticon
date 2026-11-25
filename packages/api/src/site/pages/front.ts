@@ -1,14 +1,15 @@
-// / — the front page, in the order of the site's sections (2026-11-24): the
-// masthead with the five sections as one strip, then Theories (live: every one
-// is a deliberate act), Papers (the McLuhan series as one numbered card),
-// Writing (hand-picked essays beside hand-picked briefs), the Lexicon and open
-// questions, and the newest research with the topics. New writing does not
+// / — the front page, in the order of the site's four sections (2026-11-24):
+// the masthead naming them (the idea, the argument, the evidence, the words),
+// then Theories (live: every one is a deliberate act), Writing (the McLuhan
+// series as one card, then the other papers and hand-picked essays),
+// Research (hand-picked briefs beside the newest reports, then the topics)
+// and the Lexicon with the open questions. New writing does not
 // appear here on its own (author decision, 10 Oct) — the counts are live, the
 // picks are not.
 
 import { AUTHOR } from "../author";
 import type { LibraryItem } from "../content/store";
-import { allPapers, allTheories, article, isWriting, libraryItems, term } from "../content/store";
+import { allPapers, allTheories, article, libraryItems, term } from "../content/store";
 import {
   latestResearch,
   publicResearchCount,
@@ -74,79 +75,6 @@ function theoriesSection(): string {
   return `<section class="sec" aria-labelledby="t-h"><div class="sec-h"><h2 id="t-h">Theories</h2><a href="/theories" class="sec-a">All theories</a></div><p class="sec-p">Named ideas stated formally: a claim, propositions graded by the evidence behind them, the primary studies they rest on, and what counts against them.</p><div class="grid3">${cards}</div></section>`;
 }
 
-/** The masthead: what the site is, in its own plain words, and its five
- *  sections as one strip, each with its count. The order is the ladder:
- *  from the author's own ideas down to the evidence under them. */
-function masthead(): string {
-  const rows = libraryItems();
-  const writing = rows.filter((r) => isWriting(r.kind));
-  const steps: Array<[string, string, number, string]> = [
-    [
-      "/theories",
-      "Theories",
-      allTheories().length,
-      "Named ideas, stated formally and graded by their evidence.",
-    ],
-    ["/papers", "Papers", allPapers().length, "Long original work, with numbered references."],
-    [
-      "/writing",
-      "Writing",
-      writing.length,
-      "Essays that argue an idea; briefs that answer one question.",
-    ],
-    [
-      "/research",
-      "Research",
-      publicResearchCount(),
-      "The reports underneath it all, each kept whole.",
-    ],
-    [
-      "/lexicon",
-      "Lexicon",
-      rows.filter((r) => r.kind === "Concept").length,
-      "Every term coined here, defined.",
-    ],
-  ];
-  const strip = steps
-    .map(
-      ([href, name, n, what], i) =>
-        `<a href="${href}" class="lad-s"><span class="lad-top"><span class="lad-i">${String(i + 1).padStart(2, "0")}</span><span class="lad-n tnum">${n}</span></span><span class="lad-t">${name}</span><span class="lad-d">${what}</span></a>`,
-    )
-    .join("");
-  return `<section class="mast" aria-labelledby="mast-h"><h1 id="mast-h" class="mast-h">An independent research publication by Chris Telford.</h1><p class="mast-p">Theories and papers of his own, the essays and briefs written from them, and the research they stand on. Every quotation is copied word for word from a stored source and links back to it.</p><nav class="lad" aria-label="Sections">${strip}</nav></section>`;
-}
-
-/** Writing: the essays and the briefs side by side, each column the
- *  author's own picks. */
-function writingSection(): string {
-  const col = (slugs: string[]) =>
-    slugs
-      .flatMap((slug) => {
-        const a = article(slug);
-        return a && !a.withdrawn ? [writingFor(a)] : [];
-      })
-      .map(
-        (w) =>
-          `<a href="${esc(w.route)}" class="wrow"><span class="wrow-t">${esc(w.title.split(/:\s/)[0] ?? w.title)}</span><span class="wrow-d">${esc(w.dek)}</span><span class="wrow-m"><span class="tnum">${esc(shortDate(w.date))}</span><span aria-hidden="true">·</span><span>${w.minutes} min</span><span aria-hidden="true">·</span><span>${esc(w.topic)}</span></span></a>`,
-      )
-      .join("");
-  const n = (form: string) => libraryItems().filter((r) => r.kind === form).length;
-  return `<section class="sec" aria-labelledby="w-h"><div class="sec-h"><h2 id="w-h">Writing</h2></div><div class="wcols"><div class="wcol"><div class="wcol-h">${pill("Essay", kindColours("Essay"), "pill lg")}<span>Argue one of the author\u2019s ideas</span></div>${col(FRONT_ESSAYS)}<a href="/writing?kind=Essay" class="row-more">All ${n("Essay")} essays</a></div><div class="wcol"><div class="wcol-h">${pill("Brief", kindColours("Brief"), "pill lg")}<span>Answer one question from the evidence</span></div>${col(FRONT_ARTICLES)}<a href="/writing?kind=Brief" class="row-more">All ${n("Brief")} briefs</a></div></div></section>`;
-}
-
-/** Papers: the series card, then the papers that build on it. */
-function papersSection(): string {
-  const inSeries = new Set(seriesPapers().map((s) => s.paper.slug));
-  const more = allPapers()
-    .filter((p) => !inSeries.has(p.slug))
-    .map(
-      (p) =>
-        `<a href="/papers/${esc(p.slug)}" class="card pp-more"><span class="pills">${pill("Paper", kindColours("Paper"))}<span class="pp-mm">Builds on the series</span></span><span class="tile-t">${esc(p.title)}</span><span class="tile-d">${esc(p.dek ?? "")}</span></a>`,
-    )
-    .join("");
-  return `<section class="sec" aria-labelledby="p-h"><div class="sec-h"><h2 id="p-h">Papers</h2><a href="/papers" class="sec-a">All papers</a></div>${seriesCard()}${more ? `<div class="grid3" style="margin-top:12px">${more}</div>` : ""}</section>`;
-}
-
 function namedHere(): string {
   const cards = NAMED_HERE.flatMap((id) => {
     const t = term(id);
@@ -163,19 +91,64 @@ function researchRow(r: LibraryItem, last: boolean): string {
   return `<a href="${esc(r.route)}" class="row rrow${last ? " last" : ""}"><span class="rrow-d tnum">${esc(r.dateLabel ?? shortDate(r.date))}</span><span style="min-width:0"><span class="rrow-t">${esc(r.title)}</span><span class="pills" style="margin-top:6px">${pill(r.sub ?? "Research", kindColours("Research"))}${pill(r.topic, topicColours(r.topic))}</span></span></a>`;
 }
 
-function latest(): string {
-  const items = latestResearch(4);
-  const topics = researchTopics();
-  return `<section class="sec" aria-labelledby="r-h"><div class="sec-h"><h2 id="r-h">Research</h2><a href="/research" class="sec-a">All ${publicResearchCount()} reports</a></div><p class="sec-p">The reports everything above stands on, each kept whole and published as it was written. The newest:</p><div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start"><div style="flex:2 1 480px;min-width:0"><div class="rows slim">${items
+/** The masthead: what the site is, in its own plain words, and its four
+ *  sections as one strip — the idea, the argument, the evidence, the words.
+ *  No counts: what a section is for says more than how full it is. */
+function masthead(): string {
+  const steps: Array<[string, string, string]> = [
+    ["/theories", "Theories", "The ideas: named, stated formally and graded by their evidence."],
+    ["/writing", "Writing", "The arguments: essays and papers, short and long."],
+    ["/research", "Research", "The evidence: reports kept whole, and briefs written from them."],
+    ["/lexicon", "Lexicon", "The words: every term coined here, defined."],
+  ];
+  const strip = steps
+    .map(
+      ([href, name, what], i) =>
+        `<a href="${href}" class="lad-s"><span class="lad-i">${String(i + 1).padStart(2, "0")}</span><span class="lad-t">${name}</span><span class="lad-d">${what}</span></a>`,
+    )
+    .join("");
+  return `<section class="mast" aria-labelledby="mast-h"><h1 id="mast-h" class="mast-h">An independent research publication by Chris Telford.</h1><p class="mast-p">Theories of his own, the essays and papers that argue them, and the research they stand on. Every quotation is copied word for word from a stored source and links back to it.</p><nav class="lad" aria-label="Sections">${strip}</nav></section>`;
+}
+
+/** One row of writing: title, summary, date · length · topic, and its form. */
+function wrow(w: ReturnType<typeof writingFor>, kind = true): string {
+  return `<a href="${esc(w.route)}" class="wrow">${kind ? `<span class="wrow-k">${pill(w.kind, kindColours(w.kind))}</span>` : ""}<span class="wrow-t">${esc(w.title.split(/:\s/)[0] ?? w.title)}</span><span class="wrow-d">${esc(w.dek)}</span><span class="wrow-m"><span class="tnum">${esc(shortDate(w.date))}</span><span aria-hidden="true">·</span><span>${w.minutes} min</span><span aria-hidden="true">·</span><span>${esc(w.topic)}</span></span></a>`;
+}
+
+const picks = (slugs: string[]) =>
+  slugs.flatMap((slug) => {
+    const a = article(slug);
+    return a && !a.withdrawn ? [writingFor(a)] : [];
+  });
+
+/** Writing: the McLuhan series as one card, then the papers outside it and
+ *  the author's picked essays, side by side. */
+function writingSection(): string {
+  const inSeries = new Set(seriesPapers().map((s) => s.paper.slug));
+  const papers = allPapers()
+    .filter((p) => !inSeries.has(p.slug))
+    .map((p) => writingFor(p));
+  const rows = [...papers, ...picks(FRONT_ESSAYS)].map((w) => wrow(w)).join("");
+  const n = libraryItems().filter((r) => r.kind === "Essay" || r.kind === "Paper").length;
+  return `<section class="sec" aria-labelledby="w-h"><div class="sec-h"><h2 id="w-h">Writing</h2><a href="/writing" class="sec-a">All ${n} essays and papers</a></div><p class="sec-p">The arguments. Essays make one in a few minutes; papers work an idea through the published research with numbered references.</p>${seriesCard()}<div class="wgrid">${rows}</div></section>`;
+}
+
+/** Research: briefs beside the newest reports, then the topics. */
+function researchSection(): string {
+  const briefs = picks(FRONT_ARTICLES)
+    .map((w) => wrow(w, false))
+    .join("");
+  const nBriefs = libraryItems().filter((r) => r.kind === "Brief").length;
+  const reports = latestResearch(6)
     .map((r) => researchRow(r, false))
-    .join(
-      "",
-    )}<a href="/research" class="row-more" style="border-top:0">See all ${publicResearchCount()} reports</a></div></div><div class="card" style="flex:1 1 300px;min-width:0;padding:20px"><div style="font-size:16px;font-weight:600;color:var(--ink)">Browse by topic</div><div style="font-size:14px;color:var(--ink-2);margin:4px 0 14px">Everything on one subject: theories, papers, writing and research.</div><div class="pills" style="gap:8px">${topics
+    .join("");
+  const topics = researchTopics()
     .map(
       (t) =>
         `<a href="/topics/${esc(t.slug)}" class="tpill" style="background:${topicColours(t.name)[0]};color:${topicColours(t.name)[1]}">${esc(t.name)}<span class="n">${t.count}</span></a>`,
     )
-    .join("")}</div></div></div></section>`;
+    .join("");
+  return `<section class="sec" aria-labelledby="r-h"><div class="sec-h"><h2 id="r-h">Research</h2><a href="/research" class="sec-a">All research</a></div><p class="sec-p">The evidence everything above stands on. Reports are kept whole, as they were written; briefs answer one question from them, quoting them word for word.</p><div class="wcols"><div class="wcol"><div class="wcol-h">${pill("Brief", kindColours("Brief"), "pill lg")}<span>One question, answered from the reports</span></div>${briefs}<a href="/research?kind=Brief" class="row-more">All ${nBriefs} briefs</a></div><div class="wcol"><div class="wcol-h">${pill("Research", kindColours("Research"), "pill lg")}<span>The newest reports</span></div><div class="rows slim wcol-rows">${reports}</div><a href="/research?kind=Report" class="row-more">All ${publicResearchCount()} reports</a></div></div><div class="topics-card"><span class="topics-h">Browse by topic</span><div class="pills" style="gap:8px">${topics}</div></div></section>`;
 }
 
 function checkable(): string {
@@ -216,6 +189,6 @@ export function renderFront(opts: { signedIn?: boolean } = {}): string {
     path: "/",
     signedIn: opts.signedIn ?? false,
     head: `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`,
-    body: `${masthead()}${theoriesSection()}${papersSection()}${writingSection()}${namedHere()}${latest()}${checkable()}`,
+    body: `${masthead()}${theoriesSection()}${writingSection()}${researchSection()}${namedHere()}${checkable()}`,
   });
 }

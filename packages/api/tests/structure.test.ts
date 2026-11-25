@@ -1,8 +1,8 @@
-// The site's sections, in one order everywhere (2026-11-24): Theories ·
-// Papers · Writing · Research · Lexicon, with open questions beside the
-// Lexicon. Writing holds two forms — essays argue an idea of the author's,
-// briefs answer one question from the evidence — and papers have their own
-// address.
+// The site's four sections, in one order everywhere (2026-11-24): Theories
+// (the idea) · Writing (the argument: essays and papers) · Research (the
+// evidence: reports, and the briefs written from them) · Lexicon (the words),
+// with open questions beside the Lexicon. Papers keep their own address, and
+// the McLuhan series its page at /papers.
 
 import { describe, expect, it } from "vitest";
 import app from "../src/index";
@@ -10,7 +10,7 @@ import { allArticles, allPapers, libraryItems } from "../src/site/content/store"
 
 const env = { LOG_LEVEL: "error" };
 const get = (path: string) => app.fetch(new Request(`http://test${path}`), env);
-const SECTIONS = ["/theories", "/papers", "/writing", "/research", "/lexicon"];
+const SECTIONS = ["/theories", "/writing", "/research", "/lexicon"];
 
 describe("the sections", () => {
   it("run in one order in the top bar, the footer and the front page", async () => {
@@ -30,15 +30,16 @@ describe("the sections", () => {
     );
     expect(order(strip)).toEqual(SECTIONS);
     const foot = html.slice(html.indexOf('aria-label="Footer"'));
-    expect(order(foot).slice(0, 5)).toEqual(SECTIONS);
+    expect(order(foot).slice(0, 4)).toEqual(SECTIONS);
   });
 
   it("each answers on its own address, and the old ones land there", async () => {
-    for (const p of [...SECTIONS, "/open"]) expect((await get(p)).status, p).toBe(200);
+    for (const p of [...SECTIONS, "/open", "/papers"]) expect((await get(p)).status, p).toBe(200);
     for (const [from, to] of [
       ["/ideas", "/lexicon"],
       ["/articles", "/writing"],
       ["/investigations", "/research?kind=Investigation"],
+      ["/briefs", "/research?kind=Brief"],
     ]) {
       const res = await get(from as string);
       expect(res.headers.get("location"), from).toBe(to);
@@ -56,13 +57,25 @@ describe("writing", () => {
     }
   });
 
-  it("the Writing page counts both forms and nothing labels itself an article", async () => {
-    const html = await (await get("/writing")).text();
-    const essays = libraryItems().filter((r) => r.kind === "Essay").length;
-    const briefs = libraryItems().filter((r) => r.kind === "Brief").length;
-    expect(html).toContain(`Essays<span class="n">${essays}</span>`);
-    expect(html).toContain(`Briefs<span class="n">${briefs}</span>`);
-    expect(html).not.toMatch(/class="pill[^"]*"[^>]*>Article</);
+  it("Writing holds the essays and papers; Research holds the reports and briefs", async () => {
+    const count = (k: string) => libraryItems().filter((r) => r.kind === k).length;
+    const writing = await (await get("/writing")).text();
+    expect(writing).toContain(`Essays<span class="n">${count("Essay")}</span>`);
+    expect(writing).toContain(`Papers<span class="n">${count("Paper")}</span>`);
+    expect(writing).not.toContain("Briefs<span");
+    const research = await (await get("/research")).text();
+    expect(research).toContain(`Briefs<span class="n">${count("Brief")}</span>`);
+    expect(writing + research).not.toMatch(/class="pill[^"]*"[^>]*>Article</);
+  });
+
+  it("a brief lights up Research in the top bar, an essay or paper Writing", async () => {
+    const cur = (html: string) =>
+      /<nav aria-label="Primary"[\s\S]*?<a href="(\/[a-z]+)" aria-current="page"/.exec(html)?.[1];
+    const brief = allArticles().find((a) => a.form === "Brief" && !a.withdrawn);
+    const essay = allArticles().find((a) => a.form === "Essay" && !a.withdrawn);
+    expect(cur(await (await get(`/articles/${brief?.slug}`)).text())).toBe("/research");
+    expect(cur(await (await get(`/articles/${essay?.slug}`)).text())).toBe("/writing");
+    expect(cur(await (await get("/papers/krasis")).text())).toBe("/writing");
   });
 });
 

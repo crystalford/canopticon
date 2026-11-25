@@ -116,7 +116,7 @@ ${
     description:
       "Long original papers by Chris Telford: seven read McLuhan's claim that media change the ratio among the senses literally, against modern neuroscience.",
     path: "/papers",
-    nav: "papers",
+    nav: "writing",
     signedIn: opts.signedIn ?? false,
     head: `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`,
     body,

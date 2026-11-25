@@ -122,7 +122,7 @@ export function renderChanges(
     title: `${p.title}: what changed`,
     description: `Every change between version ${from.n} and version ${to.n} of ${p.title}, word by word.`,
     path: `${path}/changes`,
-    nav: "papers",
+    nav: "writing",
     signedIn: opts.signedIn ?? false,
     body: `<article class="chg">
 <p class="chg-kick"><a href="${path}">${esc(p.title)}</a> · What changed</p>

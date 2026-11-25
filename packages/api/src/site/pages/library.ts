@@ -23,22 +23,22 @@ interface Group {
 const GROUPS: Group[] = [
   { id: "all", label: "All", kinds: null },
   { id: "Theory", label: "Theories", kinds: ["Theory"] },
-  { id: "Paper", label: "Papers", kinds: ["Paper"] },
   {
     id: "Writing",
     label: "Writing",
-    kinds: ["Essay", "Brief", "Article"],
+    kinds: ["Essay", "Paper", "Article"],
     members: [
       ["Essay", "Essays"],
-      ["Brief", "Briefs"],
+      ["Paper", "Papers"],
     ],
   },
   {
     id: "Research",
     label: "Research",
-    kinds: ["Research"],
+    kinds: ["Research", "Brief"],
     members: [
       ["Report", "Reports"],
+      ["Brief", "Briefs"],
       ["Investigation", "Investigations"],
     ],
   },
@@ -60,11 +60,11 @@ const GROUPS: Group[] = [
  *  names still land: Article → Writing, Ideas → Terms, Concept → Terms. */
 const KIND_PARAM: Record<string, [string, string]> = {
   Theory: ["Theory", "all"],
-  Paper: ["Paper", "all"],
+  Paper: ["Writing", "Paper"],
   Writing: ["Writing", "all"],
   Article: ["Writing", "all"],
   Essay: ["Writing", "Essay"],
-  Brief: ["Writing", "Brief"],
+  Brief: ["Research", "Brief"],
   Research: ["Research", "all"],
   Report: ["Research", "Report"],
   Investigation: ["Research", "Investigation"],
@@ -140,7 +140,7 @@ const subName = (d: Row) => {
 function inGroup(d: Row, id: string): boolean {
   // Investigations are research, shown under Research; they stay out of
   // "All" and the topics because they are working files, not conclusions.
-  if (id === "Research") return d.kind === "Research";
+  if (id === "Research") return d.kind === "Research" || d.kind === "Brief";
   if (d.shelf === "investigation") return false;
   if (id === "all") return !DERIVED.has(d.kind);
   const g = GROUPS.find((x) => x.id === id);
@@ -173,15 +173,15 @@ export const WRITING: Shelf = {
   base: "/writing",
   title: "Writing",
   group: "Writing",
-  lede: "Short pieces in two forms. An <strong>essay</strong> argues an idea of the author\u2019s: it names a pattern or applies one of the theories. A <strong>brief</strong> answers one question from the evidence, and every quotation in it is checked word for word against the research it comes from.",
-  searchLabel: "Filter essays and briefs by title, summary or topic",
+  lede: 'The author\u2019s own arguments, short and long. An <strong>essay</strong> argues one idea in a few minutes\u2019 reading; a <strong>paper</strong> works an idea through the published research with numbered references. Seven of the papers are <a href="/papers">a series on McLuhan and the senses</a>.',
+  searchLabel: "Filter essays and papers by title, summary or topic",
 };
 
 export const RESEARCH: Shelf = {
   base: "/research",
   title: "Research",
   group: "Research",
-  lede: "The reports everything else stands on, each kept whole and published as it was written. <strong>Investigations</strong> are the working files on Canadian politics, finance and media: sourced, but open lines of inquiry rather than conclusions.",
+  lede: "The evidence. <strong>Reports</strong> are the research documents, each kept whole and published as it was written. <strong>Briefs</strong> are short answers to one question, written from those reports, with every quotation checked word for word against the one it comes from. <strong>Investigations</strong> are the working files on Canadian politics, finance and media: sourced, but open lines of inquiry rather than conclusions.",
   searchLabel: "Filter the research by title, summary or topic",
 };
 

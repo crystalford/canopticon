@@ -9,8 +9,8 @@ import { libraryItems } from "../content/store";
 import { shell } from "../layout";
 
 /** Which section of the top bar a hand-built page belongs to. */
-function navFor(route: string): "papers" | "lexicon" | "open" | "library" {
-  if (route.startsWith("/papers/")) return "papers";
+function navFor(route: string): "writing" | "lexicon" | "open" | "library" {
+  if (route.startsWith("/papers/")) return "writing";
   if (route.startsWith("/concepts/")) return "lexicon";
   if (route.startsWith("/open/")) return "open";
   return "library";
