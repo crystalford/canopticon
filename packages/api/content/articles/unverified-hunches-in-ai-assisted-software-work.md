@@ -19,22 +19,22 @@ quotes: 49
 words: 1837
 cite: "Telford, C. (2026). Unverified hunches in AI-assisted software work: the certainty handoff and one-sided memory. Canopticon. canopticon.com/articles/unverified-hunches-in-ai-assisted-software-work"
 ---
-You ask an AI coding agent to rename something because the name is wrong. You know why it is wrong — you have been living in this project for weeks — so you do not say. The agent renames it, guesses at the reason, and the guess spreads through the code. An hour later you are undoing work that was built on a hunch you never checked and never explained. This article names the two failures behind that hour. Neither is new on its own; what is new is how they compound when the other party is a machine that forgets.
+You ask an AI coding agent to rename something because the name is wrong. You have been living in this project for weeks and know why it is wrong, so you do not say. The agent renames it, guesses at the reason, and the guess spreads through the code. An hour later you are undoing work that was built on a hunch you never checked and never explained. This article names the two failures behind that hour. Neither is new on its own; what is new is how they compound when the other party is a machine that forgets.
 
 <figure data-kind="names" tone="green">
-- The handoff | The certainty handoff | Passing on a hunch that feels right as though it had been checked — and assuming the other side understood it as clearly as you hold it. | Builds on research into the feeling of rightness and the illusion of transparency.
+- The handoff | The certainty handoff | Passing on a hunch that feels right as though it had been checked, and assuming the other side understood it as clearly as you hold it. | Builds on research into the feeling of rightness and the illusion of transparency.
 - The memory | One-sided memory | You remember the whole project; the agent remembers only this session; both act as if the ground were shared. | Researchers have begun calling this “asymmetric persistence”.
 </figure>
 
 ## The feeling that you are right is a separate signal
 
-The research behind this article starts from one finding: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Introduction">the feeling that an intuition is right is a separate signal from the intuition itself</q>. The idea arrives, and a sense of certainty arrives with it. It is that sense, not the idea, that decides whether you stop to test the idea.
+The research behind this article starts from one finding: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Introduction">the feeling that an intuition is right is a separate signal from the intuition itself</q>. The idea arrives, and a sense of certainty arrives with it. That sense decides whether you stop to test the idea.
 
 Usually the feeling is a good guide, which is why trusting it feels rational. But it can be wrong in a way you cannot see from inside: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Summary">37% of incorrect solutions got Aha ratings higher than the average for correct ones</q>. And the feeling does not track truth so much as fit: confidence <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Introduction">tracks how *consistent* an idea is with what you already believe, not whether it is *correct*</q>.
 
 > **Objection: Intuitions are usually right, so why not trust them?**
 >
-> They often are: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Summary">Aha solutions are correct more often than analytic ones</q>. That is the trap, not the defence. A signal that is right most of the time is exactly the one you stop checking. In the research’s words, <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Summary">The same signal that makes intuition useful also stops you from verifying it.</q>
+> They often are: <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Summary">Aha solutions are correct more often than analytic ones</q>. That is the trap. A signal that is right most of the time is exactly the one you stop checking. In the research’s words, <q doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Summary">The same signal that makes intuition useful also stops you from verifying it.</q>
 
 <figure data-kind="pull" doc="correct-but-not-yet-known-the-science-of-treating-a-fast-intuition-as-" section="Section 3">
 “believed they were understood 72% of the time, while listeners actually misunderstood them 39% of the time”
@@ -99,5 +99,5 @@ The same research sees the remedy in the tools themselves: <q doc="stateless-par
 
 ## What the two names explain
 
-They explain why rework with an AI agent so often traces back to something you knew and never said: the certainty handoff made you sure you had said it, and one-sided memory meant the agent had no way to know otherwise. They explain why more notes rarely fix it, and why tests do — a test is a check the agent cannot skip and you cannot forget to explain. And they put the fault in the right place. It is not that the agent is careless or that you are. It is that the feeling of being right travels easily, and the reasons for it do not.
+They explain why rework with an AI agent so often traces back to something you knew and never said: the certainty handoff made you sure you had said it, and one-sided memory meant the agent had no way to know otherwise. They explain why more notes rarely fix it, and why tests do: a test is a check the agent cannot skip and you cannot forget to explain. And they put the fault in the right place. Neither you nor the agent was careless. The feeling of being right travels easily, and the reasons for it stay behind.
 
