@@ -76,7 +76,7 @@ describe("public site — Phase 1 skeleton", () => {
       expect(res.status, `path ${path}`).toBe(200);
       const html = await res.text();
       expect(html, `path ${path} shell`).toContain('class="wm"');
-      for (const s of [">Theories<", ">Papers<", ">Writing<", ">Research<", ">Lexicon<"])
+      for (const s of [">Theories<", ">Writing<", ">Research<", ">Lexicon<"])
         expect(html, `path ${path} nav`).toContain(s);
       expect(html, `path ${path} footer`).toContain(">About<");
       expect(html).not.toContain("__NEXT_DATA__");

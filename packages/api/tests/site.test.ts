@@ -303,10 +303,10 @@ describe("the live site's addresses keep answering (ROUTES.md)", () => {
 
 describe("the library", () => {
   it("filters by kind and topic with links, so every view has a URL", async () => {
-    const html = await text("/library?kind=Research&topic=housing");
+    const html = await text("/library?kind=Report&topic=housing");
     expect(html).toContain("Open the Housing topic page");
     expect(html).toMatch(/2 items/);
-    expect(html).toContain('href="/library?kind=Research&amp;topic=housing&amp;sort=az"');
+    expect(html).toContain('href="/library?kind=Report&amp;topic=housing&amp;sort=az"');
   });
 
   it("offers Marked useful only to the author, who is the only one who can mark", async () => {

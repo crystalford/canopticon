@@ -235,9 +235,9 @@ export function llmsTxt(): string {
   const out = [
     "# Canopticon",
     "",
-    "> An independent research publication by Chris Telford, in five sections: theories stated formally (claim, propositions graded by their evidence, primary references); papers that cite the published literature; writing, in two forms — essays that argue one of the author's ideas and briefs that answer one question from the evidence; the research documents themselves, kept whole; and a lexicon of the terms coined here. Every quote in a brief, essay or theory links to the stored document it came from. Licensed CC BY 4.0.",
+    "> An independent research publication by Chris Telford, in four sections: theories, the author's ideas stated formally (claim, propositions graded by their evidence, primary references); writing, the essays and papers that argue them; research, the documents themselves kept whole, and briefs that answer one question from them; and a lexicon of the terms coined here. Every quote in a brief, essay or theory links to the stored document it came from. Licensed CC BY 4.0.",
     "",
-    `Sections: ${SITE}/theories · ${SITE}/papers · ${SITE}/writing · ${SITE}/research · ${SITE}/lexicon · open questions at ${SITE}/open.`,
+    `Sections: ${SITE}/theories · ${SITE}/writing · ${SITE}/research · ${SITE}/lexicon · the McLuhan paper series at ${SITE}/papers · open questions at ${SITE}/open.`,
     "",
     `Feeds: ${SITE}/feed.xml (RSS), ${SITE}/feed.json (JSON Feed). Per-topic feeds live under ${SITE}/feeds/. Every document has a Markdown twin: add .md to its address. Full text of every theory, essay, brief and paper: ${SITE}/llms-full.txt. Every coined term with its definition: ${SITE}/lexicon`,
     "",

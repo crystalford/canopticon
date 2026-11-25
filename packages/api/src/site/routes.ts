@@ -629,7 +629,7 @@ app.get("/unsubscribe", async (c) => {
 // ---- redirects from the live site (docs/blackbox/ROUTES.md) -------------------
 
 app.get("/essays", (c) => c.redirect("/writing?kind=Essay", 301));
-app.get("/briefs", (c) => c.redirect("/writing?kind=Brief", 301));
+app.get("/briefs", (c) => c.redirect("/research?kind=Brief", 301));
 app.get("/articles", (c) => c.redirect("/writing", 301));
 app.get("/essays/:slug", (c) =>
   c.redirect(`/articles/${encodeURIComponent(c.req.param("slug"))}`, 301),
