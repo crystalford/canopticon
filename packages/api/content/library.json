@@ -102,6 +102,21 @@
  {
   "kind": "Essay",
   "topic": "McLuhan & media theory",
+  "date": "2026-11-25",
+  "dateLabel": "25 Nov",
+  "title": "The child and the artist",
+  "dek": "McLuhan said only the small child and the artist can see the environment everyone else has adapted to. The research says they do it in different ways: the child has not yet learned what to ignore, and the artist holds a made thing against the world and looks at the difference. The second can be borrowed, and it stops working as it becomes familiar.",
+  "stat": "12 sources · 7 min",
+  "min": 7,
+  "quotes": 0,
+  "sources": 12,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/the-child-and-the-artist"
+ },
+ {
+  "kind": "Essay",
+  "topic": "McLuhan & media theory",
   "date": "2026-11-22",
   "dateLabel": "22 Nov",
   "title": "Guess before you look",
