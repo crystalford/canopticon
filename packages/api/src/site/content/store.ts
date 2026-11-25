@@ -152,7 +152,18 @@ export interface Paper {
   doi?: string;
   /** The slug of a theory drawn from this paper. */
   theory?: string;
+  /** Theories this paper joins, as a comma-separated list of slugs. A paper
+   *  that joins theories stands on them rather than on the McLuhan series. */
+  joins?: string;
   body: string;
+}
+
+/** The theories a paper joins, in the order it names them. */
+export function joinedTheories(p: Pick<Paper, "joins">): Theory[] {
+  return String(p.joins ?? "")
+    .split(",")
+    .map((s) => theory(s.trim()))
+    .filter((t): t is Theory => t !== null);
 }
 
 /** A theory's proposition, graded by the evidence behind it. */

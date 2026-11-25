@@ -20,6 +20,8 @@ related:
     label: "Paper: Narcocrasis (the shifted baseline as the medium)"
   - route: /theories/the-certainty-handoff
     label: "Theory: The certainty handoff (a conclusion handed on without its grounds)"
+  - route: /papers/false-quiet
+    label: "Paper: False Quiet (the mechanism this theory shares with the other three)"
 propositions:
   - statement: "Removing a tool, routine or substance that has been in steady use reveals effects that were not visible while it was in place."
     grade: "Strong"

@@ -8,7 +8,12 @@
 
 import { AUTHOR } from "../author";
 import type { Article, ArticleExtras, Paper } from "../content/store";
-import { articleExtras, researchPrompt, theory as theoryBySlug } from "../content/store";
+import {
+  articleExtras,
+  joinedTheories,
+  researchPrompt,
+  theory as theoryBySlug,
+} from "../content/store";
 import {
   SERIES,
   SERIES_NAME,
@@ -373,6 +378,15 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
   // A paper outside the series builds on it rather than belonging to it.
   const inSeries = SERIES.some((s) => s.slug === p.slug);
   const drawn = p.theory ? theoryBySlug(p.theory) : null;
+  // A paper that joins theories stands on them, not on the series.
+  const joined = joinedTheories(p);
+  const based = joined.length
+    ? `<div class="based"><span class="based-l">Joins</span>${joined.map((t) => `<a href="/theories/${esc(t.slug)}">${esc(t.title)}</a>`).join("")}</div>`
+    : `<div class="based"><span class="based-l">${inSeries ? "Part of" : "Builds on"}</span><a href="/papers/krasis">${esc(SERIES_NAME)}</a>${
+        drawn
+          ? `<span class="based-l">Theory</span><a href="/theories/${esc(drawn.slug)}">${esc(drawn.title)}</a>`
+          : ""
+      }</div>`;
 
   const header = [
     `<div style="margin-bottom:24px">`,
@@ -380,11 +394,7 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
     `<h1 class="h-display">${esc(p.title)}</h1>`,
     dek ? `<p class="dek">${esc(dek)}</p>` : "",
     `<div class="byline"><a href="/about#m-author" class="who">Chris Telford</a><time class="chip" datetime="${esc(p.date)}">${esc(longDate(p.date))}</time><span class="chip">${minutes} min</span>${refs ? `<span class="chip">${refs} references</span>` : ""}${doiChip(p.doi)}</div>`,
-    `<div class="based"><span class="based-l">${inSeries ? "Part of" : "Builds on"}</span><a href="/papers/krasis">${esc(SERIES_NAME)}</a>${
-      drawn
-        ? `<span class="based-l">Theory</span><a href="/theories/${esc(drawn.slug)}">${esc(drawn.title)}</a>`
-        : ""
-    }</div>`,
+    based,
     "</div>",
     abstract
       ? `<section class="inshort" id="s-0"><div class="inshort-h">In short</div>${documentHtml(abstract).html}</section>`
@@ -392,19 +402,28 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
   ].join("");
 
   const series = seriesPapers();
-  const seriesRail = `<div class="series"><div class="series-h"><span>${inSeries ? "In this series" : "The series it builds on"}</span>${pill(`${series.length} papers`, kindColours("Paper"), "pill lg")}</div><ol>${series
-    .map(({ item, paper }) =>
-      paper.slug === p.slug
-        ? `<li class="on" aria-current="page"><span class="t">${esc(paper.title)}</span><span class="s">${esc(item.short)}</span></li>`
-        : `<li><a href="/papers/${esc(paper.slug)}"><span class="t">${esc(paper.title)}</span><span class="s">${esc(item.short)}</span></a></li>`,
-    )
-    .join("")}</ol></div>`;
+  const seriesRail = joined.length
+    ? `<div class="series"><div class="series-h"><span>The theories it joins</span>${pill(`${joined.length} theories`, kindColours("Theory"), "pill lg")}</div><ol>${joined
+        .map(
+          (t) =>
+            `<li><a href="/theories/${esc(t.slug)}"><span class="t">${esc(t.title)}</span><span class="s">${t.propositions?.length ?? 0} propositions</span></a></li>`,
+        )
+        .join("")}</ol></div>`
+    : `<div class="series"><div class="series-h"><span>${inSeries ? "In this series" : "The series it builds on"}</span>${pill(`${series.length} papers`, kindColours("Paper"), "pill lg")}</div><ol>${series
+        .map(({ item, paper }) =>
+          paper.slug === p.slug
+            ? `<li class="on" aria-current="page"><span class="t">${esc(paper.title)}</span><span class="s">${esc(item.short)}</span></li>`
+            : `<li><a href="/papers/${esc(paper.slug)}"><span class="t">${esc(paper.title)}</span><span class="s">${esc(item.short)}</span></a></li>`,
+        )
+        .join("")}</ol></div>`;
 
   const others = series.filter((s) => s.paper.slug !== p.slug);
   const idx = SERIES.findIndex((s) => s.slug === p.slug);
-  const next = [...others.slice(Math.max(0, idx)), ...others.slice(0, Math.max(0, idx))]
-    .slice(0, 2)
-    .map((s) => ({ ...writingFor(s.paper), dek: s.item.blurb }));
+  const next = joined.length
+    ? []
+    : [...others.slice(Math.max(0, idx)), ...others.slice(0, Math.max(0, idx))]
+        .slice(0, 2)
+        .map((s) => ({ ...writingFor(s.paper), dek: s.item.blurb }));
 
   const sources = `<section class="panel cols" aria-label="Sources and citation">${citeBlock(cite)}</section>`;
   const col = `<article class="col prose paper">${header}<div class="pbody">${body.html}</div>${emailPanel()}${sources}${readNext(next)}</article>`;
@@ -422,7 +441,9 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
     publisher: { "@type": "Organization", name: "Canopticon", url: "https://canopticon.com" },
     ...(inSeries
       ? { isPartOf: { "@type": "CreativeWorkSeries", name: SERIES_NAME } }
-      : { isBasedOn: "https://canopticon.com/papers/krasis" }),
+      : joined.length
+        ? { isBasedOn: joined.map((t) => `https://canopticon.com/theories/${t.slug}`) }
+        : { isBasedOn: "https://canopticon.com/papers/krasis" }),
     ...(p.doi
       ? {
           identifier: { "@type": "PropertyValue", propertyID: "DOI", value: p.doi },

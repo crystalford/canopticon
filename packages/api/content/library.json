@@ -797,6 +797,21 @@
  {
   "kind": "Paper",
   "topic": "McLuhan & media theory",
+  "date": "2026-11-24",
+  "dateLabel": "24 Nov",
+  "title": "False Quiet",
+  "dek": "Four theories describe four ways a problem stops announcing itself while it is still there. Read together they are one mechanism: the signal that would prompt a check is silenced by the response, or by a stand-in for the check.",
+  "stat": "39 references · 27 min",
+  "min": 27,
+  "quotes": 0,
+  "sources": 39,
+  "own": 0,
+  "coined": 1,
+  "route": "/papers/false-quiet"
+ },
+ {
+  "kind": "Paper",
+  "topic": "McLuhan & media theory",
   "date": "2026-11-22",
   "dateLabel": "22 Nov",
   "title": "Why Temperature",
@@ -921,6 +936,17 @@
   "dek": "Every class of drug sets its own characteristic balance of the senses: cannabis speeds felt time, ketamine loosens the sense of owning a body, LSD deepens the response to music. A drug, on this view, is a technology of the senses, like a medium but more direct.",
   "stat": "no prior use found",
   "route": "/concepts/pharmakrasis"
+ },
+ {
+  "href": "",
+  "kind": "Concept",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-24",
+  "dateLabel": "24 Nov",
+  "title": "False quiet",
+  "dek": "A warning signal that goes silent because of the response to a problem, or a stand-in for the check, while the problem is still there.",
+  "stat": "no prior use found",
+  "route": "/concepts/false-quiet"
  },
  {
   "href": "Canopticon%20Term.dc.html?p=heterocrasis",
