@@ -6,7 +6,7 @@
 
 import { AUTHOR } from "../author";
 import type { Idea } from "../content/store";
-import { allTheories, libraryItems, terms } from "../content/store";
+import { allTheories, libraryItems, sayOf, terms } from "../content/store";
 import { esc, pageHead, pill, shell } from "../layout";
 import { kindColours, longDate } from "../theme";
 
@@ -57,7 +57,7 @@ function fromTerm(t: Idea): Entry {
     name: t.title,
     route: t.route,
     definition: t.definition ?? t.body,
-    say: t.say,
+    say: sayOf(t),
     plain: t.plain,
     aka: t.aka,
     first: t.artTitle || t.from || undefined,

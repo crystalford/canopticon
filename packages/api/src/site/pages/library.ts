@@ -262,20 +262,18 @@ export function renderLibrary(
 
   // Member chips: Articles / Papers, Concepts / Open problems / Questions.
   const memberSrc = byKind.filter((d) => topic === "all" || d.topic === topic);
-  const members = (group?.members ?? [])
-    .map(([id, label]) => {
-      const on = member === id;
-      const [bg, fg] = kindColours(id);
-      const sand = fg === "#15171c";
-      const style = on
-        ? sand
-          ? "background:var(--rule);color:var(--ink)"
-          : `background:${fg};color:${bg}`
-        : `background:${bg};color:${fg}`;
-      const back = shelf ? undefined : group?.id;
-      return `<a href="${esc(href({ kind: on ? back : id }))}" aria-current="${on}" style="${style}">${esc(label)}<span class="n">${memberSrc.filter((d) => isMember(d, id)).length}</span></a>`;
-    })
-    .join("");
+  // One segmented control: All, then each member (2026-11-24). On the
+  // Library it sits under the group tabs; on a shelf it is the only one.
+  const allKind = shelf ? (shelf.member ? shelf.group : undefined) : group?.id;
+  const members = group?.members?.length
+    ? [
+        `<a href="${esc(href({ kind: allKind, sub: "all" }))}" aria-current="${member === "all"}">All<span class="n">${memberSrc.length}</span></a>`,
+        ...group.members.map(
+          ([id, label]) =>
+            `<a href="${esc(href({ kind: id, sub: "all" }))}" aria-current="${member === id}">${esc(label)}<span class="n">${memberSrc.filter((d) => isMember(d, id)).length}</span></a>`,
+        ),
+      ].join("")
+    : "";
 
   // Topic chips, the six biggest first, the rest behind "+N more topics".
   const tCount = new Map<string, number>();
@@ -289,8 +287,7 @@ export function renderLibrary(
   if (topic !== "all" && !shown.includes(topic)) shown = [...shown, topic];
   const chip = (id: string, label: string, count: number) => {
     const on = topic === id;
-    const [bg, fg] = id === "all" ? ["#e6ecfa", "#2f55c4"] : topicColours(id);
-    return `<a href="${esc(href({ topic: id === "all" ? undefined : topicSlug(id), sub: "all" }))}" aria-current="${on}"${on ? ` style="background:${bg};color:${fg}"` : ""}>${esc(label)}<span class="n"${on ? ` style="color:${fg}"` : ""}>${count}</span></a>`;
+    return `<a href="${esc(href({ topic: id === "all" ? undefined : topicSlug(id), sub: "all" }))}" aria-current="${on}">${esc(label)}<span class="n">${count}</span></a>`;
   };
   const topicChips = [
     chip("all", "All topics", byKind.length),
@@ -304,33 +301,36 @@ export function renderLibrary(
   const subCount = new Map<string, number>();
   if (groupId === "Research") {
     for (const d of byKind) {
-      if (d.kind !== "Research" || (topic !== "all" && d.topic !== topic)) continue;
+      if (!isMember(d, "Report") || (topic !== "all" && d.topic !== topic)) continue;
       subCount.set(subName(d), (subCount.get(subName(d)) ?? 0) + 1);
     }
   }
-  const subs = subCount.size
-    ? `<div class="mchips"><span class="l">Kind of document</span>${[
-        ["all", "All kinds", [...subCount.values()].reduce((a, b) => a + b, 0)] as const,
-        ...[...subCount]
-          .sort(
-            (a, b) =>
-              Number(a[0] === "Other report") - Number(b[0] === "Other report") || b[1] - a[1],
+  // Kind of document only means something for reports, and is folded away
+  // until asked for: one line saying what is chosen.
+  const subs =
+    subCount.size > 1 && member === "Report"
+      ? `<details class="fsub"${sub !== "all" ? " open" : ""}><summary><span class="frow-l">Kind</span><span class="fsub-v">${esc(sub === "all" ? "All kinds of report" : sub)}</span><span class="fsub-c" aria-hidden="true">\u25be</span></summary><div class="tchips">${[
+          ["all", "All kinds", [...subCount.values()].reduce((a, b) => a + b, 0)] as const,
+          ...[...subCount]
+            .sort(
+              (a, b) =>
+                Number(a[0] === "Other report") - Number(b[0] === "Other report") || b[1] - a[1],
+            )
+            .map(([k, n]) => [k, k, n] as const),
+        ]
+          .map(
+            ([id, label, n]) =>
+              `<a href="${esc(href({ sub: id }))}" aria-current="${sub === id}">${esc(label)}<span class="n">${n}</span></a>`,
           )
-          .map(([k, n]) => [k, k, n] as const),
-      ]
-        .map(
-          ([id, label, n]) =>
-            `<a class="sub" href="${esc(href({ sub: id }))}" aria-current="${sub === id}">${esc(label)}<span class="n">${n}</span></a>`,
-        )
-        .join("")}</div>`
-    : "";
+          .join("")}</div></details>`
+      : "";
 
   const list = byKind
     .filter(
       (d) =>
         (member === "all" || isMember(d, member)) &&
         (topic === "all" || d.topic === topic) &&
-        (groupId !== "Research" || sub === "all" || subName(d) === sub) &&
+        (groupId !== "Research" || member !== "Report" || sub === "all" || subName(d) === sub) &&
         (!q || `${d.title} ${d.dek ?? ""} ${d.topic}`.toLowerCase().includes(q)),
     )
     .slice()
@@ -377,12 +377,12 @@ export function renderLibrary(
           : "";
 
   const sortOpts = SORTS.filter(offered);
-  const sortBar = `<div class="sortbar"><span class="l">Sort</span>${sortOpts
+  const sortBar = `<span class="lib-sort"><span class="l">Sort</span>${sortOpts
     .map(
       (s) =>
         `<a href="${esc(href({ sort: s.id }))}" aria-current="${s.id === sort?.id}">${esc(s.label)}</a>`,
     )
-    .join("")}</div>`;
+    .join("")}</span>`;
 
   const pager =
     pages > 1
@@ -412,7 +412,7 @@ export function renderLibrary(
     dek:
       shelf?.lede ??
       "Everything on the site in one list: the theories, the essays and papers that argue them, the research they stand on, and the terms and open questions the work turned up.",
-  })}<section><form class="lib-search" role="search" method="get" action="${shelf?.base ?? "/library"}"><span aria-hidden="true">⌕</span>${hidden2}<input type="search" name="q" value="${esc(query.q ?? "")}" placeholder="${esc(shelf?.searchLabel ?? "Filter the library by title, summary or topic")}" aria-label="${esc(shelf ? `Filter ${shelf.title.toLowerCase()}` : "Filter the library")}" data-search-input /></form>${tabs ? `<div role="tablist" aria-label="Kind" class="seg">${tabs}</div>` : ""}<div class="tchips">${topicChips}</div>${members ? `<div class="mchips">${members}</div>` : ""}${subs}${hubTopic ? `<a href="/topics/${esc(topicSlug(topic))}" class="btn hub-link">Open the ${esc(topic)} topic page</a>` : ""}${sortBar}<div class="lib"${sort?.id === "useful" ? " data-useful-sort" : ""}><div class="lib-head"><span>${list.length} ${list.length === 1 ? "item" : "items"}</span><span>${groupId === "Figure" ? "Figure" : "Added"}</span></div>${note}${list.length ? rows : `<div class="lib-empty">Nothing matches. Try another topic or clear the filter.</div>`}${pager}</div></section>`;
+  })}<section><form class="lib-search" role="search" method="get" action="${shelf?.base ?? "/library"}"><span aria-hidden="true">⌕</span>${hidden2}<input type="search" name="q" value="${esc(query.q ?? "")}" placeholder="${esc(shelf?.searchLabel ?? "Filter the library by title, summary or topic")}" aria-label="${esc(shelf ? `Filter ${shelf.title.toLowerCase()}` : "Filter the library")}" data-search-input /></form><div class="filters">${tabs ? `<div class="frow"><span class="frow-l">Show</span><div role="tablist" aria-label="Kind" class="seg">${tabs}</div></div>` : ""}${members ? `<div class="frow"><span class="frow-l">${tabs ? "Within" : "Show"}</span><div role="tablist" aria-label="Show" class="seg">${members}</div></div>` : ""}<div class="frow"><span class="frow-l">Topic</span><div class="tchips">${topicChips}</div></div>${subs}</div>${hubTopic ? `<a href="/topics/${esc(topicSlug(topic))}" class="btn sm hub-link">Open the ${esc(topic)} topic page</a>` : ""}<div class="lib"${sort?.id === "useful" ? " data-useful-sort" : ""}><div class="lib-head"><span>${list.length} ${list.length === 1 ? "item" : "items"}</span>${sortBar}</div>${note}${list.length ? rows : `<div class="lib-empty">Nothing matches. Try another topic or clear the filter.</div>`}${pager}</div></section>`;
 
   // A shelf describes itself: its lede up to the first link, as plain text.
   const description = shelf

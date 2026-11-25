@@ -35,6 +35,12 @@ export interface LibraryItem {
 
 /** The two forms of short writing. "Article" is still the document type
  *  (its address is /articles/…) and is accepted wherever a kind is tested. */
+/** How to say a term, where saying it is a question: a coined single word
+ *  (heterocrasis, typomora). An English phrase ("the visual detour") needs no
+ *  pronunciation, so none is shown, though the entry keeps it. */
+export const sayOf = (t: { title: string; say?: string | undefined }): string | undefined =>
+  t.say && !/\s/.test(t.title.trim()) ? t.say : undefined;
+
 export const WRITING_KINDS = ["Essay", "Brief", "Article"] as const;
 export const isWriting = (kind: string): boolean =>
   (WRITING_KINDS as readonly string[]).includes(kind);

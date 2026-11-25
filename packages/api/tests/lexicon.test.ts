@@ -99,3 +99,13 @@ describe("essays on the published literature", () => {
     expect(quoted).toContain('class="own"');
   });
 });
+
+describe("pronunciation", () => {
+  it("is shown for a coined word and not for an English phrase", async () => {
+    expect(await (await get("/concepts/heterocrasis")).text()).toContain("Pronounced <b>");
+    expect(await (await get("/concepts/the-visual-detour")).text()).not.toContain("Pronounced");
+    const lex = await (await get("/lexicon")).text();
+    expect(lex).toContain(">het-uh-ROK-ruh-sis<");
+    expect(lex).not.toContain("VIZH-oo-ul");
+  });
+});
