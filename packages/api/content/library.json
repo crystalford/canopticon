@@ -101,6 +101,21 @@
  },
  {
   "kind": "Essay",
+  "topic": "Habits & maintenance",
+  "date": "2026-11-26",
+  "dateLabel": "26 Nov",
+  "title": "Why you leave it for the morning",
+  "dek": "At night, leaving a small task until morning feels reasonable. In the morning, it feels like a mistake. The pressure that would have changed the decision is absent when the decision is made, and the decision itself keeps it away until morning.",
+  "stat": "11 sources · 7 min",
+  "min": 7,
+  "quotes": 0,
+  "sources": 11,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/why-you-leave-it-for-the-morning"
+ },
+ {
+  "kind": "Essay",
   "topic": "ADHD & attention",
   "date": "2026-11-26",
   "dateLabel": "26 Nov",
