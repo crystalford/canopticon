@@ -41,7 +41,7 @@ The paper does not argue that McLuhan anticipated modern neuroscience, or that n
 
 ## 2. The literal claim
 
-By 1960 McLuhan was stating sense ratios as a formal hypothesis, not an aphorism. The 1960 *Report on Project in Understanding New Media*, written for the National Association of Educational Broadcasters, opens its key section with a "basic hypothesis": any medium that codes experience through one sense transforms the ratio among the other senses, and with it patterns of thought, feeling and action. The same report puts it bluntly: "It is the ratio among our senses which is violently disturbed by media technology."
+By 1960 McLuhan was stating sense ratios as a formal hypothesis. The 1960 *Report on Project in Understanding New Media*, written for the National Association of Educational Broadcasters, opens its key section with a "basic hypothesis": any medium that codes experience through one sense transforms the ratio among the other senses, and with it patterns of thought, feeling and action. The same report puts it bluntly: "It is the ratio among our senses which is violently disturbed by media technology."
 
 ### The core statements
 
@@ -61,7 +61,7 @@ McLuhan tied his account of media to the physiology of his day. In *Understandin
 
 The word "ratio" also carries a second meaning. McLuhan took it from Thomas Aquinas, for whom *ratio* meant both proportion and reason (Friesen). Consciousness, on this view, *is* a proportion among the senses. This double meaning is why the claim can be read two ways. It is also why the reading matters: McLuhan used the Thomist word to describe what he took to be a physiological process.
 
-### Tested, not only asserted
+### Early tests
 
 McLuhan's circle tried to measure media effects. Around 1954, the anthropologist Edmund Carpenter and the psychologist D. C. Williams ran an experiment in Toronto, funded by the same Ford Foundation grant that supported McLuhan and Carpenter's journal *Explorations* (1953–59). Students received the same lecture through speech, print, radio or television, and were tested on what they retained. According to summaries of the published study, the medium affected retention, both immediately and months later (Williams, Paul & Ogilvie, 1957). The 1960 NAEB project then piloted a media curriculum with Toronto high-school teachers.
 
@@ -129,7 +129,7 @@ In predictive-processing terms, all five are aspects of precision weighting. The
 
 ### The ratio is real and shaped by experience
 
-Three lines of evidence show the brain's weighting of the senses is plastic, not fixed. Only the second measures precision weighting directly; the other two show that the balance can move.
+Three lines of evidence show the brain's weighting of the senses is plastic. Only the second measures precision weighting directly; the other two show that the balance can move.
 
 1. **Loss.** In deaf and blind people, cortex normally given to the lost sense is recruited by the others (Bavelier & Neville, 2002). Cortical areas appear organised by the computation they perform rather than by a single sense, so senses compete for shared machinery (Pascual-Leone & Hamilton, 2001).
 2. **Development.** Children under about eight do not combine vision and touch in the reliability-weighted way adults do; one sense dominates instead (Gori et al., 2008). The weighting is learned.
@@ -147,7 +147,7 @@ The translation does three things the original theory could not: it explains why
 
 ### "Without any resistance"
 
-McLuhan said media alter sense ratios "steadily and without any resistance." Precision explains why. We experience the world *through* the weighting of our senses, not the weighting itself. A change in which channel is trusted shows up as a change in what seems salient, real or urgent. It does not show up as an event. There is nothing to resist, because nothing is presented.
+McLuhan said media alter sense ratios "steadily and without any resistance." Precision explains why. We experience the world *through* the weighting of our senses, and the weighting itself stays out of view. A change in which channel is trusted shows up as a change in what seems salient, real or urgent. It does not show up as an event. There is nothing to resist, because nothing is presented.
 
 This is figure and ground at the level of mechanism. Content is figure: what we notice. Syncrasis is ground: the setting that decides what can be noticed at all. McLuhan compared content to the "juicy piece of meat" a burglar throws to distract the watchdog of the mind. On this reading, the content holds attention while the medium re-tunes the weights.
 
@@ -155,7 +155,7 @@ This is figure and ground at the level of mechanism. Content is figure: what we 
 
 If a medium's effect is the change it makes to the syncrasis, the claim becomes concrete. Each medium has a characteristic pattern of channels it up-weights and down-weights, regardless of what it carries. Two media delivering identical content should therefore leave different traces in the syncrasis. That is a testable proposition, and it is roughly what the 1954 Toronto experiment was groping toward with the tools it had.
 
-### Continuous variables, not two hemispheres
+### Continuous variables
 
 The lateralization version gave McLuhan two boxes, left and right, and a claim about cultures. Syncrasis is a set of continuous quantities that vary between people, across development, from moment to moment, and across channels, including the body's interior. They can be estimated with existing tasks, such as cue-combination weights between senses, heartbeat-discrimination tests and computational models of interoceptive precision. The next section sets out what measuring them would involve, and the one after it the paper's limits.
 
@@ -173,7 +173,7 @@ Syncrasis opens five questions about media that existing methods could answer. N
 
 One methodological note applies throughout. Heartbeat-counting tasks should be avoided, because their validity as accuracy measures is disputed (Zamariola et al., 2018). Discrimination tasks and computational estimates of precision are preferred.
 
-The questions are ordered from easiest to hardest to study. The first needs a short laboratory study; the third needs a cohort study followed over years. The fifth is the most distinctively McLuhanian: his claim was not only that media change us, but that the change goes unnoticed by the person undergoing it.
+The questions are ordered from easiest to hardest to study. The first needs a short laboratory study; the third needs a cohort study followed over years. The fifth is the most distinctively McLuhanian: his claim was that media change us and that the change goes unnoticed by the person undergoing it.
 
 ## 8. Limits and objections
 
@@ -189,9 +189,9 @@ The thesis has five weak points. Each is stated here with the paper's response, 
 
 **Interoception is not one thing.** Accuracy, self-reported sensibility and awareness of one's own accuracy are separable (Garfinkel et al., 2015), and they often disagree. The fourth question in §7 asks about precision specifically, because the other measures could move for different reasons.
 
-## 9. Conclusion: a lens, not a verdict
+## 9. Conclusion
 
-McLuhan's sense ratios were a hypothesis about the nervous system that lost its evidence and was demoted to metaphor. Translated as sensory syncrasis, the hypothesis can be tested again. This paper claims no more than that, and no less.
+McLuhan's sense ratios were a hypothesis about the nervous system that lost its evidence and was demoted to metaphor. Translated as sensory syncrasis, the hypothesis can be tested again. That is the paper's claim.
 
 The lens opens three questions, each the subject of a planned paper:
 

@@ -33,7 +33,7 @@ We call a systematically different starting configuration a **heterocrasis**. Th
 
 The answer here is partial. One dimension, overall gain, has good support from several independent lines of evidence. One, bodily self-perception, has mixed support undermined by how it has been measured. One, the integration of the senses, points the opposite way from what a simple story would predict. And one older idea, that ADHD involves deficient inner speech, sits poorly with the newer evidence and needs to be reframed.
 
-Two framing choices matter. First, this is not a deficit account. A heterocrasis is a different setting, not a broken one, and some of what looks like impairment in one environment may fit another better. Second, ADHD is a diagnosis that covers a great deal of variation. Claims here describe group tendencies in research samples, not any individual. The aim is to locate ADHD on the map the series has drawn, and to be honest about where that map is still blank.
+Two framing choices matter. First, this is not a deficit account. A heterocrasis is a different setting, and some of what looks like impairment in one environment may fit another better. Second, ADHD is a diagnosis that covers a great deal of variation. Claims here describe group tendencies in research samples, not any individual. The aim is to locate ADHD on the map the series has drawn, and to be honest about where that map is still blank.
 
 ## 2. Gain: the best-supported difference
 
@@ -75,7 +75,7 @@ A large 2026 study in *Nature Mental Health* (Banellis and colleagues), using be
 
 ### What it means
 
-The honest reading is that bodily self-perception may differ in ADHD, but the direction and size of the difference are unclear, and the measurement method behind most positive findings is the weakest available. The adolescent brain data suggest the body's signals may be processed differently rather than simply registered less. For this paper, the inside–outside balance is a hypothesis about ADHD, not a finding. A study using heartbeat discrimination rather than counting, with heart rate and time estimation controlled, is the obvious gap in the literature.
+The honest reading is that bodily self-perception may differ in ADHD, but the direction and size of the difference are unclear, and the measurement method behind most positive findings is the weakest available. The adolescent brain data suggest the body's signals may be processed differently rather than simply registered less. For this paper, the inside–outside balance remains a hypothesis about ADHD. A study using heartbeat discrimination rather than counting, with heart rate and time estimation controlled, is the obvious gap in the literature.
 
 ## 4. Binding: integration is not looser
 
@@ -89,7 +89,7 @@ What is well documented is that people with ADHD report more unusual sensory exp
 
 Integration mode in ADHD does not look loose. If anything, the one direct study suggests tighter temporal binding, and clinical integration appears intact. The reported sensory atypicality is real but may come from somewhere else, plausibly from gain: a nervous system whose signal-to-noise setting is unusual would experience sensation as too much in some moments and too little in others. That reading is this paper's interpretation. It suggests the sensory reports of ADHD belong under gain rather than integration, which is a more specific claim than the fragmented-world story and fits the evidence better.
 
-## 5. Inner speech: coupling, not quantity
+## 5. Inner speech and its coupling to action
 
 ### The deficit idea
 
@@ -99,13 +99,13 @@ There was early support. Berk and Potts (1991) found that boys with ADHD used le
 
 ### What the newer evidence shows
 
-The newer evidence complicates the picture. Children with ADHD produce *more* private speech, much of it unrelated to the task (Corkum and colleagues, 2008). Preschoolers at risk for ADHD use more private speech, less tightly linked to how well they perform (Winsler and colleagues, 2000; 2007). In two large non-clinical samples of adults, higher ADHD-like traits were associated with *more* self-directed and inner speech, not less (Benfield and colleagues, 2025).
+The newer evidence complicates the picture. Children with ADHD produce *more* private speech, much of it unrelated to the task (Corkum and colleagues, 2008). Preschoolers at risk for ADHD use more private speech, less tightly linked to how well they perform (Winsler and colleagues, 2000; 2007). In two large non-clinical samples of adults, higher ADHD-like traits were associated with *more* self-directed and inner speech (Benfield and colleagues, 2025).
 
 Inner speech in adults with diagnosed ADHD has barely been studied. When Alderson-Day and Fernyhough reviewed the field in 2015, they wrote that, to their knowledge, there had been no studies specifically of inner speech in ADHD.
 
 Emotion is related. Emotional dysregulation is now recognised as a core feature of ADHD (Shaw and colleagues, 2014). Alexithymia, difficulty identifying and describing one's own feelings, appears common: 22% in one German clinical sample with no control group, and 42% in a Turkish sample compared against controls. Naming feelings in words reduces the brain's reactivity to them in general populations (Lieberman and colleagues, 2007), but whether that works differently in ADHD has not been tested.
 
-### Reframing: a coupling, not a vacancy
+### Reframing: a loose coupling
 
 The evidence does not describe a missing inner voice. It describes a voice that is present, sometimes louder than usual, but less tightly coupled to action. The self-talk happens; it does less of the steering. That is a different and more specific claim than the deficit account, and a better fit with the data.
 
@@ -147,11 +147,11 @@ The same reading predicts limits. Stochastic resonance has an optimum. Moderate 
 
 The earlier papers suggest two different relationships. Media that provide stimulation without structure, such as feeds and notifications, may add gain but also add noise. Media that provide structure for thought, such as speaking ideas aloud to a listener that responds, may strengthen the weakly coupled inner speech described in section 5. The first works on gain from outside. The second may work on coupling from outside.
 
-This section is this paper's own synthesis. It describes a possibility the gain evidence makes plausible, not a finding. But it suggests that, for a heterocratic nervous system, the media question is less about how much screen time and more about what kind of configuration a given medium supplies.
+This section is this paper's own synthesis. It describes a possibility the gain evidence makes plausible, and it is untested. But it suggests that, for a heterocratic nervous system, the media question is less about how much screen time and more about what kind of configuration a given medium supplies.
 
 ## 8. Objections and replies
 
-**"ADHD is too varied to have one configuration."** True. ADHD covers inattentive, hyperactive and combined presentations, and individuals differ widely. The claims here describe group tendencies in research samples. Heterocrasis names a direction many people with ADHD share, not a profile every one of them has.
+**"ADHD is too varied to have one configuration."** True. ADHD covers inattentive, hyperactive and combined presentations, and individuals differ widely. The claims here describe group tendencies in research samples. Heterocrasis names a direction many people with ADHD share; individuals vary.
 
 **"Gain is just a new name for under-arousal theory."** In part, and the paper credits that lineage (Zentall; Sikström and Söderlund). What the syncrasis framework adds is placement: gain is one of five dimensions, and saying which dimension differs, and which do not, is more specific than saying arousal is low.
 

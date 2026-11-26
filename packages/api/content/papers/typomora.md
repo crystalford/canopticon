@@ -19,7 +19,7 @@ Oct 4, 2026 · @Christopher Telford
 
 Marshall McLuhan predicted that electric media would return Western culture from the visual, linear space of print to an "acoustic space" of simultaneity and voice. Yet the first half-century of networked computing, from terminals and Usenet to SMS and the early web, was intensely typographic. This paper argues that the typed era was not a refutation of McLuhan but a **typomora**: a delay, counted in deferred units of spoken time, imposed by bandwidth, compute and speech-recognition limits on the medium's input layer.
 
-The neuroscience of literacy shows that a writing medium measurably reconfigures the brain, so a "typographic" configuration is physiological, not metaphorical. Cognitive research shows that transcription carries working-memory costs that speech avoids. Together these suggest the keyboard locked a typographic configuration onto a medium whose deeper bias was acoustic. Because comprehension is largely the same whether we read or listen, the closing of the typomora, an **epanaphony** or return of voice, changes not what we understand but how we produce, time and monitor language. The paper sets out the evidence, reads the shift through Kittler's history of the typewriter and Vygotsky's account of inner speech, and describes the hybrid configuration now emerging: oral in production, typographic in storage.
+The neuroscience of literacy shows that a writing medium measurably reconfigures the brain, so a "typographic" configuration is physiological. Cognitive research shows that transcription carries working-memory costs that speech avoids. Together these suggest the keyboard locked a typographic configuration onto a medium whose deeper bias was acoustic. Because comprehension is largely the same whether we read or listen, the closing of the typomora, an **epanaphony** or return of voice, changes not what we understand but how we produce, time and monitor language. The paper sets out the evidence, reads the shift through Kittler's history of the typewriter and Vygotsky's account of inner speech, and describes the hybrid configuration now emerging: oral in production, typographic in storage.
 
 ## 1. McLuhan's deferred prediction
 
@@ -27,13 +27,13 @@ McLuhan's central historical claim was a reversal. The phonetic alphabet and the
 
 Terminals, email, bulletin boards, Usenet, IRC, ICQ, HTML, SMS: the networked world of the 1970s to the 2010s was built out of keystrokes. A whole generation learned to think, argue, flirt and work in typed text. On its face, this is a counterexample to McLuhan. The newest electric medium looked more like the printing press than like the radio.
 
-This paper argues the counterexample is only apparent. The typed era was a **typomora**, from Greek *typos* (impression, type) and Latin *mora* (delay). The coinage carries three senses. In Latin, *mora* is delay, and in Roman law specifically the delay of an obligation already owed. In phonology, a *mora* is the unit of spoken timing. The typomora is therefore a delay counted in units of speech: the return to voice held in arrears, not cancelled.
+This paper argues the counterexample is only apparent. The typed era was a **typomora**, from Greek *typos* (impression, type) and Latin *mora* (delay). The coinage carries three senses. In Latin, *mora* is delay, and in Roman law specifically the delay of an obligation already owed. In phonology, a *mora* is the unit of spoken timing. The typomora is therefore a delay counted in units of speech: the return to voice held in arrears.
 
 Text had real advantages, among them asynchrony, editability and privacy, but these do not explain why voice stayed out of the machine. The binding cause was the input layer. Until bandwidth, compute and speech recognition matured, the only economical way to put language into a networked machine was the keyboard. The keyboard brought with it a configuration inherited from literacy: language held in a visual buffer, checked by eye, composed serially and revised at leisure. As those technical limits fell, the interface began to return to voice, through dictation, voice notes, video and conversational AI. We call that return **epanaphony**, from Greek *epan-* (back, again) and *phōnē* (voice).
 
 The paper builds on an earlier paper in this series, *Sensory Syncrasis*, which argues that McLuhan's "sense ratios" were a literal hypothesis about how the nervous system weights its channels. Typomora applies that framework to one concrete case: the layer through which people produce language for machines and for each other.
 
-Three claims are made here, in order of confidence. First, the typed era coincided with measurable technical limits, and the turn toward voice coincided with their removal. Second, a writing medium is a physiological configuration, not only a cultural habit, so the keyboard era plausibly tuned its users in specific ways. Third, the return of voice changes the production, timing, feedback and persistence of language, not its semantic core. The framing of the typed era as a bandwidth-forced delay and the mapping onto syncrasis are this paper's own contributions. We have found no prior source that frames the typed era this way.
+Three claims are made here, in order of confidence. First, the typed era coincided with measurable technical limits, and the turn toward voice coincided with their removal. Second, a writing medium is physiological as well as cultural, so the keyboard era plausibly tuned its users in specific ways. Third, the return of voice changes the production, timing, feedback and persistence of language, while its semantic core stays much the same. The framing of the typed era as a bandwidth-forced delay and the mapping onto syncrasis are this paper's own contributions. We have found no prior source that frames the typed era this way.
 
 ## 2. The literacy precedent
 
@@ -43,7 +43,7 @@ If a typographic configuration is only a metaphor, the typomora is only a story.
 
 Dehaene and colleagues (2010, *Science*) scanned 63 adults in Portugal and Brazil: some illiterate, some who learned to read as adults, and some schooled from childhood. Literacy produced several measurable changes. A region of left visual cortex, the visual word form area, responded more strongly to written strings as reading skill rose. Responses in early visual cortex, down to primary visual cortex, increased across all categories of images. Spoken sentences drove the brain's spoken-language network more strongly in literates, and a region of auditory cortex (planum temporale) showed enhanced responses to speech sounds. Reading changes the ear as well as the eye.
 
-The auditory change has a behavioural counterpart. Morais and colleagues (1979) found that illiterate Portuguese adults largely could not add or remove individual speech sounds from words, while adults who had learned to read as adults could. Awareness of phonemes is a product of alphabetic literacy, not a precondition of speech. This is close to a direct physiological statement of McLuhan's claim that the phonetic alphabet re-trained the ear.
+The auditory change has a behavioural counterpart. Morais and colleagues (1979) found that illiterate Portuguese adults largely could not add or remove individual speech sounds from words, while adults who had learned to read as adults could. Awareness of phonemes is a product of alphabetic literacy; people speak fluently without it. This is close to a direct physiological statement of McLuhan's claim that the phonetic alphabet re-trained the ear.
 
 Literacy also suppresses something. People who cannot read treat mirror images as the same object, a generalisation that serves well in a natural world where a tiger facing left is still a tiger. Literate people lose this for letters, where *b* and *d* must differ, and the loss partly spreads to other images (Kolinsky and colleagues). An oriented, sequential code displaces a symmetrical, all-at-once way of seeing.
 
@@ -51,11 +51,11 @@ Literacy also suppresses something. People who cannot read treat mirror images a
 
 These changes do not require childhood. Skeide and colleagues (2017, *Science Advances*) trained 21 illiterate women in India to read Devanagari for six months and compared them with untrained controls. The trained group showed strengthened coupling between visual cortex and deep structures (the superior colliculus and pulvinar), reaching roughly first-grade reading level. The finding is from one site and one cluster, but it shows that a medium can reconfigure an adult brain within months.
 
-### Retuning, not destruction
+### Retuning
 
 The original 2010 study reported a small reduction in face responses where words took over, which suggested literacy might cost something. Later work from the same Indian cohort points the other way. Hervais-Adelman and colleagues (2019) found literacy enhanced visual responses without shrinking responses to other images, and van Paridon and colleagues (2021) found face recognition *improved* with reading. The defensible conclusion is that literacy reallocates and retunes. It adds a specialised channel, sharpens early processing, re-trains the ear, and gives up mirror invariance for letters.
 
-This matters for the argument. McLuhan's "sense ratio" is about weighting, not damage. The literacy evidence supports exactly that: a medium changes the relative weights of the senses and the habits of processing, measurably and in adults. One gap should be stated plainly. This evidence concerns learning to read, not habits of producing language. It shows that a writing medium can reconfigure the brain; it does not show that decades of composing by keyboard did. That step is a hypothesis, but given what reading does, it is a reasonable one rather than a leap.
+This matters for the argument. McLuhan's "sense ratio" is about weighting. The literacy evidence supports exactly that: a medium changes the relative weights of the senses and the habits of processing, measurably and in adults. One gap should be stated plainly. This evidence concerns learning to read, not habits of producing language. It shows that a writing medium can reconfigure the brain; it does not show that decades of composing by keyboard did. That step is a hypothesis, but given what reading does, it is a reasonable one rather than a leap.
 
 ## 3. Two production systems
 
@@ -81,7 +81,7 @@ This is where the typomora claim lives. For decades, the keyboard made the visua
 
 ### The typomoric configuration
 
-In the terms of the first paper in this series, the keyboard era plausibly set the syncrasis of language production in three ways. This is interpretation, not a finding. The **sense ratio** of production tilted toward the eye: language was checked visually rather than by ear. The **inside–outside balance** tilted outward: the speaker's bodily, self-hearing loop gave way to watching words appear on a screen. And **persistence** became the default: language was produced as an object that stays, can be re-scanned and can be revised, rather than as an event that passes. A generation practised this configuration for hours a day, for decades.
+In the terms of the first paper in this series, the keyboard era plausibly set the syncrasis of language production in three ways. This is interpretation. The **sense ratio** of production tilted toward the eye: language was checked visually rather than by ear. The **inside–outside balance** tilted outward: the speaker's bodily, self-hearing loop gave way to watching words appear on a screen. And **persistence** became the default: language was produced as an object that stays, can be re-scanned and can be revised, rather than as an event that passes. A generation practised this configuration for hours a day, for decades.
 
 ## 4. The cost of the keyboard
 
@@ -95,7 +95,7 @@ Models of writing explain why. Planning, translating ideas into sentences, and r
 
 ### Dictation was viable decades early
 
-The most striking evidence comes from IBM in the late 1970s and early 1980s. John Gould found that after a few hours of practice, adults could dictate one-page letters as well as they could write them, judged both by time and by raters (Gould, 1978). Authors at first rated their own dictated letters worse, but later they and the recipients rated them the same (Gould & Boies, 1978). The bias against speaking was in the author's head, not in the letters. Composing on an early computer text editor produced letters of equal quality but took about 50% longer than writing by hand (Gould, 1981).
+The most striking evidence comes from IBM in the late 1970s and early 1980s. John Gould found that after a few hours of practice, adults could dictate one-page letters as well as they could write them, judged both by time and by raters (Gould, 1978). Authors at first rated their own dictated letters worse, but later they and the recipients rated them the same (Gould & Boies, 1978). The bias against speaking lay with the authors; the letters were as good. Composing on an early computer text editor produced letters of equal quality but took about 50% longer than writing by hand (Gould, 1981).
 
 Then Gould, Conti and Hovanyecz (1983) simulated a "listening typewriter": a speech recogniser operated by a hidden human typist, set to mimic different machine limits. When the simulated recogniser forced speakers into isolated words or a limited vocabulary, performance fell. An imperfect recogniser was no better than ordinary dictation.
 
@@ -121,7 +121,7 @@ Modern speech-to-text also appears to draw on a partly different skill from hand
 
 The typomora has a measurable end. Two thresholds mark it.
 
-The first is speech recognition. On the standard Switchboard benchmark of conversational telephone speech, word error rates stalled around 15% through the mid-2000s, then fell sharply with deep learning. In 2016 and 2017, Microsoft reported error rates between 5.1% and 5.9%, which it claimed matched professional human transcribers (Xiong and colleagues). IBM disputed where human parity sat, measuring careful human transcription at 5.1% (Saon and colleagues, 2017). The disagreement is about where the finish line is, not about the trend. In 2022, OpenAI's Whisper, trained on 680,000 hours of speech in many languages, extended this robustness to noisy, accented and everyday speech.
+The first is speech recognition. On the standard Switchboard benchmark of conversational telephone speech, word error rates stalled around 15% through the mid-2000s, then fell sharply with deep learning. In 2016 and 2017, Microsoft reported error rates between 5.1% and 5.9%, which it claimed matched professional human transcribers (Xiong and colleagues). IBM disputed where human parity sat, measuring careful human transcription at 5.1% (Saon and colleagues, 2017). The disagreement is about where the finish line is; the trend is agreed. In 2022, OpenAI's Whisper, trained on 680,000 hours of speech in many languages, extended this robustness to noisy, accented and everyday speech.
 
 The second is bandwidth. In early networks, text was the only content cheap enough to send at scale. That changed through the 2010s. Cisco estimated video passed half of consumer internet traffic by the end of 2016 and reached 73% in 2017. Sandvine's measurements put video at about 58% of downstream traffic in 2018 and 65% of all internet traffic in 2022. These are industry figures, and traffic is counted in bytes, which flatters video. Even so, the direction is not in doubt.
 
@@ -178,7 +178,7 @@ There is a known cost to this kind of storage. When people photograph objects in
 
 Voice input is common but not yet dominant. Survey data from GWI, published through DataReportal, put weekly use of voice assistants at 22.5% of internet users worldwide in late 2025, and 28.8% in the US. Smart-speaker ownership in the US has sat at roughly a third of adults for four years (Edison Research). The older voice-assistant wave has plateaued. The newer growth is in dictation tools and voice conversation with AI models, for which no rigorous public survey data yet exist. Measuring it is one of the paper's open tasks.
 
-What has changed most is what voice can do. A voice assistant answers a narrow question. A conversational model can take a rambling spoken explanation, ask follow-up questions, and turn the result into a document, a plan or working software. Voice has become a way to think and build, not only to command.
+What has changed most is what voice can do. A voice assistant answers a narrow question. A conversational model can take a rambling spoken explanation, ask follow-up questions, and turn the result into a document, a plan or working software. Voice has become a way to think and build as well as to command.
 
 ### Why speaking to an AI might change the speaker
 
@@ -204,23 +204,23 @@ One case proves nothing, and the paper does not treat it as evidence. It is offe
 
 ### A caution
 
-Concern that AI weakens thinking, so-called "cognitive debt," rests mainly on a 2025 MIT preprint (Kosmyna and colleagues) that measured *typed* use of ChatGPT for essays, has not been peer reviewed, and has drawn a published methodological critique. Offloading concerns apply to AI in any modality. Whether speaking to an AI makes people think more or less is an open empirical question, not a settled one.
+Concern that AI weakens thinking, so-called "cognitive debt," rests mainly on a 2025 MIT preprint (Kosmyna and colleagues) that measured *typed* use of ChatGPT for essays, has not been peer reviewed, and has drawn a published methodological critique. Offloading concerns apply to AI in any modality. Whether speaking to an AI makes people think more or less is an open empirical question.
 
 ## 8. Objections and replies
 
 **"Early online writing was already oral."** Logan and Soffer argue that chat and email were oral in style. This paper agrees, and treats it as evidence for the typomora rather than against it. An oral bias was being forced through a typographic channel. Soffer's term "silent" orality names the constraint precisely. The style was oral; the production physiology, with its visual buffer, eye-checking and keystrokes, was typographic. The typomora is the gap between the two.
 
-**"Text never declined."** True in absolute terms, and the paper does not claim otherwise. McLuhan's claim was about ratios, not totals. The thesis concerns the main input interface and where growth is happening. Voice with transcription also produces text, so total text can rise while the share of text keyed by hand falls. The useful measure is keyed versus spoken input, which needs better data than currently exist.
+**"Text never declined."** True in absolute terms, and the paper does not claim otherwise. McLuhan's claim was about ratios. The thesis concerns the main input interface and where growth is happening. Voice with transcription also produces text, so total text can rise while the share of text keyed by hand falls. The useful measure is keyed versus spoken input, which needs better data than currently exist.
 
 **"People still prefer text."** Many people, especially younger people, avoid phone calls and prefer messaging. The preference is real, but it is mostly about asynchrony and control: a message can be composed in private, revised and answered later. It is not a preference for the keyboard as such. Voice notes and dictation now offer the same asynchrony and editability by voice, and their spread suggests the preference was for asynchrony, not for typing. The typomora concerns the input layer, not the synchronous phone call.
 
 **"Meaning is the same either way."** Conceded in full (section 6). The claim is relocated to production, timing, feedback, prosody and persistence, where modality demonstrably matters.
 
-**"Literacy's costs are contested."** Also conceded. The literacy precedent is used for reconfiguration, not damage. Mirror invariance and phoneme awareness are cited as documented reallocations; the face-competition claim is not relied on.
+**"Literacy's costs are contested."** Also conceded. The literacy precedent is used for reconfiguration. Mirror invariance and phoneme awareness are cited as documented reallocations; the face-competition claim is not relied on.
 
 **"This is technological determinism."** The opposite. The typomora framing is explicitly contingent: it ties timing to measurable thresholds in recognition error, entry speed and bandwidth. Gould's listening-typewriter studies show the demand for voice existed in the early 1980s and the technology was what held it back.
 
-**"Voice AI may weaken thinking."** The main evidence concerns typed use and is a contested preprint. Self-explanation research suggests speaking ideas through may be more generative, not less. This is treated as an open question.
+**"Voice AI may weaken thinking."** The main evidence concerns typed use and is a contested preprint. Self-explanation research suggests speaking ideas through may be more generative. This is treated as an open question.
 
 **"It is built on one person's story."** The author's case generates hypotheses; it does not support them. The argument rests on the literacy neuroscience, the production research and the technical history.
 

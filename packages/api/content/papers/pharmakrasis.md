@@ -19,7 +19,7 @@ Oct 5, 2026 · @Christopher Telford
 
 McLuhan claimed that media change the ratio among our senses. Drugs do this more directly than any medium, and with far better evidence. This paper treats drug classes as what McLuhan would call technologies of the sensorium: each one sets a characteristic configuration of the senses, which we call **pharmakrasis**, from *pharmakon* (drug, remedy, poison) and *krasis* (tempered mixture).
 
-Using the five-dimensional framework of sensory syncrasis developed earlier in this series, the paper maps the perceptual evidence for stimulants, opioids, alcohol, cannabis, classic psychedelics, dissociatives, entactogens and sedatives. A handful of effects are well established: cannabis speeds the felt passage of time, psilocybin disrupts timing of longer intervals, ketamine loosens the sense of body ownership, LSD deepens the emotional response to music, and benzodiazepines turn down sensory responses in the brain. Most of the rest is suggestive. The typology is offered as an interpretive map, graded by evidence, not as a settled finding.
+Using the five-dimensional framework of sensory syncrasis developed earlier in this series, the paper maps the perceptual evidence for stimulants, opioids, alcohol, cannabis, classic psychedelics, dissociatives, entactogens and sedatives. A handful of effects are well established: cannabis speeds the felt passage of time, psilocybin disrupts timing of longer intervals, ketamine loosens the sense of body ownership, LSD deepens the emotional response to music, and benzodiazepines turn down sensory responses in the brain. Most of the rest is suggestive. The typology is offered as an interpretive map, graded by evidence.
 
 The paper then turns to what McLuhan called hybrids: what happens when a drug meets a medium. The one well-documented case is psychedelic therapy with music, where the quality of the music experience predicts outcomes. Beyond it, the controlled evidence is thin, and the paper says so. A drug and a medium together are a third thing, and the setting a drug is taken in is not a confound to remove but half of the hybrid.
 
@@ -33,7 +33,7 @@ McLuhan saw the connection. In his 1969 *Playboy* interview, he described halluc
 
 The central term is **pharmakrasis**: the configuration of the senses a drug imposes. It joins *pharmakon*, the Greek word for a drug that is at once remedy and poison, with *krasis*, the tempered mixture that names the whole series. The double meaning of *pharmakon* is deliberate. The same chemistry that can fix a configuration into addiction, as *Narcocrasis* argued, can also loosen one. A drug is never only a poison or only a cure; it is a re-tempering whose direction depends on dose, person and setting.
 
-The paper makes three claims, in order of confidence. First, drug classes produce characteristic, partly measurable changes in the configuration of the senses, which can be mapped onto the five dimensions of sensory syncrasis. Second, those changes can be read as a typology: each class is a recognisable setting, not a random disturbance. Third, when a drug meets a medium, the result is what McLuhan called a hybrid, a new configuration that neither produces alone.
+The paper makes three claims, in order of confidence. First, drug classes produce characteristic, partly measurable changes in the configuration of the senses, which can be mapped onto the five dimensions of sensory syncrasis. Second, those changes can be read as a typology: each class is a recognisable setting. Third, when a drug meets a medium, the result is what McLuhan called a hybrid, a new configuration that neither produces alone.
 
 The first claim rests on direct evidence for some drugs and some dimensions. The second is interpretation built on that evidence. The third rests on one strong case and much thinner evidence beyond it. The paper marks which is which throughout. The typology itself, as far as we have found, has not been attempted before.
 
@@ -49,7 +49,7 @@ The first claim rests on direct evidence for some drugs and some dimensions. The
 
 In the vocabulary of predictive processing, these dimensions are aspects of how the brain assigns confidence, or precision, to different signals. Many drugs act directly on the neuromodulators thought to set that confidence: dopamine, noradrenaline, acetylcholine and serotonin. That is part of why drugs are such clean cases. They act on the machinery of the configuration itself.
 
-The framework has a limit worth stating at the start. These five dimensions are a proposal, not an established measurement scheme, and no study has measured all five for any drug. What follows assembles evidence measured for other purposes and reads it through the framework.
+The framework has a limit worth stating at the start. These five dimensions are a proposal, and no study has measured all five for any drug. What follows assembles evidence measured for other purposes and reads it through the framework.
 
 ## 3. The evidence
 
@@ -120,7 +120,7 @@ In syncrasis terms, the mechanism is plausible. Cannabis raises the weight of so
 
 ### The thin rest
 
-For the other obvious pairings (alcohol and advertising, stimulants and gaming, caffeine and screen work), controlled studies of how the drug changes the experience of the medium barely exist. This paper's claims about them are extensions of the framework, not findings.
+For the other obvious pairings (alcohol and advertising, stimulants and gaming, caffeine and screen work), controlled studies of how the drug changes the experience of the medium barely exist. This paper's claims about them are extensions of the framework and have not been tested.
 
 ### Set and setting as the hybrid
 
@@ -174,7 +174,7 @@ What none of these does is the thing this paper attempts: to treat drug classes 
 
 **"The typology over-reads thin evidence."** Partly conceded. Only a few cells rest on controlled human studies: cannabis and psilocybin on time, ketamine on body ownership and LSD on music, with weaker evidence for sedatives on sensory gain. That is why every cell is graded. The typology is offered as a map that organises what is known and exposes what is not.
 
-**"Drugs act on the brain directly; media act through the senses. They are different kinds of thing."** True of the route, not of the result. McLuhan's claim concerns the configuration of the senses a technology leaves behind, and both drugs and media end in changes to how the brain weights and combines its channels. The paper does not claim a drug is a medium in every respect. It uses drugs as a magnified, faster case of the change McLuhan attributed to media, and the hybrid section is precisely about what happens when the two routes meet.
+**"Drugs act on the brain directly; media act through the senses. They are different kinds of thing."** True of the route; the results are comparable. McLuhan's claim concerns the configuration of the senses a technology leaves behind, and both drugs and media end in changes to how the brain weights and combines its channels. The paper does not claim a drug is a medium in every respect. It uses drugs as a magnified, faster case of the change McLuhan attributed to media, and the hybrid section is precisely about what happens when the two routes meet.
 
 **"Drugs as media is already Hartogsohn's idea."** Hartogsohn is the nearest neighbour and is credited as such (section 7). The novelty lies elsewhere: the five-dimensional typology, its grounding in the neuroscience of precision, and the reading of drug–medium combinations as hybrids.
 
