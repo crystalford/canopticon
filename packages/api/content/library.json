@@ -101,6 +101,21 @@
  },
  {
   "kind": "Essay",
+  "topic": "ADHD & attention",
+  "date": "2026-11-26",
+  "dateLabel": "26 Nov",
+  "title": "How a small home narrows what you do",
+  "dek": "Rooms do part of the work of thinking: they separate activities, hold reminders where they will be seen, and offer projects. In a single room all of that falls back on attention, and the strain can look like a trait of the person.",
+  "stat": "14 sources · 9 min",
+  "min": 9,
+  "quotes": 0,
+  "sources": 14,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/how-a-small-home-narrows-what-you-do"
+ },
+ {
+  "kind": "Essay",
   "topic": "AI-directed development",
   "date": "2026-11-26",
   "dateLabel": "26 Nov",
