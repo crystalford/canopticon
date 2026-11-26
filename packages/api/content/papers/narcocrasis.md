@@ -29,7 +29,7 @@ People who are dependent on a drug often describe not a state but a world. Morni
 
 McLuhan's central claim about media was that their real effects are of exactly this kind. A medium reshapes the balance of the senses, and because the new balance becomes the environment we live inside, we stop perceiving it. What we notice is the content: the story on television, the message in the letter. The medium itself becomes ground.
 
-This paper argues that dependence-type addiction has the same structure, and that the resemblance is more than an analogy: the two ideas share a physiological ancestry. McLuhan built his theory of media on the stress research of Hans Selye. Addiction neuroscience built its most influential model, Koob and Le Moal's allostatic account, on the same tradition. In that model, repeated drug use shifts the brain's hedonic set point and recruits stress systems into a persistent "anti-reward" state. The drug does not become invisible; it becomes the most salient thing in the world. What becomes invisible is the shifted baseline against which it shines.
+This paper argues that dependence-type addiction has the same structure, and that the resemblance is more than an analogy: the two ideas share a physiological ancestry. McLuhan built his theory of media on the stress research of Hans Selye. Addiction neuroscience built its most influential model, Koob and Le Moal's allostatic account, on the same tradition. In that model, repeated drug use shifts the brain's hedonic set point and recruits stress systems into a persistent "anti-reward" state. The drug stays in view; it becomes the most salient thing in the world. What becomes invisible is the shifted baseline against which it shines.
 
 We call that configuration **narcocrasis**: from Greek *narkē*, the numbness McLuhan saw in the myth of Narcissus, and *krasis*, the ancient word for a tempered mixture, the root of "idiosyncrasy." It extends the vocabulary of an earlier paper in this series, *Sensory Syncrasis*, which argued that McLuhan's "sense ratios" were a literal claim about how the nervous system weights its channels. Narcocrasis is a particular, persistent setting of that configuration. Recovery is its reversal, which we call **anacrasis**, re-tempering.
 
@@ -39,7 +39,7 @@ The scope is deliberately limited. The argument concerns dependence-type addicti
 
 ## 2. McLuhan's physiology: Narcissus as narcosis
 
-The fourth chapter of *Understanding Media* (1964), "The Gadget Lover: Narcissus as Narcosis," contains McLuhan's most explicitly physiological argument. He reads the myth against its usual meaning. Narcissus does not fall in love with himself; he fails to recognise the reflection as himself at all. The extension of his own image numbs him to the fact that it is an extension. McLuhan connects the name to *narkē*, numbness, a folk etymology that goes back to antiquity.
+The fourth chapter of *Understanding Media* (1964), "The Gadget Lover: Narcissus as Narcosis," contains McLuhan's most explicitly physiological argument. He reads the myth against its usual meaning. In his reading, Narcissus fails to recognise the reflection as himself at all. The extension of his own image numbs him to the fact that it is an extension. McLuhan connects the name to *narkē*, numbness, a folk etymology that goes back to antiquity.
 
 He then grounds the myth in medicine:
 
@@ -79,7 +79,7 @@ In 2001, George Koob and Michel Le Moal applied allostasis to addiction. Their f
 
 > "The allostatic state represents a chronic deviation of reward set point."
 
-The line from Selye to Koob runs through stress, adaptation at a cost, and a shifted baseline that the organism comes to defend. McLuhan's line from Selye runs through stress, protective numbing, and a new sensory balance that becomes the unperceived environment. Both describe a system that adapts to a stressor by changing itself, and then treats the changed state as normal. Shared ancestry does not make the two the same. The branches have grown far apart, and the rest of this paper has to show the match rather than assume it. But it means the mapping is a reunion of related ideas, not a metaphor laid over neuroscience.
+The line from Selye to Koob runs through stress, adaptation at a cost, and a shifted baseline that the organism comes to defend. McLuhan's line from Selye runs through stress, protective numbing, and a new sensory balance that becomes the unperceived environment. Both describe a system that adapts to a stressor by changing itself, and then treats the changed state as normal. Shared ancestry does not make the two the same. The branches have grown far apart, and the rest of this paper has to show the match rather than assume it. But it means the mapping reunites related ideas.
 
 ## 4. The allostatic model
 
@@ -121,9 +121,9 @@ This is precisely McLuhan's structure. A medium's effect is a change in the bala
 - **The content** is the drug, which briefly restores the baseline the person has lost.
 - **The numbness** is the failure to perceive the medium as a medium. The relief the drug brings is credited to the drug, when it is the temporary repair of a ground the drug itself shifted.
 
-McLuhan also held that "the content of any medium is always another medium." That holds here too. The drug is itself a medium, a *pharmakon*, acting on the senses. Its content, in turn, is the person's own sensorium, played back restored for a few hours. The nesting is McLuhan's logic, not a stretch of it.
+McLuhan also held that "the content of any medium is always another medium." That holds here too. The drug is itself a medium, a *pharmakon*, acting on the senses. Its content, in turn, is the person's own sensorium, played back restored for a few hours. The nesting follows McLuhan's own logic.
 
-This relocation explains something the drug-as-medium version could not: why people in dependence commonly report that the drug makes them feel "normal." Normal is the right word. The drug does not add a pleasure; it returns the person to a baseline that has become unavailable without it. The ground has moved, and the figure is the only thing that can briefly put it back.
+This relocation explains something the drug-as-medium version could not: why people in dependence commonly report that the drug makes them feel "normal." Normal is the right word. The drug returns the person to a baseline that has become unavailable without it. The ground has moved, and the figure is the only thing that can briefly put it back.
 
 ## 6. The body that cannot update
 
@@ -149,7 +149,7 @@ Taken together, these lines describe a body whose self-perception has been fixed
 
 ## 7. Narcocrasis across the five dimensions
 
-The first paper in this series described sensory syncrasis as a configuration with five dimensions. Narcocrasis is one particular setting of all five. The table below maps the addiction evidence onto them. The mapping is interpretation, not a finding; each row names the evidence it leans on and how firmly.
+The first paper in this series described sensory syncrasis as a configuration with five dimensions. Narcocrasis is one particular setting of all five. The table below maps the addiction evidence onto them. The mapping is interpretation; each row names the evidence it leans on and how firmly.
 
 | Dimension | In narcocrasis | Evidence it leans on | Confidence |
 | --- | --- | --- | --- |
@@ -183,7 +183,7 @@ The two can coexist. Incentive sensitization describes the figure: the drug and 
 
 The long debate over whether addiction is a brain disease or a choice assumes the problem lives in one place. Even defenders of the disease model concede that brain imaging findings are not specific and are mostly cross-sectional (Heilig and colleagues, 2021). Epidemiological surveys find that most people who meet criteria for a substance use disorder eventually remit, many without treatment (Heyman, 2013). In a national US survey, the estimated lifetime chance of remission was 84% for nicotine dependence, 91% for alcohol, 97% for cannabis and 99% for cocaine (Lopez-Quintero and colleagues, 2011).
 
-A medium is neither a disease nor a choice. It is a relation between an organism and its environment. Narcocrasis places the problem in that relation: a configuration set by drug, body and setting together, and therefore one that can be changed by acting on any of them. High natural remission is what this view expects, not an anomaly.
+A medium is neither a disease nor a choice. It is a relation between an organism and its environment. Narcocrasis places the problem in that relation: a configuration set by drug, body and setting together, and therefore one that can be changed by acting on any of them. High natural remission is what this view expects.
 
 ## 9. Two routes back
 
@@ -233,7 +233,7 @@ Three kinds of intervention act on the dimensions narcocrasis fixes.
 
 **Others.** Venniro's rats chose social contact over heroin, and the choice reduced later craving (section 8). Nardou's psychedelics reopened specifically the window for learning from social reward (section 9). Across very different evidence, the same thing recurs: what re-tempers the configuration is not only the absence of the drug but the presence of other people. Anacrasis in Plutarch's sense.
 
-**A window.** If psychedelics, ketamine or MDMA open a period of heightened plasticity, what fills it matters. A reopened window spent in isolation and the old environment may close on the old configuration. One spent among others, attending to the body and to ordinary rewards, may close on a new one. This paper offers that as a reading of the evidence, not a finding.
+**A window.** If psychedelics, ketamine or MDMA open a period of heightened plasticity, what fills it matters. A reopened window spent in isolation and the old environment may close on the old configuration. One spent among others, attending to the body and to ordinary rewards, may close on a new one. This paper offers that as a reading of the evidence.
 
 ### Recovery as a changed relation
 
@@ -257,7 +257,7 @@ So narcocrasis, as defined here, applies to dependence-type addiction by mechani
 
 **"This is just the allostatic model in new words."** The allostatic model describes the state. Narcocrasis adds a claim about perception: that the state becomes invisible to the person living inside it, which is why relief is credited to the drug rather than to the repair of a baseline the drug itself shifted. It also joins two bodies of research usually studied separately, allostasis and interoceptive precision, into one configuration, and it places addiction in the same frame as the media effects treated elsewhere in this series. That perceptual claim is what the term adds.
 
-**"The set-point evidence is mostly from rats."** Conceded. Human data are consistent but indirect, and medicines aimed at the stress systems have largely failed in trials. The human claim here is consistency, not demonstration.
+**"The set-point evidence is mostly from rats."** Conceded. Human data are consistent but indirect, and medicines aimed at the stress systems have largely failed in trials. In humans the evidence is consistent with the claim and has not yet demonstrated it.
 
 **"McLuhan's science was loose, and Jonas was a vanity-press author."** Conceded, and used. McLuhan was right about structure and careless about sources. The paper's contribution is to give that structure a sound lineage, through Selye, Sterling and Eyer, McEwen and Koob.
 

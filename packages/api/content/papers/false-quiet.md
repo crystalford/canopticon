@@ -86,7 +86,7 @@ That is McLuhan's thermostat, and the loop is sound. A thermostat compares the r
 
 **It fails in one way that matters here: when the sensor reads something the response controls instead of the thing it is meant to watch.** A thermostat mounted beside a radiator reads warm as soon as the radiator heats, and shuts it off while the rest of the room stays cold. The loop works perfectly, and the room is still cold.
 
-Each of the four theories describes a person whose sensor has been placed beside the radiator. The symptom reads the routine, not the cause. The sense of how things are reads a baseline that has moved. The learning signal never fires because nothing was predicted. The feeling of rightness reads fluency, not validity.
+Each of the four theories describes a person whose sensor has been placed beside the radiator. The symptom reads the routine instead of the cause. The sense of how things are reads a baseline that has moved. The learning signal never fires because nothing was predicted. The feeling of rightness reads fluency instead of validity.
 
 ## 3. Two silences that look the same
 
@@ -199,7 +199,7 @@ This is a working tool assembled from the four theories' own checks. It has not 
 
 ## 10. Limits
 
-**The synthesis is argued, not measured.** No study has tested the four forms as one mechanism or the independent-reading rule across them. The propositions are graded accordingly.
+**The synthesis is argued.** No study has tested the four forms as one mechanism or the independent-reading rule across them. The propositions are graded accordingly.
 
 **The classification may not be complete.** Other ways for a signal to go quiet may exist, for instance a signal that is noticed but deliberately ignored. Alarm fatigue, where clinicians exposed to many false alarms stop responding to true ones, is a neighbouring failure in the other direction: too much signal rather than too little [39].
 

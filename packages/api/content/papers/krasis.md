@@ -21,7 +21,7 @@ Marshall McLuhan's boldest claim was physiological: that every medium changes "t
 
 This synthesis draws the series together. It restates the framework, **sensory syncrasis**, a five-dimensional configuration of the senses named from the Greek *krasis*, a tempered mixture. It then shows how six cases fit that frame: a different starting configuration (ADHD, **heterocrasis**), the input layer of computing (**typomora**), the wider computing environment (**exocrasis**), drugs as sense-ratio technologies (**pharmakrasis**), addiction as a configuration that becomes invisible ground (**narcocrasis**), and recovery as re-tempering (**anacrasis**).
 
-Five patterns run through every case. What changes is the ground, not the figure, and it is hard to see from inside. Every extension strengthens something and weakens something else. Effects are small per person but act on whole environments and persist. Overall gain is the best-measured dimension across cases. And the routes back, from recovery to thinking aloud, tend to run through other people. The synthesis also states what the series does not claim, and where its framework is still interpretation rather than measurement.
+Five patterns run through every case. What changes is the ground, and the ground is hard to see from inside. Every extension strengthens something and weakens something else. Effects are small per person but act on whole environments and persist. Overall gain is the best-measured dimension across cases. And the routes back, from recovery to thinking aloud, tend to run through other people. The synthesis also states what the series does not claim, and where its framework is still interpretation rather than measurement.
 
 ## 1. One claim, six cases
 
@@ -69,7 +69,7 @@ The series coins one term for the framework and one for each case. All share the
 | **Narcocrasis** | *narkē* (numbness) + *krasis* | Addiction's shifted baseline as an invisible medium | *Narcocrasis* |
 | **Anacrasis** | *ana-* (again) + *krasis*; in ancient Greek, "mixing with others" | Recovery as re-tempering | *Narcocrasis* |
 
-The family works as a vocabulary, not only a set of labels. Each term names a relation to the same configuration: where it starts (heterocrasis), what holds it in place (typomora), where it moves (exocrasis), what alters it (pharmakrasis), what fixes it (narcocrasis), and what loosens it again (anacrasis). Collision checks found no prior academic use of most terms, though *Syncrasis* is also the name of an insect genus and every term still needs an exact-phrase search before publication.
+The family also works as a vocabulary. Each term names a relation to the same configuration: where it starts (heterocrasis), what holds it in place (typomora), where it moves (exocrasis), what alters it (pharmakrasis), what fixes it (narcocrasis), and what loosens it again (anacrasis). Collision checks found no prior academic use of most terms, though *Syncrasis* is also the name of an insect genus and every term still needs an exact-phrase search before publication.
 
 ## 4. Where a configuration starts, and what re-tempers it
 
@@ -79,7 +79,7 @@ No one meets a medium from a neutral position. *Heterocrasis* asked whether ADHD
 
 ### Media
 
-Two papers dealt with the computing environment. *Typomora* focused on the input layer. For about fifty years, people put language into networked machines almost entirely by keyboard, a production habit inherited from literacy, because speech recognition and bandwidth could not yet carry voice. Literacy itself measurably reconfigures the brain (Dehaene and colleagues, 2010), so a typographic habit is a physiological configuration, not just a cultural one. As those technical limits fell around 2016 to 2022, the interface began returning to voice. Comprehension is largely the same whether people read or listen (Deniz and colleagues, 2019), so what changes is how language is produced, timed and checked, not what is understood.
+Two papers dealt with the computing environment. *Typomora* focused on the input layer. For about fifty years, people put language into networked machines almost entirely by keyboard, a production habit inherited from literacy, because speech recognition and bandwidth could not yet carry voice. Literacy itself measurably reconfigures the brain (Dehaene and colleagues, 2010), so a typographic habit is physiological as well as cultural. As those technical limits fell around 2016 to 2022, the interface began returning to voice. Comprehension is largely the same whether people read or listen (Deniz and colleagues, 2019), so what changes is how language is produced, timed and checked, while what is understood stays much the same.
 
 *Exocrasis* dealt with the rest of the environment. People remember less of what they photograph and let a device keep (Henkel, 2014), and habitual GPS users show weaker spatial memory over time (Dahmani & Bohbot, 2020). Reading on screens is slightly shallower for expository text, a gap that grew over two decades (Delgado and colleagues, 2018). Action games strengthen exactly the skills screens demand (Bediou and colleagues, 2018). And whole-environment studies, of Facebook's rollout and of paid deactivation, find small but real effects on well-being.
 
@@ -121,7 +121,7 @@ The most unexpected pattern concerns recovery and regulation. Rats choose social
 
 A synthesis is where overreach is most tempting. The limits are worth stating together.
 
-**It does not claim media cause harm.** Every case shows change with specific costs and specific gains. The series asks what an environment tunes people toward, not whether it is good or bad.
+**It does not claim media cause harm.** Every case shows change with specific costs and specific gains. The series asks what an environment tunes people toward. Whether that is good or bad is a separate question.
 
 **It does not claim technological determinism.** Each case ties change to conditions that could have been otherwise: bandwidth limits that lifted, settings a drug is taken in, social contact that changes recovery. Configurations can be re-tempered, and much of the series is about how.
 
@@ -137,7 +137,7 @@ A synthesis is where overreach is most tempting. The limits are worth stating to
 
 ## 7. Conclusion: McLuhan for an age of measurement
 
-McLuhan worked by probes, not proofs. He threw out claims to see what they revealed, and he was often loose with evidence. That method made him famous and made him easy to dismiss. When his one attempt to anchor the sense ratio in neurology failed, there was nothing to hold the claim up, and it drifted into metaphor.
+McLuhan worked by probes. He threw out claims to see what they revealed, and he was often loose with evidence. That method made him famous and made him easy to dismiss. When his one attempt to anchor the sense ratio in neurology failed, there was nothing to hold the claim up, and it drifted into metaphor.
 
 What has changed since is the measurement. Neuroscience can now describe how the brain weights its senses, how arousal sets the gain on all of them, how body and world compete for attention, and how settings persist. Economics can now change whole media environments and measure the result. Pharmacology can alter the configuration in a controlled trial. None of this existed in usable form when McLuhan was writing. Together, it lets his central claim be described and examined in a way he never could.
 

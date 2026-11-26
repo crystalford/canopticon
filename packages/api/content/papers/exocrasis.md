@@ -3,7 +3,7 @@ slug: "exocrasis"
 file: "Canopticon Paper Exocrasis.dc.html"
 kind: "Paper"
 title: "Exocrasis"
-dek: "The computing environment, not the screen, is the medium: keyboard, memory, search and network move part of the configuration of the senses and of memory outside the body."
+dek: "The whole computing environment is the medium: keyboard, memory, search and network move part of the configuration of the senses and of memory outside the body."
 topic: "McLuhan & media theory"
 date: "2026-10-05"
 source_upload: "uploads/Exocrasis.md"
@@ -23,11 +23,11 @@ The paper argues that the computing environment moves part of the configuration 
 
 The effects are small per person, around a tenth to a third of a standard deviation, but they operate across entire environments and persist. Several famous findings do not hold up, and the paper sets them aside explicitly. What remains supports change with specific costs, not general harm: an environment that tunes its users toward outward, stored, fast-switching processing, and away from slow, self-paced, internally held thought.
 
-## 1. The environment, not the screen
+## 1. The whole environment
 
 Much of the public debate about computers and the mind asks one question about one object: does the screen damage attention? Both the object and the question are too narrow.
 
-The object is too narrow because a computer is not a screen. It is a keyboard that turns language into keystrokes, a pointer that turns intention into position, a memory that holds what we no longer need to, a processor that calculates for us, and a network that connects all of it to everyone else. *Typomora*, an earlier paper in this series, dealt with one part of that environment, the input layer, and the shift from typing back to voice. This paper deals with the rest.
+The object is too narrow because a computer is more than a screen. It is a keyboard that turns language into keystrokes, a pointer that turns intention into position, a memory that holds what we no longer need to, a processor that calculates for us, and a network that connects all of it to everyone else. *Typomora*, an earlier paper in this series, dealt with one part of that environment, the input layer, and the shift from typing back to voice. This paper deals with the rest.
 
 The question is too narrow because "harm" is the wrong frame. McLuhan's tetrad asks four questions of any medium: what it enhances, what it pushes out, what it retrieves, and what it reverses into when pushed to an extreme. A computer can make some capacities stronger and others weaker at the same time. That is not a contradiction to be resolved. It is what a medium does.
 
@@ -55,7 +55,7 @@ Navigation shows the effect over years. People who rely on GPS walk further, sto
 
 ### The newest extension
 
-Artificial intelligence extends thinking itself. A widely reported 2025 study from MIT found that people writing essays with ChatGPT showed lower brain connectivity, remembered their own essays less well, and felt less ownership of them (Kosmyna and colleagues). The study was a preprint, used typed rather than spoken interaction, and has drawn a published methodological critique. It should be treated as a question, not a finding. But the question is the same one GPS and photographs raise: what happens to a capacity once a machine reliably does it for us?
+Artificial intelligence extends thinking itself. A widely reported 2025 study from MIT found that people writing essays with ChatGPT showed lower brain connectivity, remembered their own essays less well, and felt less ownership of them (Kosmyna and colleagues). The study was a preprint, used typed rather than spoken interaction, and has drawn a published methodological critique. It should be treated as an open question. But the question is the same one GPS and photographs raise: what happens to a capacity once a machine reliably does it for us?
 
 ## 3. Reading by the screen's rules
 
@@ -79,9 +79,9 @@ Action video games are the clearest case. A meta-analysis of the research found 
 
 Gamers also judge the timing of sights and sounds more precisely. In a test of whether a flash and a beep happened at the same moment, players showed sharper multisensory timing than non-players (Donohue, Woldorff & Mitroff, 2010). Part of that advantage may come from sharper visual timing alone rather than better integration of the senses.
 
-What is enhanced is telling. Fast visual tracking, rapid shifts of attention and precise timing are exactly what screens and games demand. The environment trains attention for itself. This is not evidence against an exocrasis; it is the enhancement half of the tetrad. An environment that strengthens the capacities it uses, while others go unpractised, is doing what McLuhan said every medium does.
+What is enhanced is telling. Fast visual tracking, rapid shifts of attention and precise timing are exactly what screens and games demand. The environment trains attention for itself. This is the enhancement half of the tetrad, and it belongs inside an exocrasis. An environment that strengthens the capacities it uses, while others go unpractised, is doing what McLuhan said every medium does.
 
-This reframes a common argument. People sometimes cite gaming research to show that screens are good for the mind. The research does show real gains. But a gain toward the medium is not a neutral improvement; it is a configuration tuned to the environment that produced it. The question that matters is not whether screens make people better or worse, but what they tune people toward, and what falls out of practice to make room.
+This reframes a common argument. People sometimes cite gaming research to show that screens are good for the mind. The research does show real gains. But a gain toward the medium is also a configuration tuned to the environment that produced it. The question that matters is not whether screens make people better or worse, but what they tune people toward, and what falls out of practice to make room.
 
 ## 5. Capture, and measuring the ground at scale
 
@@ -147,7 +147,7 @@ The inside–outside row carries the paper's name. In the earlier papers, the in
 
 **"The effects are tiny."** Per person, yes: around a tenth to a third of a standard deviation, and well-being associations at most 0.4% of variance. The paper does not claim dramatic individual transformation. Its claim concerns environments: small effects applied to everyone, daily, for years, which is the scale at which McLuhan said media act.
 
-**"Offloading is just efficiency."** Often it is, and saving can free memory for new material (Storm & Stone, 2015). The paper treats offloading as reallocation, not loss. The point is that it is a reallocation, with a measurable cost to the offloaded capacity, as the GPS and photography studies show.
+**"Offloading is just efficiency."** Often it is, and saving can free memory for new material (Storm & Stone, 2015). The paper treats offloading as a reallocation of capacity. The point is that it is a reallocation, with a measurable cost to the offloaded capacity, as the GPS and photography studies show.
 
 **"Gaming shows screens make people sharper."** It shows that action games strengthen the skills they demand. That is the enhancement half of the tetrad, and the paper counts it as such. It does not show that the environment is neutral.
 
@@ -157,9 +157,9 @@ The inside–outside row carries the paper's name. In the earlier papers, the in
 
 **"This overlaps with Typomora."** Deliberately at the edges. *Typomora* deals with the input layer, the keyboard and voice. *Exocrasis* deals with storage, processing, reading and network, and with how the environment as a whole moves capacities outward.
 
-**"Exocrasis is just the extended mind."** Clark and Chalmers's extended-mind thesis argues that cognition can include external tools. Exocrasis accepts that and adds the other side McLuhan insisted on: the internal capacity that adjusts when a tool takes over. Extension and amputation, not extension alone.
+**"Exocrasis is just the extended mind."** Clark and Chalmers's extended-mind thesis argues that cognition can include external tools. Exocrasis accepts that and adds the other side McLuhan insisted on: the internal capacity that adjusts when a tool takes over. It counts the extension and the amputation together.
 
-**"This is Nicholas Carr's *The Shallows* again."** Carr argued in 2010 that the internet makes thinking shallower, and he deserves credit for raising the question. Exocrasis differs in three ways. It does not argue harm; it counts enhancements, such as the gaming findings, alongside costs. It sets aside several findings popular arguments have relied on that later failed replication (section 6). And it places the effects within a five-dimensional framework rather than a single dimension of depth.
+**"This is Nicholas Carr's *The Shallows* again."** Carr argued in 2010 that the internet makes thinking shallower, and he deserves credit for raising the question. Exocrasis differs in three ways. Where Carr argued harm, it counts enhancements, such as the gaming findings, alongside costs. It sets aside several findings popular arguments have relied on that later failed replication (section 6). And it places the effects within a five-dimensional framework rather than a single dimension of depth.
 
 ## 9. Conclusion
 
