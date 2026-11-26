@@ -101,6 +101,21 @@
  },
  {
   "kind": "Essay",
+  "topic": "AI-directed development",
+  "date": "2026-11-26",
+  "dateLabel": "26 Nov",
+  "title": "Why AI is bad at naming things",
+  "dek": "A good name is one nobody would have predicted and everyone recognises at once. A language model writes what is most predictable, and the names that stick are picked by people using them, in a moment and a crowd the model never sees.",
+  "stat": "9 sources · 7 min",
+  "min": 7,
+  "quotes": 0,
+  "sources": 9,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/why-ai-is-bad-at-naming-things"
+ },
+ {
+  "kind": "Essay",
   "topic": "Attention & feeds",
   "date": "2026-11-25",
   "dateLabel": "25 Nov",
