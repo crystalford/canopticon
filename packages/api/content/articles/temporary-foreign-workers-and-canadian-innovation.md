@@ -15,6 +15,10 @@ based_on:
 quotes: 57
 words: 2195
 cite: "Telford, C. (2026). Temporary foreign workers and Canadian innovation: what the automation evidence shows, and the study nobody has run. Canopticon. canopticon.com/articles/temporary-foreign-workers-and-canadian-innovation"
+glance_words: "Cheap labour, less automation."
+glance_formula: "skilled, selected migrants → more innovation || temporary, low-wage intake → automation postponed || 1% rise in low-skill wages → 2–5% more automation patents || Canadian study → never run"
+glance_sentence: "The evidence that immigration drives innovation comes from skilled migration, while Canada's recent intake is mostly temporary and low-wage, and cheap labour has been shown to slow automation."
+glance_aloud: "The studies that say immigration drives innovation look at skilled, points-selected migrants. Since 2016, Canada's growth has been mostly temporary, low-wage workers, and the causal research on cheap labour points the other way: when low-skill wages rise 1%, automation patenting rises 2 to 5%. Cheap labour lets firms put off automating. The Canadian pieces of this chain are measured. The last piece, what it does to Canadian firms' innovation, has never been studied."
 ---
 The claim that immigration drives innovation is well evidenced. It is also evidence about a different kind of immigration than the kind Canada has mostly been running for the past decade, and the economics of the kind it has been running points the other way.
 

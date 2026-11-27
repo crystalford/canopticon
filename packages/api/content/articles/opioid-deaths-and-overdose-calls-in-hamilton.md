@@ -17,6 +17,10 @@ based_on:
 quotes: 45
 words: 1364
 cite: "Telford, C. (2026). Opioid deaths and overdose calls in Hamilton: why the two counts moved in opposite directions. Canopticon. canopticon.com/articles/opioid-deaths-and-overdose-calls-in-hamilton"
+glance_words: "Fewer deaths, more overdoses."
+glance_formula: "fentanyl + sedatives naloxone can't reverse → more overdoses || naloxone → fewer deaths || counting deaths only → the crisis looks like it's ending"
+glance_sentence: "Hamilton's opioid deaths have fallen since 2021 while overdose calls more than doubled, because the supply now carries sedatives naloxone cannot reverse and deaths alone miss the harm."
+glance_aloud: "In Hamilton, opioid deaths have fallen every year since 2021, while paramedic calls for overdoses have more than doubled. Both are true because the street supply changed: most fentanyl now arrives mixed with sedatives that naloxone can't reverse. Naloxone keeps more people alive, so deaths fall, but the overdoses, the hours of sedation and the injuries do not. Measured by deaths alone, the crisis looks like it's ending."
 ---
 On Hamilton's streets, people sit folded forward for hours — not unconscious, not awake. Outreach workers have a name for it. The official measure of the overdose crisis, deaths, has been falling since 2021. This article argues that both are true, and that the falling number is the misleading one.
 

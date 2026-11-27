@@ -328,8 +328,10 @@ function build() {
     for (const a of Object.values(articles)) {
       if (a.form !== "Essay" && a.form !== "Brief")
         failures.push(`articles/${a.slug}: form must be "Essay" or "Brief"`);
-      // Every essay opens with its short version (2026-11-26), as theories do.
-      if (a.form === "Essay")
+      // Every essay and brief opens with its short version (2026-11-26), as
+      // theories do. (Briefs published from the workspace live in D1 and are
+      // not checked here.)
+      if (a.form === "Essay" || a.form === "Brief")
         for (const k of ["glance_words", "glance_formula", "glance_sentence", "glance_aloud"])
           if (!a[k]) failures.push(`articles/${a.slug}: an essay needs ${k} (its short version)`);
       const row = rows.get(`/articles/${a.slug}`);

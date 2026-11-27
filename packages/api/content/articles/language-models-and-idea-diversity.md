@@ -15,6 +15,10 @@ based_on:
 quotes: 39
 words: 1406
 cite: "Telford, C. (2026). Language models and idea diversity: homogenisation within a session, across users, and between companies. Canopticon. canopticon.com/articles/language-models-and-idea-diversity"
+glance_words: "Typical by default."
+glance_formula: "model → the most typical answer || different models → much the same answer || novelty = an assumption overturned or two fields joined → found on purpose"
+glance_sentence: "Language models give the most typical answer, and different models give much the same one, so novelty has to be looked for on purpose: an assumption overturned, or two fields connected."
+glance_aloud: "Ask a language model for a new idea and it pulls toward what everyone else would say. Different companies' models converge on the same answers, long sessions drift toward the typical, and everyone using the tools gets pulled the same way. The ideas look more original than they turn out to be. Real novelty has a shape: an assumption overturned, or two fields that never cite each other brought together. You have to go looking for that on purpose."
 ---
 You ask an AI for a fresh angle on a problem. It gives you something that sounds sharp. You ask another model to check, and it agrees. You keep refining together for an hour, and the idea gets smoother and more confident. The research behind this article says each of those steps moves you toward the average, not away from it.
 

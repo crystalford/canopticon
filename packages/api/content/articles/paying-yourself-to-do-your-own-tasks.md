@@ -15,6 +15,10 @@ based_on:
 quotes: 37
 words: 1487
 cite: "Telford, C. (2026). Paying yourself to do your own tasks: what the incentive trials show, and whether an earn-back subscription could work. Canopticon. canopticon.com/articles/paying-yourself-to-do-your-own-tasks"
+glance_words: "A stake beats a wage."
+glance_formula: "paid incentives → behaviour moves while they run || losses > equal gains || your own money as a wage → most of the effect lost || subscription you earn back → a loss-framed stake (untested)"
+glance_sentence: "Paying yourself a wage for your own tasks loses most of what incentive trials rely on, while a subscription you earn back by doing the work is a loss-framed stake, the strongest untested version."
+glance_aloud: "Trials show money changes behaviour while the payments run, and losing money moves people more than gaining the same amount. Paying yourself a wage from your own pocket loses most of that: it's your money either way. Putting money at risk is different. A subscription you earn back by doing the work is a stake you can lose, and the research rates that the version most likely to work. Nobody has tested it yet, and it still depends on checking the work was done."
 ---
 A delivery app can get someone off the sofa and across a city for a modest fee, while their own short list of small jobs sits untouched. The obvious response is to build the dispatcher for yourself and put money behind the orders. The research on that idea separates two ways of doing it, and treats them very differently.
 

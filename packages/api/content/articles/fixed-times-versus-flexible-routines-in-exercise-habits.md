@@ -15,6 +15,10 @@ based_on:
 quotes: 38
 words: 1653
 cite: "Telford, C. (2026). Fixed times versus flexible routines in exercise habits: what the paid-to-exercise trials found. Canopticon. canopticon.com/articles/fixed-times-versus-flexible-routines-in-exercise-habits"
+glance_words: "Fixed start, open workout."
+glance_formula: "fixed time + fixed plan → less exercise → faster quitting || fixed start + any movement → more exercise"
+glance_sentence: "Paid to exercise at a set time, people did less than those paid to exercise whenever they liked, so a plan should be strict about starting and loose about what you do."
+glance_aloud: "In trials that paid people to exercise, those required to go at a set time did less than those paid to go whenever they liked, and they quit faster once the payments ended. Rigid plans break the first time life gets in the way. What the evidence supports is a fixed start and an open workout: be strict about when you begin, and let any movement count once you've started. Starting is the hard part."
 ---
 Someone plans to go to the gym three times a week. On Wednesday they do a yoga video at home instead, and it feels like cheating — the gym session is still "owed". By Friday they have skipped both. The usual advice is to be more specific and more disciplined: gym, Monday-Wednesday-Friday, 45 minutes. This article argues the research points the other way. Being specific helps, but only about the moment you start. Being rigid about the workout itself produces less exercise, and the effect lasts after the plan ends.
 

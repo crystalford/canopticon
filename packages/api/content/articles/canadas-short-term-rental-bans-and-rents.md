@@ -17,6 +17,10 @@ based_on:
 quotes: 41
 words: 1392
 cite: "Telford, C. (2026). Canada's short-term rental bans and rents: what returned to the long-term market, and what actually moved prices. Canopticon. canopticon.com/articles/canadas-short-term-rental-bans-and-rents"
+glance_words: "Three weak links."
+glance_formula: "rentals take homes → bans return them → returned homes lower rents || each link weaker than promised || squeezed: the mid-term tier"
+glance_sentence: "Canada's short-term rental bans rested on three links, each weaker than promised: few homes came back, rents fell for other reasons, and the bans squeezed a mid-term tier between hotel and lease."
+glance_aloud: "The case for banning short-term rentals had three steps. Rentals take homes off the long-term market, bans put them back, and the returned homes bring rents down. Each step turned out weaker than promised. Fewer units came back than expected, and where rents did fall, other forces did it. Meanwhile the bans squeezed a tier in between, furnished stays of a few months, which never got the chance to become housing."
 ---
 In 2023, as rents in Hamilton rose faster than anywhere else in Ontario, the city passed one of the strictest short-term rental rules in Canada. Toronto, Vancouver and Montreal had done the same. The promise was simple: take homes off Airbnb and they will go back to people who need somewhere to live. Since then, the research says the promise was mostly politics.
 

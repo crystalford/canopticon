@@ -15,6 +15,10 @@ based_on:
 quotes: 57
 words: 1820
 cite: "Telford, C. (2026). Measuring the economy with new instruments: scraped prices, card-spending trackers and satellite imagery. Canopticon. canopticon.com/articles/measuring-the-economy-with-new-instruments"
+glance_words: "Better measurement, privately held."
+glance_formula: "computation → prediction about the same || computation → measurement much faster (scraped prices, card spending, satellites) → captured privately → the public still waits"
+glance_sentence: "Computation has done little for economic prediction and a great deal for measurement, and most of that gain is held privately while the public waits weeks for official numbers."
+glance_aloud: "There are old, solid arguments for why an economy can't be computed in advance, and none of them have gone away. What computing changed is measurement: scraped online prices, card-spending records and satellite images show what's happening weeks before official statistics do. Most of that data is owned and sold privately. So the numbers often already exist, and the public still waits weeks to see them."
 ---
 Every few years someone announces that enough data and enough computing power will finally let us run the economy properly. It has not happened, and the reasons it cannot are old and well understood. Meanwhile the same technology has quietly transformed something less glamorous and far more useful.
 

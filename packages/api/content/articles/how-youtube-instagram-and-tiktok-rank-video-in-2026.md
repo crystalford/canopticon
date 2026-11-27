@@ -15,6 +15,10 @@ based_on:
 quotes: 43
 words: 1561
 cite: "Telford, C. (2026). How YouTube, Instagram and TikTok rank video in 2026: satisfaction signals, AI content understanding, and penalties for reposting. Canopticon. canopticon.com/articles/how-youtube-instagram-and-tiktok-rank-video-in-2026"
+glance_words: "The machine watches now."
+glance_formula: "old feed: behaviour → ranking || 2026 feed: behaviour + a model that watches the content → ranking || reposting → penalised in the ranking itself"
+glance_sentence: "Recommendation feeds no longer rank on behaviour alone: models now watch and judge the content itself, and reposting is penalised inside the ranking."
+glance_aloud: "Creators are often taught that feeds rank purely on watch time and engagement. That describes a system from about a decade ago. Today a language model watches the video and judges it, and on one published test it judged better than the human raters it replaced. Satisfaction signals count alongside behaviour, and reposted content is penalised inside the ranking itself. Much of the advice still circulating is tuned for a machine that has been replaced."
 ---
 The long-standing complaint about recommendation feeds has been that they count the wrong thing — that a system measuring seconds watched will serve whatever holds a person against their own wishes. The complaint is still fair about the results. It is no longer accurate about the method.
 

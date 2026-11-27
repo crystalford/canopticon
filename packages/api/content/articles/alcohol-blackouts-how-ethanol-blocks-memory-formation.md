@@ -15,6 +15,10 @@ based_on:
 quotes: 39
 words: 1713
 cite: "Telford, C. (2026). Alcohol blackouts: how ethanol blocks memory formation, and why drinking speed decides it. Canopticon. canopticon.com/articles/alcohol-blackouts-how-ethanol-blocks-memory-formation"
+glance_words: "Awake, but not recording."
+glance_formula: "fast rise in blood alcohol → memory saving held shut → nothing stored || speed of drinking > number of drinks"
+glance_sentence: "In an alcohol blackout the drinker is awake and acting while the brain's mechanism for saving new experience is chemically held shut, and how fast blood alcohol rises decides whether it happens."
+glance_aloud: "In a blackout the drinker is awake, talking and making decisions. Working memory runs normally, so they can hold a conversation. What stops is the brain's process for saving the night into long-term memory: alcohol holds it shut. Nothing comes back the next day because nothing was stored. Whether it happens depends less on how many drinks than on how fast blood alcohol climbs, which is why two people can drink the same amount and only the one who drank fast, on an empty stomach, loses the evening."
 ---
 People talk about a blackout as though the night is filed somewhere in the drinker's head and the right reminder would bring it back. It is not. The hours were never written down.
 
