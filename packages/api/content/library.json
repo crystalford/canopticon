@@ -52,6 +52,21 @@
  {
   "kind": "Essay",
   "topic": "McLuhan & media theory",
+  "date": "2026-11-27",
+  "dateLabel": "27 Nov",
+  "title": "Keep three words, rebuild the rest",
+  "dek": "Memory keeps the meaning of a long definition and drops its exact wording within seconds. A handle and one word of context can call that meaning back. Rebuilding the explanation from them keeps the idea, and shows whether it was understood.",
+  "stat": "10 sources · 7 min",
+  "min": 7,
+  "quotes": 0,
+  "sources": 10,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/keep-three-words-rebuild-the-rest"
+ },
+ {
+  "kind": "Essay",
+  "topic": "McLuhan & media theory",
   "date": "2026-11-26",
   "dateLabel": "26 Nov",
   "title": "Make and do: how a hard definition sticks",
