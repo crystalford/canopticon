@@ -9,6 +9,10 @@ date: "2026-11-25"
 theory: "ground-blindness"
 thesis: "McLuhan's claim that only the small child and the artist perceive the environment holds, for two different reasons. Children notice what adults have learned to filter out. Artists see by comparing something they have made with the thing in front of them; the studies place their advantage in that comparison more than in their eyes. Because the comparison itself becomes familiar, art has to keep changing to keep working, which is what centuries of paintings show."
 cite: "Telford, C. (2026). The child and the artist. Canopticon. canopticon.com/articles/the-child-and-the-artist"
+glance_words: "Make it, then compare."
+glance_formula: "child → hasn't learned what to ignore → sees the environment || artist → makes something → holds it against the world → sees the difference"
+glance_sentence: "Children see the environment because they haven't learned what to ignore; artists see it by comparing something they made with the world, and that method can be borrowed."
+glance_aloud: "McLuhan said only the small child and the artist can see the environment everyone else has adapted to. The research says they do it differently. Children notice what adults have learned to filter out. Artists draw or describe something, then hold it against the real thing and look at where the two differ. That second method works for anyone: sketch the route before you follow it, write down how the day went before you check the calendar. It wears off as it becomes familiar, so it has to keep changing."
 ---
 In the story, the Emperor walks out in new clothes that do not exist, and the court admires them. McLuhan read the story in an essay dated November 1965: "When the Emperor appeared in his new clothes, his courtiers did not see his nudity, they saw his old clothes." Then he named who could see: "Only the small child and the artist have that immediacy of approach that permits perception of the environmental." [1]
 

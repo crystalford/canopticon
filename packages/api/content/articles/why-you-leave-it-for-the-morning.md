@@ -8,6 +8,10 @@ dek: "At night, leaving a small task until morning feels reasonable. In the morn
 date: "2026-11-26"
 thesis: "Small tasks get put off because the evening self and the morning self decide in different states. At night the cost of doing the task is felt now and the morning's pressure is not felt at all, and people expect to have more time later than they have now. Saying 'I'll do it in the morning' is a plan, and plans quiet an unfinished task until the time they name, so the pressure returns in the morning with everything else. The lesson does not carry back to the evening, because a pressure that is not being felt is underestimated. A rule made once, for every night, works better than a fresh decision each night."
 cite: "Telford, C. (2026). Why you leave it for the morning. Canopticon. canopticon.com/articles/why-you-leave-it-for-the-morning"
+glance_words: "Decided without the pressure."
+glance_formula: "evening: cost felt now + morning pressure unfelt → leave it || the plan → a quiet evening → the pressure returns at dawn || one rule for every night → done"
+glance_sentence: "At night you decide without the pressure you'll feel in the morning, and the plan to do it later keeps that pressure away until morning."
+glance_aloud: "At night the dish in the sink can wait. In the morning, with lunch to pack, you wonder why you left it. The evening decision was made without the pressure the morning brings, and you expected more time tomorrow than you'll have. Saying 'I'll do it in the morning' also quiets the task, so the pressure comes back all at once at dawn, with everything else you put off. Deciding once, as a rule for every night, beats deciding each night."
 ---
 In the evening there is a container in the sink from lunch. Washing it would take two minutes. Leaving it until morning seems fine: there will be time, and it is the same two minutes either way. In the morning, with lunch to pack and somewhere to be, the container is in the way, and the question is why it was left. The next evening the same container is left again.
 

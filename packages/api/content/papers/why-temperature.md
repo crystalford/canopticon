@@ -9,6 +9,10 @@ version: 2
 revised: "2026-11-25"
 revision: "McLuhan's essay of November 1965, \"The Relation of Environment to Anti-Environment,\" describes the senses in the language of a thermostat. Version 2 adds it and no longer suggests he may never have connected his temperatures to the body."
 theory: "cognitive-ectothermy"
+glance_words: "Hot supplies, cool asks."
+glance_formula: "hot medium → supplies more + arouses more → you produce less || kept warm all the time → your own capacity drops || cool stretches → it returns"
+glance_sentence: "McLuhan's hot and cool describe regulation: how much a medium supplies, how much it arouses, and whether you predict before the answer arrives."
+glance_aloud: "McLuhan sorted media into hot and cool. Hot media arrive well filled with data; cool ones leave the audience to complete them. Read as regulation, a hot medium supplies what you would otherwise produce yourself, the way warm air spares a body from making its own heat. A body kept warm all the time loses some of that capacity, and a mind kept supplied loses some of its own. Brief, regular stretches in the cool, like guessing before you look, rebuild it."
 ---
 
 # Why Temperature

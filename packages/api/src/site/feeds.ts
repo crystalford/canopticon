@@ -11,6 +11,7 @@ import { allPapers, allTheories, libraryItems, researchDoc } from "./content/sto
 import { docTitle, listedArticles, topicOf } from "./data";
 import { esc } from "./layout";
 import { articleHtml, documentHtml } from "./md";
+import { glanceMarkdown } from "./pages/glance";
 import { lexiconMarkdown } from "./pages/lexicon";
 import { topicSlug } from "./theme";
 
@@ -65,25 +66,7 @@ function paperItem(p: Paper): FeedItem {
 /** A theory as Markdown: the claim, the graded propositions with the studies
  *  each rests on, the body, and the references with what was read. */
 export function theoryMarkdown(t: Theory): string {
-  const glance =
-    t.glance_words || t.glance_sentence
-      ? [
-          "## At a glance",
-          "",
-          ...(t.glance_words ? [`**In a few words:** ${t.glance_words}`, ""] : []),
-          ...(t.glance_formula
-            ? [
-                `**As a formula:** ${String(t.glance_formula)
-                  .split("||")
-                  .map((l) => l.trim())
-                  .join("; ")}`,
-                "",
-              ]
-            : []),
-          ...(t.glance_sentence ? [`**In one sentence:** ${t.glance_sentence}`, ""] : []),
-          ...(t.glance_aloud ? [`**Said aloud:** ${t.glance_aloud}`, ""] : []),
-        ]
-      : [];
+  const glance = glanceMarkdown(t);
   return [
     ...glance,
     `**Claim.** ${t.claim}`,

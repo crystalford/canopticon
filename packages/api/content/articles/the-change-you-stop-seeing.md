@@ -26,6 +26,10 @@ based_on:
 quotes: 9
 words: 716
 cite: "Telford, C. (2026). The change you stop seeing. Canopticon. canopticon.com/articles/the-change-you-stop-seeing"
+glance_words: "The background moves."
+glance_formula: "the thing in front stays the same → the background shifts → the shift goes unnoticed || seen in health, addiction, prices, screens and typing"
+glance_sentence: "Across health, addiction, prices, screens and typing, the thing in front of us stays the same while the background it sits in moves, and the move goes unnoticed because it is background."
+glance_aloud: "McLuhan called it figure and ground: you notice the thing in front of you and miss what it sits in. The research on this site keeps finding that pattern in places with nothing else in common. A drug stays the same while the body's baseline shifts. A price looks the same while the way it is set has changed. A screen looks the same while reading habits change around it. Each time, the change is in the background, the part we stop seeing."
 ---
 A moisturiser works, your skin feels fine, and you stop using it. A drink takes the edge off, and over years the edge gets sharper. A price on a screen reads the same as the price on a tag. In each case something changed, and the thing that changed was not the thing you were looking at. This article follows that pattern through five pieces of research that were never meant to be read together.
 

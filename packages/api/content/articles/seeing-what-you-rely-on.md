@@ -9,6 +9,10 @@ date: "2026-11-22"
 theory: "ground-blindness"
 thesis: "Whether something a person uses every day is good for them cannot be judged while they are using it, because its effects and the adjustments made around it have dropped out of notice; a planned, brief period without it is the only comparison that shows what it does."
 cite: "Telford, C. (2026). Seeing what you rely on. Canopticon. canopticon.com/articles/seeing-what-you-rely-on"
+glance_words: "Go without, briefly."
+glance_formula: "daily use → background → judged only while present || brief break → contrast → what it does"
+glance_sentence: "Something you use every day can only be judged by going without it for a while, because while you use it, its effects have dropped out of notice."
+glance_aloud: "Your morning coffee, your phone, the painkiller you take most days: each feels like it helps, and you can't really check, because you never spend a day without it. Experiments that take such things away for a week find effects people hadn't noticed, sometimes the opposite of what they assumed. The way to see what something does for you is a short, planned break. Done on purpose, it costs less than finding out by accident."
 ---
 Most people who drink coffee every morning would say it makes them sharper. The research on this is unusually clear, and it says something else. In habitual drinkers, much of what feels like a boost is the end of a small withdrawal that began overnight. A large experiment found that regular drinkers who went without caffeine were sleepier and slower by the afternoon, and that caffeine brought them back; people who rarely drank it gained little from it, apart from feeling less sleepy, and became more jittery [1]. A review of the field concluded that the only studies able to show caffeine's real effect are long-term withdrawal studies, and that these find little benefit from long-term use over going without [2].
 

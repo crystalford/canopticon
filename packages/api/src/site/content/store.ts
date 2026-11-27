@@ -113,7 +113,17 @@ export interface BasedOn {
   label: string;
 }
 
-export interface Article {
+/** The short version, read before the long one: the idea in a few words,
+ *  as a formula (lines joined by " || "), in one sentence, and as about
+ *  thirty seconds said aloud. Every theory, essay and paper carries one. */
+export interface Glance {
+  glance_words?: string;
+  glance_formula?: string;
+  glance_sentence?: string;
+  glance_aloud?: string;
+}
+
+export interface Article extends Glance {
   slug: string;
   kind: "Article";
   /** Essay: argues one of the author's ideas. Brief: answers one question
@@ -137,7 +147,7 @@ export interface Article {
   body: string;
 }
 
-export interface Paper {
+export interface Paper extends Glance {
   slug: string;
   kind: "Paper";
   topic?: string;
@@ -191,7 +201,7 @@ export interface Reference {
  *  definition, mechanism, graded propositions, measures, protocol, scope and
  *  counter-evidence. The body is in the article dialect; every <q> is
  *  checked word for word at build, and the sections are required. */
-export interface Theory {
+export interface Theory extends Glance {
   slug: string;
   kind: "Theory";
   title: string;
@@ -212,13 +222,6 @@ export interface Theory {
   cycle_exit?: string;
   /** The step (1-based) whose incoming arrow the way out cuts. */
   cycle_cut?: number;
-  /** The short version, read before the long one: the idea in a few words,
-   *  as a formula (lines joined by " || "), in one sentence, and as about
-   *  thirty seconds said aloud. */
-  glance_words?: string;
-  glance_formula?: string;
-  glance_sentence?: string;
-  glance_aloud?: string;
   cite?: string;
   /** A registered DOI (e.g. from Zenodo), without the https://doi.org/ prefix. */
   doi?: string;

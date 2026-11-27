@@ -28,6 +28,7 @@ import {
 import { esc, linkPill, pill, shell } from "../layout";
 import { type Head, articleHtml, articleQuotes, documentHtml, inline, plain } from "../md";
 import { kindColours, longDate, monthYear, topicColours, topicSlug } from "../theme";
+import { glance } from "./glance";
 
 const COPY_ICON =
   '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="flex:none"><rect x="5.5" y="5.5" width="8" height="8" rx="1.8"></rect><path d="M10.5 5.5V3.8A1.3 1.3 0 0 0 9.2 2.5H3.8A1.3 1.3 0 0 0 2.5 3.8v5.4a1.3 1.3 0 0 0 1.3 1.3h1.7"></path></svg>';
@@ -239,6 +240,7 @@ export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): str
             .join("")}</div>`
         : "",
     "</div>",
+    glance(a),
     a.why ? `<div class="aside-box"><strong>Why I asked.</strong> ${inline(a.why)}</div>` : "",
     a.thesis
       ? `<div class="aside-box thesis"><strong>Thesis.</strong> ${inline(a.thesis)}</div>`
@@ -397,6 +399,7 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
     `<div class="byline"><a href="/about#m-author" class="who">Chris Telford</a><time class="chip" datetime="${esc(p.date)}">${esc(longDate(p.date))}</time><span class="chip">${minutes} min</span>${refs ? `<span class="chip">${refs} references</span>` : ""}${doiChip(p.doi)}</div>`,
     based,
     "</div>",
+    glance(p),
     abstract
       ? `<section class="inshort" id="s-0"><div class="inshort-h">In short</div>${documentHtml(abstract).html}</section>`
       : "",

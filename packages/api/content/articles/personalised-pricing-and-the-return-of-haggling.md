@@ -19,6 +19,10 @@ based_on:
 quotes: 48
 words: 1616
 cite: "Telford, C. (2026). Personalised pricing software and the return of haggling, run from the seller's side. Canopticon."
+glance_words: "The haggle is back."
+glance_formula: "price tag → one price for everyone || personalised price → the seller reads you → you see one number → a haggle with one side blind"
+glance_sentence: "Pricing software is retiring the price tag and bringing back the bargain, with all the information on the seller's side."
+glance_aloud: "For about a century and a half, everyone paid the number on the tag. Before that, prices were haggled, and both sides could read each other. Pricing software brings the haggle back, with only one side reading: the seller knows your history, your device and what you paid last time, and you see one number. Competition law was built to catch sellers who agree on prices. Software that sets prices for all of them needs no agreement."
 ---
 This came from a question about Canadian living costs: are the prices of necessities still set by markets at all? The answer starts with something everyone takes for granted. The price tag, one number for every buyer, is a 19th-century invention, and software is replacing it with prices worked out for each buyer from what the seller knows about them. That brings back the haggle, except that now only the seller gets to bargain.
 

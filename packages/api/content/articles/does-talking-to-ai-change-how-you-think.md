@@ -9,6 +9,10 @@ date: "2026-11-23"
 theory: "cognitive-ectothermy"
 thesis: "Talking to an AI changes how a person thinks mainly through who produces the explanation. Narrating thoughts aloud has no measurable effect on reasoning; explaining improves it, with some evidence that explaining aloud to a listener does more than explaining in writing. A spoken conversation with an AI can therefore train understanding when the person explains first, and replace it when the AI does."
 cite: "Telford, C. (2026). Does talking to AI change how you think? Canopticon. canopticon.com/articles/does-talking-to-ai-change-how-you-think"
+glance_words: "Who explains?"
+glance_formula: "you explain → understanding grows || the AI explains → you receive → understanding is replaced"
+glance_sentence: "Talking to an AI changes how you think mainly through who does the explaining: when you explain first it trains your understanding, and when the AI explains it stands in for it."
+glance_aloud: "Saying your thoughts aloud changes nothing measurable on its own. Explaining does: putting how something works into words, to a listener, improves understanding. So when you talk a problem through with an AI, the question is who is explaining. If you explain and the AI asks or corrects, you're doing the part that teaches. If you ask and the AI explains, you get a good answer and keep less of it. Same conversation, opposite effects."
 ---
 For most of the history of computing, people typed to machines. Now they increasingly talk to them: dictating messages, leaving voice notes, holding spoken conversations with AI assistants. It is reasonable to ask whether thinking out loud to a machine changes the thinking itself. The research on speaking, writing and explaining gives a fairly specific answer, though not the one most people expect.
 

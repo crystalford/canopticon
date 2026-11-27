@@ -7,6 +7,10 @@ dek: "ADHD as a different starting balance of the senses. The strongest differen
 topic: "McLuhan & media theory"
 date: "2026-10-05"
 source_upload: "uploads/Heterocrasis.md"
+glance_words: "A different starting setting."
+glance_formula: "ADHD = lower overall gain + inner speech loosely tied to action || outside stimulation → supplies some of the gain"
+glance_sentence: "ADHD can be read as a different starting balance of the senses, with the clearest difference in overall gain and an altered coupling between inner speech and action."
+glance_aloud: "If media and drugs shift the balance of the senses, people must start from different balances. This paper asks whether ADHD is one. The clearest difference is in overall gain: the brain's signal runs weak against its noise, which is why background noise helps a little. Inner speech is present, often more of it, but less tightly tied to action. Other differences are mixed. So the paper proposes one specific setting in place of a general deficit."
 ---
 
 # Heterocrasis

@@ -7,6 +7,10 @@ dek: "Each class of drug sets its own balance of the senses — and the evidence
 topic: "McLuhan & media theory"
 date: "2026-10-05"
 source_upload: "uploads/Pharmakrasis.md"
+glance_words: "Each drug, its own setting."
+glance_formula: "drug class → its own balance of the senses || drug + medium → a third thing (music in psychedelic therapy)"
+glance_sentence: "Each class of drug sets its own balance of the senses, with better evidence than any medium, and a drug taken with a medium makes a third thing."
+glance_aloud: "Drugs change the balance of the senses more directly than any medium, and the evidence is stronger. Cannabis speeds the felt passage of time. Psilocybin disrupts the timing of longer intervals. Ketamine loosens the sense of owning your body. LSD deepens the emotional response to music. When a drug meets a medium, the two combine: in psychedelic therapy, how the music is experienced predicts the outcome. The setting a drug is taken in is half of what it does."
 ---
 
 # Pharmakrasis

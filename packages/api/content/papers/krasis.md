@@ -7,6 +7,10 @@ dek: "The synthesis of the series. McLuhan said every medium changes the ratio a
 topic: "McLuhan & media theory"
 date: "2026-10-05"
 source_upload: "uploads/Krasis.md"
+glance_words: "Tempering the senses."
+glance_formula: "medium, drug or illness → re-tempers the senses → the change sits in the background → hard to see from inside || the way back → through other people"
+glance_sentence: "McLuhan's sense ratios were literal: media, drugs and illness all re-temper one configuration of the senses, and the change sits in the background, where it is hard to see."
+glance_aloud: "McLuhan said every medium changes the ratio among our senses. Most readers took that as a metaphor. This series takes it literally: the brain weights its senses, turns them up and down together, and holds a setting long after its cause is gone. Media, drugs and illness each shift that setting. Across six cases the same patterns show: the change is in the background, every gain costs something, the effects are small per person but cover whole environments, and the way back runs through other people."
 ---
 
 # Krasis

@@ -8,6 +8,10 @@ dek: "Rooms do part of the work of thinking: they separate activities, hold remi
 date: "2026-11-26"
 thesis: "People use space to think. A home with separate rooms and surfaces keeps each activity's materials, unfinished work and reminders where they belong, and offers room for projects. A single room puts every activity on the same few surfaces, so reminders get buried, nothing marks where one task ends, and projects that need space never start. The extra work falls on attention, and the result can look like disorganisation or an attention problem in the person rather than a limit of the place."
 cite: "Telford, C. (2026). How a small home narrows what you do. Canopticon. canopticon.com/articles/how-a-small-home-narrows-what-you-do"
+glance_words: "Rooms do some of the thinking."
+glance_formula: "rooms = separate tasks + visible reminders + space for projects || one room → everything on one surface → load on attention → looks like a trait"
+glance_sentence: "Rooms do part of the work of organising a life, and in a single room that work falls on attention, where the strain can look like a fault in the person."
+glance_aloud: "In a house, the kitchen holds the cooking, a spare table holds a half-finished project, a shelf by the door holds what goes out tomorrow. Each place keeps its own materials and reminders. In a studio apartment the desk is also the dinner table and the dresser takes everything. Notes get buried, nothing marks where one task ends, and projects that need space never start. The person living there may decide they're disorganised. Some of it is the room."
 ---
 Picture a studio apartment with a bed, a desk and a dresser. The desk is also where meals are eaten. The dresser is where the mail goes, and the notes for tomorrow, and then a bag on top of the notes. A project started on the desk has to be packed away before dinner. The person living there may conclude that they are disorganised, or that something is wrong with their attention. Some of the problem may be the room.
 
