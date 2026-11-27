@@ -41,13 +41,15 @@ function figures(at, piece, failures) {
   const out = { ...piece };
   if (Array.isArray(piece.cycle)) {
     out.cycle = piece.cycle.map((c) => String(c.step ?? "")).filter(Boolean);
-    if (out.cycle.length < 3 || out.cycle.length > 8) failures.push(`${at}: a cycle has 3 to 8 steps`);
+    if (out.cycle.length < 3 || out.cycle.length > 8)
+      failures.push(`${at}: a cycle has 3 to 8 steps`);
   }
   if (Array.isArray(piece.chart)) {
     out.chart = piece.chart.map((c) => String(c.bar ?? "")).filter(Boolean);
     if (out.chart.length < 2) failures.push(`${at}: a chart needs at least two bars`);
     if (!piece.chart_title) failures.push(`${at}: a chart needs chart_title`);
-    if (!piece.chart_source) failures.push(`${at}: a chart needs chart_source (where its numbers come from)`);
+    if (!piece.chart_source)
+      failures.push(`${at}: a chart needs chart_source (where its numbers come from)`);
     const text = String(piece.body).replace(/,(?=\d{3})/g, "");
     for (const b of out.chart) {
       const [label, value] = b.split("|").map((x) => x.trim());
@@ -197,7 +199,11 @@ function build() {
   for (const f of mdFiles("articles")) {
     const { meta, body } = parseFrontMatter(readFileSync(join(CONTENT, "articles", f), "utf8"));
     const slug = String(meta.slug ?? f.slice(0, -3));
-    articles[slug] = figures(`articles/${f}`, { ...meta, slug, kind: "Article", body }, figureFails);
+    articles[slug] = figures(
+      `articles/${f}`,
+      { ...meta, slug, kind: "Article", body },
+      figureFails,
+    );
   }
 
   const papers = {};
