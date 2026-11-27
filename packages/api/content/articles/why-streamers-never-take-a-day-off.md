@@ -8,6 +8,10 @@ dek: "Playing games for donations does not look like a job, so some streamers pr
 date: "2026-11-25"
 thesis: "When work does not look like work, visible hardship becomes the proof that it is. People judge effort as a sign of quality and of character, and give more to people who show it. So streamers who left ordinary jobs keep the old job's rules, show them to their audience, and resent peers who break them, because a day off taken without harm weakens the proof."
 cite: "Telford, C. (2026). Why streamers never take a day off. Canopticon. canopticon.com/articles/why-streamers-never-take-a-day-off"
+glance_words: "Hardship as proof."
+glance_formula: "work that looks like play → visible hardship → proof it's a job || a peer's day off → the proof weakens → anger"
+glance_sentence: "When work looks like play, visible hardship becomes the proof that it is work, so some streamers keep the old job's rules on camera and resent peers who break them."
+glance_aloud: "To many viewers, streaming games looks like the opposite of a job. People also take effort as a sign of quality and character, and give more to those who show it. So some streamers prove their work is real by showing the hardship: no days off, long shifts, streaming while sick. They left the workplace and brought its rules with them. When a peer takes a week off and comes back fine, it suggests the hours were optional, and that feels like an attack."
 ---
 In 2022 the streamer Sweet Anita, with about 1.9 million followers on Twitch, told an interviewer: "I've been scared to take days off." [1] She is far from alone. Streamers keep count of their unbroken runs and apologise to their chat for missing an evening; one kept a run going for more than five years [12].
 

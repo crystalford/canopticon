@@ -67,6 +67,7 @@ import { type DocView, renderDocument } from "./pages/document";
 import { evidence } from "./pages/evidence";
 import { consentWording, followTopics, renderFollow } from "./pages/follow";
 import { renderFront } from "./pages/front";
+import { glance, glanceMarkdown } from "./pages/glance";
 import { renderIdea } from "./pages/idea";
 import { lexiconMarkdown, renderLexicon } from "./pages/lexicon";
 import { type LibraryQuery, OPEN, RESEARCH, WRITING, renderLibrary } from "./pages/library";
@@ -925,6 +926,7 @@ app.get("/open/:id", (c, next) => {
 function markdownTwin(
   d: { id: string; title: string; kind: string; topic: string; date: string; body: string },
   route: string,
+  lead: string[] = [],
 ): Response {
   const fm = [
     "---",
@@ -938,7 +940,8 @@ function markdownTwin(
     "---",
     "",
   ].join("\n");
-  return new Response(fm + d.body.replace(/^\uFEFF?\s*---\r?\n[\s\S]*?\r?\n---\s*/, ""), {
+  const top = lead.length ? `${lead.join("\n")}\n` : "";
+  return new Response(fm + top + d.body.replace(/^\uFEFF?\s*---\r?\n[\s\S]*?\r?\n---\s*/, ""), {
     headers: {
       "content-type": "text/markdown; charset=utf-8",
       "cache-control": "public, max-age=300",
@@ -1072,6 +1075,15 @@ app.get("/p/:id", async (c, next) => {
 
 // ---- articles and papers ----------------------------------------------------
 
+/** A hand-built paper takes its short version after the byline, before the
+ *  first section (its "In short"), where renderPaper puts it. */
+function withGlance(body: string, block: string): string {
+  if (!block) return body;
+  const by = body.indexOf('href="/about#m-author"');
+  const at = by >= 0 ? body.indexOf("<section", by) : -1;
+  return at >= 0 ? body.slice(0, at) + block + body.slice(at) : body;
+}
+
 app.get("/articles/:slug", async (c, next) => {
   const raw = c.req.param("slug");
   const md = raw.endsWith(".md");
@@ -1082,6 +1094,7 @@ app.get("/articles/:slug", async (c, next) => {
       return markdownTwin(
         { id: a.slug, title: a.title, kind: a.form, topic: a.topic, date: a.date, body: a.body },
         `/articles/${a.slug}`,
+        glanceMarkdown(a),
       );
     }
     return html(renderArticle(a, { signedIn: signedIn(c) }));
@@ -1103,7 +1116,7 @@ app.get("/papers/:slug", (c, next) => {
     // twin, the feeds and llms-full.txt.
     const built = staticPage(`/papers/${p.slug}`);
     if (built && !md) {
-      const body = withSpoken(built.body, spokenCards(p.slug));
+      const body = withGlance(withSpoken(built.body, spokenCards(p.slug)), glance(p));
       // The hand-built page carries its own JSON-LD; the citation tags Google
       // Scholar reads and the Markdown twin's address are added here.
       const head = `${citationMeta(p.title, p.date, `https://canopticon.com/papers/${p.slug}`, p.doi)}\n<link rel="alternate" type="text/markdown" href="/papers/${p.slug}.md" />`;
@@ -1120,6 +1133,7 @@ app.get("/papers/:slug", (c, next) => {
           body: p.body,
         },
         `/papers/${p.slug}`,
+        glanceMarkdown(p),
       );
     }
     return html(renderPaper(p, { signedIn: signedIn(c) }));

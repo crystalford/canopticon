@@ -12,6 +12,7 @@ import { esc, linkPill, pill, shell } from "../layout";
 import { articleHtml, articleQuotes, inline } from "../md";
 import { kindColours, longDate, topicColours, topicSlug } from "../theme";
 import { citationMeta, citeBlock, doiChip, jsonLd, statbox, toc } from "./article";
+import { glance } from "./glance";
 
 export const GRADE_COLOURS: Record<Proposition["grade"], readonly [string, string]> = {
   Strong: ["#e3f0e6", "#1f5e36"],
@@ -222,34 +223,6 @@ function withCycle(html: string, figure: string): string {
   const p = html.indexOf("</p>", h);
   if (p < 0) return html + figure;
   return html.slice(0, p + 4) + figure + html.slice(p + 4);
-}
-
-/** The short version, above everything else: a few words, the formula, one
- *  sentence, and thirty seconds to say aloud (folded). */
-export function glance(t: Theory): string {
-  if (!t.glance_words && !t.glance_sentence) return "";
-  const lines = String(t.glance_formula ?? "")
-    .split("||")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const formula = lines.length
-    ? `<div class="gl-f" aria-label="As a formula">${lines
-        .map(
-          (l) =>
-            `<p>${esc(l)
-              .split("\u2192")
-              .map((part) => part.trim())
-              .join('<span class="gl-arrow" aria-hidden="true">\u2192</span>')}</p>`,
-        )
-        .join("")}</div>`
-    : "";
-  return `<section class="glance" aria-label="At a glance">
-  <div class="gl-l">At a glance</div>
-  ${t.glance_words ? `<p class="gl-w">${esc(t.glance_words)}</p>` : ""}
-  ${formula}
-  ${t.glance_sentence ? `<p class="gl-s">${inline(t.glance_sentence)}</p>` : ""}
-  ${t.glance_aloud ? `<details class="gl-a"><summary>Say it in thirty seconds</summary><p>${inline(t.glance_aloud)}</p></details>` : ""}
-</section>`;
 }
 
 export function renderTheory(t: Theory, opts: { signedIn?: boolean } = {}): string {

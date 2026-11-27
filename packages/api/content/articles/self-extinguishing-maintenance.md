@@ -15,6 +15,10 @@ based_on:
 quotes: 37
 words: 2084
 cite: "Telford, C. (2026). Self-extinguishing maintenance: treatments that stop because they are working, and the relapse that follows. Canopticon. canopticon.com/articles/self-extinguishing-maintenance"
+glance_words: "Better, so you stop."
+glance_formula: "problem → treatment → problem gone → read as cured → treatment stops → problem returns"
+glance_sentence: "Some treatments stop because they work: the problem that reminded you vanishes, it looks cured, you stop, and the cause that never left brings it back."
+glance_aloud: "Two teeth that don't quite touch trap food, so the gum gets sore and you clean the gap carefully. In a week it's fine, so you stop, and two weeks later it's sore again. The soreness was the reminder and the relief was the reward, so when the cleaning worked, both went away. Reading 'under control' as 'fixed' is the mistake behind it. The way out is a reminder the symptom can't take away: clean that gap after every meal."
 ---
 Two teeth that do not quite touch trap food. Cleaning the gap after meals keeps the gum healthy, and within a week it looks fine, so the cleaning stops. A few weeks later the gum is sore again. Nothing about the teeth changed; the gap was there the whole time. The same happens with toes pressed too tightly together, with dry skin that only stays soft while it is moisturised, and with many medicines.
 

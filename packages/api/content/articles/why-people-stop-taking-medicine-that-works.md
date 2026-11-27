@@ -9,6 +9,10 @@ date: "2026-11-23"
 theory: "self-extinguishing-maintenance"
 thesis: "People stop long-term medicines mainly because the medicine has removed the symptom that reminded and rewarded them, and they read that as being cured; because relapse arrives weeks or months later, the link between stopping and relapse is hard to learn. The question that separates a safe stop from an unsafe one is whether the cause is still there."
 cite: "Telford, C. (2026). Why people stop taking medicine that works. Canopticon. canopticon.com/articles/why-people-stop-taking-medicine-that-works"
+glance_words: "Feeling better, so stopping."
+glance_formula: "medicine → symptom gone → feels cured → stopped → relapse weeks later || cause still there → keep taking it"
+glance_sentence: "Most people who stop a long-term medicine do so because they feel better, and for a condition whose cause is still there, feeling better means the medicine is working."
+glance_aloud: "About half the people prescribed a long-term medicine stop within a year or two, and the most common reason is that they feel better. For blood pressure, depression or cholesterol, feeling better usually means the medicine is doing its job. The symptom that reminded you to take it is gone, so the reminder is gone too. The relapse comes weeks or months later, too late to link to the stopping. The question to ask is whether the cause is still there."
 ---
 About half of the people prescribed a medicine for a long-term condition stop taking it, or take it only part of the time, within a year or two. A pooled analysis of 20 studies and 376,162 patients taking drugs that prevent heart disease found adherence, measured from prescription refills, of 57% after a median of two years, and 50% among people who had not had a heart attack [1]. Electronic pill bottles tell the same story for blood pressure: about half of the patients prescribed a blood-pressure drug had stopped taking it within one year [2].
 

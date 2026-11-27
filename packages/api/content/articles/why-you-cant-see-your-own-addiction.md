@@ -9,6 +9,10 @@ date: "2026-11-23"
 theory: "ground-blindness"
 thesis: "People in dependence often cannot see the extent of their addiction because what has changed is their baseline: flatter pleasures, a raised stress tone and a body that feels wrong without the drug. A baseline is what everything else is felt against, so it is not itself felt as a change, and the drug that relieves it looks like the solution. Recovery that lasts resets the baseline, and the evidence ties that reset to other people."
 cite: "Telford, C. (2026). Why you can't see your own addiction. Canopticon. canopticon.com/articles/why-you-cant-see-your-own-addiction"
+glance_words: "The baseline moved."
+glance_formula: "drug → baseline shifts → the shift goes unnoticed → the drug feels like the fix || lasting recovery = the baseline reset, through other people"
+glance_sentence: "In dependence, what drops out of notice is the person's own changed baseline, and measured against it, the drug feels like the fix."
+glance_aloud: "People in addiction often seem blind to it, and that gets called denial. The research points somewhere else. Over time the drug changes the person's baseline: ordinary pleasures go flat, stress runs higher, the body feels wrong without it. A baseline is what everything else is felt against, so it isn't felt as a change. Measured against it, the drug looks like the solution. Recovery that lasts resets the baseline, and the evidence ties that reset to other people."
 ---
 More than 80% of people with an addiction never seek treatment [1]. The usual explanation is denial: the person knows, at some level, and will not admit it. A review by addiction neuroscientists proposed a different reading. What looks like denial, they argued, may instead reflect a breakdown in the brain networks that support insight and self-awareness, so that the person genuinely does not perceive how severe the problem has become [1].
 

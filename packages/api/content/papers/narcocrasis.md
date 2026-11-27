@@ -7,6 +7,10 @@ dek: "In dependence, what goes unseen is not the drug but the shifted baseline: 
 topic: "McLuhan & media theory"
 date: "2026-10-05"
 source_upload: "uploads/Narcocrasis.md"
+glance_words: "The baseline is the medium."
+glance_formula: "drug = the content || shifted baseline = the medium → unseen || two routes back: turn reward gain down, or make the background visible"
+glance_sentence: "In dependence the drug stays vivid while the shifted baseline becomes the unseen background, and the routes back either turn reward gain down or make that background visible."
+glance_aloud: "McLuhan took his idea that media numb us from stress physiology, the same science that later explained addiction. This paper joins the two. In dependence the drug is always in view; what goes unseen is the body's shifted baseline: flatter rewards, higher stress, a body that feels wrong without it. There are two routes back. Some drugs turn reward gain down. Others, like psychedelics, may briefly make the background visible. Recovery is a re-tempering, and it usually happens among other people."
 ---
 
 # Narcocrasis

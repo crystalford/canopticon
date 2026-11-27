@@ -9,6 +9,10 @@ date: "2026-11-22"
 theory: "cognitive-ectothermy"
 thesis: "What a person keeps from an exchange with a book, a lecture, a map or an AI depends less on the medium than on the order: whether they predict before the answer arrives. A guess gives the answer something to correct, and the correction is what is learned."
 cite: "Telford, C. (2026). Guess before you look. Canopticon. canopticon.com/articles/guess-before-you-look"
+glance_words: "Guess first."
+glance_formula: "guess → answer → correction → learning || answer first → nothing to correct → little kept"
+glance_sentence: "What you keep from a book, a map or an AI depends on whether you guessed before the answer arrived, because the guess gives the answer something to correct."
+glance_aloud: "Look something up before you've thought about it and the answer slides off. Guess first, even badly, and the answer lands on something: your guess was right, or wrong in a particular way, and that correction is what you remember. It works the same with a textbook, a map or a chatbot. The guess feels slower and less efficient, which is why people skip it. That effort is the learning."
 ---
 Someone has driven to a friend's house a dozen times with a phone giving directions. One day the phone dies on the way, and they find they do not know the route. They have been there often, but they have never found their way there.
 

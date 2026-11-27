@@ -7,6 +7,10 @@ dek: "The whole computing environment is the medium: keyboard, memory, search an
 topic: "McLuhan & media theory"
 date: "2026-10-05"
 source_upload: "uploads/Exocrasis.md"
+glance_words: "Memory moved outside."
+glance_formula: "keyboard + memory + search + network → part of the mind outside the body || outward, stored, fast-switching thought strengthened → slow, self-paced thought weakened"
+glance_sentence: "The whole computing environment moves part of memory and the senses outside the body, strengthening outward, stored, fast-switching thought and weakening slow, internally held thought."
+glance_aloud: "Most worry about computers is about the screen. This paper looks at the whole environment: keyboard, memory, search and network. Together they move part of the mind outside the body. People remember less of what they photograph, habitual GPS users get worse at finding their way, reading on screens is slightly shallower, and action games sharpen exactly the skills screens demand. Each effect is small, but it covers everyone at once, and it lasts."
 ---
 
 # Exocrasis

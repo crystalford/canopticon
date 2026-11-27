@@ -7,6 +7,10 @@ dek: "McLuhan meant his &quot;sense ratios&quot; literally. The brain science he
 topic: "McLuhan & media theory"
 date: "2026-10-04"
 source_upload: "uploads/Sensory Syncrasis.md"
+glance_words: "Sense ratios, literally."
+glance_formula: "weight each sense + turn all up or down + fuse or separate + hold a setting = sensory syncrasis || medium → re-tempers it before any content arrives"
+glance_sentence: "McLuhan meant sense ratios literally, and predictive-processing neuroscience now gives the idea a mechanism: the brain weights and tempers its senses, and a medium can change that setting."
+glance_aloud: "McLuhan claimed every medium changes the balance among our senses, and he meant it as a claim about the nervous system. The brain science he reached for, left and right hemispheres, failed, so the idea was treated as poetry. Newer neuroscience gives it a mechanism. The brain weights each sense by how far it trusts it, turns them all up or down, fuses or separates them, and holds a setting long after its cause. That whole setting is what a medium could change."
 ---
 
 # Sensory Syncrasis

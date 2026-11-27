@@ -328,6 +328,10 @@ function build() {
     for (const a of Object.values(articles)) {
       if (a.form !== "Essay" && a.form !== "Brief")
         failures.push(`articles/${a.slug}: form must be "Essay" or "Brief"`);
+      // Every essay opens with its short version (2026-11-26), as theories do.
+      if (a.form === "Essay")
+        for (const k of ["glance_words", "glance_formula", "glance_sentence", "glance_aloud"])
+          if (!a[k]) failures.push(`articles/${a.slug}: an essay needs ${k} (its short version)`);
       const row = rows.get(`/articles/${a.slug}`);
       if (row && ["Essay", "Brief", "Article"].includes(row.kind) && row.kind !== a.form)
         failures.push(
@@ -336,6 +340,8 @@ function build() {
     }
   }
   for (const p of Object.values(papers)) {
+    for (const k of ["glance_words", "glance_formula", "glance_sentence", "glance_aloud"])
+      if (!p[k]) failures.push(`papers/${p.slug}: a paper needs ${k} (its short version)`);
     if (p.theory && !theories[p.theory])
       failures.push(`papers/${p.slug}: theory ${p.theory} does not exist`);
     for (const j of String(p.joins ?? "")

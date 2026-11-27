@@ -6,6 +6,10 @@ dek: "Four theories on this site describe four ways a problem stops announcing i
 topic: "McLuhan & media theory"
 date: "2026-11-24"
 joins: "self-extinguishing-maintenance, ground-blindness, cognitive-ectothermy, the-certainty-handoff"
+glance_words: "Silenced, still there."
+glance_formula: "problem remains + warning silenced → looks solved || four ways: suppressed, adapted, pre-empted, substituted || remedy = a reading the quiet can't reach"
+glance_sentence: "Sometimes the thing that is working silences the warning that would tell you to check, while the problem stays; four theories describe four ways it happens, and one remedy fits all four."
+glance_aloud: "You check things when something feels off: a sore spot, a surprise, a doubt. Each of four theories describes a way that feeling goes quiet while the problem is still there. From the inside, that quiet feels the same as the problem being solved. McLuhan made the point in 1965 with bath water that warms half a degree an hour: you never know when to scream. The fix in every case is to take a reading the quiet can't reach: a routine hung on a daily habit, a short break, a guess, or a test."
 ---
 
 # False Quiet
