@@ -127,12 +127,12 @@ Research methods built to solve this problem show what an answer looks like. Cli
 
 | Form | The signal the response controls | The independent reading | Where it is tested |
 | --- | --- | --- | --- |
-| Suppressed | The symptom | A fixed schedule, and a direct look at the cause | Proactive treatment of cleared eczema reduced flares in randomised trials [25] |
+| Suppressed | The symptom | A daily habit the symptom does not affect, and a direct look at the cause | Proactive treatment of cleared eczema reduced flares in randomised trials [25] |
 | Adapted | The felt sense of having it | A brief, planned removal | Discontinuation trials [8]; withdrawal designs [9]; chaos engineering [26] |
 | Pre-empted | The arrival of the answer | A prediction made before the answer | Pretesting [18]; problem-solving before instruction [27] |
 | Substituted | The feeling of rightness | A check the other side can run, and the reason stated | Explaining step by step lowers unearned confidence [28]; programmers who trusted the assistant less wrote more secure code [24] |
 
-**Suppressed.** If the symptom is held down by the routine, it can no longer serve as the cue. The routine is tied to something the routine does not affect, a day of the week, and the cause is checked directly. In eczema, scheduled treatment of skin that had already cleared reduced flares against no treatment, with risk ratios of 0.46 and 0.78 [25]. Testing by stopping is the wrong move here: it costs a relapse to learn what was already known.
+**Suppressed.** If the symptom is held down by the routine, it can no longer serve as the cue. The routine is tied to something the routine does not affect, such as a meal, a shower or getting dressed, and the cause is checked directly. In eczema, scheduled treatment of skin that had already cleared reduced flares against no treatment, with risk ratios of 0.46 and 0.78 [25]. Testing by stopping is the wrong move here: it costs a relapse to learn what was already known.
 
 **Adapted.** If the baseline has moved, the only clean comparison is a period without the thing. It should be brief, planned and reversible, and long enough to pass any withdrawal, which for caffeine lasts two to nine days [29].
 
@@ -176,7 +176,7 @@ The feelings that accompany false quiet also point the wrong way. Relief accompa
 
 Four narrower questions, one for each form, make it usable:
 
-1. **Would the signal come back if I stopped?** If the routine is what keeps it away, the quiet is suppressed. Keep the routine on a schedule and look at the cause.
+1. **Would the signal come back if I stopped?** If the routine is what keeps it away, the quiet is suppressed. Tie the routine to something you already do every day, and look at the cause.
 2. **When did I last go without it?** If the answer is months, the quiet may be adapted. A short, planned removal will show what it is doing.
 3. **Did I make my own answer before this one arrived?** If not, the quiet is pre-empted. Guess first next time.
 4. **Does my confidence rest on a check, or on how it feels?** If on how it feels, the quiet is substituted. Write the reason, and give the other side something to run.

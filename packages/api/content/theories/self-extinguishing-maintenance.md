@@ -5,7 +5,7 @@ dek: "A routine that works removes the symptom that cued and rewarded it, so the
 topic: "Habits & maintenance"
 date: "2026-09-30"
 version: 1
-revised: "2026-11-22"
+revised: "2026-11-26"
 claim: "For conditions with a standing cause, a maintenance routine that succeeds removes the symptom that both prompted and rewarded it. The routine therefore stops, the controlled state is mistaken for a cure (the remission-as-cure error), and the unchanged cause brings the symptom back, at a cost larger and slower to repay than the routine. Because the relapse comes long after the stopping, each cycle teaches the link only a little, and the cycle repeats until the routine is tied to something other than the symptom, or the cause itself is removed."
 coined: "Chris Telford, Canopticon, 30 September 2026"
 based_on:
@@ -43,10 +43,10 @@ propositions:
     grade: "Moderate"
     refs: "10"
     basis: "Internalised motivation related to better health outcomes in a meta-analysis of 184 data sets; rule-following without the mechanism collapses when enforcement ends."
-  - statement: "Tying the routine to a fixed schedule instead of the symptom, or removing the cause, breaks the cycle."
+  - statement: "Tying the routine to a cue that stays when the symptom goes, such as something already done every day or a set schedule, or removing the cause, breaks the cycle."
     grade: "Moderate"
-    refs: "11"
-    basis: "In eczema, scheduled (proactive) treatment of skin that has cleared reduced flares against vehicle (risk ratios 0.46 and 0.78) in a meta-analysis of randomised trials. Shown for one condition; not tested for the loop in general."
+    refs: "11,17"
+    basis: "In eczema, scheduled (proactive) treatment of skin that has cleared reduced flares against vehicle (risk ratios 0.46 and 0.78) in a meta-analysis of randomised trials. In a small flossing study, people told to floss after brushing formed stronger habits, and flossed more eight months later, than people told to floss before. Not tested for the loop in general."
   - statement: "Letting the routine lapse costs more, and takes longer to repay, than keeping it up, and repeated lapses can leave damage that does not reverse."
     grade: "Moderate"
     refs: "14,15,8"
@@ -62,7 +62,7 @@ cycle:
   - step: "Read as cured|remission-as-cure error"
   - step: "Routine stops|no cue, no reward"
   - step: "Cause still there|returns, harder to clear"
-cycle_exit: "Tie the routine to a fixed schedule, or remove the cause."
+cycle_exit: "Tie the routine to something you already do daily, or remove the cause."
 cycle_cut: 5
 glance_words: "Better, so you stop."
 glance_formula: "symptom → routine → relief → routine stops → symptom returns || relief = reminder gone + reward gone"
@@ -116,6 +116,9 @@ references:
     read: "abstract"
   - text: "Buehner, M. J., & May, J. (2003). Rethinking temporal contiguity and the judgement of causality: effects of prior knowledge, experience, and reinforcement procedure. *Quarterly Journal of Experimental Psychology A*, 56(5), 865–890. doi:10.1080/02724980244000675"
     url: "https://doi.org/10.1080/02724980244000675"
+    read: "abstract"
+  - text: "Judah, G., Gardner, B., & Aunger, R. (2013). Forming a flossing habit: an exploratory study of the psychological determinants of habit formation. *British Journal of Health Psychology*, 18(2), 338–353. doi:10.1111/j.2044-8287.2012.02086.x"
+    url: "https://doi.org/10.1111/j.2044-8287.2012.02086.x"
     read: "abstract"
 cite: "Telford, C. (2026). Self-extinguishing maintenance: a theory of why working treatments are abandoned. Canopticon. canopticon.com/theories/self-extinguishing-maintenance"
 ---
@@ -183,7 +186,7 @@ A routine is at risk when the cause is standing, the cue source is the symptom, 
 ## Protocol
 
 1. **Name the cause.** Decide whether it is transient or persistent, using the recurrence count if unsure.
-2. **Move the cue.** <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Recommendations">Tie the routine to a fixed context: after the shower for the toes, after each meal for impaction sites.</q>
+2. **Move the cue.** <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Recommendations">Tie the routine to a fixed context: after the shower for the toes, after each meal for impaction sites.</q> A habit already done every day makes the sturdiest anchor: in a small study, people told to floss straight after brushing formed stronger flossing habits, and flossed more eight months later, than people told to floss before brushing [17]. The anchor lasts only as long as the habit it hangs on. If that habit changes, as when a job that set the morning ends, move the routine to another.
 3. **Understand the mechanism.** A rule followed only because someone said so does not survive success: <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Details">A child told "floss every day" without the mechanism learns pliance. Once parental enforcement is gone, the behavior has neither a social nor an experienced basis, so it falls apart.</q>
 4. **Write down what the last relapse cost.** How long recovery took and what it involved. At the moment of stopping that cost is invisible, and a written record keeps it in view; it also states the delay to expect, which makes the link easier to see.
 5. **Remove the cause where possible.** <q doc="when-healed-is-the-treatment-working-the-stopping-mechanism-in-mainten" section="Recommendations">Where the cause can be removed, removal beats lifelong maintenance.</q>
@@ -197,7 +200,7 @@ For any routine you have stopped, or are about to stop:
 3. Is the routine prompted only by the symptom?
 4. Does the problem take days or weeks to come back after you stop?
 
-A yes to the first question means the theory applies. Each further yes adds to the risk of the loop. With three or four, move the routine to a fixed time or place, and look for a way to remove the cause. This check is a working tool built from the measures above; it has not been validated.
+A yes to the first question means the theory applies. Each further yes adds to the risk of the loop. With three or four, tie the routine to something you already do every day, and look for a way to remove the cause. This check is a working tool built from the measures above; it has not been validated.
 
 **Worked example: a gap between two teeth.** The gap stays (1: yes). The gum has been sore there before, more than once (2: yes). Cleaning happens when it hurts (3: yes). Gums inflame within about 9–21 days of stopping (4: yes). Four yeses: clean the gap after every meal whether or not it hurts, and ask a dentist whether the contact can be restored.
 
