@@ -32,6 +32,34 @@ const unentity = (s) => s.replace(/&(quot|amp|#39|lt|gt);/g, (m) => ENTITIES[m] 
 
 /** The front-matter subset the handoff uses: JSON-quoted scalars, bare
  *  booleans and numbers, and one list of {id,label} maps (based_on). */
+/** An essay's or paper's figures (2026-11-26): a loop (`cycle`, as theories
+ *  have) and a bar chart (`chart`: "Label|value" per bar, with chart_title,
+ *  chart_unit, chart_source and chart_after). Every value in a chart must be
+ *  written in the piece's own text, so a figure can only draw what the piece
+ *  already says and sources. */
+function figures(at, piece, failures) {
+  const out = { ...piece };
+  if (Array.isArray(piece.cycle)) {
+    out.cycle = piece.cycle.map((c) => String(c.step ?? "")).filter(Boolean);
+    if (out.cycle.length < 3 || out.cycle.length > 8) failures.push(`${at}: a cycle has 3 to 8 steps`);
+  }
+  if (Array.isArray(piece.chart)) {
+    out.chart = piece.chart.map((c) => String(c.bar ?? "")).filter(Boolean);
+    if (out.chart.length < 2) failures.push(`${at}: a chart needs at least two bars`);
+    if (!piece.chart_title) failures.push(`${at}: a chart needs chart_title`);
+    if (!piece.chart_source) failures.push(`${at}: a chart needs chart_source (where its numbers come from)`);
+    const text = String(piece.body).replace(/,(?=\d{3})/g, "");
+    for (const b of out.chart) {
+      const [label, value] = b.split("|").map((x) => x.trim());
+      if (!label || !/^-?\d+(\.\d+)?$/.test(value ?? ""))
+        failures.push(`${at}: chart bar "${b}" must be "Label|number"`);
+      else if (!text.includes(value))
+        failures.push(`${at}: chart value ${value} ("${label}") is not in the piece's text`);
+    }
+  }
+  return out;
+}
+
 export function parseFrontMatter(text) {
   const m = /^---\n([\s\S]*?)\n---\n?/.exec(text);
   if (!m) return { meta: {}, body: text };
@@ -164,18 +192,19 @@ function build() {
     }
   }
 
+  const figureFails = [];
   const articles = {};
   for (const f of mdFiles("articles")) {
     const { meta, body } = parseFrontMatter(readFileSync(join(CONTENT, "articles", f), "utf8"));
     const slug = String(meta.slug ?? f.slice(0, -3));
-    articles[slug] = { ...meta, slug, kind: "Article", body };
+    articles[slug] = figures(`articles/${f}`, { ...meta, slug, kind: "Article", body }, figureFails);
   }
 
   const papers = {};
   for (const f of mdFiles("papers")) {
     const { meta, body } = parseFrontMatter(readFileSync(join(CONTENT, "papers", f), "utf8"));
     const slug = String(meta.slug ?? f.slice(0, -3));
-    papers[slug] = { ...meta, slug, kind: "Paper", body };
+    papers[slug] = figures(`papers/${f}`, { ...meta, slug, kind: "Paper", body }, figureFails);
   }
 
   // Earlier versions of papers, kept whole (content/papers/versions/<slug>-v<n>.md),
@@ -197,7 +226,7 @@ function build() {
 
   // Verbatim or nothing.
   const normal = new Map();
-  const failures = [];
+  const failures = [...figureFails];
   let checked = 0;
 
   // Spoken cards (content/spoken/<paper>.md): a paper decanted into pieces

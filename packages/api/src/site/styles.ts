@@ -873,6 +873,24 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .gl-a summary { cursor: pointer; font-size: var(--t-sm); font-weight: 500; color: var(--cobalt); }
 .gl-a p { margin: 8px 0 0; font-size: var(--t-read); line-height: 1.6; color: var(--body); }
 
+/* A figure in an essay or paper: a bar chart in HTML (no script), one row
+   per value, scaled to the largest; on phones the label sits above its bar. */
+.chart { margin: 28px 0; padding: 18px 20px 14px; border: 1px solid var(--hair); border-radius: 14px; background: var(--card); }
+.ch-t { margin: 0 0 14px; font-size: var(--t-md); font-weight: 600; line-height: 1.4; color: var(--ink); }
+.ch-bars, .prose .ch-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.prose .ch-bars li { margin: 0; }
+.ch-bars li { display: grid; grid-template-columns: minmax(0, 40%) 1fr auto; gap: 12px; align-items: center; }
+.ch-l { font-size: var(--t-sm); line-height: 1.35; color: var(--ink-2); }
+.ch-b { height: 14px; border-radius: 4px; background: var(--tint-3); overflow: hidden; }
+.ch-fill { display: block; height: 100%; border-radius: 4px; background: var(--cobalt); }
+.ch-v { font-size: var(--t-sm); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); min-width: 3.5em; text-align: right; }
+.ch-n, .ch-src { margin: 14px 0 0; font-size: var(--t-xs); line-height: 1.5; color: var(--muted); }
+.ch-n + .ch-src { margin-top: 4px; }
+@media (max-width: 600px) {
+  .ch-bars li { grid-template-columns: 1fr auto; row-gap: 4px; }
+  .ch-l { grid-column: 1 / -1; }
+}
+
 /* A theory: the claim in a card, then numbered propositions with their grade. */
 .theory-card { margin: 0 0 32px; padding: 18px 20px; border: 1px solid var(--rule); border-left: 3px solid var(--ink); border-radius: 12px; background: var(--card); display: grid; gap: 12px; }
 .tc-row { display: grid; grid-template-columns: 92px 1fr; gap: 12px; align-items: baseline; }
