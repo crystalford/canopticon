@@ -3,15 +3,15 @@ slug: "keep-three-words-rebuild-the-rest"
 kind: "Article"
 form: "Essay"
 topic: "McLuhan & media theory"
-title: "Keep three words, rebuild the rest"
+title: "How one word can bring back an idea"
 dek: "Memory keeps the meaning of a long definition and drops its exact wording within seconds. A handle and one word of context can call that meaning back. Rebuilding the explanation from them keeps the idea, and shows whether it was understood."
 date: "2026-11-27"
 thesis: "Memory keeps the meaning of what it takes in and loses the exact words within seconds, so an idea can be held as a few cue words and rebuilt when it is needed. Three things make the cue work: the understanding has to be built first, in depth, because a cue only opens what is already stored; a word of context, given early, tells the rebuild where the idea belongs; and the rebuild itself has to be done, out loud or on paper, because retrieval strengthens a memory and because a cue that cannot be expanded shows that the understanding was never there. The rebuild drifts toward the familiar, so it is checked against the source now and then."
-cite: "Telford, C. (2026). Keep three words, rebuild the rest. Canopticon. canopticon.com/articles/keep-three-words-rebuild-the-rest"
-glance_words: "Keep the gist, rebuild the words."
+cite: "Telford, C. (2026). How one word can bring back an idea. Canopticon. canopticon.com/articles/keep-three-words-rebuild-the-rest"
+glance_words: "Memory keeps the meaning, and one word can bring it back."
 glance_formula: "definition → meaning kept, wording lost || go deep once → handle + context word → explanation rebuilt on demand || can't rebuild it → never understood"
 glance_sentence: "Memory keeps meanings and drops wording, so an idea learned in depth can be held as a handle and a word of context, and rebuilding the explanation from them is both the practice and the test."
-glance_aloud: "I can't recite the definition of poiesis. What I keep is three words: make, do, and end. Ask me, and from those I can rebuild the whole thing: Aristotle's distinction between making, whose end is the thing made, and doing, whose end is the act itself. Memory research says this is how memory works anyway. It keeps meaning and drops the exact words within seconds. A cue opens what is stored, but only if it was stored, so you go deep first. And rebuilding the explanation is the test: if the three words won't expand, you never understood it."
+glance_aloud: "I can't recite the definition of poiesis. What I keep is three words: make, do, and end. Ask me, and from those I can rebuild the whole thing: Aristotle's distinction between making, whose end is the thing made, and doing, whose end is the act itself. Memory research says this is how memory works anyway. It keeps meaning and drops the exact words within seconds. A cue opens what is stored, but only if it was stored, so you go deep first. Trying to explain it from those words also shows whether you understood it."
 cycle:
   - step: "Handle|one familiar word"
   - step: "Go deep|definition, history, context"
@@ -26,11 +26,11 @@ The [make-and-do essay](/articles/make-and-do) is about finding a handle like th
 
 ## Memory keeps the meaning
 
-In 1967 Jacqueline Sachs played people recorded passages and then tested them on one sentence from each. The test sentence was sometimes identical and sometimes changed, either in form (active to passive, or a reworded phrase) or in meaning. Tested at once, people noticed both kinds of change. After a little more of the passage had played, they could barely tell a change of wording from the original, while changes of meaning were still noticed [1]. The exact words had gone; the meaning had stayed.
+In 1967 Jacqueline Sachs played people recorded passages and then tested them on one sentence from each. The test sentence was sometimes identical and sometimes changed, either in form (active to passive, or a reworded phrase) or in meaning. Tested at once, people noticed both kinds of change. After a little more of the passage had played, they could barely tell a change of wording from the original, while changes of meaning were still noticed [1]. In that short time the wording faded from memory, while the meaning stayed.
 
 Later work turned this into a theory. Valerie Reyna and Charles Brainerd's fuzzy-trace theory holds that people store two records of what they take in, at once: a verbatim trace of the exact surface and a gist trace of what it meant. The verbatim trace fades faster, and most reasoning runs on the gist [2]. Remembering a definition as its sense, and supplying the words when asked, is using the record that lasts.
 
-Frederic Bartlett had argued much the same in 1932. When his participants retold a story they had read, their versions came out shorter, more conventional and reorganised around what they found familiar, and he concluded that remembering is a reconstruction from an organised sense of the whole [3]. People already rebuild. The question is how to rebuild well.
+Frederic Bartlett had argued much the same in 1932. When his participants retold a story they had read, their versions came out shorter, more conventional and reorganised around what they found familiar, and he concluded that remembering is a reconstruction from an organised sense of the whole [3]. This essay is about doing that reconstruction on purpose.
 
 ## A cue opens what is stored
 
@@ -38,13 +38,13 @@ Endel Tulving and Zena Pearlstone gave people lists of words grouped by category
 
 A handle is a cue of that kind: it opens the place where the definition is stored. A label also helps the idea form in the first place. In experiments by Gary Lupyan and colleagues, people learning to sort unfamiliar creatures into two kinds learned faster when each kind had a name, even though the names told them nothing the pictures did not [5].
 
-The same research sets the condition. A cue can only open what was stored. Chess masters shown a position from a real game for five seconds could rebuild far more of it than weaker players; shown pieces placed at random, they did little better than anyone else [6]. Their memory rested on patterns learned over years, and where the board had no pattern, there was nothing for it to hold. A handle works the same way: it compresses an idea that has structure behind it. Learned without the structure, it is a word with nothing to open.
+The same research sets the condition. A cue can only open what was stored. Chess masters shown a position from a real game for five seconds could rebuild far more of it than weaker players; shown pieces placed at random, they did little better than anyone else [6]. Their memory rested on patterns learned over years, and where the board had no pattern, there was nothing for it to hold. A handle works the same way: it compresses an idea that has structure behind it. A handle learned without the structure behind it brings nothing back.
 
 ## The word of context
 
 The handle alone can be ambiguous. *Make* and *do* could belong to many ideas. A second word that says where the idea belongs, here *end*, or *Aristotle*, narrows the rebuild.
 
-The context also has to come early. John Bransford and Marcia Johnson gave people a passage written in deliberately vague terms, about arranging things into groups and doing a few at a time. People told the topic beforehand (it was washing clothes) understood it and recalled much more of it. People told the topic only afterwards did hardly better than people never told it [7]. Context given first organises what follows. Given last, it arrives after the material has been stored without it.
+The context also has to come early. John Bransford and Marcia Johnson gave people a passage written in deliberately vague terms, about arranging things into groups and doing a few at a time. People told the topic beforehand (it was washing clothes) understood it and recalled much more of it. People told the topic only afterwards did hardly better than people never told it [7]. The topic helped only when it came before the passage, because it shaped how the passage was stored.
 
 ## Down and back up
 
@@ -56,7 +56,7 @@ For one idea, the trip has three steps. Start on the handle, so the detail has a
 
 Leonid Rozenblit and Frank Keil asked people how well they understood everyday devices, such as zippers, flush toilets and cylinder locks. Then they asked them to write out, step by step, how each one works, and to rate their understanding again. Ratings fell after the attempt. Across twelve studies they called this the illusion of explanatory depth: people feel they understand mechanisms in far more detail than they do, and find out only when they try to explain [9].
 
-A handle invites that illusion. Knowing that *poiesis* is "make" feels like knowing what *poiesis* is. The defence is in the method: expand the handle. If three words will not turn back into an explanation, the understanding was never there.
+A handle invites that illusion. Knowing that *poiesis* is "make" feels like knowing what *poiesis* is. The way to catch it is to expand the handle into a full explanation. If three words will not turn back into an explanation, the understanding was never there.
 
 The rebuild is also how the idea is kept. Henry Roediger and Jeffrey Karpicke had students read short prose passages and then either read them again or try to recall them with no feedback. Five minutes later, rereading had done better. Two days and a week later, recalling had done much better, though the students who reread were more confident they would remember [10]. Rebuilding an idea from its handle is recall of this kind.
 
@@ -64,7 +64,7 @@ The rebuild is also how the idea is kept. Henry Roediger and Jeffrey Karpicke ha
 
 Reconstruction has a known fault. Bartlett's participants did not only shorten the story; they changed it toward what they expected [3], and fuzzy-trace research finds that people falsely recognise things that fit the gist of what they learned [2]. A rebuild from *make* and *do* will drift toward the everyday senses of those words, and lose what *praxis* carries in Aristotle about acting well. A handle that is used for years without a look at the source can come to mean something the source does not say.
 
-So the round trip has a last step. Now and then, rebuild the explanation and then reread the original against it.
+For that reason it helps, now and then, to rebuild the explanation and reread the original against it.
 
 ## How to do it
 
