@@ -123,7 +123,24 @@ export interface Glance {
   glance_aloud?: string;
 }
 
-export interface Article extends Glance {
+/** An essay's or paper's figures: a loop ("Head|detail" steps, as theories
+ *  have) and a bar chart ("Label|value" per bar), each placed after the first
+ *  paragraph of the section its `_after` names. */
+export interface Figures {
+  cycle?: string[];
+  cycle_exit?: string;
+  cycle_cut?: number;
+  cycle_after?: string;
+  chart?: string[];
+  chart_title?: string;
+  chart_unit?: string;
+  chart_prefix?: string;
+  chart_note?: string;
+  chart_source?: string;
+  chart_after?: string;
+}
+
+export interface Article extends Glance, Figures {
   slug: string;
   kind: "Article";
   /** Essay: argues one of the author's ideas. Brief: answers one question
@@ -147,7 +164,7 @@ export interface Article extends Glance {
   body: string;
 }
 
-export interface Paper extends Glance {
+export interface Paper extends Glance, Figures {
   slug: string;
   kind: "Paper";
   topic?: string;

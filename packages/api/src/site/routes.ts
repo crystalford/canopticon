@@ -65,6 +65,7 @@ import { renderChanges } from "./pages/changes";
 import { renderClaude } from "./pages/claude";
 import { type DocView, renderDocument } from "./pages/document";
 import { evidence } from "./pages/evidence";
+import { withFigures } from "./pages/figure";
 import { consentWording, followTopics, renderFollow } from "./pages/follow";
 import { renderFront } from "./pages/front";
 import { glance, glanceMarkdown } from "./pages/glance";
@@ -1116,7 +1117,10 @@ app.get("/papers/:slug", (c, next) => {
     // twin, the feeds and llms-full.txt.
     const built = staticPage(`/papers/${p.slug}`);
     if (built && !md) {
-      const body = withGlance(withSpoken(built.body, spokenCards(p.slug)), glance(p));
+      const body = withGlance(
+        withSpoken(withFigures(built.body, p), spokenCards(p.slug)),
+        glance(p),
+      );
       // The hand-built page carries its own JSON-LD; the citation tags Google
       // Scholar reads and the Markdown twin's address are added here.
       const head = `${citationMeta(p.title, p.date, `https://canopticon.com/papers/${p.slug}`, p.doi)}\n<link rel="alternate" type="text/markdown" href="/papers/${p.slug}.md" />`;

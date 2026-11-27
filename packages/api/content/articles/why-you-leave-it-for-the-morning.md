@@ -12,6 +12,16 @@ glance_words: "Decided without the pressure."
 glance_formula: "evening: cost felt now + morning pressure unfelt → leave it || the plan → a quiet evening → the pressure returns at dawn || one rule for every night → done"
 glance_sentence: "At night you decide without the pressure you'll feel in the morning, and the plan to do it later keeps that pressure away until morning."
 glance_aloud: "At night the dish in the sink can wait. In the morning, with lunch to pack, you wonder why you left it. The evening decision was made without the pressure the morning brings, and you expected more time tomorrow than you'll have. Saying 'I'll do it in the morning' also quiets the task, so the pressure comes back all at once at dawn, with everything else you put off. Deciding once, as a rule for every night, beats deciding each night."
+cycle:
+  - step: "Evening|cost felt, pressure not"
+  - step: "Leave it|a plan for the morning"
+  - step: "Quiet night|the plan holds the task"
+  - step: "Morning|pressure all at once"
+  - step: "Regret|felt, then forgotten"
+  - step: "Evening again|the feeling has faded"
+cycle_exit: "Decide once, as a rule for every night."
+cycle_cut: 2
+cycle_after: "The plan that quiets the evening"
 ---
 In the evening there is a container in the sink from lunch. Washing it would take two minutes. Leaving it until morning seems fine: there will be time, and it is the same two minutes either way. In the morning, with lunch to pack and somewhere to be, the container is in the way, and the question is why it was left. The next evening the same container is left again.
 

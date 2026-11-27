@@ -21,6 +21,13 @@ glance_words: "Fewer deaths, more overdoses."
 glance_formula: "fentanyl + sedatives naloxone can't reverse → more overdoses || naloxone → fewer deaths || counting deaths only → the crisis looks like it's ending"
 glance_sentence: "Hamilton's opioid deaths have fallen since 2021 while overdose calls more than doubled, because the supply now carries sedatives naloxone cannot reverse and deaths alone miss the harm."
 glance_aloud: "In Hamilton, opioid deaths have fallen every year since 2021, while paramedic calls for overdoses have more than doubled. Both are true because the street supply changed: most fentanyl now arrives mixed with sedatives that naloxone can't reverse. Naloxone keeps more people alive, so deaths fall, but the overdoses, the hours of sedation and the injuries do not. Measured by deaths alone, the crisis looks like it's ending."
+chart_title: "What was found alongside opioids in Ontario's opioid deaths, 2024"
+chart_unit: "%"
+chart_source: "Ontario's Office of the Chief Coroner, as reported in [How We Got Here](/p/how-we-got-here-field-guide-fentanyl-crisis-canada-hamiltons-streets)"
+chart_after: "Naloxone reverses the opioid"
+chart:
+  - bar: "Stimulants|69"
+  - bar: "Non-prescription benzodiazepines|62"
 ---
 On Hamilton's streets, people sit folded forward for hours — not unconscious, not awake. Outreach workers have a name for it. The official measure of the overdose crisis, deaths, has been falling since 2021. This article argues that both are true, and that the falling number is the misleading one.
 

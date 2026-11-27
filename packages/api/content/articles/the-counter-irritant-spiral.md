@@ -19,6 +19,15 @@ glance_words: "Relief that deepens the need."
 glance_formula: "irritant → relief → body adapts → baseline shifts → more relief needed"
 glance_sentence: "In 1964 McLuhan, reading the stress researcher Hans Selye, described relief that deepens the need for relief, the spiral addiction science later measured."
 glance_aloud: "McLuhan built his theory of media on stress physiology. In 1964 he wrote that relief from an irritant usually proves a greater plague than the irritant, like a drug habit. Addiction science later measured that spiral: each dose relieves a discomfort, the body adjusts, the baseline drops, and more relief is needed. What the user stops noticing is their own changed baseline. The drug stays in plain view."
+cycle:
+  - step: "Irritant|stress or pain"
+  - step: "Relief|the counter-irritant"
+  - step: "Body adapts|the baseline shifts"
+  - step: "Worse without it|a new discomfort"
+  - step: "More relief|to feel normal"
+cycle_exit: "Look at the baseline, where the change happened."
+cycle_cut: 5
+cycle_after: "He described the relief spiral"
 ---
 A drink takes the edge off a hard day. After a few years of it, the hard days feel harder and the drink does less, so there are more drinks. Addiction science calls this a spiral and has measured it in detail. This article argues that Marshall McLuhan, the media theorist, described the same spiral in 1964, working from the same stress physiology the addiction researchers later built on. And it argues that his best-known idea, that a medium becomes an environment we stop seeing, says something precise about addiction: what the person stops seeing is how far their own baseline has moved.
 

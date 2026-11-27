@@ -13,6 +13,15 @@ glance_words: "The baseline moved."
 glance_formula: "drug → baseline shifts → the shift goes unnoticed → the drug feels like the fix || lasting recovery = the baseline reset, through other people"
 glance_sentence: "In dependence, what drops out of notice is the person's own changed baseline, and measured against it, the drug feels like the fix."
 glance_aloud: "People in addiction often seem blind to it, and that gets called denial. The research points somewhere else. Over time the drug changes the person's baseline: ordinary pleasures go flat, stress runs higher, the body feels wrong without it. A baseline is what everything else is felt against, so it isn't felt as a change. Measured against it, the drug looks like the solution. Recovery that lasts resets the baseline, and the evidence ties that reset to other people."
+cycle:
+  - step: "The drug|relief and reward"
+  - step: "Baseline shifts|flat, tense, wrong"
+  - step: "Shift unseen|it is the background"
+  - step: "Drug as the fix|against that baseline"
+  - step: "Use continues|the shift deepens"
+cycle_exit: "Reset the baseline, usually with other people."
+cycle_cut: 5
+cycle_after: "Why is the change so hard to see"
 ---
 More than 80% of people with an addiction never seek treatment [1]. The usual explanation is denial: the person knows, at some level, and will not admit it. A review by addiction neuroscientists proposed a different reading. What looks like denial, they argued, may instead reflect a breakdown in the brain networks that support insight and self-awareness, so that the person genuinely does not perceive how severe the problem has become [1].
 

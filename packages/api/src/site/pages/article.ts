@@ -28,6 +28,7 @@ import {
 import { esc, linkPill, pill, shell } from "../layout";
 import { type Head, articleHtml, articleQuotes, documentHtml, inline, plain } from "../md";
 import { kindColours, longDate, monthYear, topicColours, topicSlug } from "../theme";
+import { withFigures } from "./figure";
 import { glance } from "./glance";
 
 const COPY_ICON =
@@ -198,7 +199,8 @@ export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): str
   const a = { ...a0, topic: topicOf(a0) };
   const titleOf = opts.docTitle ?? docTitle;
   const ctx = { docTitle: titleOf, ...(opts.quoteOk ? { quoteOk: opts.quoteOk } : {}) };
-  const body = articleHtml(a.body, ctx);
+  const raw = articleHtml(a.body, ctx);
+  const body = { ...raw, html: withFigures(raw.html, a) };
   const quotes = a.quotes ?? articleQuotes(a.body).length;
   // An article on the published literature has no receipts; it has a
   // numbered Sources list, and the page counts that instead.
@@ -371,7 +373,8 @@ function referenceCount(p: Paper): number {
 
 export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string {
   const { subtitle, abstract, rest } = paperParts(p);
-  const body = documentHtml(rest);
+  const parts = documentHtml(rest);
+  const body = { ...parts, html: withFigures(parts.html, p) };
   const topic = topicOf(p);
   const minutes = paperMinutes(p);
   const refs = Math.max(0, referenceCount(p));

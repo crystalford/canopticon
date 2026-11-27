@@ -19,6 +19,16 @@ glance_words: "Better, so you stop."
 glance_formula: "problem → treatment → problem gone → read as cured → treatment stops → problem returns"
 glance_sentence: "Some treatments stop because they work: the problem that reminded you vanishes, it looks cured, you stop, and the cause that never left brings it back."
 glance_aloud: "Two teeth that don't quite touch trap food, so the gum gets sore and you clean the gap carefully. In a week it's fine, so you stop, and two weeks later it's sore again. The soreness was the reminder and the relief was the reward, so when the cleaning worked, both went away. Reading 'under control' as 'fixed' is the mistake behind it. The way out is a reminder the symptom can't take away: clean that gap after every meal."
+cycle:
+  - step: "Symptom appears|sore gum, dry skin"
+  - step: "Symptom prompts|the routine"
+  - step: "Routine works|symptom goes"
+  - step: "Read as cured|remission-as-cure error"
+  - step: "Routine stops|no cue, no reward"
+  - step: "Cause still there|returns, harder to clear"
+cycle_exit: "Tie the routine to something you already do daily, or remove the cause."
+cycle_cut: 5
+cycle_after: "Self-extinguishing maintenance: the problem"
 ---
 Two teeth that do not quite touch trap food. Cleaning the gap after meals keeps the gum healthy, and within a week it looks fine, so the cleaning stops. A few weeks later the gum is sore again. Nothing about the teeth changed; the gap was there the whole time. The same happens with toes pressed too tightly together, with dry skin that only stays soft while it is moisturised, and with many medicines.
 
