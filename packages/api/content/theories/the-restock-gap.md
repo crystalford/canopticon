@@ -1,11 +1,11 @@
 ---
 slug: "the-restock-gap"
 title: "The restock gap"
-dek: "Daily habits run on their own, but the supplies they need are restocked by tasks too rare to become habits. Those tasks get put off until something runs out, and running out is their only reminder, so the routine fails before the restock happens."
+dek: "Habits run on their own, but they rest on things that are not habits: supplies, money, services, other people. Those are kept up by occasional, deliberate tasks that nobody tracks, so they lapse, and when one does, the routine fails with it."
 topic: "Habits & maintenance"
 date: "2026-11-26"
 version: 1
-claim: "A daily habit becomes automatic through frequent repetition in a stable setting. The tasks that keep it supplied, such as buying, refilling and replacing, recur weekly or less, at varying times and places, so they stay deliberate, and deliberate tasks with an immediate cost are the ones put off. Their natural reminder is running out, which arrives at the moment the habit needs the supply. Because a practised routine is stored and run as one unit, and because other behaviours are often tied to it, one missing supply can stop a whole sequence. A chain of automatic habits is therefore only as reliable as its least automatic link, and that link is usually a supply task cued by its own failure. Moving the reminder ahead of depletion closes the gap."
+claim: "A habit becomes automatic through frequent repetition in a stable setting, and it rests on things that are not habits: the supplies it uses, the money and services that provide them, and sometimes other people. Those are kept up by tasks that recur weekly or less, at varying times and places, so they stay deliberate; deliberate tasks with an immediate cost are put off, and nobody tracks them. Their usual reminder is the failure itself: something runs out at the moment it is needed. Because a practised routine is stored and run as one unit, and other behaviours are tied to it, one lapsed dependency stops a whole sequence, and because the cause is hard to see from inside, the failure tends to be blamed on the routine or the person. A routine is therefore only as reliable as the least automatic thing it rests on. Listing those dependencies, tracking them, and reminding each one before it fails closes the gap."
 coined: "Chris Telford, Canopticon, 26 November 2026"
 related:
   - route: /theories/self-extinguishing-maintenance
@@ -21,7 +21,7 @@ propositions:
     grade: "Strong"
     refs: "1,2"
     basis: "In 82 people repeating a chosen behaviour daily in the same context for 12 weeks, automaticity rose along a curve and took 18 to 254 days to level off; in hourly diaries, people doing behaviours performed almost daily in stable contexts thought about other things, while behaviours done less often or in shifting contexts needed thought to guide them."
-  - statement: "The tasks that keep a daily habit supplied recur too rarely, and in too many settings, to become habits, so a daily routine rests on deliberate links."
+  - statement: "The tasks that keep a habit's dependencies in place, such as buying, paying and renewing, recur too rarely, and in too many settings, to become habits, so a routine rests on deliberate links."
     grade: "Moderate"
     refs: "1,2"
     basis: "Follows from the conditions for habit formation in proposition 1 and from how supply tasks recur (weekly or less, at varying times and places). Not measured as stated."
@@ -53,7 +53,15 @@ propositions:
     grade: "Moderate"
     refs: "2,12"
     basis: "During habitual behaviour people's thoughts were unrelated to what they were doing; a review of habit research reports that people tend to infer from how often they do something that they must have intended it."
-  - statement: "In households, the routines that fail most often are those resting on a supply task reminded only by running out, and moving the reminder earlier cuts those failures."
+  - statement: "A routine that draws on a periodic supply follows the supply's cycle."
+    grade: "Moderate"
+    refs: "17"
+    basis: "Among food stamp recipients in the United States, caloric intake declined by 10 to 15 percent over the 30 days after benefits arrived; the author attributes the decline to impatience. Shown for one supply, food, and one population."
+  - statement: "Writing down what a routine depends on, and checking it, makes the routine more likely to hold."
+    grade: "Moderate"
+    refs: "18"
+    basis: "Across 138 randomised studies, interventions that increased monitoring of goal progress raised goal attainment (d = 0.40), more so when the information was physically recorded. Tested for goals in general; not for a routine's dependencies."
+  - statement: "In households, the routines that fail most often are those resting on an upkeep task reminded only by failure, and listing and tracking those dependencies cuts the failures."
     grade: "Proposed"
     refs: ""
     basis: "No study yet records household routines, their supply tasks and how each is reminded, and times the failures."
@@ -67,10 +75,10 @@ cycle:
   - step: "Restocked|and forgotten again"
 cycle_exit: "Restock at a set level, before it runs out."
 cycle_cut: 4
-glance_words: "Daily habits, rare supplies."
-glance_formula: "daily habit → needs supply → supply restocked by a rare, deliberate task || reminder = running out → habit fails first → whole routine stops"
-glance_sentence: "Daily habits run on their own, but the supplies they need are restocked by tasks too rare to become habits, so those tasks get put off until something runs out, and the routine fails with it."
-glance_aloud: "Most mornings you make coffee without thinking: cream, sugar, the supplement you stir in. Buying cream is different. You do it once a week, at a different time, in a shop, so it never becomes automatic, and it's easy to put off. The only reminder is running out, and that comes at the exact moment you need it. Then the coffee goes wrong, and the supplement with it, and the rest of the morning. A habit only becomes automatic when you do it often in the same place, and the supply jobs behind daily habits never get that repetition. Hospitals solved this with two bins: when the first one empties, you restock while using the second."
+glance_words: "Habits rest on non-habits."
+glance_formula: "habit → automatic || habit rests on supplies + money + services + people → none automatic, none tracked || one lapses → routine fails → you take the blame"
+glance_sentence: "Your habits run on their own, but they rest on things that are not habits, like supplies and money, and when one of those lapses, the routine fails and you take the blame."
+glance_aloud: "Think of a morning routine you never have to think about. Now list what it needs: coffee in the cupboard, money to buy it, a kettle that works, a trip to the shop. None of those are habits. They're kept up by things you do once a week or once a month, and nothing reminds you of them until one runs out. Then the whole routine stops, and it feels like you failed. A routine is only as reliable as the least automatic thing it rests on. So write those things down, check them, and restock before you run out."
 references:
   - text: "Lally, P., van Jaarsveld, C. H. M., Potts, H. W. W., & Wardle, J. (2010). How are habits formed: Modelling habit formation in the real world. *European Journal of Social Psychology*, 40(6), 998–1009. doi:10.1002/ejsp.674"
     url: "https://doi.org/10.1002/ejsp.674"
@@ -120,18 +128,24 @@ references:
   - text: "O'Donoghue, T., & Rabin, M. (1999). Doing it now or later. *American Economic Review*, 89(1), 103–124. doi:10.1257/aer.89.1.103"
     url: "https://doi.org/10.1257/aer.89.1.103"
     read: "abstract"
+  - text: "Shapiro, J. M. (2005). Is there a daily discount rate? Evidence from the food stamp nutrition cycle. *Journal of Public Economics*, 89(2–3), 303–325. doi:10.1016/j.jpubeco.2004.05.003"
+    url: "https://econwpa.ub.uni-muenchen.de/econ-wp/mic/papers/0304/0304005.pdf"
+    read: "abstract"
+  - text: "Harkin, B., Webb, T. L., Chang, B. P. I., Prestwich, A., Conner, M., Kellar, I., Benn, Y., & Sheeran, P. (2016). Does monitoring goal progress promote goal attainment? A meta-analysis of the experimental evidence. *Psychological Bulletin*, 142(2), 198–229. doi:10.1037/bul0000025"
+    url: "https://cdr.lib.unc.edu/downloads/mc87px074"
+    read: "abstract"
 cite: "Telford, C. (2026). The restock gap: a theory of why daily routines fail at their least automatic link. Canopticon. canopticon.com/theories/the-restock-gap"
 ---
 
-Coffee in the morning is made without thought: the cup, the kettle, the cream, the sugar, perhaps a supplement stirred in. Buying the cream is a different kind of act. It happens once a week or so, at a different time, in a shop, on the way to somewhere else. When it is put off and the cream runs out, the morning does not lose one step. The coffee goes, and whatever was mixed into it, and the order of everything that came after.
+A morning routine runs without thought: the kettle, the coffee, the cream, a supplement stirred in. What it rests on does not. The cream is bought once a week or so, in a shop, on the way to somewhere else, with money that has to be there that week. None of that is a habit, and none of it is tracked. When one piece lapses, the morning does not lose one step. The coffee goes, and whatever was mixed into it, and the order of everything that came after.
 
-This theory names the weak point in chains of habits like that one, and says why it sits where it does.
+This theory names the weak point in routines like that one: the things a habit rests on that are not habits themselves.
 
 ## Definition
 
-**The restock gap** is the difference in automaticity between a daily habit and the supply task it depends on. The **supply task** is whatever keeps the habit's materials in place: buying, refilling, washing, charging, replacing. A **carrier habit** is one that other behaviours have been tied to, as when a supplement is taken in the morning coffee. The **depletion reminder** is the moment a supply runs out, which for most supply tasks is the only reminder they have.
+**The restock gap** is the difference in reliability between a habit and the things it rests on. A habit runs automatically; its **dependencies** do not. A dependency is anything the habit needs and does not provide for itself: a supply, the money that buys it, a service or subscription, equipment that must be charged or replaced, another person's part. Each is kept up by an **upkeep task**: buying, paying, renewing, refilling, asking. A **carrier habit** is one that other behaviours have been tied to, as when a supplement is taken in the morning coffee. The **failure reminder** is the moment a dependency lapses, which for most upkeep tasks is the only reminder they have.
 
-The theory's central claim is that a chain of automatic habits is only as reliable as its least automatic link, that this link is usually a supply task, and that the supply task's reminder arrives at the moment the chain needs it.
+The theory's central claim is that a routine is only as reliable as the least automatic thing it rests on, that this is usually an upkeep task, and that the upkeep task's reminder arrives at the moment the routine needs it. The name comes from the commonest case, a supply that has to be restocked.
 
 ## Prior work
 
@@ -181,7 +195,11 @@ Carriers strengthen and bind (P8). People told to floss after brushing formed st
 
 The chain is hard to see (P9). People's thoughts during habitual behaviour were unrelated to the behaviour [2], and people tend to infer from the frequency of a behaviour that they must have intended it [12].
 
-What fails most often in households (P10) has not been studied.
+A routine follows its supply (P10). Among food stamp recipients, caloric intake declined by 10 to 15 percent over the 30 days after benefits arrived [17]. The author reads the decline as impatience, consuming the supply early, which is the same present bias that puts off upkeep tasks (P3).
+
+Tracking helps (P11). Across 138 randomised studies, interventions that got people to monitor their progress raised goal attainment by 0.40 of a standard deviation, and the effect was larger when the information was physically recorded [18].
+
+What fails most often in households (P12) has not been studied.
 
 ## Measures
 
@@ -196,17 +214,18 @@ The theory expects routines to fail most often where the supply interval is long
 
 ## Protocol
 
-1. **List the supplies a daily routine uses.** Walk through it once and name every material it needs.
-2. **Find the carriers.** Note which habits have other behaviours tied to them, and what those behaviours would need if the carrier stopped.
-3. **Move the reminder ahead of depletion.** Keep a second unit in reserve and buy when you open it, or set a level at which you restock, as the two-bin system does [5].
-4. **Tie the supply task to a fixed occasion.** Put the item on a standing list, or buy it on a trip that already happens every week.
-5. **Give each carrier a fallback.** Decide in advance what the tied behaviour does if the carrier is missing, so one failure stops one thing.
+1. **List what the routine rests on.** Walk through it once and name every supply, payment, service and person it needs.
+2. **Write the list down and check it on a fixed day.** Monitoring helps goals hold, most of all when it is recorded [18].
+3. **Find the carriers.** Note which habits have other behaviours tied to them, and what those behaviours would need if the carrier stopped.
+4. **Move the reminder ahead of failure.** Keep a second unit in reserve and buy when you open it, or set a level at which you restock, as the two-bin system does [5].
+5. **Tie the upkeep task to a fixed occasion.** Put the item on a standing list, or buy it on a trip that already happens every week.
+6. **Give each carrier a fallback.** Decide in advance what the tied behaviour does if the carrier is missing, so one failure stops one thing.
 
 ## A four-question check
 
 For any routine that has failed, or that you rely on:
 
-1. Does it need a supply that is restocked less often than the routine runs?
+1. Does it rest on something restocked, paid for or renewed less often than the routine runs?
 2. Is that restock prompted only by running out?
 3. Do other behaviours depend on the routine?
 4. When it last failed, did you trace the failure to the supply?
@@ -221,7 +240,7 @@ A yes to the first question means the theory applies. Yes to the second or third
 
 ## Scope
 
-The theory applies to routines that consume or wear out a material: food and drink, hygiene, medication taken from a supply, equipment that needs charging or replacing. It also applies, by analogy, to routines that depend on a less frequent maintenance task, such as a bicycle ride that depends on inflated tyres.
+The theory applies to routines that consume or wear out a material: food and drink, hygiene, medication taken from a supply, equipment that needs charging or replacing. It applies in the same way to money and services: a routine paid for by a subscription lapses when the subscription does, and eating follows the cycle of the money that buys food [17]. It also applies to routines that depend on a less frequent maintenance task, such as a bicycle ride that depends on inflated tyres.
 
 It concerns the reliability of chains of habits. It says nothing about which habits are worth keeping. It also does not claim that habits are fragile in general: a single missed opportunity does not undo a habit [1], and disruption caused by a missing cue can be brief [8].
 
