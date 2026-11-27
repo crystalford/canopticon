@@ -15,6 +15,10 @@ based_on:
 quotes: 46
 words: 1690
 cite: "Telford, C. (2026). Topping up low wages in Canada: the Canada Workers Benefit, employer capture, and the workers who never file. Canopticon. canopticon.com/articles/topping-up-low-wages-in-canada"
+glance_words: "Two leaks in the top-up."
+glance_formula: "Canada Workers Benefit → low wages topped up through tax || no wage floor → employers absorb part of it || ~9% of eligible earners never file → never reached"
+glance_sentence: "Canada already tops up low earnings through the Canada Workers Benefit, and two design facts decide how well it works: employers absorb part of it without a wage floor, and about 9% of eligible earners never file."
+glance_aloud: "Debates about basic income often skip that Canada already runs something close: the Canada Workers Benefit, a refundable tax credit that tops up low earnings. Two facts decide how well it works. Where no wage floor binds, employers capture part of any top-up by paying less, including to workers who don't get it. And because it's claimed on a tax return, about 9% of eligible earners, those least likely to file, never receive it."
 ---
 The Canadian argument about income support is usually staged as a choice between a universal basic income and nothing. It skips the fact that a version of the alternative has been running for years, paid quarterly, through the tax return.
 

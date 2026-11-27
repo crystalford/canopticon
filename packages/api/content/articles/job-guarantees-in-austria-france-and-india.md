@@ -15,6 +15,10 @@ based_on:
 quotes: 49
 words: 1478
 cite: "Telford, C. (2026). Job guarantees in Austria, France and India: employment effects, cost per job, and the designs that trap people. Canopticon. canopticon.com/articles/job-guarantees-in-austria-france-and-india"
+glance_words: "It works; design decides."
+glance_formula: "job guarantee → people into work + better lives + higher cost than promised || good design → springboard; bad design → low-wage trap"
+glance_sentence: "Job guarantees tried in an Austrian town, 83 French territories and rural India moved people into work and improved their lives, cost more than promised, and became a trap where designed badly."
+glance_aloud: "A job for anyone who wants one sounds like a thought experiment, but it has been tried: in an Austrian town, in 83 French territories, and across rural India. Done carefully, it moved people into work and improved their wellbeing. It also cost more than its backers promised. Done badly, it kept people in low-wage make-work with no way out. The evidence settles that it can work; the open question is how to build it well."
 ---
 Imagine an app that, like a ride-hailing app, always has a paid job waiting for anyone who wants one — repairing a building, tending a park, helping in a care home. It sounds like a policy from a novel. The research behind this article found that every part of it has already been tried somewhere, and that the results are clear enough to argue from.
 

@@ -15,6 +15,10 @@ based_on:
 quotes: 61
 words: 2020
 cite: "Telford, C. (2026). Canadian recessions and the mortgage channel: rate decisions, CMHC, and five decades of housing-led downturns. Canopticon. canopticon.com/articles/canadian-recessions-and-the-mortgage-channel"
+glance_words: "Rate decision, housing channel."
+glance_formula: "rate decision → mortgage credit → households → downturn || household debt → a stronger channel || insured mortgages → public risk, private return"
+glance_sentence: "Every major Canadian downturn since 1980 carries a monetary-policy decision, and housing credit is the channel through which that decision reaches households."
+glance_aloud: "Canadian recessions are usually told as bad luck. The record says each major one since 1980 follows a rate decision, and mortgages are how that decision reaches people. The clearest case is 1990: the anti-inflation campaign overshot its own target, and Toronto house prices didn't pass their 1989 peak until 2002. Canada's high household debt makes the channel unusually strong, and public mortgage insurance puts the risk on everyone while the returns stay private."
 ---
 Recessions are usually narrated as weather — a downturn arrives, the cycle turns. Canada's have a more specific shape: in almost every case a decision was taken, and the thing it worked through was housing.
 

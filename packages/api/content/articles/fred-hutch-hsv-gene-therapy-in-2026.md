@@ -15,6 +15,10 @@ based_on:
 quotes: 20
 words: 951
 cite: "Telford, C. (2026). Fred Hutch's HSV gene therapy in 2026: mouse and guinea-pig results, no human trial, and the antivirals arriving first. Canopticon. canopticon.com/articles/fred-hutch-hsv-gene-therapy-in-2026"
+glance_words: "Mouse numbers."
+glance_formula: "mice → up to 97% of dormant virus cleared || guinea pigs, which relapse like people → above 30% || humans → no trial filed || first to arrive → drugs that suppress"
+glance_sentence: "The herpes gene therapy's famous numbers are mouse numbers: in the animal that relapses the way people do it clears far less, no human trial has been filed, and the drugs arriving first suppress the virus instead of removing it."
+glance_aloud: "Headlines say a gene therapy clears up to 97% of dormant herpes. That's in mice. In guinea pigs, which relapse the way people do, the same treatment clears a little over 30%. Nobody has filed to test it in a person yet. Meanwhile the treatments likely to reach patients first are antivirals that keep the virus suppressed, without removing it. The research is real and promising; it's just much earlier than the headline suggests."
 ---
 Every so often the news reports that herpes has been cured in a laboratory. The work behind those reports is real: a gene therapy that cuts the sleeping virus out of nerve cells and lets the body throw away the pieces. What the reports leave out is which animal it was cured in.
 

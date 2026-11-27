@@ -15,6 +15,10 @@ based_on:
 quotes: 42
 words: 1633
 cite: "Telford, C. (2026). Bill C-11 and Canadian creators in 2026: what the CRTC has actually imposed, and what is still a prediction. Canopticon. canopticon.com/articles/bill-c-11-and-canadian-creators-in-2026"
+glance_words: "A forecast quoted as a finding."
+glance_formula: "argument: discoverability rules → algorithms learn Canadian videos go unwatched → foreign audiences lost || so far: no rule imposed + payments stayed + no harm measured"
+glance_sentence: "Creators were warned the Online Streaming Act would cost them foreign audiences, but three years on no discoverability rule has been imposed, the payments are stayed in court, and no study has measured the harm."
+glance_aloud: "The warning about Bill C-11 went like this: if platforms are made to push Canadian videos, recommendation systems will learn that Canadians skip them and show them less abroad. The mechanism is plausible, and the platforms don't dispute it. But three years after it became law, the regulator hasn't imposed a discoverability rule on anyone, the contribution payments are stayed by a court, and nobody has measured a drop in foreign viewers. So far, the harm is a forecast."
 ---
 Ask a Canadian YouTuber about the Online Streaming Act and you will often hear that it has already cost them their foreign audience. Ask what the regulator has actually required of YouTube, and the answer is: nothing yet.
 

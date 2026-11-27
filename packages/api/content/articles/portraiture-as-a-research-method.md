@@ -15,6 +15,10 @@ based_on:
 quotes: 48
 words: 1723
 cite: "Telford, C. (2026). Portraiture as a research method: Sara Lawrence-Lightfoot's &quot;painting with words&quot;, how it differs from ethnography, and the case against it. Canopticon. canopticon.com/articles/portraiture-as-a-research-method"
+glance_words: "The researcher as instrument."
+glance_formula: "visible researcher + judged by resonance → honest about the teller || replication impossible → hard to check || read it by how it handles what doesn't fit"
+glance_sentence: "Portraiture puts the researcher at the centre and is judged by whether readers recognise its truth, which makes it honest about who is telling the story and hard to verify."
+glance_aloud: "Portraiture is a research method in which the researcher's own judgement is the visible instrument, and a study succeeds when readers recognise the truth of the portrait. Its founder, Sara Lawrence-Lightfoot, argues that a visible self demands more discipline. Its sharpest critic says it leaves no way to check the portraitist. Both are describing the same feature. So read a portrait as a disciplined interpretation, and judge it by how it handles the evidence that doesn't fit."
 ---
 Most research methods try to keep the researcher out of the picture. Portraiture, a qualitative method developed at Harvard in the 1980s, puts the researcher at the centre of it and asks to be judged as much by how a study reads as by how it was done. That makes it unusually honest about who is telling the story, and unusually hard to check.
 

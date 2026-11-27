@@ -15,6 +15,10 @@ based_on:
 quotes: 38
 words: 1528
 cite: "Telford, C. (2026). Why people keep scrolling: habit, infinite feeds, and the evidence against the dopamine explanation. Canopticon. canopticon.com/articles/why-people-keep-scrolling"
+glance_words: "Habit plus no end."
+glance_formula: "habit + a feed with no stopping point → keep scrolling || dopamine jackpot → fits posting and likes, less the passive scroll || engagement ranking → shows what people say makes them feel worse"
+glance_sentence: "People keep scrolling mostly from habit in a feed with no natural place to stop, and the ranking that keeps them longest shows them content they say makes them feel worse."
+glance_aloud: "The usual explanation for endless scrolling is dopamine, a slot machine in your pocket. The better evidence points to habit running ahead of intention, in a feed designed with no natural place to stop. The slot-machine picture fits posting and checking likes; it fits the passive scroll less well. And feeds ranked for engagement keep showing people content they say makes them feel worse, because that content keeps them longest."
 ---
 You open an app to check one thing. A long while later you are still there, and you could not say what you were looking for. The usual explanation is that the feed is a slot machine: every swipe might pay out, and the brain keeps pulling the lever. The research behind this article says that story is mostly wrong about scrolling, and that the real causes are duller and easier to design against.
 

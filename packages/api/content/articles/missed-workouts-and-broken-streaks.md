@@ -15,6 +15,10 @@ based_on:
 quotes: 57
 words: 1868
 cite: "Telford, C. (2026). Missed workouts and broken streaks: how fast strength, mood and habit actually decay. Canopticon. canopticon.com/articles/missed-workouts-and-broken-streaks"
+glance_words: "Strength keeps; the habit fades."
+glance_formula: "two weeks off → strength and muscle held || mood + reward tone + habit → drain || restart runs on what drained"
+glance_sentence: "After a break of weeks, strength and muscle hold, while mood, reward tone and the automatic habit drain, and those are what a restart depends on."
+glance_aloud: "Miss two weeks at the gym and it feels like you've lost everything. You haven't: strength holds, muscle holds, and the body regains quickly when you return. What does fade in that time is mood, the reward you got from going, and the habit that made going automatic. Those are exactly what getting back depends on, which is why restarting feels harder than the lost fitness would suggest. The break usually starts with one snap decision, when the workout collides with something that has a deadline."
 ---
 The fear that follows a missed week at the gym is that the work is being undone — that the muscle is draining away and the whole climb starts again. Half of that is wrong, and the half that is right is the half nobody worries about.
 

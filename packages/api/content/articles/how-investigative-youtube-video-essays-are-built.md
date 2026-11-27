@@ -15,6 +15,10 @@ based_on:
 quotes: 46
 words: 1717
 cite: "Telford, C. (2026). How investigative YouTube video essays are built: the cold open, the late turn to meaning, and the channels that borrow the form without the evidence. Canopticon. canopticon.com/articles/how-investigative-youtube-video-essays-are-built"
+glance_words: "Judge the evidence before the turn."
+glance_formula: "cold open → evidence in viewing order → late turn to meaning → persuaded || structure persuades → works on weak evidence too"
+glance_sentence: "Investigative video essays persuade through structure, a cold open, evidence in viewing order and a late turn to meaning, so the structure works just as well on weak evidence and the evidence before the turn is what to judge."
+glance_aloud: "The strongest investigative video essays open on an object or a document, walk through the evidence in the order you'd discover it, and only near the end say what it all means. That late turn is what persuades: by then you've followed every step. Because the structure does so much of the work, it persuades just as well when the evidence is thin. So judge one of these videos by what it shows before the turn."
 ---
 Investigative video essays on YouTube — true-crime breakdowns, internet mysteries, long takedowns of crypto schemes or plagiarists — have become a form of their own. They are often hours long, and they are built very differently from a news report on the same events. Taking apart how the strongest channels build their scripts shows why: the structure itself does much of the persuading, and it does so whether or not the evidence underneath is sound.
 

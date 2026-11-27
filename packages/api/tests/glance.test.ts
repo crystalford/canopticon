@@ -11,9 +11,9 @@ const get = (path: string) => app.fetch(new Request(`http://test${path}`), env);
 const FIELDS = ["glance_words", "glance_formula", "glance_sentence", "glance_aloud"] as const;
 
 describe("at a glance", () => {
-  it("every essay opens with its short version, above the thesis", async () => {
-    const essays = allArticles().filter((a) => a.form === "Essay");
-    expect(essays.length).toBeGreaterThan(10);
+  it("every essay and brief opens with its short version, above the thesis", async () => {
+    const essays = allArticles();
+    expect(essays.length).toBeGreaterThan(30);
     for (const a of essays) {
       for (const k of FIELDS) expect(a[k], `${a.slug} ${k}`).toBeTruthy();
       const html = await (await get(`/articles/${a.slug}`)).text();

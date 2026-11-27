@@ -15,6 +15,10 @@ based_on:
 quotes: 66
 words: 2091
 cite: "Telford, C. (2026). Paying to reach curious readers in 2026: ChatGPT ads, feed ads, paid newsletter recommendations, and the labelling rules. Canopticon. canopticon.com/articles/paying-to-reach-curious-readers-in-2026"
+glance_words: "Feeds are still cheaper."
+glance_formula: "ChatGPT ads → 3–8× the cost per impression + hard to measure || feed ads + paid newsletter recommendations → curious readers for less || label rule = no fake people, no hidden sponsors"
+glance_sentence: "ChatGPT's new ads cost about three to eight times more per impression than feed ads and are hard to measure, so feeds and newsletter recommendations still reach curious readers for less."
+glance_aloud: "ChatGPT now sells ads you can buy yourself, and it's tempting to think that's the new way to reach curious people. For now it's the expensive way: roughly three to eight times the cost per impression of a feed ad, and hard to measure. Meta, Reddit and paid newsletter recommendations still reach curious readers for less. On labelling, an ad can be genuinely useful and still carry its label; the rules forbid fake people and hidden sponsors."
 ---
 Advertising inside AI assistants went from announcement to a working market within this year. It is a real place to buy attention, but not yet a cheap or well-measured one, and the older channels still undercut it. Reading the prices side by side, and the rules that now govern what an ad may pretend to be, shows where a curious reader can actually be bought, and on what terms.
 
