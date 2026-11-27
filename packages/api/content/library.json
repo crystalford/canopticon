@@ -1,6 +1,16 @@
 [
  {
   "kind": "Theory",
+  "topic": "Habits & maintenance",
+  "date": "2026-11-26",
+  "dateLabel": "26 Nov",
+  "title": "The restock gap",
+  "dek": "Daily habits run on their own, but the supplies they need are restocked by tasks too rare to become habits. Those tasks get put off until something runs out, and running out is their only reminder, so the routine fails before the restock happens.",
+  "stat": "10 propositions · 3 strong",
+  "route": "/theories/the-restock-gap"
+ },
+ {
+  "kind": "Theory",
   "topic": "AI-directed development",
   "date": "2026-11-24",
   "dateLabel": "24 Nov",
