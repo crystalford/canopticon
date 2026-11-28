@@ -1,6 +1,21 @@
 [
  {
   "kind": "Essay",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-28",
+  "dateLabel": "28 Nov",
+  "title": "How to keep an idea you can't recite",
+  "dek": "Memory keeps the meaning of what it takes in and lets the exact words go, so a hard idea is kept as its meaning and a short cue. The cue works only on an idea that was learned properly, and every cue leaves something out, even one drawn from the definition of the people who named the idea.",
+  "stat": "9 sources · 6 min",
+  "min": 6,
+  "quotes": 0,
+  "sources": 9,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/how-to-keep-an-idea-you-cant-recite"
+ },
+ {
+  "kind": "Essay",
   "topic": "AI-directed development",
   "date": "2026-11-28",
   "dateLabel": "28 Nov",
