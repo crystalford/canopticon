@@ -29,6 +29,57 @@ build:
   - move: "Evidence|Explaining exposes what was not understood, and recalling makes it last|9,10"
   - move: "Limit|Rebuilt memories drift toward the familiar, so check them against the source|2,3"
   - move: "Method|Learn it in full, pick a handle and a context word, rebuild from the words, check"
+figure_plan:
+  - move: 1
+    kind: "chain"
+    data: "make|do|end"
+    title: "Poiesis and praxis, in three words"
+    say: "I can't recite the definition of poiesis. What I keep is three words: make, do and end. From them I can rebuild the rest."
+  - move: 2
+    kind: "compare"
+    data: "A change of meaning|still noticed || A change of wording|barely noticed"
+    hot: 1
+    title: "A little later in the passage"
+    say: "Memory keeps the meaning of a sentence and drops the wording. A little later, people still noticed a change of meaning. A change of wording, they barely noticed."
+  - move: 3
+    kind: "compare"
+    data: "Recalling freely|some words come back || Given the category names|more come back"
+    hot: 2
+    title: "With and without a cue"
+    say: "A cue brings back what was stored but could not be recalled. Given the category names, people remembered words they had missed."
+  - move: 4
+    kind: "compare"
+    data: "A position from a real game|masters rebuild far more || Pieces placed at random|little better than anyone"
+    hot: 1
+    title: "Chess masters, five seconds"
+    say: "A cue only opens what was stored. Chess masters rebuilt a real position after five seconds. With the pieces placed at random, they did little better than anyone."
+  - move: 5
+    kind: "compare"
+    data: "Told the topic first|recalled much more || Told it afterwards|hardly better than never told"
+    hot: 1
+    title: "A vague passage about washing clothes"
+    say: "Context helps only when it comes first. Told the topic before a vague passage, people recalled much more of it. Told afterwards, they did hardly better than people never told."
+  - move: 6
+    kind: "loop"
+    title: "Down and back up"
+    say: "So start on the handle. Go deep into the full idea. Come back up to the handle, which now holds what you learned. Rebuild the idea from it, and check the rebuild against the source."
+  - move: 7
+    kind: "compare"
+    data: "Rereading|better after five minutes || Recalling|much better after a week"
+    hot: 2
+    title: "Read it again, or recall it"
+    say: "Trying to explain an idea shows whether it was understood, and recalling it makes it last. Rereading did better after five minutes. Recalling did much better after a week."
+  - move: 8
+    kind: "compare"
+    data: "In Aristotle|praxis is acting well || Rebuilt from make and do|the everyday sense of doing"
+    hot: 1
+    title: "What drifts"
+    say: "Rebuilt memories drift toward the familiar. Rebuilt from make and do, praxis slides toward the everyday sense of doing, and loses what Aristotle meant: acting well."
+  - move: 9
+    kind: "steps"
+    data: "Learn it in full || Choose a handle and a context word || Put them first || Rebuild from the words || Check against the source"
+    title: "How to do it"
+    say: "Learn the idea in full once. Choose a handle and a word of context. Put them first. Rebuild from the words alone, and check the rebuild against the source."
 ---
 I cannot recite the definition of *poiesis*. I could not tell you Aristotle's exact sentence, or the history of how the word has been used since. What I keep is three words: *make*, *do* and *end*. Asked, I can rebuild the rest from them. *Poiesis* is making and *praxis* is doing, and Aristotle told them apart by where the end lies: a making has its end in the thing made, while a doing is its own end. That is close enough to the text that I can find the passage again when I need the words exactly.
 

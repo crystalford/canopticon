@@ -138,6 +138,20 @@ export interface Figures {
   chart_note?: string;
   chart_source?: string;
   chart_after?: string;
+  /** The figure plan (2026-11-28): one figure per move of the skeleton. */
+  figure_plan?: PlannedFigure[];
+}
+
+/** One move's figure. `data` by kind: chain "a|b|c"; compare
+ *  "Label|value || Label|value"; steps "a || b"; loop (the piece's cycle);
+ *  quote (words from the piece). `say` is the line spoken over it in a short. */
+export interface PlannedFigure {
+  move: number;
+  kind: "chain" | "compare" | "steps" | "loop" | "quote";
+  data: string;
+  title?: string;
+  say?: string;
+  hot?: number;
 }
 
 export interface Article extends Glance, Figures {

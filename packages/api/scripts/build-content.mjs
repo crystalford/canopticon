@@ -59,7 +59,74 @@ function figures(at, piece, failures) {
         failures.push(`${at}: chart value ${value} ("${label}") is not in the piece's text`);
     }
   }
+  out.figure_plan = figurePlan(at, piece, out, failures);
   return out;
+}
+
+/** The figure plan (2026-11-28): one figure per move of the skeleton, drawn
+ *  on the page under its move and, frame by frame, by the short-maker
+ *  (`packages/shorts`). Kinds: `chain` (cue words, "a|b|c"), `compare` (two
+ *  to four rows, "Label|value || Label|value", `hot` the row that matters),
+ *  `steps` ("a || b || c"), `loop` (the piece's own cycle) and `quote` (words
+ *  from the piece). A figure can only show what the piece says: cue words and
+ *  quotations must be in its text, and so must every number. */
+const PLAN_KINDS = ["chain", "compare", "steps", "loop", "quote"];
+function figurePlan(at, piece, out, failures) {
+  if (!Array.isArray(piece.figure_plan)) return undefined;
+  const nMoves = Array.isArray(piece.build) ? piece.build.length : 0;
+  const flat = (s) => String(s).replace(/[*_]/g, "").replace(/\s+/g, " ").toLowerCase();
+  const text = flat(piece.body).replace(/,(?=\d{3})/g, "");
+  const seen = new Set();
+  return piece.figure_plan.map((f, i) => {
+    const where = `${at}: figure ${i + 1}`;
+    const fig = {
+      move: Number(f.move),
+      kind: String(f.kind ?? ""),
+      data: String(f.data ?? ""),
+      ...(f.title ? { title: String(f.title) } : {}),
+      ...(f.say ? { say: String(f.say) } : {}),
+      ...(f.hot ? { hot: Number(f.hot) } : {}),
+    };
+    if (!Number.isInteger(fig.move) || fig.move < 1 || fig.move > nMoves)
+      failures.push(`${where} names move ${f.move}, but the build has ${nMoves} moves`);
+    else if (seen.has(fig.move)) failures.push(`${where}: move ${fig.move} already has a figure`);
+    seen.add(fig.move);
+    if (!PLAN_KINDS.includes(fig.kind))
+      failures.push(`${where}: kind must be one of ${PLAN_KINDS.join(", ")}`);
+    const rows = fig.data
+      .split("||")
+      .map((r) => r.trim())
+      .filter(Boolean);
+    if (fig.kind === "chain") {
+      const words = fig.data
+        .split("|")
+        .map((w) => w.trim())
+        .filter(Boolean);
+      if (words.length < 2 || words.length > 7) failures.push(`${where}: a chain has 2 to 7 words`);
+      for (const w of words)
+        if (
+          !new RegExp(`\\b${w.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(text)
+        )
+          failures.push(`${where}: cue word "${w}" is not in the piece's text`);
+    }
+    if (fig.kind === "compare") {
+      if (rows.length < 2 || rows.length > 4)
+        failures.push(`${where}: a comparison has 2 to 4 rows`);
+      for (const r of rows)
+        if (r.split("|").length !== 2) failures.push(`${where}: row "${r}" must be "Label|value"`);
+      if (fig.hot && (fig.hot < 1 || fig.hot > rows.length))
+        failures.push(`${where}: hot must name one of its rows`);
+    }
+    if (fig.kind === "steps" && (rows.length < 2 || rows.length > 7))
+      failures.push(`${where}: steps have 2 to 7 entries`);
+    if (fig.kind === "loop" && !out.cycle?.length)
+      failures.push(`${where}: a loop draws the piece's cycle, and it has none`);
+    if (fig.kind === "quote" && !text.includes(flat(fig.data)))
+      failures.push(`${where}: the quotation is not word for word in the piece`);
+    for (const n of fig.data.match(/\d+(?:\.\d+)?/g) ?? [])
+      if (!text.includes(n)) failures.push(`${where}: ${n} is not in the piece's text`);
+    return fig;
+  });
 }
 
 export function parseFrontMatter(text) {

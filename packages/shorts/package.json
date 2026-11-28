@@ -1,0 +1,12 @@
+{
+  "name": "@canopticon/shorts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Makes a short video from a piece's figure plan. Run by hand; nothing deploys or schedules it.",
+  "scripts": {
+    "plan": "node plan.mjs",
+    "stills": "node stills.mjs",
+    "render": "node render.mjs"
+  }
+}

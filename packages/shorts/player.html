@@ -1,0 +1,349 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- The short-maker's player (2026-11-28): the v13 look, with figures drawn from a piece's figure plan. -->
+<style>
+@font-face { font-family: Geist; src: url(../api/src/site/og/fonts/Geist-Regular.ttf); font-weight: 400; }
+@font-face { font-family: Geist; src: url(../api/src/site/og/fonts/Geist-Medium.ttf); font-weight: 500; }
+@font-face { font-family: Geist; src: url(../api/src/site/og/fonts/Geist-SemiBold.ttf); font-weight: 600; }
+:root { --paper:#06070a; --card:rgba(255,255,255,.045); --ink:#f3f2ee; --ink2:#c9c8c2; --muted:#7d818b; --hair:rgba(255,255,255,.10); --acc:#4cc9ff; --accrgb:76,201,255; --accd:rgba(76,201,255,.10); }
+html,body { margin:0; padding:0; background:var(--paper); }
+#v { position:relative; width:1080px; height:1920px; overflow:hidden; background:var(--paper); font-family:Geist,sans-serif; color:var(--ink); }
+.brand { position:absolute; left:84px; top:96px; font-size:34px; font-weight:600; letter-spacing:-.01em; }
+.kind { position:absolute; right:84px; top:92px; font-size:24px; font-weight:500; padding:10px 22px; border-radius:999px; border:2px solid var(--hair); color:var(--ink2); }
+.rule { position:absolute; left:84px; right:84px; top:170px; height:2px; background:var(--hair); }
+#stage { position:absolute; left:0; right:0; top:200px; height:1250px; }
+#cap { position:absolute; left:84px; right:84px; top:1440px; font-size:44px; line-height:1.38; color:var(--ink2); }
+#cap .w { opacity:.22; } #cap .w.on { opacity:1; }
+.prog { position:absolute; left:84px; right:84px; bottom:110px; height:6px; border-radius:3px; background:var(--hair); }
+.prog i { position:absolute; left:0; top:0; bottom:0; border-radius:3px; background:linear-gradient(90deg,#4cc9ff,#b78cff 50%,#3fe6a3); box-shadow:0 0 16px rgba(183,140,255,.5); }
+.layer { position:absolute; inset:0; }
+.tok { position:absolute; left:120px; width:760px; padding:34px 40px; border:2px solid var(--hair); border-radius:28px; background:var(--card); font-size:60px; font-weight:500; line-height:1.2; letter-spacing:-.01em; }
+.tok { backdrop-filter:blur(18px); box-shadow:inset 0 1px 0 rgba(255,255,255,.06); overflow:hidden; }
+.glint { position:absolute; top:-30%; bottom:-30%; width:140px; background:linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.28), rgba(255,255,255,0)); transform:skewX(-22deg); pointer-events:none; }
+#fx { position:absolute; inset:0; pointer-events:none; mix-blend-mode:screen; }
+.tok.hot { border-color:var(--acc); color:var(--acc); background:var(--accd); box-shadow:0 0 70px rgba(var(--accrgb),.28), inset 0 0 40px rgba(var(--accrgb),.10); text-shadow:0 0 28px rgba(var(--accrgb),.55); }
+#bg { position:absolute; inset:-60px; }
+#cam { position:absolute; inset:0; transform-origin:50% 42%; }
+#grade { position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 50%, rgba(0,0,0,.6) 100%); }
+.arrow { position:absolute; left:536px; width:4px; background:var(--muted); }
+.arrow:after { content:""; position:absolute; left:-13px; bottom:-14px; border:15px solid transparent; border-top:18px solid var(--muted); }
+.title { position:absolute; left:84px; right:84px; top:330px; font-size:136px; font-weight:600; line-height:1.0; letter-spacing:-.035em; }
+.words { position:absolute; left:84px; right:84px; top:660px; font-size:66px; font-weight:500; color:var(--acc); letter-spacing:-.02em; text-shadow:0 0 30px rgba(var(--accrgb),.5); }
+.label { position:absolute; left:84px; top:200px; font-size:26px; font-weight:600; letter-spacing:.12em; color:var(--muted); }
+.sent { position:absolute; left:84px; right:84px; top:420px; font-size:120px; font-weight:600; line-height:1.08; letter-spacing:-.03em; }
+svg { position:absolute; left:0; top:0; } svg text { font-family:Geist,sans-serif; }
+</style></head>
+<body><div id="v"><div id="bg"></div><div id="cam">
+  <div id="stage"></div></div><div id="fx"></div><div id="grade"></div>
+  <div class="brand">canopticon</div><div class="kind" id="kind"></div><div class="rule"></div>
+  <div id="cap"></div><div id="ring" style="position:absolute;left:84px;bottom:70px;width:912px;height:90px"></div>
+</div>
+<script>
+let SPEC = null;
+const clamp = (x) => Math.min(1, Math.max(0, x));
+const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const inout = (x) => { x = clamp(x); return x < .5 ? 4*x*x*x : 1 - Math.pow(-2*x + 2, 3) / 2; };
+const lerp = (a, b, k) => a + (b - a) * k;
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+const COL = { gist: { c: "#4cc9ff", rgb: "76,201,255" }, cue: { c: "#b78cff", rgb: "183,140,255" }, rebuild: { c: "#3fe6a3", rgb: "63,230,163" } };
+let A = null;
+function pal(name) { const p = COL[name] || COL.gist; return { ...p, d: `rgba(${p.rgb},.10)` }; }
+function hex(c) { return [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)); }
+function mix(a, b, k) { const x = hex(a), y = hex(b); return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * clamp(k)).toString(16).padStart(2, "0")).join(""); }
+function rnd(n) { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); }
+// Light and depth: a pool of the shot's colour behind what is being said, soft shapes far behind, the word huge and out of focus.
+function background(i, t, b, light, rack) {
+  const k = t / b.dur, [lx, ly] = light;
+  let h = `<div style="position:absolute;inset:0;background:radial-gradient(1200px 900px at 50% 30%, #0c0e14 0%, #06070a 70%)"></div>`;
+  h += `<div style="position:absolute;left:${lx + 60 - 620}px;top:${ly + 260 - 620}px;width:1240px;height:1240px;border-radius:50%;background:radial-gradient(circle, rgba(${A.rgb},.30) 0%, rgba(${A.rgb},.10) 35%, rgba(${A.rgb},0) 70%)"></div>`;
+  h += `<div style="position:absolute;left:${lx + 60 - 950}px;top:${ly + 260 - 950}px;width:1900px;height:1900px;border-radius:50%;background:repeating-conic-gradient(from ${t * 3 + i * 17}deg, rgba(${A.rgb},.06) 0deg 2.2deg, rgba(${A.rgb},0) 2.2deg 9deg);-webkit-mask-image:radial-gradient(circle, rgba(0,0,0,.85) 0%, rgba(0,0,0,.3) 28%, rgba(0,0,0,0) 60%);filter:blur(6px)"></div>`;
+  for (let j = 0; j < 7; j++) {
+    const r = 40 + rnd(i * 10 + j) * 110, x = rnd(i * 10 + j + 3) * 1180 - 50 - k * (20 + j * 8), y = rnd(i * 10 + j + 7) * 2000 - 40 + Math.sin(t * 0.3 + j) * 12;
+    const other = Object.values(COL)[j % 3];
+    h += `<div style="position:absolute;left:${x}px;top:${y}px;width:${r * 2}px;height:${r * 2}px;border-radius:50%;background:rgba(${j % 3 === 0 ? other.rgb : A.rgb},${0.07 + rnd(j + i) * 0.08});filter:blur(${lerp(3, 18 + r / 5, rack)}px)"></div>`;
+  }
+  // dust drifting through the light: brighter the nearer it is to the light's centre
+  for (let j = 0; j < 38; j++) {
+    const ox = rnd(j * 3.7 + i) * 1100 - 10, oy = rnd(j * 5.1 + i) * 1900;
+    const y = ((oy - t * (10 + rnd(j) * 22)) % 1900 + 1900) % 1900, x = ox + Math.sin(t * 0.4 + j) * 14;
+    const d = Math.hypot(x - (lx + 60), y - (ly + 260)), lit = clamp(1 - d / 560);
+    const sz = 2 + rnd(j * 9.3) * 4, tw = 0.6 + 0.4 * Math.sin(t * 2.1 + j * 1.7);
+    if (lit > 0.02) h += `<div style="position:absolute;left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;border-radius:50%;background:rgba(255,255,255,${0.75 * lit * tw});box-shadow:0 0 ${sz * 3}px rgba(${A.rgb},${0.8 * lit})"></div>`;
+  }
+  if (b.word) h += `<div style="position:absolute;left:${-40 - k * 60}px;top:1080px;font-family:Geist;font-weight:600;font-size:400px;letter-spacing:-.05em;line-height:1;color:rgba(${A.rgb},${lerp(0.2, 0.055, rack)});filter:blur(${lerp(1.5, 16, rack)}px);white-space:nowrap">${esc(b.word)}</div>`;
+  return h;
+}
+function lens(i, t, light, pulse) {
+  const [lx, ly] = light, X = lx, Y = ly + 200, a = 0.22 + 0.6 * pulse;
+  let h = `<div style="position:absolute;left:${X - 760}px;top:${Y - 2}px;width:1520px;height:4px;background:linear-gradient(90deg, rgba(${A.rgb},0), rgba(${A.rgb},.7) 35%, rgba(255,255,255,.85) 50%, rgba(${A.rgb},.7) 65%, rgba(${A.rgb},0));filter:blur(1.5px);opacity:${a}"></div>`;
+  h += `<div style="position:absolute;left:${X - 640}px;top:${Y - 22}px;width:1280px;height:44px;background:radial-gradient(ellipse, rgba(${A.rgb},.45), rgba(${A.rgb},0) 70%);filter:blur(10px);opacity:${a * 0.7}"></div>`;
+  for (let j = 0; j < 4; j++) {
+    const r = 18 + rnd(j * 4.4 + i) * 26, x = rnd(j * 2.9 + i) * 1000 + Math.sin(t * 0.25 + j) * 30, y = rnd(j * 6.1 + i) * 1700 + Math.cos(t * 0.2 + j) * 24;
+    h += `<div style="position:absolute;left:${x}px;top:${y}px;width:${r * 2}px;height:${r * 2}px;border-radius:50%;background:rgba(${A.rgb},.16);filter:blur(${6 + r / 4}px)"></div>`;
+  }
+  return h;
+}
+const pulseOf = (t, hits) => (hits || []).reduce((m, h) => (t >= h ? Math.max(m, Math.exp(-(t - h) * 2.2)) : m), 0);
+// progress: one dot per move of the skeleton, filled as the moves pass; the
+// current move glows in its colour and its role is named beside the dots.
+function ring(i, t) {
+  const B = SPEC.beats, moves = B.map((b, j) => [b, j]).filter(([b]) => b.move);
+  const n = moves.length, gap = 64, x0 = 22;
+  const close = B[i].type === "close" ? ease((t - 0.4) / 1.2) : 0;
+  let s = `<svg width="912" height="90" style="overflow:visible">`;
+  s += `<line x1="${x0}" y1="45" x2="${x0 + gap * (n - 1)}" y2="45" stroke="rgba(255,255,255,.10)" stroke-width="4" stroke-linecap="round"/>`;
+  moves.forEach(([b, j], k) => {
+    const c = pal(b.color), done = j < i || close > 0, on = j === i, x = x0 + gap * k;
+    const r = on ? 13 : 9;
+    s += `<circle cx="${x}" cy="45" r="${r}" fill="${done || on ? c.c : "#2a2d33"}" style="${on || close ? `filter:drop-shadow(0 0 ${on ? 14 : 8 * close}px ${c.c})` : ""}"/>`;
+  });
+  const cur = B[i].move ? B[i] : null;
+  const label = cur ? cur.role : close ? "the whole chain" : "";
+  if (label) s += `<text x="${x0 + gap * (n - 1) + 44}" y="56" font-size="30" font-weight="600" letter-spacing="1" fill="${cur ? pal(cur.color).c : "#f3f2ee"}">${esc(label.toLowerCase())}</text>`;
+  return s + `</svg>`;
+}
+const RATE = 2.6, PAUSE_END = 1.25, PAUSE_COMMA = 0.55, OVERLAP = 1.4;
+function units(b) {
+  const ws = (b.say || "").split(/\s+/).filter(Boolean), u = [0];
+  ws.forEach((w) => u.push(u[u.length - 1] + 1 + (/[.?!:]$/.test(w) ? PAUSE_END : /[,;—]$/.test(w) ? PAUSE_COMMA : 0)));
+  return u;
+}
+function setSpec(s) {
+  SPEC = s; document.getElementById("kind").textContent = s.kind;
+  let at = 0;
+  for (const b of s.beats) {
+    if (b.hold == null) b.hold = 0.9;
+    b._u = units(b);
+    const need = 0.3 + b._u[b._u.length - 1] / RATE + b.hold + 0.9;
+    b.dur = Math.max(b.dur, +need.toFixed(2));
+    b._start = at; at += b.dur;
+  }
+  SPEC.total = at;
+}
+
+// The voice is the clock: each word of `say` has a time, and things appear when their words are spoken.
+const words = (b) => (b.say || "").split(/\s+/).filter(Boolean);
+const span = (b) => Math.max(0.1, b.dur - 0.9 - (b.hold || 0));
+const wordTime = (b, i) => { const u = b._u || units(b); return 0.3 + (u[Math.min(i, u.length - 1)] / u[u.length - 1]) * span(b); };
+function findWord(b, text, from = 0) {
+  const ws = words(b).map((w) => w.toLowerCase().replace(/[^a-z']/g, ""));
+  const key = text.toLowerCase().split(/\s+/)[0].replace(/[^a-z']/g, "");
+  for (let i = from; i < ws.length; i++) if (ws[i].startsWith(key)) return i;
+  return from;
+}
+function caption(b, t) {
+  const ws = words(b); let shown = 0; for (let k = 0; k < ws.length; k++) if (wordTime(b, k) <= t) shown = k + 1;
+  const sents = []; let cur = [];
+  ws.forEach((w, i) => { cur.push(i); if (/[.?!]$/.test(w)) { sents.push(cur); cur = []; } });
+  if (cur.length) sents.push(cur);
+  const now = Math.min(ws.length - 1, Math.max(0, shown - 1));
+  const sent = sents.find((g) => g.includes(now)) || sents[0];
+  return sent.map((i) => `<span class="w${i < shown ? " on" : ""}">${esc(ws[i])}</span>`).join(" ");
+}
+// a spring that settles with a slight overshoot; and an ease that pulls back before it goes and overshoots on arrival
+const spring = (s) => s <= 0 ? 0 : 1 - Math.exp(-8 * s) * Math.cos(12 * s);
+function backInOut(x) { x = clamp(x); const c2 = 1.3 * 1.525; return x < 0.5 ? (Math.pow(2 * x, 2) * ((c2 + 1) * 2 * x - c2)) / 2 : (Math.pow(2 * x - 2, 2) * ((c2 + 1) * (x * 2 - 2) + c2) + 2) / 2; }
+let MC = null;
+function textW(t, font) { if (!MC) MC = document.createElement("canvas").getContext("2d"); MC.font = font; return MC.measureText(t).width; }
+// matching transform: words two labels share stay put; the rest give way
+function morphText(a, b, k) {
+  const wa = a.split(" "), wb = b.split(" "); let n = 0;
+  while (n < wa.length && n < wb.length && wa[n].toLowerCase() === wb[n].toLowerCase()) n++;
+  const keep = wb.slice(0, n).join(" "), ra = wa.slice(n).join(" "), rb = wb.slice(n).join(" ");
+  return `${esc(keep)}${keep ? " " : ""}<span style="position:relative;display:inline-block"><span style="position:absolute;left:0;white-space:nowrap;opacity:${1 - k};transform:translateY(${-30 * k}px);filter:blur(${6 * k}px)">${esc(ra)}</span><span style="display:inline-block;opacity:${k};transform:translateY(${30 * (1 - k)}px);filter:blur(${6 * (1 - k)}px)">${esc(rb)}</span></span>`;
+}
+const fadeIn = (t) => ease(t / 0.35), fadeOut = (t, dur) => clamp((dur - t) / 0.3);
+
+// When each named thing is said: the first content word of each key, found in
+// order in the line spoken; a key not found gets a time between its neighbours.
+const STOP = new Set(["a", "an", "the", "of", "to", "in", "on", "from", "and", "it", "is", "for", "with", "by"]);
+function keyWord(s) { return (String(s).split(/\s+/).find((w) => !STOP.has(w.toLowerCase().replace(/[^a-z']/g, ""))) || s).toLowerCase().replace(/[^a-z']/g, ""); }
+function timesFor(b, keys) {
+  const ws = words(b).map((w) => w.toLowerCase().replace(/[^a-z']/g, ""));
+  const idx = []; let from = 0;
+  for (const k of keys) {
+    const key = keyWord(k); let hit = -1;
+    const match = (i) => key && !idx.includes(i) && (ws[i].startsWith(key) || (key.length > 4 && ws[i].startsWith(key.slice(0, key.length - 2))));
+    for (let i = from; i < ws.length; i++) if (match(i)) { hit = i; break; }
+    if (hit < 0) for (let i = 0; i < from; i++) if (match(i)) { hit = i; break; }
+    idx.push(hit); if (hit >= from) from = hit + 1;
+  }
+  const last = Math.max(1, ws.length - 1);
+  for (let j = 0; j < idx.length; j++) if (idx[j] < 0) {
+    const lo = j ? idx[j - 1] : 0; let hiJ = j + 1; while (hiJ < idx.length && idx[hiJ] < 0) hiJ++;
+    const hi = hiJ < idx.length ? idx[hiJ] : last;
+    idx[j] = Math.round(Math.min(lo, hi) + Math.abs(hi - lo) * (j ? 0.5 : 0.15));
+  }
+  return idx.map((i) => wordTime(b, i));
+}
+const glint = (t, at) => { const g = (t - at - 0.25) / 0.9; return g > 0 && g < 1 ? `<i class="glint" style="left:${lerp(-30, 125, inout(g))}%"></i>` : ""; };
+const labelOf = (b, a = 1) => `<div class="label" style="opacity:${a}">${esc((b.label || "").toUpperCase())}</div>`;
+
+const draw = {
+  // the piece's name, and its idea in a few words
+  title(b, t) {
+    const a = ease((t - 0.1) / 0.7), at = timesFor(b, [b.words])[0], w = ease((t - at) / 0.7);
+    const size = SPEC.title.length > 28 ? 112 : 136, perLine = Math.floor(912 / (size * 0.52)), lines = Math.ceil(SPEC.title.length / perLine);
+    return { html: `<div class="label" style="opacity:${a}">IN A FEW WORDS</div>
+      <div class="title" style="opacity:${a};transform:translateY(${(1 - a) * 30}px);font-size:${size}px">${esc(SPEC.title)}</div>
+      <div class="words" style="top:${330 + lines * size + 70}px;opacity:${w};transform:translateY(${(1 - w) * 24}px)">${esc(b.words)}</div>`, light: [420, 420], hits: [0.2, at] };
+  },
+  // cue words, one under the next, each lit as it is said; then they glow as one
+  chain(b, t) {
+    const ws = b.items, n = ws.length, at = timesFor(b, ws), gap = Math.min(230, 760 / Math.max(1, n - 1)), y0 = 620 - (gap * (n - 1)) / 2;
+    const all = ease((t - at[n - 1] - 0.8) / 0.8);
+    let h = labelOf(b, ease(t / 0.5)), lit = -1;
+    at.forEach((a, j) => { if (t >= a) lit = j; });
+    ws.forEach((w, j) => {
+      const q = spring(t - at[j]), y = y0 + gap * j, on = j === lit || all > 0;
+      if (j > 0) { const ar = ease((t - at[j] + 0.3) / 0.35); h += `<div class="arrow" style="top:${y - gap + 168}px;height:${Math.max(16, gap - 210) * ar}px;opacity:${ar * 0.8}"></div>`; }
+      h += `<div style="position:absolute;left:0;right:0;top:${y + (1 - q) * 30}px;text-align:center;font-size:150px;font-weight:600;letter-spacing:-.04em;line-height:1;opacity:${t < at[j] ? 0.16 * ease(t / 0.8) : clamp(q * 1.4) * (on ? 1 : 0.45)};filter:blur(${t < at[j] ? 9 : 0}px);color:${on ? A.c : "#c9c8c2"};text-shadow:${on ? `0 0 ${40 + 30 * all}px rgba(${A.rgb},.6)` : "none"};transform:scale(${0.9 + 0.1 * q})">${esc(w)}</div>`;
+    });
+    const ly = lit < 0 ? y0 : y0 + gap * lit;
+    return { html: h, light: [540, all > 0 ? 560 : ly], hits: at };
+  },
+  // two to four rows, each a label and what happened; the row that matters glows and the others step back
+  compare(b, t) {
+    const rows = b.rows, n = rows.length, at = timesFor(b, rows.map((r) => r[0])), H = n > 2 ? 230 : 290, y0 = 640 - (H * n) / 2 + 20;
+    const hot = (b.hot || 0) - 1, hotAt = hot >= 0 ? Math.max(at[hot], at[n - 1]) + 0.9 : Infinity, focus = ease((t - hotAt) / 0.8);
+    let h = labelOf(b, ease(t / 0.5));
+    rows.forEach(([label, value], j) => {
+      const q = spring(t - at[j]), v = ease((t - at[j] - 0.45) / 0.5), y = y0 + H * j, isHot = j === hot;
+      const dim = isHot ? 0 : focus, glow = isHot ? focus : 0;
+      h += `<div class="tok${glow > 0.5 ? " hot" : ""}" style="top:${y + (1 - q) * 26}px;height:${H - 50}px;box-sizing:border-box;padding:30px 40px;opacity:${Math.max(0.22 * ease(t / 0.8), clamp(q * 1.4)) * (1 - 0.5 * dim)};filter:blur(${t < at[j] ? 5 : 2.4 * dim}px);transform:scale(${0.96 + 0.04 * q + 0.02 * glow})">
+        <div style="font-size:36px;font-weight:600;color:${glow > 0.5 ? A.c : "#8f939c"};letter-spacing:-.005em;text-shadow:none">${esc(label)}</div>
+        <div style="margin-top:14px;font-size:${value.length > 24 ? 54 : 64}px;font-weight:600;line-height:1.08;letter-spacing:-.02em;opacity:${v};transform:translateY(${(1 - v) * 16}px)">${esc(value)}</div>${isHot ? glint(t, hotAt) : ""}</div>`;
+    });
+    let lit = 0; at.forEach((a, j) => { if (t >= a) lit = j; });
+    const ly = focus > 0 ? y0 + H * hot + H / 2 - 120 : y0 + H * lit + H / 2 - 120;
+    return { html: h, light: [540, ly], hits: hot >= 0 ? [...at, hotAt] : at };
+  },
+  // numbered steps, each lit as it is said
+  steps(b, t) {
+    const st = b.items, n = st.length, at = timesFor(b, st), gap = Math.min(150, 820 / n), y0 = 640 - (gap * n) / 2;
+    let h = labelOf(b, ease(t / 0.5)), lit = -1;
+    at.forEach((a, j) => { if (t >= a) lit = j; });
+    const end = b.dur - (b.hold || 0), all = ease((t - end + 0.4) / 0.8);
+    st.forEach((s, j) => {
+      const q = spring(t - at[j]), y = y0 + gap * j, on = j === lit || all > 0;
+      h += `<div style="position:absolute;left:120px;right:100px;top:${y + (1 - q) * 20}px;display:flex;gap:34px;align-items:baseline;opacity:${clamp(q * 1.4) * (on ? 1 : 0.5)}">
+        <span style="font-size:52px;font-weight:600;color:${A.c};min-width:44px;text-shadow:${on ? `0 0 26px rgba(${A.rgb},.7)` : "none"}">${j + 1}</span>
+        <span style="font-size:${on ? 60 : 56}px;font-weight:${on ? 600 : 500};line-height:1.1;letter-spacing:-.015em;color:${on ? "#f3f2ee" : "#c9c8c2"}">${esc(s)}</span></div>`;
+    });
+    return { html: h, light: [440, lit < 0 ? y0 : y0 + gap * lit], hits: at };
+  },
+  // the piece's cycle: steps around a ring, lit as they are said, closing back to the first
+  loop(b, t) {
+    const n = b.items.length, cx = 540, cy = 700, rx = 370, ry = 380;
+    const pos = b.items.map((_, j) => { const ang = -Math.PI / 2 + (j / n) * Math.PI * 2; return [cx + rx * Math.cos(ang), cy + ry * Math.sin(ang)]; });
+    const times = timesFor(b, b.items), end = b.dur - (b.hold || 0);
+    const litIdx = times.reduce((acc, tm, j) => (t >= tm ? j : acc), -1);
+    let s = `<svg width="1080" height="1250"><defs><marker id="h" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#80848d"/></marker></defs>`;
+    for (let j = 0; j < n; j++) {
+      const [x1, y1] = pos[j], [x2, y2] = pos[(j + 1) % n];
+      const a = j < n - 1 ? ease((t - times[j + 1] + 0.35) / 0.35) : ease((t - end + 0.2) / 0.5);
+      const k1 = 0.3, k2 = 0.7;
+      s += `<line x1="${x1 + (x2 - x1) * k1}" y1="${y1 + (y2 - y1) * k1}" x2="${x1 + (x2 - x1) * (k1 + (k2 - k1) * a)}" y2="${y1 + (y2 - y1) * (k1 + (k2 - k1) * a)}" stroke="#80848d" stroke-width="4" marker-end="${a > 0.95 ? "url(#h)" : ""}" opacity="${a}"/>`;
+    }
+    b.items.forEach((st, j) => {
+      const [x, y] = pos[j], a = ease((t - times[j]) / 0.4), on = j === litIdx && t < end;
+      const d = (j < n - 1 ? ease((t - times[j + 1]) / 0.6) : 0) * (1 - ease((t - end) / 0.8));
+      const w = Math.max(240, textW(st, "600 38px Geist") + 70), h = 96;
+      s += `<g opacity="${a * (1 - 0.4 * d)}" style="filter:blur(${1.8 * d}px)" transform="translate(${x} ${y}) scale(${0.85 + 0.15 * spring(t - times[j])}) translate(${-x} ${-y})"><rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="28" style="${on ? `filter:drop-shadow(0 0 22px ${A.c})` : ""}" fill="${on ? A.c : "#15171c"}" stroke="${on ? A.c : "#2d3036"}" stroke-width="3"/><text x="${x}" y="${y + 13}" text-anchor="middle" font-size="38" font-weight="600" fill="${on ? "#111214" : "#eeece6"}">${esc(st)}</text></g>`;
+    });
+    s += `</svg>`;
+    let lp = pos[0];
+    times.forEach((tm, j) => { if (j > 0) { const q = ease((t - tm) / 0.9); lp = [lerp(lp[0], pos[j][0], q), lerp(lp[1], pos[j][1], q)]; } });
+    if (t > end) lp = [lerp(lp[0], cx, ease((t - end) / 1.2)), lerp(lp[1], cy, ease((t - end) / 1.2))];
+    return { html: labelOf(b) + s, light: lp, hits: times };
+  },
+  // words from the piece, set large, arriving as they are said
+  quote(b, t) {
+    const ws = b.text.split(" ");
+    const html = ws.map((w, j) => { const q = ease((t - wordTime(b, Math.round((j / ws.length) * (words(b).length - 1)))) / 0.4); return `<span style="display:inline-block;margin-right:.24em;opacity:${0.2 + 0.8 * q}">${esc(w)}</span>`; }).join("");
+    return { html: labelOf(b) + `<div style="position:absolute;left:120px;right:110px;top:380px;font-size:76px;font-weight:500;line-height:1.18;letter-spacing:-.02em">“${html}”</div>`, light: [540, 560], hits: [0.3] };
+  },
+  // the short version: each line of the formula arrives in turn, arrows drawn
+  close(b, t) {
+    const L = b.lines, n = L.length, at = L.map((_, j) => wordTime(b, Math.round((j / n) * (words(b).length - 1)))), gap = 250, y0 = 620 - (gap * (n - 1)) / 2 - 60;
+    let h = `<div class="label" style="opacity:${ease(t / 0.5)}">THE WHOLE IDEA</div>`;
+    L.forEach((line, j) => {
+      const q = spring(t - at[j]), c = pal(["gist", "cue", "rebuild"][j % 3]);
+      const parts = line.split("→").map((p) => p.trim());
+      const inner = parts.map((p, k) => `${k ? `<span style="color:#7d818b;margin:0 .3em">→</span>` : ""}<span style="color:${k === parts.length - 1 ? c.c : "#eeece6"};${k === parts.length - 1 ? `text-shadow:0 0 30px rgba(${c.rgb},.55)` : ""}">${esc(p)}</span>`).join("");
+      h += `<div style="position:absolute;left:100px;right:90px;top:${y0 + gap * j + (1 - q) * 24}px;font-size:56px;font-weight:600;line-height:1.16;letter-spacing:-.02em;opacity:${clamp(q * 1.4)}">${inner}</div>`;
+    });
+    let lit = 0; at.forEach((a, j) => { if (t >= a) lit = j; });
+    return { html: h, light: [540, y0 + gap * lit + 40], hits: at };
+  },
+};
+
+// Draw one shot at its own time, into its own layer, in its own colour.
+function shot(i, t) {
+  const b = SPEC.beats[i];
+  A = pal(b.color);
+  const out = draw[b.type](b, t, i);
+  const k = inout(t / b.dur);
+  const rack = b.carry ? 1 : inout((t - 0.1) / 1.4);
+  const dq = out.dolly != null ? inout((t - out.dolly) / 2.0) : 0;
+  const tilt = b.carry ? 0 : 7 * (1 - inout(t / 2.4));
+  const vars = `--acc:${A.c};--accrgb:${A.rgb};--accd:${A.d};`;
+  const aIn = i === 0 ? fadeIn(t) : 1;
+  return {
+    b, out, A: { ...A },
+    stage: `<div style="position:absolute;inset:0;${vars}transform:perspective(1800px) rotateX(${tilt}deg) rotateY(${0.6 * Math.sin(t * 0.35)}deg) scale(${1 + 0.03 * k + 0.08 * dq}) translateY(${-10 * k}px);transform-origin:50% 42%"><div class="layer" style="opacity:${aIn};filter:blur(${(1 - rack) * 9}px)">${out.html}</div>${out.keep || ""}</div>`,
+    bg: `<div style="position:absolute;inset:0;transform:scale(${1 + 0.012 * k - 0.16 * dq}) translateY(${-6 * k}px)">${background(i, t, b, out.light || [540, 600], rack)}</div>`,
+    fx: lens(i, t, out.light || [540, 600], pulseOf(t, out.hits)),
+    cap: caption(b, t), capA: Math.min(fadeIn(t), 1),
+  };
+}
+function render(T) {
+  const B = SPEC.beats, n = B.length;
+  let i = 0; while (i < n - 1 && T >= B[i + 1]._start) i++;
+  const t = T - B[i]._start;
+  // inside the overlap around a cut, both shots are drawn: the old one pushes on and softens, the new one comes into focus
+  let prevI = null, nextI = null, x = 1;
+  if (i > 0 && t < OVERLAP / 2) { prevI = i - 1; x = inout((t + OVERLAP / 2) / OVERLAP); }
+  else if (i < n - 1 && t > B[i].dur - OVERLAP / 2) { nextI = i + 1; x = 1 - inout((t - (B[i].dur - OVERLAP / 2)) / OVERLAP); }
+  const cur = shot(i, t);
+  const other = prevI != null ? shot(prevI, T - B[prevI]._start) : nextI != null ? shot(nextI, Math.max(0, T - B[nextI]._start)) : null;
+  const otherIsNext = nextI != null;
+  // x is how much the current shot owns the frame
+  const layer = (sh, a, outgoing) => {
+    const blur = (1 - a) * 14, sc = outgoing ? 1 + 0.05 * (1 - a) : 0.97 + 0.03 * a;
+    return `<div style="position:absolute;inset:0;opacity:${a};filter:blur(${blur.toFixed(2)}px);transform:scale(${sc});transform-origin:50% 45%">${sh.stage}</div>`;
+  };
+  // the very end: rack off the last shot and arrive at the first frame, so the video loops
+  const last = i === n - 1, q = last ? inout((t - (B[i].dur - 3.0)) / 2.6) : 0;
+  let st = "", bg = "", fx = "";
+  if (other) {
+    const curOut = otherIsNext;            // the current shot is leaving if the other is the next one
+    st = layer(other, 1 - x, !curOut) + layer(cur, x, curOut);
+    bg = `<div style="position:absolute;inset:0;opacity:${1 - x}">${other.bg}</div><div style="position:absolute;inset:0;opacity:${x}">${cur.bg}</div>`;
+    fx = `<div style="position:absolute;inset:0;opacity:${1 - x}">${other.fx}</div><div style="position:absolute;inset:0;opacity:${x}">${cur.fx}</div>`;
+  } else {
+    st = `<div style="position:absolute;inset:0;opacity:${1 - q};filter:blur(${9 * q}px)">${cur.stage}</div>`;
+    bg = `<div style="position:absolute;inset:0;opacity:${1 - q}">${cur.bg}</div>`;
+    fx = `<div style="position:absolute;inset:0;opacity:${1 - q}">${cur.fx}</div>`;
+  }
+  let ringHtml = `<div style="position:absolute;inset:0;opacity:${1 - q}">${ring(i, t)}</div>`;
+  if (q > 0) {
+    const f = shot(0, 0);
+    A = pal(B[0].color);
+    bg += `<div style="position:absolute;inset:0;opacity:${q}">${f.bg}</div>`;
+    fx += `<div style="position:absolute;inset:0;opacity:${q}">${f.fx}</div>`;
+    ringHtml += `<div style="position:absolute;inset:0;opacity:${q}">${ring(0, 0)}</div>`;
+  }
+  document.getElementById("bg").innerHTML = bg;
+  document.getElementById("fx").innerHTML = fx;
+  document.getElementById("stage").innerHTML = st;
+  document.getElementById("cam").style.transform = "none";
+  document.getElementById("bg").style.transform = "none";
+  // captions: the sentence being spoken; across a cut, one gives way to the other
+  const capOf = (sh, a) => `<div style="position:absolute;left:0;right:0;top:0;opacity:${a}">${sh.cap}</div>`;
+  const cap = document.getElementById("cap");
+  cap.innerHTML = other ? capOf(other, (1 - x) * other.capA) + capOf(cur, x * cur.capA) : capOf(cur, cur.capA * (1 - q));
+  cap.style.opacity = 1;
+  document.getElementById("ring").innerHTML = ringHtml;
+}
+</script></body></html>
