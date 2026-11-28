@@ -239,9 +239,9 @@ export function llmsTxt(): string {
   const out = [
     "# Canopticon",
     "",
-    "> An independent research publication by Chris Telford, in five sections: theories, the author's ideas stated formally (claim, propositions graded by their evidence, primary references); writing, the essays and papers that argue them; research, the documents themselves kept whole, and briefs that answer one question from them; a lexicon of the terms coined here; and methods, procedures built from the theories, each with an instruction for a language model and a downloadable Claude skill. Every quote in a brief, essay or theory links to the stored document it came from. Licensed CC BY 4.0.",
+    "> An independent research publication by Chris Telford, in six sections: theories, the author's ideas stated formally (claim, propositions graded by their evidence, primary references); writing, the essays and papers that argue them; research, the documents themselves kept whole, and briefs that answer one question from them; a lexicon of the terms coined here; methods, procedures built from the theories, each with an instruction for a language model and a downloadable Claude skill; and probes, his ideas in progress: story ideas, scenes, characters, short probes, poems and notes on what he is building. Every quote in a brief, essay or theory links to the stored document it came from. Licensed CC BY 4.0.",
     "",
-    `Sections: ${SITE}/theories · ${SITE}/writing · ${SITE}/research · ${SITE}/lexicon · ${SITE}/methods · the McLuhan paper series at ${SITE}/papers · open questions at ${SITE}/open.`,
+    `Sections: ${SITE}/theories · ${SITE}/writing · ${SITE}/research · ${SITE}/lexicon · ${SITE}/methods · ${SITE}/probes · the McLuhan paper series at ${SITE}/papers · open questions at ${SITE}/open.`,
     "",
     `Feeds: ${SITE}/feed.xml (RSS), ${SITE}/feed.json (JSON Feed). Per-topic feeds live under ${SITE}/feeds/. Every document has a Markdown twin: add .md to its address. Full text of every theory, essay, brief and paper: ${SITE}/llms-full.txt. Every coined term with its definition: ${SITE}/lexicon`,
     "",

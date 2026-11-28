@@ -261,6 +261,26 @@ export interface Method {
   body: string;
 }
 
+/** A probe (2026-11-28): one of the author's ideas in progress — a story
+ *  idea, a scene, a character, a short probe, a poem, lyrics or a note on
+ *  what is being built. Served at /probes/<slug>. */
+export interface Probe {
+  slug: string;
+  kind: "Probe";
+  title: string;
+  dek: string;
+  form: "Story idea" | "Scene" | "Character" | "Probe" | "Poem" | "Lyrics" | "Build note";
+  stage: "Seed" | "Draft" | "Finished";
+  date: string;
+  /** What set it off, in words: a passage read, a conversation, a theory. */
+  sparked_by?: string;
+  /** Where that source can be read, when it is online. */
+  source_url?: string;
+  /** A theory it grows from (must exist). */
+  theory?: string;
+  body: string;
+}
+
 export interface Theory extends Glance {
   slug: string;
   kind: "Theory";
@@ -345,6 +365,7 @@ interface Store {
   versions: Record<string, PaperVersion[]>;
   theories: Record<string, Theory>;
   methods?: Record<string, Method>;
+  probes?: Record<string, Probe>;
   pages: Record<string, StaticPage>;
   articleExtras: Record<string, ArticleExtras>;
   /** content/prompts/<name>.md: the research prompts an article offers. */
@@ -407,6 +428,17 @@ export function method(slug: string): Method | null {
 /** Every method, newest first, then by title. */
 export function allMethods(): Method[] {
   return Object.values(STORE.methods ?? {}).sort(
+    (x, y) => y.date.localeCompare(x.date) || x.title.localeCompare(y.title),
+  );
+}
+
+export function probe(slug: string): Probe | null {
+  return STORE.probes?.[slug] ?? null;
+}
+
+/** Every probe, newest first, then by title. */
+export function allProbes(): Probe[] {
+  return Object.values(STORE.probes ?? {}).sort(
     (x, y) => y.date.localeCompare(x.date) || x.title.localeCompare(y.title),
   );
 }

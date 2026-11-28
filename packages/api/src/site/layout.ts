@@ -26,6 +26,7 @@ export interface ShellArgs {
     | "research"
     | "lexicon"
     | "methods"
+    | "probes"
     | "open"
     | "about"
     | "search";
@@ -158,13 +159,13 @@ function header(a: ShellArgs): string {
         waiting ? `<span class="admin-n" title="${waiting} things waiting">${waiting}</span>` : ""
       }</a>`
     : "";
-  return `<div class="hd${a.app ? " wide" : ""}"><header class="hd-in"><a href="/" class="wm">canopticon</a><nav aria-label="Primary" class="nav"><a href="/theories"${cur("theories")}>Theories</a><a href="/writing"${cur("writing")}>Writing</a><a href="/research"${cur("research")}>Research</a><a href="/lexicon"${cur("lexicon")}>Lexicon</a><a href="/methods"${cur("methods")}>Methods</a></nav><a href="/search" class="hd-search"${cur("search")}>Search</a><button type="button" class="theme-t" data-theme-toggle hidden><span class="vh">Dark theme</span></button>${admin}</header>${
+  return `<div class="hd${a.app ? " wide" : ""}"><header class="hd-in"><a href="/" class="wm">canopticon</a><nav aria-label="Primary" class="nav"><a href="/theories"${cur("theories")}>Theories</a><a href="/writing"${cur("writing")}>Writing</a><a href="/research"${cur("research")}>Research</a><a href="/lexicon"${cur("lexicon")}>Lexicon</a><a href="/methods"${cur("methods")}>Methods</a><a href="/probes"${cur("probes")}>Probes</a></nav><a href="/search" class="hd-search"${cur("search")}>Search</a><button type="button" class="theme-t" data-theme-toggle hidden><span class="vh">Dark theme</span></button>${admin}</header>${
     a.progress ? '<div class="rp"><div id="read-progress"></div></div>' : ""
   }</div>`;
 }
 
 function footer(): string {
-  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">An independent research publication by Chris Telford. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><div class="ft-col"><span class="ft-h">The work</span><a href="/theories">Theories</a><a href="/writing">Writing</a><a href="/research">Research</a><a href="/lexicon">Lexicon</a><a href="/methods">Methods</a><a href="/open">Open questions</a></div><div class="ft-col"><span class="ft-h">Browse</span><a href="/library">Everything</a><a href="/papers">The McLuhan series</a><a href="/writing?kind=Essay">Essays</a><a href="/research?kind=Brief">Briefs</a><a href="/research?kind=Investigation">Investigations</a><a href="/search">Search</a></div><div class="ft-col"><span class="ft-h">The site</span><a href="/about">About</a><a href="/follow">Follow</a><a href="/feed.xml">RSS feed</a><a href="/llms.txt">llms.txt</a></div></nav></div></footer>`;
+  return `<footer class="ft"><div class="ft-in"><span class="ft-wm">canopticon</span><span class="ft-line">An independent research publication by Chris Telford. CC BY 4.0. <a href="/about">About this site →</a></span><nav aria-label="Footer" class="ft-nav"><div class="ft-col"><span class="ft-h">The work</span><a href="/theories">Theories</a><a href="/writing">Writing</a><a href="/research">Research</a><a href="/lexicon">Lexicon</a><a href="/methods">Methods</a><a href="/probes">Probes</a><a href="/open">Open questions</a></div><div class="ft-col"><span class="ft-h">Browse</span><a href="/library">Everything</a><a href="/papers">The McLuhan series</a><a href="/writing?kind=Essay">Essays</a><a href="/research?kind=Brief">Briefs</a><a href="/research?kind=Investigation">Investigations</a><a href="/search">Search</a></div><div class="ft-col"><span class="ft-h">The site</span><a href="/about">About</a><a href="/follow">Follow</a><a href="/feed.xml">RSS feed</a><a href="/llms.txt">llms.txt</a></div></nav></div></footer>`;
 }
 
 function beacon(token: string | undefined): string {
@@ -183,6 +184,7 @@ export const SECTIONS = {
   research: ["03", "The evidence"],
   lexicon: ["04", "The words"],
   methods: ["05", "The tools"],
+  probes: ["06", "Ideas in progress"],
 } as const;
 
 /** The one header every index page wears (2026-11-24): a small label naming

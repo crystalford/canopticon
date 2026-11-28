@@ -471,6 +471,29 @@ function build() {
     };
   }
 
+  // Probes (content/probes/, 2026-11-28): the author's ideas in progress —
+  // story ideas, scenes, characters, short probes, poems and lyrics, notes on
+  // what is being built. Less formal than the rest: a title, a form, a stage,
+  // a one-line summary and the body; what sparked it, where there is a source.
+  const probes = {};
+  const PROBE_FORMS = ["Story idea", "Scene", "Character", "Probe", "Poem", "Lyrics", "Build note"];
+  const PROBE_STAGES = ["Seed", "Draft", "Finished"];
+  for (const f of existsSync(join(CONTENT, "probes")) ? mdFiles("probes") : []) {
+    const { meta, body } = parseFrontMatter(readFileSync(join(CONTENT, "probes", f), "utf8"));
+    const slug = String(meta.slug ?? f.slice(0, -3));
+    const at = `probes/${f}`;
+    for (const k of ["title", "dek", "form", "stage", "date"])
+      if (!meta[k]) failures.push(`${at}: needs ${k}`);
+    if (meta.form && !PROBE_FORMS.includes(meta.form))
+      failures.push(`${at}: form must be one of ${PROBE_FORMS.join(", ")}`);
+    if (meta.stage && !PROBE_STAGES.includes(meta.stage))
+      failures.push(`${at}: stage must be one of ${PROBE_STAGES.join(", ")}`);
+    if (meta.theory && !theories[meta.theory])
+      failures.push(`${at}: theory ${meta.theory} does not exist`);
+    if (!body.trim()) failures.push(`${at}: the body is empty`);
+    probes[slug] = { ...meta, slug, kind: "Probe", body };
+  }
+
   for (const a of Object.values(articles))
     if (a.theory && !theories[a.theory])
       failures.push(`articles/${a.slug}: theory ${a.theory} does not exist`);
@@ -685,6 +708,7 @@ function build() {
     versions,
     theories,
     methods,
+    probes,
     pages,
     // Per-article details the hand-built prototype pages carry and the
     // Markdown export did not: short contents labels, the named sources, the

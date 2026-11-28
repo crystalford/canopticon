@@ -1507,6 +1507,22 @@ a.tw:hover .tw-w { color: var(--cobalt); }
 .fx { display: flex; flex-direction: column; gap: 4px; padding-left: 14px; border-left: 2px solid var(--brick); }
 .fx-l { display: block; font-size: var(--t-ui); line-height: 1.5; font-weight: 500; letter-spacing: -.005em; color: var(--ink); }
 .fx-a { margin: 0 .45em; color: var(--brick); font-weight: 400; }
+/* Probes: one column of rows, and a scene set as a script page (Courier's
+   job done by the mono face: headings in capitals, cues and dialogue indented
+   the way a screenplay page indents them). */
+.wgrid.one { grid-template-columns: minmax(0, 1fr); }
+.wgrid.one a.wrow:nth-last-child(-n+2):nth-child(odd) { border-bottom: 1px solid var(--hair); }
+.wgrid.one a.wrow:last-child { border-bottom: 0 !important; }
+.sp { margin: 8px 0 32px; padding: 28px 32px; border: 1px solid var(--hair); border-radius: 12px; background: var(--card); font-family: var(--mono); font-size: var(--t-ui); line-height: 1.6; color: var(--ink); }
+.sp p { margin: 0 0 14px; }
+.sp-h { font-weight: 500; text-transform: uppercase; margin-top: 6px; }
+.sp-a { max-width: 60ch; }
+.sp-c { margin: 18px 0 0 !important; padding-left: 36%; text-transform: uppercase; }
+.sp-p { margin: 0 !important; padding-left: 29%; color: var(--ink-2); }
+.sp-d { margin: 0 0 4px !important; padding-left: 20%; max-width: 75%; }
+.sp-t { text-align: right; text-transform: uppercase; }
+.sp-src { margin: 0 0 10px; font-size: var(--t-ui); line-height: 1.55; color: var(--body); }
+@media (max-width: 600px) { .sp { padding: 20px 18px; } .sp-c { padding-left: 24%; } .sp-p { padding-left: 16%; } .sp-d { padding-left: 8%; max-width: 92%; } }
 /* A row in a list: the same parts, flat. */
 .er-t { display: block; font-size: var(--t-read); font-weight: 500; line-height: 1.3; letter-spacing: -.012em; color: var(--ink); }
 .er-h { display: block; margin-top: 4px; font-size: var(--t-ui); line-height: 1.5; color: var(--ink-2); max-width: 68ch; }
@@ -1523,13 +1539,13 @@ a.tw:hover .tw-w { color: var(--cobalt); }
 .mth-inst-t { margin: 0; padding: 14px 16px; border-radius: 8px; background: var(--paper); border: 1px solid var(--hair); font-family: var(--mono); font-size: var(--t-xs); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 34em; overflow-y: auto; }
 
 /* ---- The sections, as one ladder (2026-11-24) ----------------------------
-   The front page's masthead names the five sections in order, from the
+   The front page's masthead names the six sections in order, from the
    author's own ideas down to the evidence under them; the same order runs
    through the top bar, the footer and the rest of the front page. */
 .mast { padding: 44px 0 4px; }
 .mast-h { font-size: var(--t-display); line-height: 1.06; font-weight: 600; letter-spacing: -.035em; color: var(--ink); max-width: 20ch; margin: 0; }
 .mast-p { font-size: var(--t-lede); line-height: 1.5; color: var(--ink-2); max-width: 58ch; margin: 18px 0 0; }
-.lad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 36px; border: 1px solid var(--hair); border-radius: 14px; background: var(--card); overflow: hidden; }
+.lad { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin-top: 36px; border: 1px solid var(--hair); border-radius: 14px; background: var(--card); overflow: hidden; }
 a.lad-s { display: flex; flex-direction: column; gap: 6px; padding: 20px 22px 24px; border-left: 1px solid var(--hair); color: var(--ink); }
 a.lad-s:first-child { border-left: 0; }
 a.lad-s:hover { background: var(--tint-3); color: var(--ink); }
@@ -1634,7 +1650,7 @@ a.pp-term:hover { outline: 1px solid currentColor; }
   .seg::-webkit-scrollbar { display: none; }
   .ft-nav { grid-template-columns: repeat(2, max-content); gap: 24px 40px; }
 }
-/* Narrower than the five sections fit beside the wordmark, the sections
+/* Narrower than the six sections fit beside the wordmark, the sections
    take their own row under it: the wordmark, search and (signed in) Admin
    on the first line, Theories · Papers · Writing · Research · Lexicon on the
    second, scrolling sideways if a phone is narrower still. */
@@ -1649,7 +1665,7 @@ a.pp-term:hover { outline: 1px solid currentColor; }
 /* On a phone the search is an icon; the word stays for screen readers. */
 @media (max-width: 520px) {
   .hd-in { padding: 8px 16px 0; }
-  .nav { gap: 20px; }
+  .nav { gap: 16px; }
   .hd-search { min-width: 0; width: 34px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
   .admin { padding: 0 9px; }
 }

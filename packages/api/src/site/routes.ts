@@ -24,6 +24,7 @@ import { adminModel, processingModel, waitingCount } from "./admin-data";
 import {
   allMethods,
   allPapers,
+  allProbes,
   allTheories,
   answeredElsewhere,
   anyResearchDoc,
@@ -36,6 +37,7 @@ import {
   paper,
   paperVersions,
   privatePage,
+  probe,
   problem,
   researchDoc,
   sharedSources,
@@ -84,6 +86,7 @@ import {
 } from "./pages/methods";
 import { renderNotFound, renderNotice } from "./pages/notice";
 import { renderPapers } from "./pages/papers";
+import { probeMarkdown, probesMarkdown, renderProbe, renderProbes } from "./pages/probes";
 import { receiptLine, renderReadBoard } from "./pages/read";
 import { renderSearch } from "./pages/search";
 import { withSpoken } from "./pages/spoken";
@@ -543,6 +546,7 @@ app.get("/sitemap.xml", () => {
     ["/research", ""],
     ["/lexicon", ""],
     ["/methods", ""],
+    ["/probes", ""],
     ["/open", ""],
     ["/about", ""],
     ["/follow", ""],
@@ -552,6 +556,7 @@ app.get("/sitemap.xml", () => {
     // A theory's last change is its revision, not the day it was coined.
     ...allTheories().map((t): [string, string] => [`/theories/${t.slug}`, t.revised ?? t.date]),
     ...allMethods().map((m): [string, string] => [`/methods/${m.slug}`, m.date]),
+    ...allProbes().map((p): [string, string] => [`/probes/${p.slug}`, p.date]),
     ...libraryItems()
       .filter((r) => !isWriting(r.kind) && r.kind !== "Paper" && r.kind !== "Project")
       .map((r): [string, string] => [r.route, r.date]),
@@ -1238,6 +1243,31 @@ app.get("/methods/:slug/SKILL.md", (c, next) => {
   return new Response(methodSkill(m), {
     headers: { ...mdHeaders, "content-disposition": 'attachment; filename="SKILL.md"' },
   });
+});
+
+// ---- probes (2026-11-28): ideas in progress ---------------------------------
+app.get("/probes", (c) =>
+  html(renderProbes({ form: c.req.query("form") }, { signedIn: signedIn(c) })),
+);
+app.get("/probes.md", () => new Response(probesMarkdown(), { headers: mdHeaders }));
+app.get("/probes/:slug", (c, next) => {
+  const raw = c.req.param("slug");
+  const md = raw.endsWith(".md");
+  const p = probe(md ? raw.slice(0, -3) : raw);
+  if (!p) return next();
+  if (md)
+    return markdownTwin(
+      {
+        id: p.slug,
+        title: p.title,
+        kind: p.form,
+        topic: "Probes",
+        date: p.date,
+        body: probeMarkdown(p),
+      },
+      `/probes/${p.slug}`,
+    );
+  return html(renderProbe(p, { signedIn: signedIn(c) }));
 });
 
 // What changed between a paper's last kept version and the current one,
