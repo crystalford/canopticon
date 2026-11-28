@@ -249,6 +249,9 @@ export interface Method {
   theory: string;
   version: number;
   date: string;
+  /** The procedure as a formula: its steps reduced to what goes in and what
+   *  each turns it into, joined by arrows. Shown on its card and page. */
+  glance_formula: string;
   use_when: string;
   input: string;
   output: string;

@@ -6,9 +6,10 @@
 
 import { AUTHOR } from "../author";
 import type { Idea } from "../content/store";
-import { allTheories, libraryItems, sayOf, terms } from "../content/store";
-import { esc, pageHead, pill, shell } from "../layout";
-import { kindColours, longDate } from "../theme";
+import { allTheories, libraryItems, sayOf, terms, theory } from "../content/store";
+import { esc, pageHead, shell } from "../layout";
+import { termCard } from "./entry";
+import { theoryCard } from "./theories";
 
 export const LEXICON_URL = "https://canopticon.com/lexicon";
 const SITE = "https://canopticon.com";
@@ -104,14 +105,21 @@ export function lexicon(): Array<{ id: string; title: string; intro: string; ent
 }
 
 function entryHtml(e: Entry): string {
-  const first =
-    e.first && e.firstRoute && e.kind === "Concept"
-      ? `First stated in ${esc(e.first)}${e.date ? `, ${esc(longDate(e.date))}` : ""}`
-      : e.date
-        ? `Stated ${esc(longDate(e.date))}`
-        : "";
-  const foot = [e.plain ? `In plain words: ${esc(e.plain)}` : "", first].filter(Boolean);
-  return `<a href="${esc(e.route)}" class="card term-card" id="${esc(e.route.split("/").pop() ?? "")}"><span class="pills">${pill(e.kind, kindColours(e.kind))}${e.say ? `<span class="term-card-say">${esc(e.say)}</span>` : ""}</span><span class="tile-t">${esc(e.name)}</span><span class="tile-d">${esc(e.definition)}</span>${foot.length ? `<span class="term-card-p">${foot.join("<br />")}</span>` : ""}</a>`;
+  const slug = e.route.split("/").pop() ?? "";
+  if (e.kind === "Theory") {
+    const t = theory(slug);
+    if (t) return theoryCard(t).replace('class="card ec"', `class="card ec" id="${esc(slug)}"`);
+  }
+  return termCard({
+    name: e.name,
+    route: e.route,
+    definition: e.definition,
+    say: e.say,
+    plain: e.plain,
+    first: e.first && e.firstRoute ? e.first : undefined,
+    date: e.date,
+    id: slug,
+  });
 }
 
 export function renderLexicon(opts: { signedIn?: boolean } = {}): string {

@@ -5,6 +5,7 @@ dek: "Mark every paragraph of a piece by the job it does, and find the paragraph
 theory: "the-load-bearing-core"
 version: 1
 date: "2026-11-28"
+glance_formula: "paragraphs → one job each → core + limits → the argument in order → skeleton"
 use_when: "Before rewriting or cutting a long piece, before making a summary, short or video from it, or when an outline feels like it misses the point."
 input: "An essay, paper, report or script that argues or explains, with its paragraphs intact."
 output: "A table of every paragraph and its job, totals by job and by section, the load share, the core in order as a skeleton, and what an existing outline misses."

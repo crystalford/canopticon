@@ -8,7 +8,8 @@ import { AUTHOR } from "../author";
 import type { DerivedRow, LibraryItem } from "../content/store";
 import { keyFigures, libraryItems, questions } from "../content/store";
 import { esc, pageHead, shell } from "../layout";
-import { kindColours, kindLabel, topicColours, topicSlug } from "../theme";
+import { topicSlug } from "../theme";
+import { handleOf, kindWord, metaLine } from "./entry";
 
 type Row = (LibraryItem | DerivedRow) & { v?: string; sub?: string; shelf?: string };
 
@@ -348,9 +349,7 @@ export function renderLibrary(
     );
 
   const rows = slice
-    .map((d, i) => {
-      const [kbg, kfg] = kindColours(d.kind);
-      const [tbg, tfg] = topicColours(d.topic);
+    .map((d) => {
       const stat = d.kind === "Concept" || d.kind === "Open problem" ? "" : (d.stat ?? "");
       const status =
         d.kind === "Concept"
@@ -363,7 +362,15 @@ export function renderLibrary(
       const subLabel = d.kind === "Research" && d.sub && d.sub !== "Research" ? subName(d) : "";
       const dek = d.kind === "Research" && d.dek === d.sub ? "" : d.dek;
       const metric = d.kind === "Figure" ? (d.v ?? "") : (d.dateLabel ?? "");
-      return `<div class="lib-row"><span class="lib-rank">${String((page - 1) * perPage + i + 1).padStart(2, "0")}</span><span style="min-width:0"><a href="${esc(d.route)}" class="lib-t">${esc(d.title)}</a>${dek ? `<span class="lib-d">${esc(dek)}</span>` : ""}<span class="lib-m"><span class="pill kind" style="background:${kbg};color:${kfg}">${esc(kindLabel(d.kind))}</span>${subLabel ? `<span class="pill sub">${esc(subLabel)}</span>` : ""}<span class="pill" style="background:${tbg};color:${tfg}">${esc(d.topic)}</span>${status ? `<span class="pill" style="background:${status[1]};color:${status[2]}">${esc(status[0] ?? "")}</span>` : ""}${stat ? `<span class="st">${esc(stat)}</span>` : ""}</span></span><span class="lib-r"><span class="lib-metric">${esc(metric)}</span>${d.kind === "Figure" ? `<span class="lib-ml">${esc(d.dateLabel ?? "")}</span>` : ""}${signedIn ? `<button type="button" class="useful" data-useful="${esc(d.route)}" aria-pressed="false" hidden>☆ Mark useful</button>` : ""}</span></div>`;
+      const handle = handleOf(d.route, dek);
+      const facts = [
+        subLabel || undefined,
+        d.topic,
+        status ? status[0] : undefined,
+        stat || undefined,
+        d.kind === "Figure" ? undefined : metric || undefined,
+      ];
+      return `<div class="lib-row"><span style="min-width:0"><a href="${esc(d.route)}" class="lib-t">${esc(d.title)}</a>${handle ? `<span class="er-h">${esc(handle)}</span>` : ""}${metaLine(facts, kindWord(d.kind))}</span>${d.kind === "Figure" || signedIn ? `<span class="lib-r">${d.kind === "Figure" ? `<span class="lib-metric">${esc(metric)}</span><span class="lib-ml">${esc(d.dateLabel ?? "")}</span>` : ""}${signedIn ? `<button type="button" class="useful" data-useful="${esc(d.route)}" aria-pressed="false" hidden>☆ Mark useful</button>` : ""}</span>` : ""}</div>`;
     })
     .join("");
 

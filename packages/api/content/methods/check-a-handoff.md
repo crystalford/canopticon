@@ -5,6 +5,7 @@ dek: "Before a conclusion goes to someone, or something, that will act on it, at
 theory: "the-certainty-handoff"
 version: 1
 date: "2026-11-28"
+glance_formula: "conclusion → its reason + its hunches → a test that fails if it is wrong → handed on together"
 use_when: "Before giving an AI agent an instruction that rests on a hunch, before acting on an AI's confident answer, and at any handover where someone else will build on your conclusion."
 input: "The conclusion about to be handed on or acted on, and what it is for."
 output: "Answers to the four questions, the reason in one sentence, the parts that are hunches, a test that would fail if the conclusion were wrong, and the handoff rewritten to carry them."

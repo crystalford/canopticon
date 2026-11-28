@@ -5,6 +5,7 @@ dek: "List what a daily routine rests on, find the supplies, payments and servic
 theory: "the-restock-gap"
 version: 1
 date: "2026-11-28"
+glance_formula: "routine → what it rests on → restocked only on running out? → reminder moved ahead of failure"
 use_when: "When a routine keeps failing for reasons that seem random, when setting up a new routine, or before relying on one that other things depend on."
 input: "A routine, or a few, described as they actually run: what happens, how often, and what it uses."
 output: "A table of what each routine rests on, how often it is used against how often it is restocked, what prompts the restock, what depends on the routine, and for each gap an earlier reminder, a fixed occasion and a fallback."
