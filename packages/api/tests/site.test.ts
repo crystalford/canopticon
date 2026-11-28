@@ -378,9 +378,15 @@ describe("no JavaScript required to read", () => {
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("</footer>");
-    // The one script is deferred enhancement.
+    // The one script is deferred enhancement. The only inline script applies
+    // a reader's saved light or dark choice before the first paint; reading
+    // needs neither.
     expect(html).toMatch(/<script defer src="\/site\.js\?v=/);
-    expect(html).not.toMatch(/<script>(?!.*ld\+json)/);
+    const inline = html.replace(
+      /<script>try\{var t=localStorage\.getItem\("theme"\)[^<]*<\/script>/,
+      "",
+    );
+    expect(inline).not.toMatch(/<script>(?!.*ld\+json)/);
   });
 });
 

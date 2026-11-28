@@ -47,7 +47,17 @@
   Documents uploaded after the handoff live only in D1 and render through the
   same document page (guarded by `OWN_UPLOADS_SQL`).
 - **Design.** `src/site/styles.ts` (served at `/site.css`) and `src/site/layout.ts`.
-  Paper palette, Geist, cobalt = interaction, brick = the author's marks,
+  **Clean light by default, dark by choice** (2026-11-28: the author found the
+  paper palette "scrappy" and asked for sleek and professional): cool neutrals
+  on near-white, Geist at 600 for headings, 14px radii, a dot grid behind the
+  card figures. Dark follows the device (`prefers-color-scheme`) unless the
+  reader picks with the header's half-circle button (`[data-theme-toggle]`,
+  shown by `site.js`, kept in `localStorage.theme`, applied before paint by
+  the one inline script `tests/site.test.ts` allows); `:root[data-theme]`
+  overrides the device. The dark tokens are written once and used twice; raw
+  colours are tokens (`--fig`, `--dot`, `--grade-mid`, washes, `--press`,
+  `--on-ink`), and in dark the inline-coloured pills and kind words fall back
+  to the quiet chip. Cobalt = interaction, brick = the author's marks,
   green = verified. No box-shadows (focus halos are outlines: `--halo`). Reading column 720px,
   rail 280px (`--rail`) on articles and documents alike. The wordmark is unchanged (no mark yet); Search is a
   field-like control (an icon on phones). Polish pass 2026-11-17: calmer article marks, list rows that
