@@ -26,13 +26,17 @@ describe("methods", () => {
   });
 
   it("shows the instruction once, before the worked example, with copy and the skill", async () => {
-    const m = allMethods()[0];
-    const html = await (await get(`/methods/${m?.slug}`)).text();
-    expect(html).toContain('id="mth-inst-t"');
-    expect(html.indexOf('id="the-instruction"')).toBeLessThan(html.indexOf(">Worked example<"));
-    expect(html.match(/Mark a piece of writing by the job/g)?.length).toBe(1);
-    expect(html).toContain(`href="/methods/${m?.slug}/SKILL.md"`);
-    expect(html).toContain('"@type":"HowTo"');
+    for (const m of allMethods()) {
+      const html = await (await get(`/methods/${m.slug}`)).text();
+      expect(html, m.slug).toContain('id="mth-inst-t"');
+      expect(html.indexOf('id="the-instruction"'), m.slug).toBeLessThan(
+        html.indexOf("Worked example</h2>"),
+      );
+      const first = (m.instruction.split("\n")[0] ?? "").replace(/'/g, "&#39;").slice(0, 40);
+      expect(html.split(first).length - 1, m.slug).toBe(1);
+      expect(html).toContain(`href="/methods/${m.slug}/SKILL.md"`);
+      expect(html).toContain('"@type":"HowTo"');
+    }
   });
 
   it("downloads as a skill Claude can load", async () => {

@@ -387,9 +387,11 @@ export function method(slug: string): Method | null {
   return STORE.methods?.[slug] ?? null;
 }
 
-/** Every method, newest first. */
+/** Every method, newest first, then by title. */
 export function allMethods(): Method[] {
-  return Object.values(STORE.methods ?? {}).sort((x, y) => y.date.localeCompare(x.date));
+  return Object.values(STORE.methods ?? {}).sort(
+    (x, y) => y.date.localeCompare(x.date) || x.title.localeCompare(y.title),
+  );
 }
 
 /** The methods built from one theory. */

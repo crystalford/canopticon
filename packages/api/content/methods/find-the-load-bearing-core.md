@@ -23,7 +23,7 @@ This method turns the theory of [the load-bearing core](/theories/the-load-beari
 
 ## What it rests on
 
-- **The deletion test, applied to the argument.** Rhetorical Structure Theory splits a text into a central part and the parts that support it, and tests which is central by deleting it. This method moves the test from the clause to the paragraph and asks what the *argument* loses, so evidence a claim needs counts as core. See the theory's [prior work](/theories/the-load-bearing-core#prior-work).
+- **The deletion test, applied to the argument.** Rhetorical Structure Theory splits a text into a central part and the parts that support it, and tests which is central by deleting it. This method moves the test from the clause to the paragraph and asks what the *argument* loses, so evidence a claim needs counts as core. See the theory's [prior work](/theories/the-load-bearing-core).
 - **Readers agree on what is central.** Trained annotators agreed on central spans at kappa 0.86, and judges rating the importance of clauses agreed on 87% of them.
 - **The central part is what lasts and what teaches.** Details were forgotten about four times faster than central ideas over three months, and summaries of the main points taught as well as or better than the full texts.
 - **The rest serves particular readers.** Headings, previews and summaries help readers of complex texts, and rereading the main points at intervals helps memory, so each frame and repeat is judged by which reader it serves.
