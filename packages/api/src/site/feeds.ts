@@ -7,12 +7,13 @@
 // feed names its WebSub hub, in the body and in a Link header.
 
 import type { Article, Paper, Theory } from "./content/store";
-import { allPapers, allTheories, libraryItems, researchDoc } from "./content/store";
+import { allMethods, allPapers, allTheories, libraryItems, researchDoc } from "./content/store";
 import { docTitle, listedArticles, topicOf } from "./data";
 import { esc } from "./layout";
 import { articleHtml, documentHtml } from "./md";
 import { glanceMarkdown } from "./pages/glance";
 import { lexiconMarkdown } from "./pages/lexicon";
+import { methodMarkdown } from "./pages/methods";
 import { topicSlug } from "./theme";
 
 export const SITE = "https://canopticon.com";
@@ -238,9 +239,9 @@ export function llmsTxt(): string {
   const out = [
     "# Canopticon",
     "",
-    "> An independent research publication by Chris Telford, in four sections: theories, the author's ideas stated formally (claim, propositions graded by their evidence, primary references); writing, the essays and papers that argue them; research, the documents themselves kept whole, and briefs that answer one question from them; and a lexicon of the terms coined here. Every quote in a brief, essay or theory links to the stored document it came from. Licensed CC BY 4.0.",
+    "> An independent research publication by Chris Telford, in five sections: theories, the author's ideas stated formally (claim, propositions graded by their evidence, primary references); writing, the essays and papers that argue them; research, the documents themselves kept whole, and briefs that answer one question from them; a lexicon of the terms coined here; and methods, procedures built from the theories, each with an instruction for a language model and a downloadable Claude skill. Every quote in a brief, essay or theory links to the stored document it came from. Licensed CC BY 4.0.",
     "",
-    `Sections: ${SITE}/theories · ${SITE}/writing · ${SITE}/research · ${SITE}/lexicon · the McLuhan paper series at ${SITE}/papers · open questions at ${SITE}/open.`,
+    `Sections: ${SITE}/theories · ${SITE}/writing · ${SITE}/research · ${SITE}/lexicon · ${SITE}/methods · the McLuhan paper series at ${SITE}/papers · open questions at ${SITE}/open.`,
     "",
     `Feeds: ${SITE}/feed.xml (RSS), ${SITE}/feed.json (JSON Feed). Per-topic feeds live under ${SITE}/feeds/. Every document has a Markdown twin: add .md to its address. Full text of every theory, essay, brief and paper: ${SITE}/llms-full.txt. Every coined term with its definition: ${SITE}/lexicon`,
     "",
@@ -261,12 +262,23 @@ export function llmsTxt(): string {
  *  contract writes them, so a machine can check each one against its source. */
 export function llmsFullTxt(): string {
   const parts = [
-    "# Canopticon — every theory, paper, essay and brief, in full",
+    "# Canopticon — every theory, method, paper, essay and brief, in full",
     "",
     '> By Chris Telford. CC BY 4.0. In essays and briefs, text inside <q doc="…"> is a verbatim quotation from the research document at https://canopticon.com/p/<doc>; everything else is the author\'s own.',
     "",
   ];
   parts.push("---", "", lexiconMarkdown(), "");
+  for (const m of allMethods())
+    parts.push(
+      "---",
+      "",
+      `# ${m.title} (method)`,
+      "",
+      `URL: ${SITE}/methods/${m.slug} · version ${m.version}, ${m.date} · skill: ${SITE}/methods/${m.slug}/SKILL.md`,
+      "",
+      methodMarkdown(m),
+      "",
+    );
   for (const t of allTheories()) {
     parts.push(
       "---",

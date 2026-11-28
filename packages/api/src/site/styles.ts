@@ -1310,6 +1310,15 @@ a.th-card:hover .th-card-t { color: var(--cobalt); }
 .th-card-m { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: auto; padding-top: 6px; font-size: var(--t-xs); color: var(--muted); }
 .th-grid + .prop-key { margin-top: 20px; }
 
+/* ---- A method's instruction (2026-11-28): the exact text for a model, with
+   Copy and the skill download. Wraps at the column, never scrolls sideways. */
+.mth-inst { margin: 8px 0 36px; padding: 18px 20px; border: 1px solid var(--rule); border-left: 3px solid var(--ink); border-radius: 12px; background: var(--card); }
+.mth-inst-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.mth-inst-h h2 { margin: 0; }
+.mth-inst-a { display: flex; flex-wrap: wrap; gap: 8px; }
+.mth-inst-p { margin: 10px 0 12px; font-size: var(--t-sm); color: var(--ink-2); }
+.mth-inst-t { margin: 0; padding: 14px 16px; border-radius: 8px; background: var(--paper); border: 1px solid var(--hair); font-family: var(--mono); font-size: var(--t-xs); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 34em; overflow-y: auto; }
+
 /* ---- The sections, as one ladder (2026-11-24) ----------------------------
    The front page's masthead names the five sections in order, from the
    author's own ideas down to the evidence under them; the same order runs
@@ -1317,7 +1326,7 @@ a.th-card:hover .th-card-t { color: var(--cobalt); }
 .mast { padding: 44px 0 4px; }
 .mast-h { font-size: var(--t-display); line-height: 1.06; font-weight: 500; letter-spacing: -.03em; color: var(--ink); max-width: 20ch; margin: 0; }
 .mast-p { font-size: var(--t-lede); line-height: 1.5; color: var(--ink-2); max-width: 58ch; margin: 18px 0 0; }
-.lad { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 36px; border: 1px solid var(--hair); border-radius: 16px; background: var(--card); overflow: hidden; }
+.lad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 36px; border: 1px solid var(--hair); border-radius: 16px; background: var(--card); overflow: hidden; }
 a.lad-s { display: flex; flex-direction: column; gap: 6px; padding: 20px 22px 24px; border-left: 1px solid var(--hair); color: var(--ink); }
 a.lad-s:first-child { border-left: 0; }
 a.lad-s:hover { background: var(--tint-3); color: var(--ink); }

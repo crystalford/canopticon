@@ -9,6 +9,7 @@ const SAND: Pair = ["#efebe1", "#15171c"];
 
 export const KIND_COLOURS: Record<string, Pair> = {
   Theory: ["#15171c", "#f6f3ec"],
+  Method: ["#1f3a2e", "#e7f3ec"],
   Article: ["#e4ecf7", "#1f4e8c"],
   Essay: ["#e4ecf7", "#1f4e8c"],
   Brief: ["#e1eeee", "#1d5a5e"],

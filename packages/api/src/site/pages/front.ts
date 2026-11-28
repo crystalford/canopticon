@@ -91,8 +91,9 @@ function researchRow(r: LibraryItem, last: boolean): string {
   return `<a href="${esc(r.route)}" class="row rrow${last ? " last" : ""}"><span class="rrow-d tnum">${esc(r.dateLabel ?? shortDate(r.date))}</span><span style="min-width:0"><span class="rrow-t">${esc(r.title)}</span><span class="pills" style="margin-top:6px">${pill(r.sub ?? "Research", kindColours("Research"))}${pill(r.topic, topicColours(r.topic))}</span></span></a>`;
 }
 
-/** The masthead: what the site is, in its own plain words, and its four
- *  sections as one strip — the idea, the argument, the evidence, the words.
+/** The masthead: what the site is, in its own plain words, and its five
+ *  sections as one strip — the idea, the argument, the evidence, the words,
+ *  the tools.
  *  No counts: what a section is for says more than how full it is. */
 function masthead(): string {
   const steps: Array<[string, string, string]> = [
@@ -100,6 +101,7 @@ function masthead(): string {
     ["/writing", "Writing", "The arguments: essays and papers, short and long."],
     ["/research", "Research", "The evidence: reports kept whole, and briefs written from them."],
     ["/lexicon", "Lexicon", "The words: every term coined here, defined."],
+    ["/methods", "Methods", "The tools: procedures built from the theories, to run on any piece."],
   ];
   const strip = steps
     .map(
