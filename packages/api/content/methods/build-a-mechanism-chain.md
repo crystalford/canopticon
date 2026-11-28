@@ -5,7 +5,7 @@ dek: "Turn how something works into a short chain of parts and actions in causal
 theory: "the-mechanism-chain"
 version: 1
 date: "2026-11-28"
-glance_formula: "result → parts that act → each part's action, in order → one cue word per link → rebuilt from the words → first link that won't come back"
+glance_formula: "result → parts that act → each part's action, in order → one cue word per link → rebuilt from the words → where understanding stops"
 use_when: "When you use something every day and could not explain how it works, before teaching or explaining a mechanism, or when an explanation keeps coming out as a few loose words."
 input: "A device, process or system that works by a sequence of causes, and a reliable source on how it works if you have one."
 output: "The result and its starting condition, the parts that act, each part's action in order, one cue word per link, the chain, an explanation rebuilt from it, and the break point when you rebuild it yourself."

@@ -12,7 +12,7 @@ import { esc, pageHead, pill, shell } from "../layout";
 import { articleHtml, inline } from "../md";
 import { kindColours, longDate } from "../theme";
 import { citeBlock, statbox, toc } from "./article";
-import { formulaHtml, metaLine } from "./entry";
+import { formulaHtml, trackFigure } from "./entry";
 
 const SITE = "https://canopticon.com";
 export const METHODS_URL = `${SITE}/methods`;
@@ -36,7 +36,7 @@ export function renderMethods(opts: { signedIn?: boolean } = {}): string {
   const cards = list
     .map((m) => {
       const t = theory(m.theory);
-      return `<a href="/methods/${esc(m.slug)}" class="card ec"><span class="ec-t">${esc(m.title)}</span><span class="ec-h">${inline(m.use_when)}</span>${formulaHtml(m.glance_formula)}${metaLine([`${m.steps.length} steps`, t ? `from ${t.title}` : undefined])}</a>`;
+      return `<a href="/methods/${esc(m.slug)}" class="card fc"><span class="fc-fig mt">${trackFigure(m.glance_formula, m.steps.length)}</span><span class="fc-b"><span class="fc-t">${esc(m.title)}</span><span class="fc-h">${inline(m.use_when)}</span>${t ? `<span class="fc-m">From the theory ${esc(t.title)}</span>` : ""}</span></a>`;
     })
     .join("\n");
   const ld = {

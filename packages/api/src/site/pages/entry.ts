@@ -80,25 +80,119 @@ export function formulaHtml(formula: string, max = 4): string {
   return `<span class="fx">${lines.map(line).join("")}</span>`;
 }
 
-/** A term's card, in the Lexicon and on the front page: the word (with how to
- *  say it, for a coined word), its plain-English handle, the sentence that
- *  defines it, and where it was first stated. */
+/** A term's card, set like a dictionary entry: the word large, how to say
+ *  it (for a coined word), its plain-English handle, the sentence that
+ *  defines it, and where the word comes from (or, without an etymology,
+ *  where it was first stated). */
 export function termCard(e: {
   name: string;
   route: string;
   definition: string;
   say?: string | undefined;
   plain?: string | undefined;
+  etymology?: string | undefined;
   first?: string | undefined;
   date?: string | undefined;
   id?: string | undefined;
 }): string {
-  const say = e.say ? `<span class="ec-say">${esc(e.say)}</span>` : "";
-  const plain = e.plain ? `<span class="ec-h">${esc(cap(e.plain))}</span>` : "";
+  const say = e.say ? `<span class="tw-say">${esc(e.say)}</span>` : "";
+  const plain = e.plain ? `<span class="tw-plain">${esc(cap(e.plain))}</span>` : "";
   const first = e.first
     ? `First stated in ${e.first}${e.date ? `, ${longDate(e.date)}` : ""}`
     : e.date
       ? `Stated ${longDate(e.date)}`
-      : undefined;
-  return `<a href="${esc(e.route)}" class="card ec"${e.id ? ` id="${esc(e.id)}"` : ""}><span class="ec-t">${esc(e.name)}${say}</span>${plain}<span class="ec-b">${esc(e.definition)}</span>${metaLine([first])}</a>`;
+      : "";
+  const foot = e.etymology
+    ? `<span class="tw-et">${esc(e.etymology)}</span>`
+    : first
+      ? `<span class="tw-et plain">${esc(first)}</span>`
+      : "";
+  return `<a href="${esc(e.route)}" class="card tw"${e.id ? ` id="${esc(e.id)}"` : ""}><span class="tw-w">${esc(e.name)}</span>${say}${plain}<span class="tw-d">${esc(e.definition)}</span>${foot}</a>`;
+}
+
+const f1 = (v: number) => v.toFixed(1);
+
+/** A loop drawn small for a card: its steps on an ellipse, each head beside
+ *  its point, arrows round, and the arrow the way out cuts marked in brick.
+ *  `id` keeps each card's arrowheads its own. */
+export function ringFigure(id: string, steps: string[], cut?: number): string {
+  const W = 400;
+  const H = 220;
+  const cx = W / 2;
+  const cy = H / 2;
+  const rx = W * 0.24;
+  const ry = H * 0.3;
+  const n = steps.length;
+  const ang = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / n;
+  const pt = (a: number) => ({ x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) });
+  const heads = steps.map((s) => (s.split("|")[0] ?? "").trim());
+  let arcs = "";
+  for (let i = 0; i < n; i++) {
+    const a0 = ang(i) + 0.17;
+    const a1 = ang(i + 1) - 0.17;
+    const pts: string[] = [];
+    for (let k = 0; k <= 16; k++) {
+      const p = pt(a0 + ((a1 - a0) * k) / 16);
+      pts.push(`${f1(p.x)},${f1(p.y)}`);
+    }
+    const isCut = cut !== undefined && (i + 1) % n === cut - 1;
+    arcs += `<polyline class="rg-a${isCut ? " cut" : ""}" points="${pts.join(" ")}" marker-end="url(#${id}-${isCut ? "c" : "h"})"/>`;
+    if (isCut) {
+      const m = pt((a0 + a1) / 2);
+      arcs += `<path class="rg-x" d="M${f1(m.x - 5)} ${f1(m.y - 5)}l10 10M${f1(m.x + 5)} ${f1(m.y - 5)}l-10 10"/>`;
+    }
+  }
+  // Each head's width, roughly (Geist 11.5px averages ~6.2px a character),
+  // so the drawing's frame can widen to hold the longest label on each side.
+  const widthOf = (t: string) => t.length * 6.2;
+  let minX = 0;
+  let maxX = W;
+  const nodes = heads
+    .map((head, i) => {
+      const a = ang(i);
+      const p = pt(a);
+      const c = Math.cos(a);
+      const sn = Math.sin(a);
+      const anchor = Math.abs(c) < 0.25 ? "middle" : c > 0 ? "start" : "end";
+      const tx = p.x + c * 10 + (anchor === "start" ? 2 : anchor === "end" ? -2 : 0);
+      const ty = p.y + sn * 12 + (Math.abs(c) < 0.25 ? (sn < 0 ? -2 : 10) : 4);
+      const w = widthOf(head);
+      const left = anchor === "start" ? tx : anchor === "end" ? tx - w : tx - w / 2;
+      minX = Math.min(minX, left - 6);
+      maxX = Math.max(maxX, left + w + 6);
+      return `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="3.6"/><text x="${f1(tx)}" y="${f1(ty)}" text-anchor="${anchor}">${esc(head)}</text>`;
+    })
+    .join("");
+  const mk = (m: string) =>
+    `<marker id="${id}-${m}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 1L9 5L0 9"/></marker>`;
+  const label = `A loop: ${heads.join(", then ")}, and back to the start.${cut ? ` The way out cuts the step into ${heads[cut - 1] ?? ""}.` : ""}`;
+  return `<svg class="rg" viewBox="${f1(minX)} 0 ${f1(maxX - minX)} ${H}" role="img" aria-label="${esc(label)}"><defs>${mk("h")}<g class="cut">${mk("c")}</g></defs>${arcs}<g class="rg-n">${nodes}</g></svg>`;
+}
+
+/** How a theory's propositions are graded, as a bar of one segment each:
+ *  strong solid, moderate grey, proposed open. */
+export function gradeBar(grades: string[], references: number): string {
+  const order = ["Strong", "Moderate", "Proposed"];
+  const sorted = [...grades].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const n = (g: string) => grades.filter((x) => x === g).length;
+  const words = order
+    .filter((g) => n(g))
+    .map((g) => `${n(g)} ${g.toLowerCase()}`)
+    .join(", ");
+  return `<span class="gb"><span class="gb-bar" aria-hidden="true">${sorted
+    .map((g) => `<span class="gb-${g.toLowerCase()}"></span>`)
+    .join(
+      "",
+    )}</span><span class="gb-t">${grades.length} propositions: ${words}. ${references} references</span></span>`;
+}
+
+/** A method as a track: what it takes, one mark per step, what it gives. */
+export function trackFigure(formula: string, steps: number): string {
+  const toks = formula
+    .split(/\s*\|\|\s*/)
+    .join(" → ")
+    .split(/\s*→\s*/);
+  const from = toks[0] ?? "";
+  const to = toks[toks.length - 1] ?? "";
+  return `<span class="tk" role="img" aria-label="${esc(`From ${from} to ${to} in ${steps} steps`)}"><span class="tk-e">${esc(from)}</span><span class="tk-d" aria-hidden="true">${"<b></b>".repeat(steps)}</span><span class="tk-e out">${esc(to)}</span></span><span class="tk-l" aria-hidden="true">${steps} steps</span>`;
 }

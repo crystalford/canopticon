@@ -19,6 +19,33 @@ export const SITE_JS = `(function () {
   "use strict";
   var d = document;
 
+  // ---- light or dark ------------------------------------------------------
+  // The page follows the device; the button overrides it, and the choice is
+  // kept in this browser (the head applies it before the first paint).
+  var tt = d.querySelector("[data-theme-toggle]");
+  if (tt) {
+    var root = d.documentElement;
+    var mq = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
+    var isDark = function () {
+      var t = root.dataset.theme;
+      return t ? t === "dark" : !!(mq && mq.matches);
+    };
+    var label = function () {
+      var dk = isDark();
+      tt.setAttribute("aria-pressed", dk ? "true" : "false");
+      tt.title = dk ? "Switch to light" : "Switch to dark";
+    };
+    tt.hidden = false;
+    label();
+    tt.addEventListener("click", function () {
+      var next = isDark() ? "light" : "dark";
+      root.dataset.theme = next;
+      try { localStorage.setItem("theme", next); } catch (e) {}
+      label();
+    });
+    if (mq && mq.addEventListener) mq.addEventListener("change", label);
+  }
+
   // ---- / focuses search ---------------------------------------------------
   d.addEventListener("keydown", function (e) {
     if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;

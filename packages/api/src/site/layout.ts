@@ -134,6 +134,8 @@ ${a.noindex ? '<meta name="robots" content="noindex,follow" />\n' : ""}<meta pro
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" />
 <link rel="stylesheet" href="/site.css?v=${siteStylesHash()}" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="color-scheme" content="light dark" />
+<script>try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
 ${a.head ?? ""}
 <script defer src="/site.js?v=${siteStylesHash()}"></script>
 </head>
@@ -156,7 +158,7 @@ function header(a: ShellArgs): string {
         waiting ? `<span class="admin-n" title="${waiting} things waiting">${waiting}</span>` : ""
       }</a>`
     : "";
-  return `<div class="hd${a.app ? " wide" : ""}"><header class="hd-in"><a href="/" class="wm">canopticon</a><nav aria-label="Primary" class="nav"><a href="/theories"${cur("theories")}>Theories</a><a href="/writing"${cur("writing")}>Writing</a><a href="/research"${cur("research")}>Research</a><a href="/lexicon"${cur("lexicon")}>Lexicon</a><a href="/methods"${cur("methods")}>Methods</a></nav><a href="/search" class="hd-search"${cur("search")}>Search</a>${admin}</header>${
+  return `<div class="hd${a.app ? " wide" : ""}"><header class="hd-in"><a href="/" class="wm">canopticon</a><nav aria-label="Primary" class="nav"><a href="/theories"${cur("theories")}>Theories</a><a href="/writing"${cur("writing")}>Writing</a><a href="/research"${cur("research")}>Research</a><a href="/lexicon"${cur("lexicon")}>Lexicon</a><a href="/methods"${cur("methods")}>Methods</a></nav><a href="/search" class="hd-search"${cur("search")}>Search</a><button type="button" class="theme-t" data-theme-toggle hidden><span class="vh">Dark theme</span></button>${admin}</header>${
     a.progress ? '<div class="rp"><div id="read-progress"></div></div>' : ""
   }</div>`;
 }
