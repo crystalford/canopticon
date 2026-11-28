@@ -28,6 +28,7 @@ import {
 import { esc, linkPill, pill, shell } from "../layout";
 import { type Head, articleHtml, articleQuotes, documentHtml, inline, plain } from "../md";
 import { kindColours, longDate, monthYear, topicColours, topicSlug } from "../theme";
+import { buildBlock } from "./build";
 import { withFigures } from "./figure";
 import { glance } from "./glance";
 
@@ -243,6 +244,7 @@ export function renderArticle(a0: Article, opts: ArticleRenderOptions = {}): str
         : "",
     "</div>",
     glance(a),
+    buildBlock(a),
     a.why ? `<div class="aside-box"><strong>Why I asked.</strong> ${inline(a.why)}</div>` : "",
     a.thesis
       ? `<div class="aside-box thesis"><strong>Thesis.</strong> ${inline(a.thesis)}</div>`

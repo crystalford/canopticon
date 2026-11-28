@@ -28,6 +28,15 @@ cycle:
 cycle_exit: "Look at the baseline, where the change happened."
 cycle_cut: 5
 cycle_after: "He described the relief spiral"
+build:
+  - move: "Opening|A drink takes the edge off a hard day, and the relief deepens the need for it"
+  - move: "Claim|McLuhan took his theory of media as extensions from Hans Selye's stress physiology|record"
+  - move: "Evidence|McLuhan's counter-irritant, relief that overrides stress, has the shape addiction science later measured|record"
+  - move: "Objection|The shared words are no coincidence, since both come from Selye|record"
+  - move: "Mechanism|The user stops seeing the baseline: the drug is the content, and the changed state is the medium|record"
+  - move: "Case|For people who start young, the drug was there before there was a baseline to compare against|record"
+  - move: "Objection|Most people recover, so addiction is not a trap; the research agrees that most do|record"
+  - move: "So|Relief that overrides irritation without removing it resets the system around it, a connection neither field has made|record"
 ---
 A drink takes the edge off a hard day. After a few years of it, the hard days feel harder and the drink does less, so there are more drinks. Addiction science calls this a spiral and has measured it in detail. This article argues that Marshall McLuhan, the media theorist, described the same spiral in 1964, working from the same stress physiology the addiction researchers later built on. And it argues that his best-known idea, that a medium becomes an environment we stop seeing, says something precise about addiction: what the person stops seeing is how far their own baseline has moved.
 

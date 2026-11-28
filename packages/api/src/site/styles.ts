@@ -870,6 +870,16 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .gl-f p { margin: 0; font-size: var(--t-md); line-height: 1.5; color: var(--ink-2); }
 .gl-arrow { display: inline-block; margin: 0 .45em; color: var(--hint); }
 .gl-s { margin: 0; font-size: var(--t-read); line-height: 1.55; color: var(--body); }
+.bld { margin: 0 0 20px; padding: 16px 22px; border: 1px solid var(--rule); border-radius: 12px; background: var(--tint-3); }
+.bld summary { cursor: pointer; display: grid; gap: 8px; list-style: none; }
+.bld summary::-webkit-details-marker { display: none; }
+.bd-chain { font-size: var(--t-sm); line-height: 1.7; color: var(--ink-2); }
+.bd-r { white-space: nowrap; }
+.bd-list { margin: 14px 0 0; padding: 0 0 0 1.4em; display: grid; gap: 8px; }
+.bd-list li { font-size: var(--t-sm); line-height: 1.5; color: var(--body); }
+.bd-role { font-weight: 600; color: var(--ink); margin-right: .5em; }
+.bd-s { margin-left: .5em; color: var(--muted); white-space: nowrap; }
+.bd-none { color: var(--brick); }
 .gl-a summary { cursor: pointer; font-size: var(--t-sm); font-weight: 500; color: var(--cobalt); }
 .gl-a p { margin: 8px 0 0; font-size: var(--t-read); line-height: 1.6; color: var(--body); }
 

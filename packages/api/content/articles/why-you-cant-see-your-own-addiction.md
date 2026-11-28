@@ -22,6 +22,18 @@ cycle:
 cycle_exit: "Reset the baseline, usually with other people."
 cycle_cut: 5
 cycle_after: "Why is the change so hard to see"
+build:
+  - move: "Puzzle|More than 80% of people with an addiction never seek treatment, and the usual explanation is denial|1"
+  - move: "Reframe|Researchers propose it may be a failure to perceive how severe the problem has become|1"
+  - move: "Model|Repeated use moves the reward set point: ordinary pleasures flatten and stress rises between doses|2"
+  - move: "Mechanism|The drug's job changes from adding pleasure to relieving a bad state|3"
+  - move: "Crux|A baseline that shifts slowly is not noticed as a change, so the drug looks like the fix|9"
+  - move: "Evidence|Damage to the insula, which represents the body's state, ended smoking easily; people with substance use disorders misjudge signals from their own bodies|4,5"
+  - move: "Name|The paper on McLuhan and addiction calls the unseen baseline narcocrasis; the theory of ground blindness describes the same pattern"
+  - move: "Evidence|Most people recover, though half of cases take 5 to 26 years depending on the drug|6"
+  - move: "Remedy|Other people: rats choose company over drugs, and programmes linking people to AA increase abstinence|7,8"
+  - move: "Join|Other people can see a baseline from outside, and their company is a source of relief other than the drug"
+  - move: "So|Much of what is called denial is a failure of perception, so a view from outside is worth more than argument"
 ---
 More than 80% of people with an addiction never seek treatment [1]. The usual explanation is denial: the person knows, at some level, and will not admit it. A review by addiction neuroscientists proposed a different reading. What looks like denial, they argued, may instead reflect a breakdown in the brain networks that support insight and self-awareness, so that the person genuinely does not perceive how severe the problem has become [1].
 
@@ -35,7 +47,7 @@ In that state, the drug's main job changes. It no longer adds pleasure to an ord
 
 ## Why is the change so hard to see?
 
-A baseline is what everything else is felt against. When it moves slowly, over months or years, there is no moment at which it is noticed changing; it simply becomes how things are. The drug stays vivid, because it brings relief. The flatness, the restlessness and the raised stress tone it relieves are taken for the person's temperament, or for how the world is.
+A baseline is what everything else is felt against. When it moves slowly, over months or years, there is no moment at which it is noticed changing; it simply becomes how things are. Perception research shows the same effect for gradual change: in a set of experiments, people looking at an image that changed slowly missed changes large enough that they would consistently have been detected had they happened all at once [9]. The drug stays vivid, because it brings relief. The flatness, the restlessness and the raised stress tone it relieves are taken for the person's temperament, or for how the world is.
 
 The brain region most implicated in this is the insula, which represents the state of the body and is involved in conscious urges [1]. In a study of smokers who had suffered brain damage, those whose damage involved the insula were more likely to quit easily, immediately and without relapse, and without the urge to smoke coming back [4]. A computational study found that people with substance use disorders failed to adjust how much they trusted signals from inside their own body when those signals changed [5]. Both point the same way: the felt need for the drug is carried by the brain's model of the body, and that model is the part that has shifted.
 
@@ -67,3 +79,4 @@ If you are worried about your own use, a doctor or a local addiction service can
 6. Lopez-Quintero, C., Hasin, D. S., de los Cobos, J. P., et al. (2011). Probability and predictors of remission from life-time nicotine, alcohol, cannabis or cocaine dependence: results from the National Epidemiologic Survey on Alcohol and Related Conditions. *Addiction*, 106(3), 657–669. https://doi.org/10.1111/j.1360-0443.2010.03194.x
 7. Venniro, M., Zhang, M., Caprioli, D., et al. (2018). Volitional social interaction prevents drug addiction in rat models. *Nature Neuroscience*, 21(11), 1520–1529. https://doi.org/10.1038/s41593-018-0246-6
 8. Kelly, J. F., Humphreys, K., & Ferri, M. (2020). Alcoholics Anonymous and other 12-step programs for alcohol use disorder. *Cochrane Database of Systematic Reviews*, CD012880. https://doi.org/10.1002/14651858.CD012880.pub2
+9. Simons, D. J., Franconeri, S. L., & Reimer, R. L. (2000). Change blindness in the absence of a visual disruption. *Perception*, 29(10), 1143–1154. https://doi.org/10.1068/p3104

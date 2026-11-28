@@ -13,6 +13,16 @@ glance_words: "Go without, briefly."
 glance_formula: "daily use → background → judged only while present || brief break → contrast → what it does"
 glance_sentence: "Something you use every day can only be judged by going without it for a while, because while you use it, its effects have dropped out of notice."
 glance_aloud: "Your morning coffee, your phone, the painkiller you take most days: each feels like it helps, and you can't really check, because you never spend a day without it. Experiments that take such things away for a week find effects people hadn't noticed, sometimes the opposite of what they assumed. The way to see what something does for you is a short, planned break. Done on purpose, it costs less than finding out by accident."
+build:
+  - move: "Puzzle|Coffee drinkers say it sharpens them, and much of that may be relief from its own withdrawal|1,2"
+  - move: "Claim|Using a thing cannot show what it does; the effect shows when it is taken away"
+  - move: "Evidence|Removal experiments: Facebook deactivated before an election, GPT-4 taken from maths students, drivers relying on GPS|3,4,5"
+  - move: "Mechanism|Habituation, adaptation and timing hide the effect of what is always there|6,7,8,9"
+  - move: "Prior|The parts are known; the method of reading them is the point|10"
+  - move: "Objection|Leave things alone, since removal has costs"
+  - move: "Method|The objection is answered by how the removal is done|11,12"
+  - move: "Limit|Some things should not be tested this way|13"
+  - move: "So|Whether something is good for you is usually asked in the one condition where it cannot be answered"
 ---
 Most people who drink coffee every morning would say it makes them sharper. The research on this is unusually clear, and it says something else. In habitual drinkers, much of what feels like a boost is the end of a small withdrawal that began overnight. A large experiment found that regular drinkers who went without caffeine were sleepier and slower by the afternoon, and that caffeine brought them back; people who rarely drank it gained little from it, apart from feeling less sleepy, and became more jittery [1]. A review of the field concluded that the only studies able to show caffeine's real effect are long-term withdrawal studies, and that these find little benefit from long-term use over going without [2].
 

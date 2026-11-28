@@ -30,6 +30,17 @@ glance_words: "The background moves."
 glance_formula: "the thing in front stays the same → the background shifts → the shift goes unnoticed || seen in health, addiction, prices, screens and typing"
 glance_sentence: "Across health, addiction, prices, screens and typing, the thing in front of us stays the same while the background it sits in moves, and the move goes unnoticed because it is background."
 glance_aloud: "McLuhan called it figure and ground: you notice the thing in front of you and miss what it sits in. The research on this site keeps finding that pattern in places with nothing else in common. A drug stays the same while the body's baseline shifts. A price looks the same while the way it is set has changed. A screen looks the same while reading habits change around it. Each time, the change is in the background, the part we stop seeing."
+build:
+  - move: "Opening|A moisturiser works, the skin feels fine, and you stop using it"
+  - move: "Claim|In very different cases, the change happens in the background while attention stays on what stands out"
+  - move: "Case|A routine that works erases its own reminder|record"
+  - move: "Case|In addiction, the baseline moves while the drug stays in view|record"
+  - move: "Case|A price can change its meaning without changing its number|record"
+  - move: "Case|A habit forms where you are not watching|record"
+  - move: "Case|A whole era can feel normal to the people living in it|record"
+  - move: "Objection|This is McLuhan's figure and ground, and the name is his"
+  - move: "Method|Seeing the background has to be done on purpose|record"
+  - move: "So|It explains why problems come back after they look solved"
 ---
 A moisturiser works, your skin feels fine, and you stop using it. A drink takes the edge off, and over years the edge gets sharper. A price on a screen reads the same as the price on a tag. In each case something changed, and the thing that changed was not the thing you were looking at. This article follows that pattern through five pieces of research that were never meant to be read together.
 

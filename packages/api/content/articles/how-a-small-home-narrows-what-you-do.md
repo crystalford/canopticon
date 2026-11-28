@@ -12,6 +12,16 @@ glance_words: "Rooms do some of the thinking."
 glance_formula: "rooms = separate tasks + visible reminders + space for projects || one room → everything on one surface → load on attention → looks like a trait"
 glance_sentence: "Rooms do part of the work of organising a life, and in a single room that work falls on attention, where the strain can look like a fault in the person."
 glance_aloud: "In a house, the kitchen holds the cooking, a spare table holds a half-finished project, a shelf by the door holds what goes out tomorrow. Each place keeps its own materials and reminders. In a studio apartment the desk is also the dinner table and the dresser takes everything. Notes get buried, nothing marks where one task ends, and projects that need space never start. The person living there may decide they're disorganised. Some of it is the room."
+build:
+  - move: "Opening|A studio apartment with a bed, a desk and a dresser"
+  - move: "Evidence|People use space to think: they arrange things to simplify choices and perception|1,2"
+  - move: "Mechanism|In one room every activity competes for the same surfaces, and visual clutter competes for attention|1,3"
+  - move: "Evidence|How people experience their homes, and how rooms mark the edges of activities, tracks this|4,5,6,7"
+  - move: "Reframe|Trouble keeping track of tasks is usually located in the person, yet adult treatments include arranging the environment|8,9,10"
+  - move: "Evidence|The pandemic, when homes became offices, gave a large-scale glimpse|11"
+  - move: "Claim|A home decides which projects can start, and the ones that need space are often good for people|12,13,14"
+  - move: "Mechanism|A home is the background to everything else, so its effect goes unnoticed"
+  - move: "Limit|Most of the evidence is correlational"
 ---
 Picture a studio apartment with a bed, a desk and a dresser. The desk is also where meals are eaten. The dresser is where the mail goes, and the notes for tomorrow, and then a bag on top of the notes. A project started on the desk has to be packed away before dinner. The person living there may conclude that they are disorganised, or that something is wrong with their attention. Some of the problem may be the room.
 

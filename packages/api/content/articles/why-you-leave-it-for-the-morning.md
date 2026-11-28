@@ -22,6 +22,15 @@ cycle:
 cycle_exit: "Decide once, as a rule for every night."
 cycle_cut: 2
 cycle_after: "The plan that quiets the evening"
+build:
+  - move: "Opening|A container left in the sink at night is regretted in the morning"
+  - move: "Evidence|Decisions for the future self look like decisions for a stranger|1"
+  - move: "Mechanism|At night the cost is felt and the morning's pressure is not, and future time looks roomier|2,3"
+  - move: "Mechanism|The plan to do it in the morning quiets the task until then|4"
+  - move: "Evidence|The relief is real, and so is the later cost|5,6"
+  - move: "Mechanism|The lesson does not carry back, because a feeling that has passed is underestimated|7,8,9"
+  - move: "Remedy|Decide once, as a rule for every night, with an if-then plan|10,11"
+  - move: "Limit|Mostly laboratory studies with students, not household chores"
 ---
 In the evening there is a container in the sink from lunch. Washing it would take two minutes. Leaving it until morning seems fine: there will be time, and it is the same two minutes either way. In the morning, with lunch to pack and somewhere to be, the container is in the way, and the question is why it was left. The next evening the same container is left again.
 

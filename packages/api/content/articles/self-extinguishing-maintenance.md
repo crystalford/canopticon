@@ -29,6 +29,16 @@ cycle:
 cycle_exit: "Tie the routine to something you already do daily, or remove the cause."
 cycle_cut: 5
 cycle_after: "Self-extinguishing maintenance: the problem"
+build:
+  - move: "Opening|Cleaning heals a sore gum, the cleaning stops, and the soreness returns"
+  - move: "Name|Self-extinguishing maintenance|record"
+  - move: "Evidence|Feeling better is the most common reason people stop treatment, across very different conditions|record"
+  - move: "Prior|Each piece of the loop is studied somewhere; the loop as a whole is not|record"
+  - move: "Mechanism|The symptom was both the reminder and the reward, so success removes both|record"
+  - move: "Name|The remission-as-cure error: reading under control as fixed|record"
+  - move: "Evidence|Success makes a routine invisible, in people and in public health|record"
+  - move: "Method|Tie the routine to a fixed occasion instead of to the symptom|record"
+  - move: "So|A symptom-free period is the routine working"
 ---
 Two teeth that do not quite touch trap food. Cleaning the gap after meals keeps the gum healthy, and within a week it looks fine, so the cleaning stops. A few weeks later the gum is sore again. Nothing about the teeth changed; the gap was there the whole time. The same happens with toes pressed too tightly together, with dry skin that only stays soft while it is moisturised, and with many medicines.
 

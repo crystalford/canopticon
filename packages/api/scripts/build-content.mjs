@@ -369,6 +369,35 @@ function build() {
       if (a.form === "Essay" || a.form === "Brief")
         for (const k of ["glance_words", "glance_formula", "glance_sentence", "glance_aloud"])
           if (!a[k]) failures.push(`articles/${a.slug}: an essay needs ${k} (its short version)`);
+      // Every essay carries its skeleton (2026-11-27): the argument as a chain
+      // of moves. A move's refs must be numbers in its Sources list, or
+      // "record" where it rests on quoted research documents.
+      if (a.form === "Essay") {
+        const moves = Array.isArray(a.build) ? a.build : [];
+        if (moves.length < 4)
+          failures.push(`articles/${a.slug}: an essay needs a build of at least four moves`);
+        const srcPart = String(a.body).split(/^## Sources\s*$/m)[1] ?? "";
+        const nSources = (srcPart.match(/^\d+\.\s/gm) || []).length;
+        moves.forEach((m, i) => {
+          const [role, text, refs = ""] = String(m.move ?? "").split("|");
+          if (!role?.trim() || !text?.trim())
+            failures.push(`articles/${a.slug}: build move ${i + 1} needs "Role|what it says|refs"`);
+          for (const r of refs
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean)) {
+            if (r === "record") {
+              if (!/<q doc=/.test(a.body))
+                failures.push(
+                  `articles/${a.slug}: build move ${i + 1} says "record" but the essay quotes no record document`,
+                );
+            } else if (!/^\d+$/.test(r) || +r < 1 || +r > nSources)
+              failures.push(
+                `articles/${a.slug}: build move ${i + 1} cites [${r}], not in its ${nSources} sources`,
+              );
+          }
+        });
+      }
       const row = rows.get(`/articles/${a.slug}`);
       if (row && ["Essay", "Brief", "Article"].includes(row.kind) && row.kind !== a.form)
         failures.push(

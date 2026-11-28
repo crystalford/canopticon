@@ -12,6 +12,14 @@ glance_words: "Names come from use."
 glance_formula: "model → the most likely words || good name = unlikely + fitting || lasting name = said in a moment + repeated by others"
 glance_sentence: "A language model writes the most likely words, a good name is unlikely and fitting at once, and the names that last are chosen by people repeating them."
 glance_aloud: "Ask a chatbot to name an idea and you get phrases shaped like names that rarely stick. A model writes the most likely next words, and a good name is something nobody would have predicted that seems obvious once heard. Training models to be helpful narrows them further. Names that last usually come from use: someone says something in a moment, and others repeat it because it fits. Use a model to widen the list. Pick by saying names aloud to people and hearing whether they use them back."
+build:
+  - move: "Opening|An AI asked to name a pattern gave names nobody would keep"
+  - move: "Mechanism|A language model predicts likely words, and a good name has to be unlikely and obvious at once|1"
+  - move: "Mechanism|Tuning narrows it further, and the narrowing passes to the people using it|2,3,4,5"
+  - move: "Evidence|Names that last are chosen by use; doomscrolling came from ordinary users|6,7"
+  - move: "Case|Deliberate names can work when the coiner has a moment and an audience, as Doctorow did|8,9"
+  - move: "Method|Use a model for candidates and leave the choice to people"
+  - move: "Limit|The studies used models from 2021 to 2023"
 ---
 While writing an essay for this site about streamers who never take a day off, I asked an AI to help name the pattern: people who leave a job and rebuild the old boss inside themselves. Its first suggestion was "the portable foreman." It sounded like a name. It even had a little picture in it. It also made no sense: a foreman supervises other workers, and these streamers have none. The next round brought "conspicuous toil" and "performed hardship," which were better, and then a set of phrases built on internet templates, such as "grind cosplay." None of them felt like something a person would say.
 

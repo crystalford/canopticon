@@ -13,6 +13,16 @@ glance_words: "Who explains?"
 glance_formula: "you explain → understanding grows || the AI explains → you receive → understanding is replaced"
 glance_sentence: "Talking to an AI changes how you think mainly through who does the explaining: when you explain first it trains your understanding, and when the AI explains it stands in for it."
 glance_aloud: "Saying your thoughts aloud changes nothing measurable on its own. Explaining does: putting how something works into words, to a listener, improves understanding. So when you talk a problem through with an AI, the question is who is explaining. If you explain and the AI asks or corrects, you're doing the part that teaches. If you ask and the AI explains, you get a good answer and keep less of it. Same conversation, opposite effects."
+build:
+  - move: "Opening|For most of computing's history people typed to machines, and now many talk to them"
+  - move: "Evidence|Producing language in writing costs more effort than speaking it|1"
+  - move: "Claim|This publication's McLuhan papers argue that computing stayed typed because the technology could not yet carry the voice"
+  - move: "Evidence|Saying thoughts aloud does not by itself change thinking|2"
+  - move: "Mechanism|Explaining does: putting into words why something is so, or how the steps connect|3"
+  - move: "Limit|Whether a spoken explanation teaches more than a written one is not settled|6"
+  - move: "Shift|An AI answers back, and can explain faster than the person talking to it"
+  - move: "Evidence|In a field experiment with nearly a thousand maths students, how the AI was used decided whether they learned|7"
+  - move: "So|Talking to an AI can change how a person thinks, depending on who does the explaining; the long-run effect is open"
 ---
 For most of the history of computing, people typed to machines. Now they increasingly talk to them: dictating messages, leaving voice notes, holding spoken conversations with AI assistants. It is reasonable to ask whether thinking out loud to a machine changes the thinking itself. The research on speaking, writing and explaining gives a fairly specific answer, though not the one most people expect.
 

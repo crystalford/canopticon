@@ -12,6 +12,15 @@ glance_words: "Hang it on a word you know."
 glance_formula: "long definition → one familiar word → remembered || two handles → a phrase you know → a further idea || handle − definition → fades"
 glance_sentence: "A hard definition sticks when you hang it on a word you already use, and two such words that fuse into a familiar phrase, like make and do into make do, hold even better."
 glance_aloud: "Poiesis and praxis are two Greek words that come with pages of explanation. I could never keep them straight until I reduced them to one word each: poiesis is making, praxis is doing. Together they're make do, a phrase everyone knows, and it even means something close to both: getting by with what you have. Memory research backs this up. A new term is easier to keep when it's linked to a familiar word, and easier still when you make the link yourself. The handle needs the definition behind it, or it fades."
+build:
+  - move: "Opening|The author kept confusing poiesis and praxis until they became make and do"
+  - move: "Evidence|Aristotle: making has its end in the thing made, doing is its own end|1"
+  - move: "Evidence|Linking a new word to a familiar one improved recall in the keyword method|2"
+  - move: "Evidence|Processing for meaning makes memory last|3"
+  - move: "Evidence|Working out the link yourself helps more than being given it|4,5"
+  - move: "Mechanism|Two handles fused into a phrase, make do, hold the pair and an idea of their own|6,7,8"
+  - move: "Limit|Handles fade without the definition behind them, and can flatten it|9"
+  - move: "Method|Learn the handle and the definition together, and use the handle to call the definition back"
 ---
 I could never keep *poiesis* and *praxis* straight. Both are Greek, both come up in philosophy and design writing, and each arrives with paragraphs of context. What finally held was reducing them to one English word each. *Poiesis* is making. *Praxis* is doing. And the two together, make and do, are a phrase everyone already knows: *make do*.
 

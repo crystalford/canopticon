@@ -13,6 +13,14 @@ glance_words: "Make it, then compare."
 glance_formula: "child → hasn't learned what to ignore → sees the environment || artist → makes something → holds it against the world → sees the difference"
 glance_sentence: "Children see the environment because they haven't learned what to ignore; artists see it by comparing something they made with the world, and that method can be borrowed."
 glance_aloud: "McLuhan said only the small child and the artist can see the environment everyone else has adapted to. The research says they do it differently. Children notice what adults have learned to filter out. Artists draw or describe something, then hold it against the real thing and look at where the two differ. That second method works for anyone: sketch the route before you follow it, write down how the day went before you check the calendar. It wears off as it becomes familiar, so it has to keep changing."
+build:
+  - move: "Opening|McLuhan said the child and the artist can see the environment that others cannot|1"
+  - move: "Evidence|Children attend more broadly and notice what adults have learned to filter out|2,3,4"
+  - move: "Evidence|Artists' advantage comes from trained ways of looking|5,6,7,8"
+  - move: "Mechanism|A way of making the familiar strange works only while it is unfamiliar, and use wears it out|9,10,11,12"
+  - move: "Link|Ground blindness says what is in steady use is seen only when removed; art offers a second, independent reading|1"
+  - move: "Method|Make something of the thing you want to see, by your own hand"
+  - move: "Limit|The artist studies are small|5,8"
 ---
 In the story, the Emperor walks out in new clothes that do not exist, and the court admires them. McLuhan read the story in an essay dated November 1965: "When the Emperor appeared in his new clothes, his courtiers did not see his nudity, they saw his old clothes." Then he named who could see: "Only the small child and the artist have that immediacy of approach that permits perception of the environmental." [1]
 

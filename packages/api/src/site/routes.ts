@@ -61,6 +61,7 @@ import type { InlineLink } from "./links";
 import { passageHref } from "./md";
 import { renderAdmin } from "./pages/admin";
 import { citationMeta, renderArticle, renderPaper } from "./pages/article";
+import { buildMarkdown } from "./pages/build";
 import { renderChanges } from "./pages/changes";
 import { renderClaude } from "./pages/claude";
 import { type DocView, renderDocument } from "./pages/document";
@@ -1095,7 +1096,7 @@ app.get("/articles/:slug", async (c, next) => {
       return markdownTwin(
         { id: a.slug, title: a.title, kind: a.form, topic: a.topic, date: a.date, body: a.body },
         `/articles/${a.slug}`,
-        glanceMarkdown(a),
+        [...glanceMarkdown(a), ...buildMarkdown(a)],
       );
     }
     return html(renderArticle(a, { signedIn: signedIn(c) }));
