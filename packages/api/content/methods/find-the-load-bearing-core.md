@@ -101,7 +101,7 @@ Mark a piece of writing by the job each paragraph does, to find its load-bearing
 - The longest single paragraph, a 224-word table, carries no new claim.
 - The paper's own central claim sits in one of its shortest sections, and the outline drawn from its sections missed six core paragraphs making four points.
 
-For contrast, the essay [*How one word can bring back an idea*](/articles/keep-three-words-rebuild-the-rest), 1,339 words with no abstract, roadmap, objections or conclusion, has a load share of 74%.
+For contrast, the essay [*Why you can't see your own addiction*](/articles/why-you-cant-see-your-own-addiction) argues the same idea in 818 words, with no abstract, roadmap, objections or restating conclusion, and has a load share of 88%.
 
 ## Where it fails
 
