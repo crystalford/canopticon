@@ -56,7 +56,7 @@ export function renderMethods(opts: { signedIn?: boolean } = {}): string {
   const body = `${pageHead({
     title: "Methods",
     section: "methods",
-    dek: "Procedures you can run, each built from one of the theories and the research behind it. Every method gives the steps for a person, the exact instruction for a language model, a worked example and where it fails, and downloads as a skill for Claude. Why the section exists: <a href=\"/articles/research-becomes-a-procedure\" class=\"ulink\">Research gets used when it becomes a procedure</a>.",
+    dek: 'Procedures you can run, each built from one of the theories and the research behind it. Every method gives the steps for a person, the exact instruction for a language model, a worked example and where it fails, and downloads as a skill for Claude. Why the section exists: <a href="/articles/research-becomes-a-procedure" class="ulink">Research gets used when it becomes a procedure</a>.',
   })}
 <div class="th-grid">
 ${cards}

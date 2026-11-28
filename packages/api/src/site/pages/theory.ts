@@ -272,7 +272,9 @@ ${glance(t)}
   }${
     methodsOf(t.slug).length
       ? `<div><h3>Run it</h3><div class="src-list">${methodsOf(t.slug)
-          .map((m) => `<a class="src-pill" href="/methods/${esc(m.slug)}">Method: ${esc(m.title)}</a>`)
+          .map(
+            (m) => `<a class="src-pill" href="/methods/${esc(m.slug)}">Method: ${esc(m.title)}</a>`,
+          )
           .join("")}</div></div>`
       : ""
   }${related ? `<div><h3>Elsewhere in the record</h3><div class="src-list">${related}</div></div>` : ""}${citeBlock(cite)}</section>`;
