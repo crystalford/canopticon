@@ -1,6 +1,16 @@
 [
  {
   "kind": "Theory",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-27",
+  "dateLabel": "27 Nov",
+  "title": "The mechanism chain",
+  "dek": "People know the things they use by what they do and how to operate them, and that feels like knowing how they work. Held as a short chain of parts and actions in order, a mechanism can be explained on demand, and the first link that will not come back shows where understanding stops.",
+  "stat": "11 propositions · 4 strong",
+  "route": "/theories/the-mechanism-chain"
+ },
+ {
+  "kind": "Theory",
   "topic": "Habits & maintenance",
   "date": "2026-11-26",
   "dateLabel": "26 Nov",
