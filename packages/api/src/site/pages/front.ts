@@ -17,8 +17,10 @@ import {
   seriesPapers,
   writingFor,
 } from "../data";
-import { esc, pill, shell } from "../layout";
-import { kindColours, longDate, shortDate, topicColours } from "../theme";
+import { esc, shell } from "../layout";
+import { longDate, shortDate } from "../theme";
+import { handleOf, kindWord, metaLine, termCard } from "./entry";
+import { theoryCard } from "./theories";
 
 /** The author's picks, in order. A slug that disappears is skipped, not
  *  replaced: a curated page does not quietly re-curate itself. */
@@ -47,7 +49,7 @@ function seriesCard(): string {
   const rows = series
     .map(
       ({ item, paper: p }, i) =>
-        `<a href="/papers/${esc(p.slug)}" class="ser-row${i ? "" : " first"}"><span class="ser-n">${String(i + 1).padStart(2, "0")}</span><span style="min-width:0"><span class="ser-t">${esc(p.title)}</span><span class="ser-d">${esc(item.blurb)}</span></span><span class="ser-r">${pill(item.tag, item.tagPair, "pill lg")}<span class="ser-m">${item.minutes} min</span></span></a>`,
+        `<a href="/papers/${esc(p.slug)}" class="ser-row${i ? "" : " first"}"><span class="ser-n">${String(i + 1).padStart(2, "0")}</span><span style="min-width:0"><span class="ser-t">${esc(p.title)}</span><span class="ser-d">${esc(item.blurb)}</span></span><span class="ser-r"><span class="ser-m">${esc(item.tag)}, ${item.minutes} min</span></span></a>`,
     )
     .join("");
   const days = series.map((s) => s.paper.date).sort();
@@ -55,7 +57,7 @@ function seriesCard(): string {
   const last = days[days.length - 1] ?? "";
   const d1 = shortDate(first).split(" ")[0] ?? "";
   const span = first === last ? longDate(first) : `${d1}–${longDate(last)}`;
-  return `<section aria-label="The McLuhan paper series" class="ser"><div class="ser-head"><div class="pills" style="margin-bottom:14px"><span class="pill lg" style="background:#e9dcf5;color:#5a2d82">Paper series</span><span class="pill lg" style="background:var(--card);color:#5a2d82">${series.length} papers · read in order or dip in</span></div><h3 class="ser-h">McLuhan said every medium changes the ratio among our senses. Seven papers take that literally.</h3><p class="ser-p">Six papers test it — from ADHD and typing to drugs and addiction — and the synthesis finds one configuration that media, drugs and illness all re-temper.</p></div><div>${rows}</div><p class="ser-foot">Each paper cites the published literature with numbered references · published ${esc(span)}</p></section>`;
+  return `<section aria-label="The McLuhan paper series" class="ser"><div class="ser-head"><h3 class="ser-h">McLuhan said every medium changes the ratio among our senses. Seven papers take that literally.</h3><p class="ser-p">Six papers test it — from ADHD and typing to drugs and addiction — and the synthesis finds one configuration that media, drugs and illness all re-temper.</p></div><div>${rows}</div><p class="ser-foot">Published ${esc(span)}. Read them in order or start anywhere; each cites the published literature with numbered references.</p></section>`;
 }
 
 /** Every theory, newest revision first: the publication's formal work, live
@@ -67,10 +69,7 @@ function theoriesSection(): string {
   if (!list.length) return "";
   const cards = list
     .slice(0, 3)
-    .map((t) => {
-      const strong = t.propositions.filter((p) => p.grade === "Strong").length;
-      return `<a href="/theories/${esc(t.slug)}" class="card" style="align-items:flex-start">${pill("Theory", kindColours("Theory"))}<span class="tile-t">${esc(t.title)}</span><span class="tile-d">${esc(t.dek)}</span><span style="font-size:var(--t-xs);color:var(--muted)">${t.propositions.length} propositions · ${strong} strong · ${t.references.length} references</span></a>`;
-    })
+    .map((t) => theoryCard(t))
     .join("");
   return `<section class="sec" aria-labelledby="t-h"><div class="sec-h"><h2 id="t-h">Theories</h2><a href="/theories" class="sec-a">All theories</a></div><p class="sec-p">Named ideas stated formally: a claim, propositions graded by the evidence behind them, the primary studies they rest on, and what counts against them.</p><div class="grid3">${cards}</div></section>`;
 }
@@ -80,15 +79,23 @@ function namedHere(): string {
     const t = term(id);
     if (!t) return [];
     return [
-      `<a href="${esc(t.route)}" class="card term-card"><span class="pills">${pill("Concept", kindColours("Concept"))}${sayOf(t) ? `<span class="term-card-say">${esc(sayOf(t) ?? "")}</span>` : ""}</span><span class="tile-t">${esc(t.title)}</span><span class="tile-d">${esc(t.definition ?? t.body)}</span>${t.plain ? `<span class="term-card-p">In plain words: ${esc(t.plain)}</span>` : ""}</a>`,
+      termCard({
+        name: t.title,
+        route: t.route,
+        definition: t.definition ?? t.body,
+        say: sayOf(t),
+        plain: t.plain,
+        first: t.artTitle || t.from || undefined,
+        date: t.coined,
+      }),
     ];
   });
   const open = libraryItems().filter((r) => r.kind === "Open problem").length;
   return `<section class="sec" aria-labelledby="l-h"><div class="sec-h"><h2 id="l-h">Lexicon</h2><a href="/lexicon" class="sec-a">Every term</a></div><p class="sec-p">Names for patterns the work found that had none. Each has its own page with a definition, examples and how it differs from existing terms.</p><div class="grid3 wide">${cards.join("")}</div><a href="/open" class="open-line"><span class="open-n tnum">${open}</span><span><strong>Open questions.</strong> What the research raised and could not settle, each with what is known and what is missing.</span><span aria-hidden="true" class="open-arrow">\u2192</span></a></section>`;
 }
 
-function researchRow(r: LibraryItem, last: boolean): string {
-  return `<a href="${esc(r.route)}" class="row rrow${last ? " last" : ""}"><span class="rrow-d tnum">${esc(r.dateLabel ?? shortDate(r.date))}</span><span style="min-width:0"><span class="rrow-t">${esc(r.title)}</span><span class="pills" style="margin-top:6px">${pill(r.sub ?? "Research", kindColours("Research"))}${pill(r.topic, topicColours(r.topic))}</span></span></a>`;
+function researchRow(r: LibraryItem): string {
+  return `<a href="${esc(r.route)}" class="wrow"><span class="er-t">${esc(r.title)}</span>${metaLine([r.sub && r.sub !== "Research" ? r.sub : undefined, r.topic, r.dateLabel ?? shortDate(r.date)])}</a>`;
 }
 
 /** The masthead: what the site is, in its own plain words, and its five
@@ -112,9 +119,10 @@ function masthead(): string {
   return `<section class="mast" aria-labelledby="mast-h"><h1 id="mast-h" class="mast-h">An independent research publication by Chris Telford.</h1><p class="mast-p">Theories of his own, the essays and papers that argue them, and the research they stand on.</p><nav class="lad" aria-label="Sections">${strip}</nav></section>`;
 }
 
-/** One row of writing: title, summary, date · length · topic, and its form. */
+/** One row of writing: its title, its few words, then what it is and when. */
 function wrow(w: ReturnType<typeof writingFor>, kind = true): string {
-  return `<a href="${esc(w.route)}" class="wrow">${kind ? `<span class="wrow-k">${pill(w.kind, kindColours(w.kind))}</span>` : ""}<span class="wrow-t">${esc(w.title.split(/:\s/)[0] ?? w.title)}</span><span class="wrow-d">${esc(w.dek)}</span><span class="wrow-m"><span class="tnum">${esc(shortDate(w.date))}</span><span aria-hidden="true">·</span><span>${w.minutes} min</span><span aria-hidden="true">·</span><span>${esc(w.topic)}</span></span></a>`;
+  const handle = handleOf(w.route, w.dek);
+  return `<a href="${esc(w.route)}" class="wrow"><span class="er-t">${esc(w.title.split(/:\s/)[0] ?? w.title)}</span>${handle ? `<span class="er-h">${esc(handle)}</span>` : ""}${metaLine([`${w.minutes} min`, w.topic, shortDate(w.date)], kind ? kindWord(w.kind) : "")}</a>`;
 }
 
 const picks = (slugs: string[]) =>
@@ -142,15 +150,15 @@ function researchSection(): string {
     .join("");
   const nBriefs = libraryItems().filter((r) => r.kind === "Brief").length;
   const reports = latestResearch(6)
-    .map((r) => researchRow(r, false))
+    .map((r) => researchRow(r))
     .join("");
   const topics = researchTopics()
     .map(
       (t) =>
-        `<a href="/topics/${esc(t.slug)}" class="tpill" style="background:${topicColours(t.name)[0]};color:${topicColours(t.name)[1]}">${esc(t.name)}<span class="n">${t.count}</span></a>`,
+        `<a href="/topics/${esc(t.slug)}" class="tpill">${esc(t.name)}<span class="n">${t.count}</span></a>`,
     )
     .join("");
-  return `<section class="sec" aria-labelledby="r-h"><div class="sec-h"><h2 id="r-h">Research</h2><a href="/research" class="sec-a">All research</a></div><p class="sec-p">The evidence everything above stands on: the reports, and briefs that each answer one question from them.</p><div class="wcols"><div class="wcol"><div class="wcol-h">${pill("Brief", kindColours("Brief"), "pill lg")}<span>One question, answered from the reports</span></div>${briefs}<a href="/research?kind=Brief" class="row-more">All ${nBriefs} briefs</a></div><div class="wcol"><div class="wcol-h">${pill("Research", kindColours("Research"), "pill lg")}<span>The newest reports</span></div><div class="rows slim wcol-rows">${reports}</div><a href="/research?kind=Report" class="row-more">All ${publicResearchCount()} reports</a></div></div><div class="topics-card"><span class="topics-h">Browse by topic</span><div class="pills" style="gap:8px">${topics}</div></div></section>`;
+  return `<section class="sec" aria-labelledby="r-h"><div class="sec-h"><h2 id="r-h">Research</h2><a href="/research" class="sec-a">All research</a></div><p class="sec-p">The evidence everything above stands on: the reports, and briefs that each answer one question from them.</p><div class="wcols"><div class="wcol"><div class="wcol-h"><span class="wcol-n">Briefs</span><span>One question each, answered from the reports</span></div>${briefs}<a href="/research?kind=Brief" class="row-more">All ${nBriefs} briefs</a></div><div class="wcol"><div class="wcol-h"><span class="wcol-n">Reports</span><span>The newest</span></div><div class="rows slim wcol-rows">${reports}</div><a href="/research?kind=Report" class="row-more">All ${publicResearchCount()} reports</a></div></div><div class="topics-card"><span class="topics-h">Browse by topic</span><div class="pills" style="gap:8px">${topics}</div></div></section>`;
 }
 
 function checkable(): string {

@@ -149,7 +149,7 @@ export function renderSearch(query: SearchQuery, opts: { signedIn?: boolean } = 
     return `<div class="card" style="padding:16px 18px"><h2 style="font-size:15px;font-weight:600;margin:0 0 12px">Browse a topic</h2><div class="pills">${names
       .map(
         (t) =>
-          `<a href="/topics/${esc(topicSlug(t))}" class="tpill" style="background:${topicColours(t)[0]};color:${topicColours(t)[1]};font-size:13px;padding:4px 10px">${esc(t)}</a>`,
+          `<a href="/topics/${esc(topicSlug(t))}" class="tpill" style="font-size:13px;padding:4px 10px">${esc(t)}</a>`,
       )
       .join("")}</div></div>`;
   };

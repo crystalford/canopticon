@@ -439,7 +439,16 @@ function build() {
     const heads = [...body.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
     for (const need of METHOD_SECTIONS)
       if (!heads.includes(need)) failures.push(`${at}: missing the "## ${need}" section`);
-    for (const k of ["title", "dek", "theory", "use_when", "input", "output", "date"])
+    for (const k of [
+      "title",
+      "dek",
+      "theory",
+      "glance_formula",
+      "use_when",
+      "input",
+      "output",
+      "date",
+    ])
       if (!meta[k]) failures.push(`${at}: needs ${k}`);
     if (!Number.isInteger(meta.version) || meta.version < 1)
       failures.push(`${at}: version must be a whole number from 1`);

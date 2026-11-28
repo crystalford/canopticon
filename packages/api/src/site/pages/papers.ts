@@ -7,8 +7,8 @@ import { AUTHOR } from "../author";
 import type { Paper } from "../content/store";
 import { allPapers, joinedTheories, terms, theory } from "../content/store";
 import { SERIES_NAME, paperMinutes, paperRoute, seriesPapers } from "../data";
-import { esc, pageHead, pill, shell } from "../layout";
-import { kindColours, longDate, shortDate } from "../theme";
+import { esc, pageHead, shell } from "../layout";
+import { longDate, shortDate } from "../theme";
 
 const SITE = "https://canopticon.com";
 
@@ -64,17 +64,17 @@ export function renderPapers(opts: { signedIn?: boolean } = {}): string {
   const seriesRows = series
     .map(
       ({ item, paper: p }, i) =>
-        `<li class="pp-row"><span class="pp-n">${String(i + 1).padStart(2, "0")}</span><div class="pp-b"><a href="${esc(paperRoute(p.slug))}" class="pp-t">${esc(p.title)}</a><p class="pp-d">${esc(p.dek ?? item.blurb)}</p>${facts(p, item.minutes)}</div><span class="pp-tag">${pill(item.tag, item.tagPair, "pill lg")}</span></li>`,
+        `<li class="pp-row"><span class="pp-n">${String(i + 1).padStart(2, "0")}</span><div class="pp-b"><a href="${esc(paperRoute(p.slug))}" class="pp-t">${esc(p.title)}</a><p class="pp-d">${esc(p.dek ?? item.blurb)}</p>${facts(p, item.minutes)}</div><span class="pp-tag">${esc(item.tag)}</span></li>`,
     )
     .join("");
 
   const row = (p: Paper) =>
-    `<li class="pp-row"><span class="pp-n" aria-hidden="true">·</span><div class="pp-b"><a href="${esc(paperRoute(p.slug))}" class="pp-t">${esc(p.title)}</a><p class="pp-d">${esc(p.dek ?? "")}</p>${facts(p, paperMinutes(p))}</div><span class="pp-tag">${pill("Paper", kindColours("Paper"), "pill lg")}</span></li>`;
+    `<li class="pp-row"><span class="pp-n" aria-hidden="true"></span><div class="pp-b"><a href="${esc(paperRoute(p.slug))}" class="pp-t">${esc(p.title)}</a><p class="pp-d">${esc(p.dek ?? "")}</p>${facts(p, paperMinutes(p))}</div></li>`;
   const joiningRows = joining.map(row).join("");
   const otherRows = others
     .map(
       (p) =>
-        `<li class="pp-row"><span class="pp-n" aria-hidden="true">·</span><div class="pp-b"><a href="${esc(paperRoute(p.slug))}" class="pp-t">${esc(p.title)}</a><p class="pp-d">${esc(p.dek ?? "")}</p>${facts(p, paperMinutes(p))}</div><span class="pp-tag">${pill("Paper", kindColours("Paper"), "pill lg")}</span></li>`,
+        `<li class="pp-row"><span class="pp-n" aria-hidden="true"></span><div class="pp-b"><a href="${esc(paperRoute(p.slug))}" class="pp-t">${esc(p.title)}</a><p class="pp-d">${esc(p.dek ?? "")}</p>${facts(p, paperMinutes(p))}</div></li>`,
     )
     .join("");
 

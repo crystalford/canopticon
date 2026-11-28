@@ -10,6 +10,7 @@ import { keyFigures, libraryItems, questions, researchDoc, timeline } from "../c
 import { esc, pageHead, pill, shell } from "../layout";
 import { passageHref } from "../md";
 import { kindColours, topicSlug } from "../theme";
+import { firstSentence, handleOf, kindWord, metaLine } from "./entry";
 
 /** A note appears only where the author wrote one. */
 const NOTES: Record<string, string> = {
@@ -32,6 +33,8 @@ interface TopicRow {
   dek: string;
   kind: string;
   kindPair: readonly [string, string];
+  kindOf: string;
+  handle: string;
   date: string;
   stat: string;
 }
@@ -43,6 +46,8 @@ function rowFor(d: LibraryItem): TopicRow {
     dek: d.dek ?? "",
     kind: d.kind === "Research" ? (d.sub ?? "Research") : d.kind,
     kindPair: kindColours(d.kind),
+    kindOf: d.kind,
+    handle: handleOf(d.route, d.dek ?? ""),
     date: d.dateLabel ?? "",
     stat: d.kind === "Open problem" || d.kind === "Concept" ? "" : (d.stat ?? ""),
   };
@@ -55,6 +60,8 @@ function derivedRow(d: DerivedRow, figure: boolean): TopicRow {
     dek: d.dek ?? "",
     kind: figure ? (d.v ?? "Figure") : "Question",
     kindPair: figure ? ["#e3f0e6", "#1f5e36"] : kindColours("Question"),
+    kindOf: figure ? "Figure" : "Question",
+    handle: d.dek ? firstSentence(d.dek) : "",
     date: "",
     stat: "",
   };
@@ -73,7 +80,7 @@ function section(
   return `<section id="${id}" class="tsec"><div class="ruled-h"><h2>${esc(title)}</h2>${pill(String(rows.length), countPair, "pill lg")}</div><div class="stack">${shown
     .map(
       (r) =>
-        `<a href="${esc(r.href)}"><span class="stack-t">${esc(r.title)}</span>${r.dek ? `<span class="stack-d">${esc(r.dek)}</span>` : ""}<span class="pills" style="margin-top:2px">${pill(r.kind, r.kindPair, "pill lg")}${r.date ? pill(r.date, kindColours("Research"), "pill lg") : ""}${r.stat ? pill(r.stat, kindColours("Research"), "pill lg") : ""}</span></a>`,
+        `<a href="${esc(r.href)}"><span class="stack-t">${esc(r.title)}</span>${r.handle ? `<span class="er-h">${esc(r.handle)}</span>` : ""}${metaLine([r.stat || undefined, r.date || undefined], kindWord(r.kindOf, r.kind))}</a>`,
     )
     .join(
       "",

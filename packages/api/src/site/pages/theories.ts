@@ -7,31 +7,34 @@ import { AUTHOR } from "../author";
 import type { Theory } from "../content/store";
 import { allTheories } from "../content/store";
 import { esc, pageHead, pill, shell } from "../layout";
-import { inline } from "../md";
-import { kindColours, longDate } from "../theme";
+import { formulaHtml, metaLine } from "./entry";
 import { GRADE_COLOURS, GRADE_MEANING } from "./theory";
 
 export const THEORIES_URL = "https://canopticon.com/theories";
 
-function counts(t: Theory): string {
-  const n = (g: "Strong" | "Moderate" | "Proposed") =>
-    t.propositions.filter((p) => p.grade === g).length;
-  return (["Strong", "Moderate", "Proposed"] as const)
-    .filter((g) => n(g) > 0)
-    .map((g) => `${pill(`${n(g)} ${g.toLowerCase()}`, GRADE_COLOURS[g])}`)
-    .join(" ");
+/** "12 propositions, 5 strong. 17 references": what a theory stands on, in
+ *  words, for its card. */
+export function theoryFacts(t: Theory): string {
+  const strong = t.propositions.filter((p) => p.grade === "Strong").length;
+  const props = `${t.propositions.length} propositions${strong ? `, ${strong} strong` : ""}`;
+  return `${props}. ${t.references.length} references`;
+}
+
+/** A theory's card, wherever theories are listed: its name, its few words,
+ *  its formula and what it stands on. The claim and the dek are on its page. */
+export function theoryCard(t: Theory): string {
+  const words = t.glance_words
+    ? `<span class="ec-h">${esc(t.glance_words)}</span>`
+    : `<span class="ec-h">${esc(t.dek)}</span>`;
+  const formula = t.glance_formula ? formulaHtml(t.glance_formula) : "";
+  return `<a href="/theories/${esc(t.slug)}" class="card ec"><span class="ec-t">${esc(t.title)}</span>${words}${formula}${metaLine([theoryFacts(t)])}</a>`;
 }
 
 export function renderTheories(opts: { signedIn?: boolean } = {}): string {
   const list = [...allTheories()].sort((a, b) =>
     (b.revised ?? b.date).localeCompare(a.revised ?? a.date),
   );
-  const rows = list
-    .map(
-      (t) =>
-        `<a href="/theories/${esc(t.slug)}" class="card th-card"><span class="pills">${pill("Theory", kindColours("Theory"))}<span class="th-card-v">Version ${t.version ?? 1} · ${esc(longDate(t.revised ?? t.date))}</span></span><span class="th-card-t">${esc(t.title)}</span><span class="th-card-d">${esc(t.dek)}</span><span class="th-card-c"><span class="th-card-l">Claim</span>${inline(t.claim)}</span><span class="th-card-m">${counts(t)}<span>${t.propositions.length} propositions · ${t.references.length} primary references</span></span></a>`,
-    )
-    .join("\n");
+  const rows = list.map((t) => theoryCard(t)).join("\n");
   const scale = (["Strong", "Moderate", "Proposed"] as const)
     .map((g) => `<span>${pill(g, GRADE_COLOURS[g])} ${esc(GRADE_MEANING[g])}</span>`)
     .join("");
