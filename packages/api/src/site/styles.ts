@@ -880,6 +880,17 @@ a.xl.concept { border-bottom-color: var(--brick); }
 .bd-role { font-weight: 600; color: var(--ink); margin-right: .5em; }
 .bd-s { margin-left: .5em; color: var(--muted); white-space: nowrap; }
 .bd-none { color: var(--brick); }
+.fp { display: grid; gap: 6px; margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); }
+.fp-t { font-size: var(--t-xs); font-weight: 600; color: var(--muted); }
+.fp-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.fp-w { padding: 2px 10px; border-radius: 999px; background: var(--tint-3); color: var(--ink); font-weight: 500; }
+.fp-back { color: var(--muted); margin-left: 4px; }
+.fp-cmp { display: grid; gap: 4px; }
+.fp-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; padding: 4px 8px; border-radius: 6px; color: var(--muted); }
+.fp-row.hot { background: var(--tint-3); color: var(--ink); }
+.fp-row.hot .fp-v { color: var(--cobalt); font-weight: 600; }
+.fp-steps { margin: 0; padding-left: 1.4em; display: grid; gap: 2px; }
+.fp-q { font-style: italic; color: var(--ink-2); }
 .gl-a summary { cursor: pointer; font-size: var(--t-sm); font-weight: 500; color: var(--cobalt); }
 .gl-a p { margin: 8px 0 0; font-size: var(--t-read); line-height: 1.6; color: var(--body); }
 
