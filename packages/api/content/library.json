@@ -1,6 +1,21 @@
 [
  {
   "kind": "Essay",
+  "topic": "Habits & maintenance",
+  "date": "2026-11-28",
+  "dateLabel": "28 Nov",
+  "title": "How an idea changes a life",
+  "dek": "A one-hour lesson changed students' grades and health for three years, and most of them could not remember what it said. What carried it was a new way of reading something that kept happening. An idea changes a life when it is used again each time that thing comes round.",
+  "stat": "9 sources · 6 min",
+  "min": 6,
+  "quotes": 0,
+  "sources": 9,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/how-an-idea-changes-a-life"
+ },
+ {
+  "kind": "Essay",
   "topic": "McLuhan & media theory",
   "date": "2026-11-28",
   "dateLabel": "28 Nov",
