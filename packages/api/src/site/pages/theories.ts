@@ -6,28 +6,29 @@
 import { AUTHOR } from "../author";
 import type { Theory } from "../content/store";
 import { allTheories } from "../content/store";
-import { esc, pageHead, pill, shell } from "../layout";
-import { formulaHtml, metaLine } from "./entry";
-import { GRADE_COLOURS, GRADE_MEANING } from "./theory";
+import { esc, pageHead, shell } from "../layout";
+import { formulaHtml, gradeBar, ringFigure } from "./entry";
+import { GRADE_MEANING } from "./theory";
 
 export const THEORIES_URL = "https://canopticon.com/theories";
 
-/** "12 propositions, 5 strong. 17 references": what a theory stands on, in
- *  words, for its card. */
-export function theoryFacts(t: Theory): string {
-  const strong = t.propositions.filter((p) => p.grade === "Strong").length;
-  const props = `${t.propositions.length} propositions${strong ? `, ${strong} strong` : ""}`;
-  return `${props}. ${t.references.length} references`;
-}
-
-/** A theory's card, wherever theories are listed: its name, its few words,
- *  its formula and what it stands on. The claim and the dek are on its page. */
-export function theoryCard(t: Theory): string {
-  const words = t.glance_words
-    ? `<span class="ec-h">${esc(t.glance_words)}</span>`
-    : `<span class="ec-h">${esc(t.dek)}</span>`;
-  const formula = t.glance_formula ? formulaHtml(t.glance_formula) : "";
-  return `<a href="/theories/${esc(t.slug)}" class="card ec"><span class="ec-t">${esc(t.title)}</span>${words}${formula}${metaLine([theoryFacts(t)])}</a>`;
+/** A theory's card, wherever theories are listed: a drawing of the idea
+ *  (its loop with the cut marked, or its formula where it has no loop), then
+ *  its name, the idea in one sentence, the way out, and how its propositions
+ *  are graded. */
+export function theoryCard(t: Theory, id = ""): string {
+  const fig = t.cycle?.length
+    ? ringFigure(`rg-${t.slug}`, t.cycle, t.cycle_cut)
+    : t.glance_formula
+      ? formulaHtml(t.glance_formula, 3)
+      : "";
+  const way = t.cycle_exit
+    ? `<span class="fc-way"><span>Way out</span>${esc(t.cycle_exit)}</span>`
+    : "";
+  return `<a href="/theories/${esc(t.slug)}" class="card fc"${id ? ` id="${esc(id)}"` : ""}><span class="fc-fig">${fig}</span><span class="fc-b"><span class="fc-t">${esc(t.title)}</span><span class="fc-h">${esc(t.glance_sentence ?? t.dek)}</span>${way}${gradeBar(
+    t.propositions.map((p) => p.grade),
+    t.references.length,
+  )}</span></a>`;
 }
 
 export function renderTheories(opts: { signedIn?: boolean } = {}): string {
@@ -36,7 +37,10 @@ export function renderTheories(opts: { signedIn?: boolean } = {}): string {
   );
   const rows = list.map((t) => theoryCard(t)).join("\n");
   const scale = (["Strong", "Moderate", "Proposed"] as const)
-    .map((g) => `<span>${pill(g, GRADE_COLOURS[g])} ${esc(GRADE_MEANING[g])}</span>`)
+    .map(
+      (g) =>
+        `<span><span class="gb-key gb-${g.toLowerCase()}" aria-hidden="true"></span><b>${g}</b> ${esc(GRADE_MEANING[g])}</span>`,
+    )
     .join("");
 
   const ld = {

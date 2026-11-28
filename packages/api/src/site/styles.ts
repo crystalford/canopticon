@@ -1315,15 +1315,58 @@ a.xl.concept { border-bottom-color: var(--brick); }
    of facts. No labels, no boxes inside the card, no pills where the section
    already says the kind. */
 .th-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
-a.card.ec { gap: 0; padding: 26px 26px 22px; }
-.ec-t { font-size: var(--t-xl); font-weight: 500; letter-spacing: -.018em; line-height: 1.2; color: var(--ink); }
-a.ec:hover .ec-t { color: var(--cobalt); }
-.ec-say { margin-left: 8px; font-size: var(--t-sm); font-weight: 400; letter-spacing: 0; color: var(--muted); white-space: nowrap; }
-.ec-h { margin-top: 8px; font-size: var(--t-md); line-height: 1.5; color: var(--ink-2); }
-.ec-b { margin-top: 14px; font-size: var(--t-sm); line-height: 1.6; color: var(--body); }
-.ec .fx { margin-top: 18px; }
-.ec .e-meta { margin-top: auto; padding-top: 18px; }
-.ec-gap { flex: 1 1 auto; }
+/* A figure card: a drawing of the idea on a tinted panel, then the name, the
+   idea in one sentence and what is particular to it. Theories draw their loop
+   (the cut in brick) or formula; methods draw a track from what they take to
+   what they give. */
+a.card.fc { gap: 0; padding: 0; overflow: hidden; border-radius: 18px; }
+a.card.fc:hover { background: var(--card); border-color: var(--rule); }
+.fc-fig { display: flex; align-items: center; justify-content: center; min-height: 200px; padding: 12px 8px 4px; background: var(--tint-3); border-bottom: 1px solid var(--hair); }
+.fc-fig .fx { padding: 18px 22px; border: 0; text-align: center; align-items: center; }
+.fc-fig .fx-l { font-size: var(--t-md); }
+.fc-fig.mt { min-height: 150px; flex-direction: column; align-items: stretch; justify-content: center; padding: 22px 22px 14px; }
+.fc-b { display: flex; flex-direction: column; flex: 1; padding: 20px 24px 22px; }
+.fc-t { font-size: var(--t-xl); font-weight: 500; letter-spacing: -.02em; line-height: 1.15; color: var(--ink); }
+a.fc:hover .fc-t { color: var(--cobalt); }
+.fc-h { margin-top: 8px; font-size: var(--t-md); line-height: 1.5; color: var(--ink-2); }
+.fc-way { margin-top: 14px; font-size: var(--t-ui); line-height: 1.5; color: var(--body); }
+.fc-way > span { display: block; margin-bottom: 2px; font-size: var(--t-sm); font-weight: 600; color: var(--brick); }
+.fc-m { margin-top: auto; padding-top: 16px; font-size: var(--t-sm); color: var(--muted); }
+.rg { display: block; width: 100%; max-width: 420px; height: auto; }
+.rg-a { fill: none; stroke: var(--rule-2); stroke-width: 1.3; }
+.rg-a.cut { stroke: var(--brick); stroke-width: 1.6; stroke-dasharray: 3 3; }
+.rg marker path { fill: none; stroke: var(--rule-2); stroke-width: 1.6; }
+.rg .cut marker path { stroke: var(--brick); }
+.rg-x { stroke: var(--brick); stroke-width: 2.2; stroke-linecap: round; }
+.rg-n circle { fill: var(--ink); }
+.rg-n text { font-family: var(--sans); font-size: 11.5px; font-weight: 500; fill: var(--ink); }
+.gb { display: block; margin-top: auto; padding-top: 18px; }
+.gb-bar { display: flex; gap: 3px; height: 7px; }
+.gb-bar > span { flex: 1; border-radius: 2px; }
+.gb-strong { background: var(--ink); }
+.gb-moderate { background: #9a958a; }
+.gb-proposed { border: 1.3px solid #9a958a; box-sizing: border-box; }
+.gb-key { display: inline-block; width: 18px; height: 7px; margin-right: 6px; border-radius: 2px; vertical-align: 1px; }
+.prop-key b { font-weight: 600; color: var(--ink-2); margin-right: 4px; }
+.gb-t { display: block; margin-top: 8px; font-size: var(--t-sm); color: var(--muted); }
+.tk { display: flex; align-items: center; gap: 10px; }
+.tk-e { flex: none; max-width: 36%; padding: 6px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); font-size: var(--t-sm); font-weight: 500; line-height: 1.3; color: var(--ink); }
+.tk-e.out { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+.tk-d { position: relative; flex: 1; display: flex; justify-content: space-between; align-items: center; }
+.tk-d::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--rule-2); }
+.tk-d b { position: relative; width: 9px; height: 9px; border-radius: 50%; background: var(--card); border: 1.5px solid var(--ink); }
+.tk-l { display: block; margin-top: 10px; text-align: center; font-size: var(--t-sm); color: var(--muted); }
+/* A term, set like a dictionary entry. */
+a.card.tw { gap: 0; padding: 28px 26px 24px; border-radius: 18px; }
+a.card.tw:hover { background: var(--card); border-color: var(--rule); }
+.tw-w { font-size: clamp(30px, 3vw, 40px); font-weight: 500; letter-spacing: -.035em; line-height: 1.02; color: var(--ink); overflow-wrap: anywhere; }
+a.tw:hover .tw-w { color: var(--cobalt); }
+.tw-say { margin-top: 10px; font-size: var(--t-ui); color: var(--muted); }
+.tw-plain { margin-top: 18px; font-size: var(--t-read); line-height: 1.35; font-weight: 500; color: var(--ink); }
+.tw-d { margin-top: 10px; font-size: var(--t-ui); line-height: 1.55; color: var(--body); }
+.tw-et { margin-top: auto; padding-top: 16px; font-size: var(--t-sm); line-height: 1.5; font-style: italic; color: var(--muted); }
+.tw-et.plain { font-style: normal; }
+@media (max-width: 600px) { .fc-b { padding: 18px 20px 20px; } a.card.tw { padding: 24px 20px 20px; } }
 .e-meta { display: block; font-size: var(--t-sm); line-height: 1.45; color: var(--muted); }
 .e-kind { font-weight: 600; }
 /* A short version's formula: the author's own mechanism in a line, arrows in
@@ -1331,7 +1374,6 @@ a.ec:hover .ec-t { color: var(--cobalt); }
 .fx { display: flex; flex-direction: column; gap: 4px; padding-left: 14px; border-left: 2px solid var(--brick); }
 .fx-l { display: block; font-size: var(--t-ui); line-height: 1.5; font-weight: 500; letter-spacing: -.005em; color: var(--ink); }
 .fx-a { margin: 0 .45em; color: var(--brick); font-weight: 400; }
-@media (max-width: 600px) { a.card.ec { padding: 22px 20px 20px; } }
 /* A row in a list: the same parts, flat. */
 .er-t { display: block; font-size: var(--t-read); font-weight: 500; line-height: 1.3; letter-spacing: -.012em; color: var(--ink); }
 .er-h { display: block; margin-top: 4px; font-size: var(--t-ui); line-height: 1.5; color: var(--ink-2); max-width: 68ch; }

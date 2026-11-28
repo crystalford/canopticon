@@ -20,6 +20,7 @@ interface Entry {
   definition: string;
   say?: string | undefined;
   plain?: string | undefined;
+  etymology?: string | undefined;
   aka?: string[] | undefined;
   first?: string | undefined;
   firstRoute?: string | undefined;
@@ -60,6 +61,7 @@ function fromTerm(t: Idea): Entry {
     definition: t.definition ?? t.body,
     say: sayOf(t),
     plain: t.plain,
+    etymology: t.etymology,
     aka: t.aka,
     first: t.artTitle || t.from || undefined,
     firstRoute: t.artRoute || t.docRoute || undefined,
@@ -108,7 +110,7 @@ function entryHtml(e: Entry): string {
   const slug = e.route.split("/").pop() ?? "";
   if (e.kind === "Theory") {
     const t = theory(slug);
-    if (t) return theoryCard(t).replace('class="card ec"', `class="card ec" id="${esc(slug)}"`);
+    if (t) return theoryCard(t, slug);
   }
   return termCard({
     name: e.name,
@@ -116,6 +118,7 @@ function entryHtml(e: Entry): string {
     definition: e.definition,
     say: e.say,
     plain: e.plain,
+    etymology: e.etymology,
     first: e.first && e.firstRoute ? e.first : undefined,
     date: e.date,
     id: slug,

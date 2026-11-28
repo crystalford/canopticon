@@ -85,6 +85,7 @@ function namedHere(): string {
         definition: t.definition ?? t.body,
         say: sayOf(t),
         plain: t.plain,
+        etymology: t.etymology,
         first: t.artTitle || t.from || undefined,
         date: t.coined,
       }),
