@@ -72,16 +72,19 @@ export function screenplayHtml(text: string): string {
 /** The body, with each ```screenplay block set as a script page and the rest
  *  in the article dialect. */
 function probeBody(p: Probe): string {
-  const parts = p.body.split(/^```screenplay\s*\n([\s\S]*?)^```\s*$/m);
-  return parts
-    .map((part, i) =>
-      i % 2
-        ? screenplayHtml(part)
-        : part.trim()
-          ? articleHtml(part, { docTitle: () => null }).html
-          : "",
-    )
-    .join("");
+  // One pass of the article dialect over the whole body, so section numbers
+  // run on; each screenplay block stands in as a marker paragraph and is
+  // swapped for the script page afterwards.
+  const scenes: string[] = [];
+  const md = p.body.replace(/^```screenplay\s*\n([\s\S]*?)^```\s*$/gm, (_m, text: string) => {
+    scenes.push(screenplayHtml(text));
+    return `\n\nSCREENPLAYBLOCK${scenes.length - 1}\n\n`;
+  });
+  const html = articleHtml(md, { docTitle: () => null }).html;
+  return html.replace(
+    /<p[^>]*>\s*SCREENPLAYBLOCK(\d+)\s*<\/p>/g,
+    (_m, i: string) => scenes[Number(i)] ?? "",
+  );
 }
 
 // ---- pages -----------------------------------------------------------------
