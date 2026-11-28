@@ -21,6 +21,14 @@ chart:
   - bar: "Felt better|46.6"
   - bar: "Worries such as dependence|20.0"
   - bar: "The medicine was not working|18.5"
+build:
+  - move: "Puzzle|About half of people stop a long-term medicine within a year or two, and side effects explain less than expected|1,2"
+  - move: "Evidence|The most common reason given is feeling better|3,4,5"
+  - move: "Mechanism|The symptom kept the routine going, and belief follows the symptom|6"
+  - move: "Mechanism|The relapse comes long after the stopping, and delay blocks learning cause and effect|7,8"
+  - move: "Limit|Stopping is sometimes right, when the cause has gone|3,9"
+  - move: "Remedy|Habit tied to a fixed routine keeps people taking it|10,11"
+  - move: "So|Ask whether the condition is there all the time or only with symptoms|4"
 ---
 About half of the people prescribed a medicine for a long-term condition stop taking it, or take it only part of the time, within a year or two. A pooled analysis of 20 studies and 376,162 patients taking drugs that prevent heart disease found adherence, measured from prescription refills, of 57% after a median of two years, and 50% among people who had not had a heart attack [1]. Electronic pill bottles tell the same story for blood pressure: about half of the patients prescribed a blood-pressure drug had stopped taking it within one year [2].
 

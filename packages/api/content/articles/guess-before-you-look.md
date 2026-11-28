@@ -13,6 +13,15 @@ glance_words: "Guess first."
 glance_formula: "guess → answer → correction → learning || answer first → nothing to correct → little kept"
 glance_sentence: "What you keep from a book, a map or an AI depends on whether you guessed before the answer arrived, because the guess gives the answer something to correct."
 glance_aloud: "Look something up before you've thought about it and the answer slides off. Guess first, even badly, and the answer lands on something: your guess was right, or wrong in a particular way, and that correction is what you remember. It works the same with a textbook, a map or a chatbot. The guess feels slower and less efficient, which is why people skip it. That effort is the learning."
+build:
+  - move: "Opening|A person driven to a house a dozen times by a phone still cannot find it alone, while London taxi drivers learn the city|1"
+  - move: "Claim|Order matters: a guess made before the answer gives the answer something to correct"
+  - move: "Evidence|Guessing before seeing an answer improves learning, even when the guess is wrong|2,3,4"
+  - move: "Case|The same AI helped or hurt maths students depending on how it was set up to be used|5"
+  - move: "Puzzle|Guessing first feels like learning less, so people choose the smooth explanation|6"
+  - move: "Limit|Guessing first suits people who already know something, and some tasks cost little to hand off|3,7,9"
+  - move: "Name|McLuhan's hot and cool media, read as regulation: cognitive ectothermy|8"
+  - move: "So|What decides the effect of a tool is the order in which it is used"
 ---
 Someone has driven to a friend's house a dozen times with a phone giving directions. One day the phone dies on the way, and they find they do not know the route. They have been there often, but they have never found their way there.
 

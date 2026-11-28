@@ -19,6 +19,16 @@ cycle:
   - step: "Rebuild|from the cue alone"
   - step: "Check|against the source"
 cycle_after: "Down and back up"
+build:
+  - move: "Opening|The author keeps three words for poiesis and praxis and rebuilds the definition from them"
+  - move: "Evidence|Memory keeps the meaning of a sentence and loses its wording within seconds|1,2,3"
+  - move: "Evidence|A cue brings back what was stored but could not be recalled without it|4,5"
+  - move: "Condition|A cue opens only what was stored: chess masters recall real positions, not random ones|6"
+  - move: "Evidence|Context helps only when it comes first|7"
+  - move: "Method|Start on the handle, go deep, come back up to the handle|8"
+  - move: "Evidence|Explaining exposes what was not understood, and recalling makes it last|9,10"
+  - move: "Limit|Rebuilt memories drift toward the familiar, so check them against the source|2,3"
+  - move: "Method|Learn it in full, pick a handle and a context word, rebuild from the words, check"
 ---
 I cannot recite the definition of *poiesis*. I could not tell you Aristotle's exact sentence, or the history of how the word has been used since. What I keep is three words: *make*, *do* and *end*. Asked, I can rebuild the rest from them. *Poiesis* is making and *praxis* is doing, and Aristotle told them apart by where the end lies: a making has its end in the thing made, while a doing is its own end. That is close enough to the text that I can find the passage again when I need the words exactly.
 

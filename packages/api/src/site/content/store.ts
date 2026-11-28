@@ -161,6 +161,9 @@ export interface Article extends Glance, Figures {
   cite?: string;
   /** The slug of a theory this article explains. */
   theory?: string;
+  /** How the essay is built (2026-11-27): its argument as a chain of moves,
+   *  each "Role|what it says|refs", refs being Sources numbers or "record". */
+  build?: { move: string }[];
   body: string;
 }
 

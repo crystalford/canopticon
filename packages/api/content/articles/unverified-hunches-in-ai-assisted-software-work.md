@@ -22,6 +22,16 @@ glance_words: "Hunches passed as facts."
 glance_formula: "hunch + confidence − check → handed on as fact || your memory of the project − the agent's memory → ground wrongly assumed shared"
 glance_sentence: "When you direct an AI, a hunch that feels right gets handed on as if it had been checked, and the agent, which starts each session blank, has no way to check it."
 glance_aloud: "You tell a coding agent to change something because it feels wrong. You know why, so you don't say. The agent doesn't ask, guesses at a reason, and builds on the guess. An hour later you're undoing it. Two things stacked: you passed on a hunch as if it were checked, and you assumed the agent remembered the project the way you do. It starts every session with nothing but your words. Say why, and give it something it can test."
+build:
+  - move: "Opening|You ask an AI agent to rename something because the name is wrong, and it does something else"
+  - move: "Name|The certainty handoff and one-sided memory"
+  - move: "Evidence|The feeling that a hunch is right is a separate signal from its being right|record"
+  - move: "Mechanism|That feeling decides whether you check at all|record"
+  - move: "Evidence|Speakers believe they were understood far more often than they were|record"
+  - move: "Mechanism|Only one of you remembers: the agent loses the context that you keep|record"
+  - move: "Evidence|Time pressure makes both failures worse|record"
+  - move: "Remedy|Coding agents make it cheap to check a hunch by running it|record"
+  - move: "So|Rework with an agent often traces back to something you knew and never said"
 ---
 You ask an AI coding agent to rename something because the name is wrong. You have been living in this project for weeks and know why it is wrong, so you do not say. The agent renames it, guesses at the reason, and the guess spreads through the code. An hour later you are undoing work that was built on a hunch you never checked and never explained. This article names the two failures behind that hour. Neither is new on its own; what is new is how they compound when the other party is a machine that forgets.
 

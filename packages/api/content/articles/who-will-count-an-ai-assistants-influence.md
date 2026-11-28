@@ -19,6 +19,15 @@ glance_words: "Whoever counts, gets paid."
 glance_formula: "new event + new counter → a new way to pay for ads || the agent's choice = the new event; the agent = the counter → reports to no one"
 glance_sentence: "Every shift in how advertising is paid for came when a new party could count a new event, and the AI agent that now does the buying can count the one that matters and reports it to no one."
 glance_aloud: "Online advertising has been paid for by whatever someone could count: a flat fee, then each time an ad was shown, then each click, then each sale. Each change came when a new party could count a new event. Now AI agents choose products for people, and the agent's choice, shaped by what it read, is the event that matters. The agent itself can count which sources shaped it. So far it reports that to nobody, so nobody gets paid for influencing it."
+build:
+  - move: "Opening|Online advertising has changed what it charges for three times: an ad shown, a click, a sale"
+  - move: "Pattern|Each shift let the payer know something no one could know before|record"
+  - move: "Case|How each of the three was paid for, and gamed|record"
+  - move: "Test|Most things called transformations since 2002 fail that test|record"
+  - move: "Shift|The party being persuaded is now an AI assistant, and its influence goes uncounted|record"
+  - move: "Crux|Only the AI companies can attest what persuaded their assistants, and they do not report it|record"
+  - move: "Name|Cost per attested influence|record"
+  - move: "So|The shift starts when an AI company reports what persuaded its assistant|record"
 ---
 Online advertising has changed what it charges for three times: for showing an ad, then for a click, then for a sale. Each change needed someone everyone would trust to count the new event: the website that served the ad, the search engine that logged the click, the shop whose checkout recorded the sale. The research calls that trusted counter the oracle. This article argues the fourth change has already begun: AI assistants now do the choosing, and the only company that could count what persuaded them is the AI company itself, which reports nothing.
 

@@ -23,6 +23,15 @@ glance_words: "The haggle is back."
 glance_formula: "price tag → one price for everyone || personalised price → the seller reads you → you see one number → a haggle with one side blind"
 glance_sentence: "Pricing software is retiring the price tag and bringing back the bargain, with all the information on the seller's side."
 glance_aloud: "For about a century and a half, everyone paid the number on the tag. Before that, prices were haggled, and both sides could read each other. Pricing software brings the haggle back, with only one side reading: the seller knows your history, your device and what you paid last time, and you see one number. Competition law was built to catch sellers who agree on prices. Software that sets prices for all of them needs no agreement."
+build:
+  - move: "Question|Are the prices of necessities still set by markets at all?"
+  - move: "Reframe|The fixed price tag is a 19th-century invention, a technology|record"
+  - move: "Distinction|A price worked out for each customer is a different thing from a price that moves for everyone|record"
+  - move: "Claim|It brings back the haggle, with the seller holding the information|record"
+  - move: "Case|When every landlord uses the same software, the meeting moves into the tool|record"
+  - move: "Mechanism|Pricing software can learn to coordinate without being told|record"
+  - move: "Case|Canada has had the software for years and has not found the agreement the law looks for|record"
+  - move: "Method|Price the same basket on different phones|record"
 ---
 This came from a question about Canadian living costs: are the prices of necessities still set by markets at all? The answer starts with something everyone takes for granted. The price tag, one number for every buyer, is a 19th-century invention, and software is replacing it with prices worked out for each buyer from what the seller knows about them. That brings back the haggle, except that now only the seller gets to bargain.
 

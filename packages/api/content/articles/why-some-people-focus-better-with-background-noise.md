@@ -12,6 +12,14 @@ glance_words: "Some brains need more input."
 glance_formula: "low gain + outside noise → better focus || typical gain + outside noise → past the best level → worse focus"
 glance_sentence: "Background noise helps people with ADHD focus a little and hinders everyone else a little, because the right amount of stimulation depends on where a brain's own gain is set."
 glance_aloud: "White or pink noise helps people with ADHD a little on attention tasks, and hurts everyone else a little. Fidgeting shows the same split. One explanation fits both: a brain whose overall gain runs low does better with some stimulation added from outside, and a brain set higher gets pushed past its best level. So the radio on while studying can help one person and distract the next. Each person can test it on themselves."
+build:
+  - move: "Opening|Many people with ADHD say they work better with background noise|1"
+  - move: "Evidence|Noise helps people with ADHD a little and hurts the comparison groups|1,2"
+  - move: "Mechanism|Stochastic resonance: the best amount of noise depends on where the brain's own activity is set|3,5"
+  - move: "Evidence|Fidgeting shows the same split|6"
+  - move: "Limit|Not every kind of noise helps, or every task, and the effect is small|1,7,8"
+  - move: "Name|Heterocrasis: a mix of the senses that differs before any medium acts on it"
+  - move: "So|Whether noise helps depends on the person and the task, so it is worth testing on your own work"
 ---
 Many people with ADHD say they work better with a fan running, rain sounds in their headphones or the murmur of a café. Interest in white, pink and brown noise "for ADHD" has grown quickly enough that researchers reviewed the evidence in 2024 [1]. The research is smaller than the trend, but it points somewhere specific: noise does help people with ADHD a little, and it does the opposite for people without it.
 
