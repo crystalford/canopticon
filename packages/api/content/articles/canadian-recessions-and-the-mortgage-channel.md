@@ -19,6 +19,17 @@ glance_words: "Rate decision, housing channel."
 glance_formula: "rate decision → mortgage credit → households → downturn || household debt → a stronger channel || insured mortgages → public risk, private return"
 glance_sentence: "Every major Canadian downturn since 1980 carries a monetary-policy decision, and housing credit is the channel through which that decision reaches households."
 glance_aloud: "Canadian recessions are usually told as bad luck. The record says each major one since 1980 follows a rate decision, and mortgages are how that decision reaches people. The clearest case is 1990: the anti-inflation campaign overshot its own target, and Toronto house prices didn't pass their 1989 peak until 2002. Canada's high household debt makes the channel unusually strong, and public mortgage insurance puts the risk on everyone while the returns stay private."
+build:
+  - move: "Question|Are Canadian recessions weather, or decisions transmitted through mortgages?"
+  - move: "Pattern|Across five decades the downturns share the same fingerprints|record"
+  - move: "Case|1981 to 1982: a rate sledgehammer, and a federal policy that broke Alberta's market|record"
+  - move: "Case|1990 is the clearest case of a downturn chosen, though that is argued, not settled|record"
+  - move: "Mechanism|The mortgage insurer, CMHC, is the lever in both directions|record"
+  - move: "Mechanism|Canada's exposure to housing makes the channel unusually strong|record"
+  - move: "Case|2008, the oil crash, and 2020 to 2023 ran through the same channel|record"
+  - move: "Case|Immigration targets became a second dial on housing demand|record"
+  - move: "Test|A housing recession with no policy reversal before it would prove the pattern wrong|record"
+  - move: "So|The mortgage market is the main channel through which national policy reaches ordinary life"
 ---
 Recessions are usually narrated as weather — a downturn arrives, the cycle turns. Canada's have a more specific shape: in almost every case a decision was taken, and the thing it worked through was housing.
 

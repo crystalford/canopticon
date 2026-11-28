@@ -405,6 +405,7 @@ export function renderPaper(p: Paper, opts: { signedIn?: boolean } = {}): string
     based,
     "</div>",
     glance(p),
+    buildBlock(p),
     abstract
       ? `<section class="inshort" id="s-0"><div class="inshort-h">In short</div>${documentHtml(abstract).html}</section>`
       : "",

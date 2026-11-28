@@ -10,6 +10,15 @@ glance_words: "Silenced, still there."
 glance_formula: "problem remains + warning silenced → looks solved || four ways: suppressed, adapted, pre-empted, substituted || remedy = a reading the quiet can't reach"
 glance_sentence: "Sometimes the thing that is working silences the warning that would tell you to check, while the problem stays; four theories describe four ways it happens, and one remedy fits all four."
 glance_aloud: "You check things when something feels off: a sore spot, a surprise, a doubt. Each of four theories describes a way that feeling goes quiet while the problem is still there. From the inside, that quiet feels the same as the problem being solved. McLuhan made the point in 1965 with bath water that warms half a degree an hour: you never know when to scream. The fix in every case is to take a reading the quiet can't reach: a routine hung on a daily habit, a short break, a guess, or a test."
+build:
+  - move: "Opening|A check runs when something feels wrong, and stops when the feeling goes|2"
+  - move: "Link|Four theories on this site each describe a signal that goes quiet while its cause remains"
+  - move: "Mechanism|One mechanism in four forms: the signal is suppressed, adapted, pre-empted or substituted|3,5,6,14"
+  - move: "Crux|From inside, a silenced signal looks the same as a solved problem, the counterfactual problem of causal inference|7"
+  - move: "Remedy|Take the reading from somewhere the response cannot reach, as discontinuation trials and single-case designs do|8,9"
+  - move: "Prior|McLuhan named the problem in 1965 and asked for the equivalent of a thermostat|1"
+  - move: "Case|The same four forms appear in vaccination programmes, launch decisions, automated cockpits and computer memory|30,32,34,35,36"
+  - move: "Limit|What the synthesis does not show"
 ---
 
 # False Quiet

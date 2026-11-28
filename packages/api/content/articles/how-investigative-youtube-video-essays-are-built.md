@@ -19,6 +19,16 @@ glance_words: "Judge the evidence before the turn."
 glance_formula: "cold open → evidence in viewing order → late turn to meaning → persuaded || structure persuades → works on weak evidence too"
 glance_sentence: "Investigative video essays persuade through structure, a cold open, evidence in viewing order and a late turn to meaning, so the structure works just as well on weak evidence and the evidence before the turn is what to judge."
 glance_aloud: "The strongest investigative video essays open on an object or a document, walk through the evidence in the order you'd discover it, and only near the end say what it all means. That late turn is what persuades: by then you've followed every step. Because the structure does so much of the work, it persuades just as well when the evidence is thin. So judge one of these videos by what it shows before the turn."
+build:
+  - move: "Question|How are investigative YouTube video essays built?"
+  - move: "Move|The cold open makes a promise and withholds the answer|record"
+  - move: "Move|Evidence arrives in the order a viewer would experience it|record"
+  - move: "Structure|Two skeletons: the thriller arc and the thesis arc|record"
+  - move: "Crux|The forensic turn from what happened to what it means, often late in the video|record"
+  - move: "Structure|Long videos are built from chapters|record"
+  - move: "Move|Authority comes from restraint and a recognisable voice|record"
+  - move: "Risk|The form persuades whether or not the evidence holds|record"
+  - move: "So|To judge a video, check the evidence that comes before the turn"
 ---
 Investigative video essays on YouTube — true-crime breakdowns, internet mysteries, long takedowns of crypto schemes or plagiarists — have become a form of their own. They are often hours long, and they are built very differently from a news report on the same events. Taking apart how the strongest channels build their scripts shows why: the structure itself does much of the persuading, and it does so whether or not the evidence underneath is sound.
 

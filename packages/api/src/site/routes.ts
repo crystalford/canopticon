@@ -61,7 +61,7 @@ import type { InlineLink } from "./links";
 import { passageHref } from "./md";
 import { renderAdmin } from "./pages/admin";
 import { citationMeta, renderArticle, renderPaper } from "./pages/article";
-import { buildMarkdown } from "./pages/build";
+import { buildBlock, buildMarkdown } from "./pages/build";
 import { renderChanges } from "./pages/changes";
 import { renderClaude } from "./pages/claude";
 import { type DocView, renderDocument } from "./pages/document";
@@ -1120,7 +1120,7 @@ app.get("/papers/:slug", (c, next) => {
     if (built && !md) {
       const body = withGlance(
         withSpoken(withFigures(built.body, p), spokenCards(p.slug)),
-        glance(p),
+        glance(p) + buildBlock(p),
       );
       // The hand-built page carries its own JSON-LD; the citation tags Google
       // Scholar reads and the Markdown twin's address are added here.
@@ -1138,7 +1138,7 @@ app.get("/papers/:slug", (c, next) => {
           body: p.body,
         },
         `/papers/${p.slug}`,
-        glanceMarkdown(p),
+        [...glanceMarkdown(p), ...buildMarkdown(p)],
       );
     }
     return html(renderPaper(p, { signedIn: signedIn(c) }));

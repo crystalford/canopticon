@@ -13,6 +13,14 @@ glance_words: "Hot supplies, cool asks."
 glance_formula: "hot medium → supplies more + arouses more → you produce less || kept warm all the time → your own capacity drops || cool stretches → it returns"
 glance_sentence: "McLuhan's hot and cool describe regulation: how much a medium supplies, how much it arouses, and whether you predict before the answer arrives."
 glance_aloud: "McLuhan sorted media into hot and cool. Hot media arrive well filled with data; cool ones leave the audience to complete them. Read as regulation, a hot medium supplies what you would otherwise produce yourself, the way warm air spares a body from making its own heat. A body kept warm all the time loses some of that capacity, and a mind kept supplied loses some of its own. Brief, regular stretches in the cool, like guessing before you look, rebuild it."
+build:
+  - move: "Puzzle|McLuhan never said why hot and cool are temperatures"
+  - move: "Claim|Read as regulation: a medium heats a person by supplying their output, or by raising arousal"
+  - move: "Mechanism|A mind handed a finished answer makes no prediction, and predicting first is what makes learning last|Kornell,Kapur"
+  - move: "Evidence|Scored blind, 13 paired comparisons fit in 9, show no difference in 3 and reverse in 1, where novices do better hot|Sweller,Kalyuga"
+  - move: "Case|A chatbot is both hot and cool, depending on how it is used|Bastani"
+  - move: "Mechanism|The capacity to make one's own heat is trained by excursions into the cold|van Marken"
+  - move: "So|An always-warm information environment leaves that capacity untrained"
 ---
 
 # Why Temperature

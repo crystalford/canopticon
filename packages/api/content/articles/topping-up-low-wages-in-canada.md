@@ -19,6 +19,15 @@ glance_words: "Two leaks in the top-up."
 glance_formula: "Canada Workers Benefit → low wages topped up through tax || no wage floor → employers absorb part of it || ~9% of eligible earners never file → never reached"
 glance_sentence: "Canada already tops up low earnings through the Canada Workers Benefit, and two design facts decide how well it works: employers absorb part of it without a wage floor, and about 9% of eligible earners never file."
 glance_aloud: "Debates about basic income often skip that Canada already runs something close: the Canada Workers Benefit, a refundable tax credit that tops up low earnings. Two facts decide how well it works. Where no wage floor binds, employers capture part of any top-up by paying less, including to workers who don't get it. And because it's claimed on a tax return, about 9% of eligible earners, those least likely to file, never receive it."
+build:
+  - move: "Question|How should Canada top up low wages?"
+  - move: "Evidence|The Canada Workers Benefit already does it|record"
+  - move: "Mechanism|Part of the money ends up with employers, and a wage floor stops the leak|record"
+  - move: "Case|In Britain the bill grew with low wages|record"
+  - move: "Limit|The people who never file never get it|record"
+  - move: "Mechanism|Clawbacks tax low earners like the rich|record"
+  - move: "Evidence|What a universal version would cost|record"
+  - move: "So|The instrument exists and has two known faults, the employer leak and the people who never file, and both have fixes"
 ---
 The Canadian argument about income support is usually staged as a choice between a universal basic income and nothing. It skips the fact that a version of the alternative has been running for years, paid quarterly, through the tax return.
 

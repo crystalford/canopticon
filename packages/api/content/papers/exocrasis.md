@@ -11,6 +11,15 @@ glance_words: "Memory moved outside."
 glance_formula: "keyboard + memory + search + network → part of the mind outside the body || outward, stored, fast-switching thought strengthened → slow, self-paced thought weakened"
 glance_sentence: "The whole computing environment moves part of memory and the senses outside the body, strengthening outward, stored, fast-switching thought and weakening slow, internally held thought."
 glance_aloud: "Most worry about computers is about the screen. This paper looks at the whole environment: keyboard, memory, search and network. Together they move part of the mind outside the body. People remember less of what they photograph, habitual GPS users get worse at finding their way, reading on screens is slightly shallower, and action games sharpen exactly the skills screens demand. Each effect is small, but it covers everyone at once, and it lasts."
+build:
+  - move: "Question|What does the whole computing environment strengthen, and what does it push out?"
+  - move: "Claim|It moves part of the configuration of the senses and of memory outside the body: exocrasis"
+  - move: "Evidence|People remember less of what they photograph or let a device store, and habitual GPS users show weaker spatial memory over time|Henkel,Sparrow,Dahmani"
+  - move: "Evidence|Reading on screens gives slightly shallower comprehension of expository text, and the gap has grown|Delgado"
+  - move: "Evidence|Action video games improve the skills screens demand|Bediou"
+  - move: "Evidence|Facebook's rollout across US colleges, and paid deactivation, show small, real effects on well-being|Braghieri,Allcott"
+  - move: "Limit|Several famous findings do not hold up, and are set aside"
+  - move: "So|Small effects per person, across whole environments: a tuning toward outward, stored, fast-switching processing"
 ---
 
 # Exocrasis

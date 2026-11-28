@@ -11,6 +11,14 @@ glance_words: "The baseline is the medium."
 glance_formula: "drug = the content || shifted baseline = the medium → unseen || two routes back: turn reward gain down, or make the background visible"
 glance_sentence: "In dependence the drug stays vivid while the shifted baseline becomes the unseen background, and the routes back either turn reward gain down or make that background visible."
 glance_aloud: "McLuhan took his idea that media numb us from stress physiology, the same science that later explained addiction. This paper joins the two. In dependence the drug is always in view; what goes unseen is the body's shifted baseline: flatter rewards, higher stress, a body that feels wrong without it. There are two routes back. Some drugs turn reward gain down. Others, like psychedelics, may briefly make the background visible. Recovery is a re-tempering, and it usually happens among other people."
+build:
+  - move: "Opening|McLuhan argued every medium numbs us to its own effects, an idea he took from Hans Selye|Selye"
+  - move: "Lineage|The same tradition, through allostasis, led to the leading model of addiction|Sterling,Koob"
+  - move: "Claim|In dependence, the unperceived ground is the shifted baseline, while the drug stays salient: narcocrasis|Koob"
+  - move: "Evidence|The body cannot update: damage to the insula ended smoking easily|Naqvi"
+  - move: "Routes|Psychedelics may act as anti-environments; other drugs turn reward gain down without revealing anything|Carhart"
+  - move: "Remedy|Recovery as anacrasis, a re-tempering that runs through other people|Venniro"
+  - move: "Limit|Where the account stops: media and behavioural addictions"
 ---
 
 # Narcocrasis

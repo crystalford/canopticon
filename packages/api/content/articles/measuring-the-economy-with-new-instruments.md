@@ -19,6 +19,14 @@ glance_words: "Better measurement, privately held."
 glance_formula: "computation → prediction about the same || computation → measurement much faster (scraped prices, card spending, satellites) → captured privately → the public still waits"
 glance_sentence: "Computation has done little for economic prediction and a great deal for measurement, and most of that gain is held privately while the public waits weeks for official numbers."
 glance_aloud: "There are old, solid arguments for why an economy can't be computed in advance, and none of them have gone away. What computing changed is measurement: scraped online prices, card-spending records and satellite images show what's happening weeks before official statistics do. Most of that data is owned and sold privately. So the numbers often already exist, and the public still waits weeks to see them."
+build:
+  - move: "Question|What can new instruments measure in the economy, and who has them?"
+  - move: "Limit|Prediction keeps slipping out of reach|record"
+  - move: "Evidence|What computation actually won: scraped prices, card-spending trackers, satellite images|record"
+  - move: "Evidence|AI turns text and images into numbers|record"
+  - move: "Limit|What is still not counted, from ownership registries to lobbying|record"
+  - move: "Claim|The instruments exist, and the public does not have them|record"
+  - move: "So|The gain from the new instruments was time and honesty, knowing sooner and knowing when an official number was wrong, and none of it is a forecast"
 ---
 Every few years someone announces that enough data and enough computing power will finally let us run the economy properly. It has not happened, and the reasons it cannot are old and well understood. Meanwhile the same technology has quietly transformed something less glamorous and far more useful.
 

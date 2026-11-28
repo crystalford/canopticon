@@ -19,6 +19,15 @@ glance_words: "Typical by default."
 glance_formula: "model → the most typical answer || different models → much the same answer || novelty = an assumption overturned or two fields joined → found on purpose"
 glance_sentence: "Language models give the most typical answer, and different models give much the same one, so novelty has to be looked for on purpose: an assumption overturned, or two fields connected."
 glance_aloud: "Ask a language model for a new idea and it pulls toward what everyone else would say. Different companies' models converge on the same answers, long sessions drift toward the typical, and everyone using the tools gets pulled the same way. The ideas look more original than they turn out to be. Real novelty has a shape: an assumption overturned, or two fields that never cite each other brought together. You have to go looking for that on purpose."
+build:
+  - move: "Question|Do language models narrow the range of ideas?"
+  - move: "Evidence|Different models give much the same answer|record"
+  - move: "Evidence|AI ideas look novel, then shrink when built|record"
+  - move: "Mechanism|Long sessions pull toward the model's favourite themes|record"
+  - move: "Contrast|Surprising ideas come from outsiders, and look wrong at first|record"
+  - move: "Evidence|It narrows the crowd, not only the person|record"
+  - move: "Remedy|What pushes back against the pull|record"
+  - move: "So|AI brainstorming gives ideas that feel fresh and turn out familiar; asking for unlikely answers on purpose works better"
 ---
 You ask an AI for a fresh angle on a problem. It gives you something that sounds sharp. You ask another model to check, and it agrees. You keep refining together for an hour, and the idea gets smoother and more confident. The research behind this article says each of those steps moves you toward the average, not away from it.
 

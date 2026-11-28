@@ -19,6 +19,15 @@ glance_words: "A figure built by hand."
 glance_formula: "job growth since 2020 → mostly immigrants + temporary residents || no monthly official split → assembled from an annual table → undercounts the group it counts"
 glance_sentence: "Nearly all of Canada's post-pandemic job growth went to immigrants and temporary residents, but no official table publishes that split, and the hand-built figures likely understate it."
 glance_aloud: "You'll hear that nearly all of Canada's job growth since 2020 went to immigrants and temporary residents. The direction is right. But unlike the US, Canada has no official monthly table splitting jobs between Canadian-born workers and everyone else. Every version of the figure is assembled by hand from an annual series, a permit database and adjustments. That series is known to undercount temporary residents, so the real share is probably larger than the numbers in circulation."
+build:
+  - move: "Question|How much of Canada's job growth since 2020 went to immigrants and temporary residents?"
+  - move: "Limit|Canada has no monthly table to settle it|record"
+  - move: "Evidence|Immigration contributed 79.9% of labour force growth from 2016 to 2021|record"
+  - move: "Mechanism|The Canadian share is higher than the American one for reasons that have little to do with hiring|record"
+  - move: "Limit|The uncertainty runs in one direction|record"
+  - move: "Shift|The boom is already running backwards|record"
+  - move: "Evidence|The boom narrowed the employment gap for immigrants already here|record"
+  - move: "So|Both sides quote real figures from an incomplete instrument, so the honest claim has to say how it was built"
 ---
 In the United States a single government table settles the argument about who got the jobs: the labour survey publishes foreign-born and native-born employment every month, and anyone can read the split. Canada argues about the same question constantly and has no such table.
 
