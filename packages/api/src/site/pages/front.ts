@@ -110,6 +110,7 @@ function masthead(): string {
     ["/research", "Research", "The evidence: reports kept whole, and briefs written from them."],
     ["/lexicon", "Lexicon", "The words: every term coined here, defined."],
     ["/methods", "Methods", "The tools: procedures built from the theories, to run on any piece."],
+    ["/probes", "Probes", "Ideas in progress: stories, scenes, probes and poems."],
   ];
   const strip = steps
     .map(
