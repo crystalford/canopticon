@@ -10,8 +10,8 @@ coined: "Chris Telford, Canopticon, 27 November 2026"
 related:
   - route: /theories/the-mechanism-chain
     label: "Theory: The mechanism chain (a mechanism held as a chain of parts and actions)"
-  - route: /articles/keep-three-words-rebuild-the-rest
-    label: "Essay: How one word can bring back an idea (worked example 2)"
+  - route: /articles/why-you-cant-see-your-own-addiction
+    label: "Essay: Why you can't see your own addiction (worked example 2)"
   - route: /papers/narcocrasis
     label: "Paper: Narcocrasis (worked example 1)"
 propositions:
@@ -58,7 +58,7 @@ propositions:
   - statement: "Marking every paragraph by its job measures how much of a piece carries its argument, and restatement and frame gather in the conventional parts of a paper: the abstract, the roadmap, the replies to objections and the conclusion."
     grade: "Proposed"
     refs: ""
-    basis: "Two pieces marked by hand by one reader: a 5,716-word paper in which 42% of the words were load-bearing and eight of ten objection replies repeated a paragraph from the body, and a 1,339-word essay with none of those parts, in which 74% were."
+    basis: "Two pieces marked by hand by one reader: a 5,716-word paper in which 42% of the words were load-bearing and eight of ten objection replies repeated a paragraph from the body, and an 818-word essay arguing the same idea, with none of those parts, in which 88% were."
   - statement: "An outline drawn from a piece's headings can miss the paragraphs its argument rests on, while a skeleton drawn from the load-bearing core, read in order, is the argument and the form other versions can be built from."
     grade: "Proposed"
     refs: ""
@@ -223,7 +223,7 @@ A no to the second question means the claim is not yet located in the piece. A n
 
 **Worked example 1: a long paper.** [*Narcocrasis*](/papers/narcocrasis) has 101 paragraphs and 5,716 words. Marked by hand: core 34%, limits 8%, elaboration 27%, asides 4%, restatement 18%, frame 9%. Its load share is 42%: 37 paragraphs, 2,420 words. The repeats gather where a paper's conventions put them. The thesis is stated in the abstract, again with the coined names, again at the start of the third section and again in the conclusion. Eight of the ten replies to objections repeat a paragraph from the body almost one for one, 360 of that section's 482 words. The longest single paragraph, a 224-word table across five dimensions, adds no new claim, and its section carries none. The section that carries the paper's own idea, that the shifted baseline goes unseen while the drug stays vivid, is one of the shortest. Its outline, drawn from the sections, missed six load-bearing paragraphs, making four points: that central claim, the finding the paper calls its most important, the clearest statement of what the new term adds, and the contrast between its two routes to recovery.
 
-**Worked example 2: a short essay.** [*How one word can bring back an idea*](/articles/keep-three-words-rebuild-the-rest) has 19 paragraphs and 1,339 words. Core 59%, limits 15%, elaboration 15%, restatement 7%, frame 4%: a load share of 74%. It has no abstract, roadmap, objections section or conclusion, which is where the paper's repeats gathered. Its one restatement is the numbered how-to list, which repeats the three steps given earlier and the final check. Every core paragraph sits on one of its skeleton's nine moves, and one move rests on an elaboration, the study of labels and category learning.
+**Worked example 2: the same idea as a short essay.** [*Why you can't see your own addiction*](/articles/why-you-cant-see-your-own-addiction) argues the paper's central idea in 12 paragraphs and 818 words. Core 80%, limits 8%, elaboration 8%, aside 3%, frame 2% (rounded): a load share of 88%. It has no abstract, roadmap, objections section or conclusion that restates the thesis, which is where the paper's repeats gathered. Its closing paragraph partly repeats the opening, but it also draws the essay's conclusion, so it is marked core. The paragraph that names the idea and points to the paper and to the theory of ground blindness is elaboration: the argument holds without it. Every core paragraph sits on a move of its skeleton, and one move, the name, rests on that elaboration.
 
 ## Scope
 

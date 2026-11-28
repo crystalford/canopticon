@@ -5,20 +5,30 @@
 // build fails otherwise).
 
 import { describe, expect, it } from "vitest";
-import app from "../src/index";
+import type { PlannedFigure } from "../src/site/content/store";
 import { allArticles, allPapers } from "../src/site/content/store";
-import { moves, planFigure } from "../src/site/pages/build";
+import { buildBlock, buildMarkdown, moves, planFigure } from "../src/site/pages/build";
 
-const env = { LOG_LEVEL: "error" };
-const get = (path: string) => app.fetch(new Request(`http://test${path}`), env);
+// A piece of its own, so the drawing is tested whether or not a published
+// piece carries a plan (the pilot essay was withdrawn on 2026-11-28).
+const PLAN: PlannedFigure[] = [
+  { move: 1, kind: "chain", data: "make|do", title: "Two words" },
+  { move: 2, kind: "compare", data: "Meaning|kept || Wording|lost", hot: 1 },
+  { move: 3, kind: "loop", data: "" },
+];
+const PIECE = {
+  build: [
+    { move: "Opening|One|" },
+    { move: "Evidence|Two|1" },
+    { move: "Method|Three" },
+    { move: "So|Four" },
+  ],
+  figure_plan: PLAN,
+  cycle: ["Handle|a", "Go deep|b", "Back up|c"],
+};
 const flat = (s: string) => s.replace(/[*_]/g, "").replace(/\s+/g, " ").toLowerCase();
 
 describe("figure plan", () => {
-  it("the memory essay has a figure for every move", () => {
-    const a = allArticles().find((x) => x.slug === "keep-three-words-rebuild-the-rest");
-    expect(a?.figure_plan?.map((f) => f.move)).toEqual(moves(a ?? {}).map((_, i) => i + 1));
-  });
-
   it("every figure names a real move and shows only what its piece says", () => {
     for (const p of [...allArticles(), ...allPapers()]) {
       const n = moves(p).length;
@@ -34,16 +44,13 @@ describe("figure plan", () => {
     }
   });
 
-  it("draws each figure under its move, and lists it in the twin", async () => {
-    const html = await (await get("/articles/keep-three-words-rebuild-the-rest")).text();
-    expect(html).toContain("How it's built · 9 moves · 9 figures");
+  it("draws each figure under its move, and lists it in the twin", () => {
+    const html = buildBlock(PIECE);
+    expect(html).toContain("How it's built · 4 moves · 3 figures");
     expect(html).toContain('<span class="fp fp-chain">');
-    expect(html).toContain(
-      '<span class="fp-row hot"><span class="fp-l">A change of meaning</span>',
-    );
+    expect(html).toContain('<span class="fp-row hot"><span class="fp-l">Meaning</span>');
     expect(html).toContain('<span class="fp fp-loop">');
-    const md = await (await get("/articles/keep-three-words-rebuild-the-rest.md")).text();
-    expect(md).toContain("   Figure (Poiesis and praxis, in three words): make → do → end");
+    expect(buildMarkdown(PIECE).join("\n")).toContain("   Figure (Two words): make → do");
   });
 
   it("escapes what it draws", () => {

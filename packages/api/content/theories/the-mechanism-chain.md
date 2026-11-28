@@ -8,12 +8,8 @@ version: 1
 claim: "People know the things they use by what they do and how to operate them, and that knowledge is accurate, because a procedure is held as an ordered list of steps. Knowing what a thing does feels like knowing how it does it, so people rate their understanding of mechanisms well above what they can explain, and the gap shows only when they try. A mechanism is a set of parts, each doing something, in order from a starting condition to a result. It can be held the way a procedure is held: as a chain of short cue words, one part or action per link, in causal order. Learned that way and rebuilt from the words, a mechanism can be explained on demand, and the first link that will not come back shows where understanding stops."
 coined: "Chris Telford, Canopticon, 27 November 2026"
 related:
-  - route: /articles/keep-three-words-rebuild-the-rest
-    label: "Essay: How one word can bring back an idea (cue words and rebuilding)"
   - route: /theories/the-certainty-handoff
     label: "Theory: The certainty handoff (confidence that travels without its grounds)"
-  - route: /articles/make-and-do
-    label: "Essay: Make and do (one-word handles for ideas)"
 propositions:
   - statement: "People rate their understanding of how things work higher than they can explain, and the rating falls once they try to explain the mechanism step by step."
     grade: "Strong"

@@ -34,3 +34,5 @@ Needs Playwright's Chromium (already on the workspace image) and ffmpeg.
 `player.html` is the v13 look: dark ground, light pooled behind what is
 being said, rack focus at each cut, blur dissolves, motion blur, bloom and
 grain in the render. No amber.
+
+The pilot (the memory essay, nine moves, nine figures) was withdrawn from the site on 2026-11-28; no published piece carries a figure plan now, so `plan.mjs` has nothing to read until one does. Video work is paused.
