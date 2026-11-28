@@ -28,6 +28,15 @@ chart_after: "Naloxone reverses the opioid"
 chart:
   - bar: "Stimulants|69"
   - bar: "Non-prescription benzodiazepines|62"
+build:
+  - move: "Question|Why did opioid deaths fall in Hamilton while overdose calls more than doubled?"
+  - move: "Evidence|Deaths fell while calls more than doubled|record"
+  - move: "Mechanism|Street fentanyl is now mostly cut with a sedative|record"
+  - move: "Mechanism|Naloxone reverses the opioid, not the sedative|record"
+  - move: "Evidence|What people on the street are seeing|record"
+  - move: "Mechanism|Deaths are the top of a pyramid of harm|record"
+  - move: "Risk|The system that watched the supply was cut back|record"
+  - move: "So|Naloxone turns deaths into survivals and the sedatives turn survivals into hours of danger, so the death count is the wrong measure"
 ---
 On Hamilton's streets, people sit folded forward for hours — not unconscious, not awake. Outreach workers have a name for it. The official measure of the overdose crisis, deaths, has been falling since 2021. This article argues that both are true, and that the falling number is the misleading one.
 

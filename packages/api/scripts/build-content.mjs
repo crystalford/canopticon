@@ -372,10 +372,12 @@ function build() {
       // Every essay carries its skeleton (2026-11-27): the argument as a chain
       // of moves. A move's refs must be numbers in its Sources list, or
       // "record" where it rests on quoted research documents.
-      if (a.form === "Essay") {
+      if (a.form === "Essay" || a.form === "Brief") {
         const moves = Array.isArray(a.build) ? a.build : [];
         if (moves.length < 4)
-          failures.push(`articles/${a.slug}: an essay needs a build of at least four moves`);
+          failures.push(
+            `articles/${a.slug}: an essay or brief needs a build of at least four moves`,
+          );
         const srcPart = String(a.body).split(/^## Sources\s*$/m)[1] ?? "";
         const nSources = (srcPart.match(/^\d+\.\s/gm) || []).length;
         moves.forEach((m, i) => {
@@ -406,6 +408,33 @@ function build() {
     }
   }
   for (const p of Object.values(papers)) {
+    {
+      // A paper's skeleton (2026-11-27): refs are reference numbers, author
+      // names found in its reference list, or "series" for the series papers.
+      const moves = Array.isArray(p.build) ? p.build : [];
+      if (moves.length < 4)
+        failures.push(`papers/${p.slug}: a paper needs a build of at least four moves`);
+      const refPart = String(p.body)
+        .split(/^## (?:References|Papers in the series)/m)
+        .slice(1)
+        .join(" ");
+      moves.forEach((m, i) => {
+        const [role, text, refs = ""] = String(m.move ?? "").split("|");
+        if (!role?.trim() || !text?.trim())
+          failures.push(`papers/${p.slug}: build move ${i + 1} needs "Role|what it says|refs"`);
+        for (const r of refs
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean)) {
+          const ok =
+            r === "series" || (/^\d+$/.test(r) ? refPart.includes(`[${r}]`) : refPart.includes(r));
+          if (!ok)
+            failures.push(
+              `papers/${p.slug}: build move ${i + 1} cites ${r}, not in its references`,
+            );
+        }
+      });
+    }
     for (const k of ["glance_words", "glance_formula", "glance_sentence", "glance_aloud"])
       if (!p[k]) failures.push(`papers/${p.slug}: a paper needs ${k} (its short version)`);
     if (p.theory && !theories[p.theory])

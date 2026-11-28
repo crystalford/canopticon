@@ -19,6 +19,15 @@ glance_words: "Fixed start, open workout."
 glance_formula: "fixed time + fixed plan → less exercise → faster quitting || fixed start + any movement → more exercise"
 glance_sentence: "Paid to exercise at a set time, people did less than those paid to exercise whenever they liked, so a plan should be strict about starting and loose about what you do."
 glance_aloud: "In trials that paid people to exercise, those required to go at a set time did less than those paid to go whenever they liked, and they quit faster once the payments ended. Rigid plans break the first time life gets in the way. What the evidence supports is a fixed start and an open workout: be strict about when you begin, and let any movement count once you've started. Starting is the hard part."
+build:
+  - move: "Question|Does a fixed workout time build the habit better than a flexible one?"
+  - move: "Evidence|Paying 2,508 Google employees to exercise at a fixed time worked worse than paying them to exercise any time|record"
+  - move: "Mechanism|Be specific about the start, not the workout: if-then plans for starting|record"
+  - move: "Mechanism|A substitute activity counts against the plan only when the plan is treated as payment; an active goal suppresses its rivals|record"
+  - move: "Evidence|Locking yourself in helps some people and costs others|record"
+  - move: "Mechanism|Starting runs on a different system from continuing, and ADHD makes the start steeper|record"
+  - move: "Limit|Planning effects shrink when behaviour is measured rather than reported|record"
+  - move: "So|The strictest plans fail first, because an all-or-nothing rule turns a missed session into a broken plan"
 ---
 Someone plans to go to the gym three times a week. On Wednesday they do a yoga video at home instead, and it feels like cheating — the gym session is still "owed". By Friday they have skipped both. The usual advice is to be more specific and more disciplined: gym, Monday-Wednesday-Friday, 45 minutes. This article argues the research points the other way. Being specific helps, but only about the moment you start. Being rigid about the workout itself produces less exercise, and the effect lasts after the plan ends.
 

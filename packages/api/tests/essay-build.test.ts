@@ -5,17 +5,17 @@
 
 import { describe, expect, it } from "vitest";
 import app from "../src/index";
-import { allArticles } from "../src/site/content/store";
+import { allArticles, allPapers } from "../src/site/content/store";
 import { moves } from "../src/site/pages/build";
 
 const env = { LOG_LEVEL: "error" };
 const get = (path: string) => app.fetch(new Request(`http://test${path}`), env);
 
 describe("how an essay is built", () => {
-  const essays = allArticles().filter((a) => a.form === "Essay");
+  const essays = allArticles();
 
   it("every essay has a skeleton of at least four moves", () => {
-    expect(essays.length).toBeGreaterThan(15);
+    expect(essays.length).toBeGreaterThan(35);
     for (const a of essays) {
       const ms = moves(a);
       expect(ms.length, a.slug).toBeGreaterThanOrEqual(4);
@@ -41,5 +41,15 @@ describe("how an essay is built", () => {
     expect(a).toBeTruthy();
     const html = await (await get(`/articles/${a?.slug}`)).text();
     expect(html).toContain("reasoned, no source");
+  });
+
+  it("every paper carries one too, on the page and in the twin", async () => {
+    for (const p of allPapers()) {
+      expect(moves(p).length, p.slug).toBeGreaterThanOrEqual(4);
+      const html = await (await get(`/papers/${p.slug}`)).text();
+      expect(html, p.slug).toContain('<details class="bld"');
+      const md = await (await get(`/papers/${p.slug}.md`)).text();
+      expect(md, p.slug).toContain("## How it's built");
+    }
   });
 });

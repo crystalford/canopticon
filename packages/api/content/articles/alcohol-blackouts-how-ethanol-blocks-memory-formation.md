@@ -19,6 +19,16 @@ glance_words: "Awake, but not recording."
 glance_formula: "fast rise in blood alcohol → memory saving held shut → nothing stored || speed of drinking > number of drinks"
 glance_sentence: "In an alcohol blackout the drinker is awake and acting while the brain's mechanism for saving new experience is chemically held shut, and how fast blood alcohol rises decides whether it happens."
 glance_aloud: "In a blackout the drinker is awake, talking and making decisions. Working memory runs normally, so they can hold a conversation. What stops is the brain's process for saving the night into long-term memory: alcohol holds it shut. Nothing comes back the next day because nothing was stored. Whether it happens depends less on how many drinks than on how fast blood alcohol climbs, which is why two people can drink the same amount and only the one who drank fast, on an empty stomach, loses the evening."
+build:
+  - move: "Question|What happens in the brain during an alcohol blackout?"
+  - move: "Answer|The person stays awake and talking while the brain fails to save new memories|record"
+  - move: "Mechanism|Recording stops in the hippocampus, and the front of the brain fails with it|record"
+  - move: "Mechanism|Alcohol triggers a chemical cascade that blocks memory formation, and the cascade can be stopped|record"
+  - move: "Crux|How fast blood alcohol rises decides it more than how much is drunk|record"
+  - move: "Distinction|Patchy blackouts can be cued back; complete ones cannot|record"
+  - move: "Evidence|Blackouts are common, and teenagers carry a particular risk|record"
+  - move: "Objection|The brain is not shutting the recorder off to protect the drinker|record"
+  - move: "So|A blackout looks ordinary from outside, because the part that talks works while the part that records does not"
 ---
 People talk about a blackout as though the night is filed somewhere in the drinker's head and the right reminder would bring it back. It is not. The hours were never written down.
 

@@ -18,6 +18,7 @@ const NEEDS_NO_SOURCE = new Set([
   "puzzle",
   "claim",
   "name",
+  "link",
   "objection",
   "limit",
   "so",
@@ -39,7 +40,8 @@ export function moves(a: Pick<Article, "build">): Move[] {
   });
 }
 
-const refLabel = (r: string) => (r === "record" ? "the record" : `[${r}]`);
+const refLabel = (r: string) =>
+  r === "record" ? "the record" : r === "series" ? "the series" : /^\d+$/.test(r) ? `[${r}]` : r;
 
 export function buildBlock(a: Pick<Article, "build">): string {
   const ms = moves(a);

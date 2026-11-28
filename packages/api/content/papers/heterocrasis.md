@@ -11,6 +11,14 @@ glance_words: "A different starting setting."
 glance_formula: "ADHD = lower overall gain + inner speech loosely tied to action || outside stimulation → supplies some of the gain"
 glance_sentence: "ADHD can be read as a different starting balance of the senses, with the clearest difference in overall gain and an altered coupling between inner speech and action."
 glance_aloud: "If media and drugs shift the balance of the senses, people must start from different balances. This paper asks whether ADHD is one. The clearest difference is in overall gain: the brain's signal runs weak against its noise, which is why background noise helps a little. Inner speech is present, often more of it, but less tightly tied to action. Other differences are mixed. So the paper proposes one specific setting in place of a general deficit."
+build:
+  - move: "Question|Is ADHD a different starting configuration of the senses, a heterocrasis?"
+  - move: "Evidence|The strongest difference is gain: arousal models, a small benefit from white or pink noise, and noisier decision-making|Sikström,Nigg,Hauser"
+  - move: "Evidence|Evidence on bodily self-perception is mixed and rests largely on a disputed method|Kutscheidt,Wiersema,Banellis"
+  - move: "Evidence|Multisensory integration is not looser; one study found it narrower|Panagiotidi,Schulze"
+  - move: "Evidence|People with ADHD traits report as much inner speech as others, or more, against the deficit idea|Barkley,Benfield"
+  - move: "Claim|A narrower heterocrasis: a different gain setting, with an altered coupling of inner speech and action"
+  - move: "Open|Media may supply some of the gain the nervous system does not, which the evidence does not yet test|Beyens,Ra"
 ---
 
 # Heterocrasis

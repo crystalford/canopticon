@@ -11,6 +11,15 @@ glance_words: "Tempering the senses."
 glance_formula: "medium, drug or illness → re-tempers the senses → the change sits in the background → hard to see from inside || the way back → through other people"
 glance_sentence: "McLuhan's sense ratios were literal: media, drugs and illness all re-temper one configuration of the senses, and the change sits in the background, where it is hard to see."
 glance_aloud: "McLuhan said every medium changes the ratio among our senses. Most readers took that as a metaphor. This series takes it literally: the brain weights its senses, turns them up and down together, and holds a setting long after its cause is gone. Media, drugs and illness each shift that setting. Across six cases the same patterns show: the change is in the background, every gain costs something, the effects are small per person but cover whole environments, and the way back runs through other people."
+build:
+  - move: "Claim|McLuhan's claim that media change the ratio among the senses was literal, and neuroscience can describe it|McLuhan"
+  - move: "Framework|Sensory syncrasis: a five-dimensional configuration of the senses|series"
+  - move: "Case|Six cases fit it: heterocrasis, typomora, exocrasis, pharmakrasis, narcocrasis and anacrasis|series"
+  - move: "Pattern|What changes is the ground, and the ground is hard to see from inside|series"
+  - move: "Pattern|Every extension strengthens something and weakens something else|series"
+  - move: "Pattern|Effects are small per person but act on whole environments, and persist|series"
+  - move: "Pattern|The routes back tend to run through other people|Venniro"
+  - move: "Limit|What the series does not claim, and where it is still interpretation"
 ---
 
 # Krasis

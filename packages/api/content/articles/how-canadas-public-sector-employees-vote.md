@@ -19,6 +19,16 @@ glance_words: "A modest lean, mostly at the top."
 glance_formula: "public sector → slightly left of private || lean = unionized professionals + managers || frontline city crews → vote like private-sector peers"
 glance_sentence: "Canadian public-sector workers lean modestly left of private-sector workers, mostly among unionized professionals and managers, while frontline city workers vote much like their private-sector counterparts."
 glance_aloud: "The image is of a public service that votes left as a bloc. The Canadian Election Study shows a modest lean, and it sits mostly with unionized professionals and managers. Frontline city workers, the crews most people picture, vote much like their private-sector counterparts. The stronger image comes from union endorsements and from Ottawa's ridings. No released poll gives a party-by-party split of the workers themselves."
+build:
+  - move: "Question|Do Canada's public-sector employees vote as a left bloc?"
+  - move: "Evidence|The Canadian Election Study shows a real lean, modest in size and growing|record"
+  - move: "Mechanism|Union membership explains most of the lean|record"
+  - move: "Evidence|The lean sits with professionals and managers, and only on economic questions|record"
+  - move: "Evidence|City crews vote much like private-sector workers|record"
+  - move: "Distinction|Union endorsements describe the leadership more than the members|record"
+  - move: "Case|Ottawa's ridings, and Carleton in 2025, are not a count of how public servants vote|record"
+  - move: "Comparison|Canada sits between the United States and Britain|record"
+  - move: "So|The public-service vote is a professional and union vote"
 ---
 The usual picture of the public service as a left-voting bloc comes from what is easy to see: unions that endorse the NDP, campaigns aimed at Conservative leaders, and Ottawa ridings that rarely elect Conservatives. Survey evidence on the workers themselves tells a smaller and more specific story, and it is worth following closely, because almost every popular claim about how government employees vote is built on the visible evidence rather than on the survey.
 

@@ -168,6 +168,9 @@ export interface Article extends Glance, Figures {
 }
 
 export interface Paper extends Glance, Figures {
+  /** How the paper is built (2026-11-27), as for essays; refs may be author
+   *  names from the reference list, reference numbers, or "series". */
+  build?: { move: string }[];
   slug: string;
   kind: "Paper";
   topic?: string;

@@ -11,6 +11,14 @@ glance_words: "The typed delay."
 glance_formula: "electric media → return of the voice || keyboard + limited bandwidth → fifty years of typing || speech recognition → the voice returns"
 glance_sentence: "McLuhan said electric media would bring back the voice; computers made us type for fifty years because of the keyboard and limited bandwidth, and that delay is now ending."
 glance_aloud: "McLuhan predicted electric media would return us from print to the voice. Then networked computing spent fifty years making everyone type: terminals, email, texting. This paper calls that a delay. Bandwidth, computing power and speech recognition were not ready, so the keyboard held a print-shaped habit in place. Now people talk to their machines. Understanding stays much the same whether we read or listen; what changes is how we produce language. The result is a hybrid: spoken in, stored as text."
+build:
+  - move: "Puzzle|McLuhan predicted a return to voice, yet networked computing was typed for fifty years"
+  - move: "Claim|The typed era was a delay, a typomora, set by bandwidth, compute and speech recognition"
+  - move: "Evidence|A writing medium measurably reconfigures the brain|Dehaene"
+  - move: "Evidence|Transcription carries working-memory costs that speech avoids|Kellogg,Bourdin"
+  - move: "Reading|Kittler's history of the typewriter and Vygotsky's account of inner speech|Kittler,Vygotsky"
+  - move: "Claim|Comprehension is much the same either way, so the return of voice changes how language is produced and monitored"
+  - move: "So|A hybrid is emerging: oral in production, typographic in storage"
 ---
 
 # Typomora

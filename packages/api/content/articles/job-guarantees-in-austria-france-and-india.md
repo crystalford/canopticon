@@ -19,6 +19,15 @@ glance_words: "It works; design decides."
 glance_formula: "job guarantee → people into work + better lives + higher cost than promised || good design → springboard; bad design → low-wage trap"
 glance_sentence: "Job guarantees tried in an Austrian town, 83 French territories and rural India moved people into work and improved their lives, cost more than promised, and became a trap where designed badly."
 glance_aloud: "A job for anyone who wants one sounds like a thought experiment, but it has been tried: in an Austrian town, in 83 French territories, and across rural India. Done carefully, it moved people into work and improved their wellbeing. It also cost more than its backers promised. Done badly, it kept people in low-wage make-work with no way out. The evidence settles that it can work; the open question is how to build it well."
+build:
+  - move: "Question|Do job guarantees work, and what do they cost?"
+  - move: "Evidence|Job guarantees and public works are real and well studied|record"
+  - move: "Case|In one Austrian town, the guarantee ended long-term unemployment, on a tiny scale|record"
+  - move: "Case|In France, at scale, it worked and cost money|record"
+  - move: "Case|In India, the legal right raised wages for everyone|record"
+  - move: "Risk|Done badly, as in Hungary, it becomes a trap|record"
+  - move: "Limit|Making it compulsory for prisoners is the weakest part|record"
+  - move: "So|Where it is tried, people take the jobs and their lives improve"
 ---
 Imagine an app that, like a ride-hailing app, always has a paid job waiting for anyone who wants one — repairing a building, tending a park, helping in a care home. It sounds like a policy from a novel. The research behind this article found that every part of it has already been tried somewhere, and that the results are clear enough to argue from.
 

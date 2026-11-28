@@ -21,6 +21,13 @@ glance_words: "The tier that never formed."
 glance_formula: "flexible supply + competition → lower prices to stay || bans → flexible supply removed → mid-term tier cut off || open: would that tier lower year-long rents?"
 glance_sentence: "Short-term rentals add flexible supply that lowers prices for places to stay; Canadian bans removed it and cut off a mid-term tier, and whether that tier would lower year-long rents is still unknown."
 glance_aloud: "More places to stay, competing with each other, means lower prices for visitors; that much is well documented. Canadian cities banned most short-term rentals anyway, and in doing so cut off a tier just as it was forming: furnished stays of a few months, for people a year-long lease doesn't suit. Whether that tier, made legal, would also bring year-long rents down is the question nobody has answered yet."
+build:
+  - move: "Question|What did short-term rental rules do to supply and prices in a hotel town?"
+  - move: "Evidence|Competition lowers the price of a place to stay, and removing supply raises it|record"
+  - move: "Evidence|Short-term rentals add demand as well as take homes, and their measured effect on Canadian rents was close to nothing|record"
+  - move: "Claim|There is a tier between a hotel and a lease, and Hamilton's rule cut through it|record"
+  - move: "Limit|Whether competition in short stays reaches long-term rents has not been tested|record"
+  - move: "So|The bans removed flexible supply at the moment supply was most needed"
 ---
 Niagara Falls is a hotel town. Dozens of hotels compete for the same visitors, and in winter, when the visitors thin out, the prices fall to meet them. Nobody bans hotels to make rooms cheaper; more rooms is how rooms get cheaper. So when Canadian cities answered record rents by banning short-term rentals — removing places to stay — the move looked backwards. This article asks whether it was.
 

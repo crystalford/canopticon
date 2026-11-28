@@ -11,6 +11,13 @@ glance_words: "Sense ratios, literally."
 glance_formula: "weight each sense + turn all up or down + fuse or separate + hold a setting = sensory syncrasis || medium → re-tempers it before any content arrives"
 glance_sentence: "McLuhan meant sense ratios literally, and predictive-processing neuroscience now gives the idea a mechanism: the brain weights and tempers its senses, and a medium can change that setting."
 glance_aloud: "McLuhan claimed every medium changes the balance among our senses, and he meant it as a claim about the nervous system. The brain science he reached for, left and right hemispheres, failed, so the idea was treated as poetry. Newer neuroscience gives it a mechanism. The brain weights each sense by how far it trusts it, turns them all up or down, fuses or separates them, and holds a setting long after its cause. That whole setting is what a medium could change."
+build:
+  - move: "Claim|McLuhan meant his claim about sense ratios literally|McLuhan"
+  - move: "History|His critics attacked it as a claim about the nervous system|Miller,Bross"
+  - move: "Turn|The hemisphere neuroscience he reached for failed, and the claim was filed as poetry"
+  - move: "Mechanism|Predictive processing: the brain weights each channel by trust, can turn all channels up or down, fuse them, and hold a setting|Feldman,Friston,Clark"
+  - move: "Name|Sensory syncrasis, with sense ratio kept for its proportional part"
+  - move: "So|The translation makes McLuhan's claim testable, with five questions for measurement"
 ---
 
 # Sensory Syncrasis

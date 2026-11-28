@@ -28,6 +28,14 @@ chart:
   - bar: "Mice, genital infection|97"
   - bar: "Mice, cold-sore infection|90"
   - bar: "Guinea pigs, which relapse like people|30"
+build:
+  - move: "Question|Has herpes been cured in the lab, and when could people get it?"
+  - move: "Mechanism|The therapy cuts the dormant virus inside nerve cells, where antivirals cannot reach|record"
+  - move: "Evidence|In mice the virus nearly disappears|record"
+  - move: "Evidence|In guinea pigs, which relapse like people, the number falls|record"
+  - move: "Crux|Nobody has yet applied to try it in a person|record"
+  - move: "Evidence|The drugs arriving first suppress the virus without removing it, and the vaccine route mostly closed|record"
+  - move: "So|The cure is announced every few years because the headline figure is an animal figure"
 ---
 Every so often the news reports that herpes has been cured in a laboratory. The work behind those reports is real: a gene therapy that cuts the sleeping virus out of nerve cells and lets the body throw away the pieces. What the reports leave out is which animal it was cured in.
 

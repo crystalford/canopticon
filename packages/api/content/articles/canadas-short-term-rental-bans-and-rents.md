@@ -21,6 +21,16 @@ glance_words: "Three weak links."
 glance_formula: "rentals take homes → bans return them → returned homes lower rents || each link weaker than promised || squeezed: the mid-term tier"
 glance_sentence: "Canada's short-term rental bans rested on three links, each weaker than promised: few homes came back, rents fell for other reasons, and the bans squeezed a mid-term tier between hotel and lease."
 glance_aloud: "The case for banning short-term rentals had three steps. Rentals take homes off the long-term market, bans put them back, and the returned homes bring rents down. Each step turned out weaker than promised. Fewer units came back than expected, and where rents did fall, other forces did it. Meanwhile the bans squeezed a tier in between, furnished stays of a few months, which never got the chance to become housing."
+build:
+  - move: "Question|Did Canada's short-term rental bans bring homes back and lower rents?"
+  - move: "Claim|The case rested on three links, and all three were weak|record"
+  - move: "Evidence|Few homes came back: Vancouver's 2,700 against a supply gap of about 570,000|record"
+  - move: "Evidence|Banned hosts sold, left units vacant or broke the rules quietly|record"
+  - move: "Evidence|Where rents fell, something else did it|record"
+  - move: "Case|Hamilton acted at the peak, on a small market|record"
+  - move: "Motive|The coalition behind the bans had reasons beyond the evidence|record"
+  - move: "Cost|The bans squeezed a mid-term rental tier that was just appearing|record"
+  - move: "So|Rents kept rising after the crackdown because the rule was too small and too late|record"
 ---
 In 2023, as rents in Hamilton rose faster than anywhere else in Ontario, the city passed one of the strictest short-term rental rules in Canada. Toronto, Vancouver and Montreal had done the same. The promise was simple: take homes off Airbnb and they will go back to people who need somewhere to live. Since then, the research says the promise was mostly politics.
 

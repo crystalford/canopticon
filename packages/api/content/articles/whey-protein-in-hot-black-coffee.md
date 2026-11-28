@@ -19,6 +19,14 @@ glance_words: "Collagen dissolves; whey curdles."
 glance_formula: "whey + hot coffee → heat unfolds it + acidity clumps it → lumps || instantized whey → fixes wetting only || heat-stable whey → protein cut into fragments → bitter"
 glance_sentence: "Whey curdles in hot coffee because the heat unfolds it and coffee's acidity sits where it clumps, and the versions that survive do it by cutting the protein up, which makes them bitter."
 glance_aloud: "Stir collagen into hot coffee and it vanishes. Stir in whey and you get pale lumps that smell faintly of sulfur. Two things happen at once: coffee is served hotter than the temperature that unfolds whey's proteins, and its acidity sits almost exactly where whey clumps most easily. Instantized whey only fixes the powder's mixing. The ingredients that truly survive boiling water work by cutting the protein into fragments, which is why they taste bitter."
+build:
+  - move: "Question|Why does whey protein curdle in hot black coffee, and can it be fixed?"
+  - move: "Distinction|Two failures look like one: clumping and curdling|record"
+  - move: "Mechanism|Coffee's heat and acidity make it close to the worst liquid for whey|record"
+  - move: "Evidence|Every form of whey fails in its own way, and the smell is the protein coming apart|record"
+  - move: "Evidence|A heat-stable version exists, and tastes like it|record"
+  - move: "Evidence|The engineering routes being tried, and what the big brands do instead|record"
+  - move: "So|Every protein coffee on the shelf moves the protein out of hot black coffee, because heat and acid are the problem"
 ---
 Collagen powder vanishes into hot black coffee. Whey, which is the protein that actually builds muscle, turns it into a cup of pale lumps with a smell. The reason is not that nobody has tried hard enough.
 

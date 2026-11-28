@@ -19,6 +19,15 @@ glance_words: "A forecast quoted as a finding."
 glance_formula: "argument: discoverability rules → algorithms learn Canadian videos go unwatched → foreign audiences lost || so far: no rule imposed + payments stayed + no harm measured"
 glance_sentence: "Creators were warned the Online Streaming Act would cost them foreign audiences, but three years on no discoverability rule has been imposed, the payments are stayed in court, and no study has measured the harm."
 glance_aloud: "The warning about Bill C-11 went like this: if platforms are made to push Canadian videos, recommendation systems will learn that Canadians skip them and show them less abroad. The mechanism is plausible, and the platforms don't dispute it. But three years after it became law, the regulator hasn't imposed a discoverability rule on anyone, the contribution payments are stayed by a court, and nobody has measured a drop in foreign viewers. So far, the harm is a forecast."
+build:
+  - move: "Question|Has the Online Streaming Act already cost Canadian creators their foreign audience?"
+  - move: "Claim|The mechanism critics describe, promoting Canadian content and teaching ranking systems it does not travel, is real|record"
+  - move: "Evidence|The 90% figure says many creators' views come from abroad, and says nothing about harm yet|record"
+  - move: "Timeline|From royal assent in 2023, the first discoverability framework arrived only in May 2026|record"
+  - move: "Evidence|The regulator has built the framework and imposed no obligations on creators|record"
+  - move: "Shift|The fight that has started is over trade, between governments and studios|record"
+  - move: "Limit|Whether ordinary uploads will be covered is still open|record"
+  - move: "So|The harm is predicted, not recorded, which is why both sides can sound certain|record"
 ---
 Ask a Canadian YouTuber about the Online Streaming Act and you will often hear that it has already cost them their foreign audience. Ask what the regulator has actually required of YouTube, and the answer is: nothing yet.
 
