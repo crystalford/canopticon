@@ -7,6 +7,7 @@
 
 import { AUTHOR } from "../author";
 import type { Proposition, Reference, Theory } from "../content/store";
+import { methodsOf } from "../content/store";
 import { docTitle } from "../data";
 import { esc, linkPill, pill, shell } from "../layout";
 import { articleHtml, articleQuotes, inline } from "../md";
@@ -265,6 +266,14 @@ ${glance(t)}
           .map(
             (b) =>
               `<a class="src-pill" href="/p/${esc(b.id)}">${esc(b.label || docTitle(b.id) || "")}</a>`,
+          )
+          .join("")}</div></div>`
+      : ""
+  }${
+    methodsOf(t.slug).length
+      ? `<div><h3>Run it</h3><div class="src-list">${methodsOf(t.slug)
+          .map(
+            (m) => `<a class="src-pill" href="/methods/${esc(m.slug)}">Method: ${esc(m.title)}</a>`,
           )
           .join("")}</div></div>`
       : ""

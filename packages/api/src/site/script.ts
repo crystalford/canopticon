@@ -94,6 +94,18 @@ export const SITE_JS = `(function () {
     });
   });
 
+  // ---- copy a block by id (a method's instruction) ----------------------------
+  d.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-copy-target]");
+    if (!b || !navigator.clipboard) return;
+    var el = d.getElementById(b.getAttribute("data-copy-target"));
+    if (!el) return;
+    navigator.clipboard.writeText(el.textContent).then(function () {
+      var was = b.textContent; b.textContent = "Copied";
+      setTimeout(function () { b.textContent = was; }, 1800);
+    });
+  });
+
   // ---- copy link (the hand-built concept pages) -------------------------------
   d.addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest("[data-copy-link]");

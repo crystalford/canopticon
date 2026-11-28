@@ -1,6 +1,7 @@
-// The site's four sections, in one order everywhere (2026-11-24): Theories
-// (the idea) · Writing (the argument: essays and papers) · Research (the
-// evidence: reports, and the briefs written from them) · Lexicon (the words),
+// The site's five sections, in one order everywhere (2026-11-24; Methods
+// 2026-11-28): Theories (the idea) · Writing (the argument: essays and
+// papers) · Research (the evidence: reports, and the briefs written from
+// them) · Lexicon (the words) · Methods (the tools),
 // with open questions beside the Lexicon. Papers keep their own address, and
 // the McLuhan series its page at /papers.
 
@@ -10,7 +11,7 @@ import { allArticles, allPapers, libraryItems } from "../src/site/content/store"
 
 const env = { LOG_LEVEL: "error" };
 const get = (path: string) => app.fetch(new Request(`http://test${path}`), env);
-const SECTIONS = ["/theories", "/writing", "/research", "/lexicon"];
+const SECTIONS = ["/theories", "/writing", "/research", "/lexicon", "/methods"];
 
 describe("the sections", () => {
   it("run in one order in the top bar, the footer and the front page", async () => {
@@ -30,7 +31,7 @@ describe("the sections", () => {
     );
     expect(order(strip)).toEqual(SECTIONS);
     const foot = html.slice(html.indexOf('aria-label="Footer"'));
-    expect(order(foot).slice(0, 4)).toEqual(SECTIONS);
+    expect(order(foot).slice(0, 5)).toEqual(SECTIONS);
   });
 
   it("each answers on its own address, and the old ones land there", async () => {

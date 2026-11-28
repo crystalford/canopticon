@@ -353,6 +353,48 @@ function build() {
     };
   }
 
+  // Methods (content/methods/, 2026-11-28): a theory's protocol made into
+  // something to run. Each names the theory it comes from, carries the steps
+  // for a person and the exact instruction for a model (one fenced block under
+  // "## The instruction"), a worked example and where it fails.
+  const methods = {};
+  const METHOD_SECTIONS = [
+    "What it rests on",
+    "Steps",
+    "The instruction",
+    "Worked example",
+    "Where it fails",
+  ];
+  for (const f of existsSync(join(CONTENT, "methods")) ? mdFiles("methods") : []) {
+    const { meta, body } = parseFrontMatter(readFileSync(join(CONTENT, "methods", f), "utf8"));
+    const slug = String(meta.slug ?? f.slice(0, -3));
+    const at = `methods/${f}`;
+    const heads = [...body.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
+    for (const need of METHOD_SECTIONS)
+      if (!heads.includes(need)) failures.push(`${at}: missing the "## ${need}" section`);
+    for (const k of ["title", "dek", "theory", "use_when", "input", "output", "date"])
+      if (!meta[k]) failures.push(`${at}: needs ${k}`);
+    if (!Number.isInteger(meta.version) || meta.version < 1)
+      failures.push(`${at}: version must be a whole number from 1`);
+    if (meta.theory && !theories[meta.theory])
+      failures.push(`${at}: theory ${meta.theory} does not exist`);
+    const inst = /^## The instruction\s*$[\s\S]*?^```[a-z]*\n([\s\S]*?)^```/m.exec(body);
+    if (!inst)
+      failures.push(`${at}: "## The instruction" needs one fenced block, the instruction itself`);
+    const steps = (Array.isArray(meta.steps) ? meta.steps : [])
+      .map((x) => String(x.step ?? ""))
+      .filter(Boolean);
+    if (steps.length < 3) failures.push(`${at}: needs at least three steps`);
+    methods[slug] = {
+      ...meta,
+      slug,
+      kind: "Method",
+      body,
+      steps,
+      instruction: inst?.[1]?.trimEnd() ?? "",
+    };
+  }
+
   for (const a of Object.values(articles))
     if (a.theory && !theories[a.theory])
       failures.push(`articles/${a.slug}: theory ${a.theory} does not exist`);
@@ -566,6 +608,7 @@ function build() {
     spoken,
     versions,
     theories,
+    methods,
     pages,
     // Per-article details the hand-built prototype pages carry and the
     // Markdown export did not: short contents labels, the named sources, the

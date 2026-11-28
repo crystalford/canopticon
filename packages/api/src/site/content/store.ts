@@ -224,6 +224,26 @@ export interface Reference {
  *  definition, mechanism, graded propositions, measures, protocol, scope and
  *  counter-evidence. The body is in the article dialect; every <q> is
  *  checked word for word at build, and the sections are required. */
+/** A method (2026-11-28): a theory's protocol made into something to run —
+ *  steps for a person, the exact instruction for a model, a worked example
+ *  and where it fails. Served at /methods/<slug>, and as a skill. */
+export interface Method {
+  slug: string;
+  kind: "Method";
+  title: string;
+  dek: string;
+  theory: string;
+  version: number;
+  date: string;
+  use_when: string;
+  input: string;
+  output: string;
+  steps: string[];
+  /** The text inside the fenced block under "## The instruction". */
+  instruction: string;
+  body: string;
+}
+
 export interface Theory extends Glance {
   slug: string;
   kind: "Theory";
@@ -307,6 +327,7 @@ interface Store {
   spoken: Record<string, SpokenCard[]>;
   versions: Record<string, PaperVersion[]>;
   theories: Record<string, Theory>;
+  methods?: Record<string, Method>;
   pages: Record<string, StaticPage>;
   articleExtras: Record<string, ArticleExtras>;
   /** content/prompts/<name>.md: the research prompts an article offers. */
@@ -360,6 +381,22 @@ export function theory(slug: string): Theory | null {
 
 export function allTheories(): Theory[] {
   return Object.values(STORE.theories ?? {});
+}
+
+export function method(slug: string): Method | null {
+  return STORE.methods?.[slug] ?? null;
+}
+
+/** Every method, newest first, then by title. */
+export function allMethods(): Method[] {
+  return Object.values(STORE.methods ?? {}).sort(
+    (x, y) => y.date.localeCompare(x.date) || x.title.localeCompare(y.title),
+  );
+}
+
+/** The methods built from one theory. */
+export function methodsOf(theorySlug: string): Method[] {
+  return allMethods().filter((m) => m.theory === theorySlug);
 }
 
 /** A paper's spoken cards, in order; none for a paper not yet decanted. */

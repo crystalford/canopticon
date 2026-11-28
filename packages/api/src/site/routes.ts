@@ -22,6 +22,7 @@ import { sourceTexts, sourceTitles } from "../write/sources";
 import { loadStoredKey } from "../write/stored-key";
 import { adminModel, processingModel, waitingCount } from "./admin-data";
 import {
+  allMethods,
   allPapers,
   allTheories,
   answeredElsewhere,
@@ -31,6 +32,7 @@ import {
   isWriting,
   libraryItems,
   measuredElsewhere,
+  method,
   paper,
   paperVersions,
   privatePage,
@@ -73,6 +75,13 @@ import { glance, glanceMarkdown } from "./pages/glance";
 import { renderIdea } from "./pages/idea";
 import { lexiconMarkdown, renderLexicon } from "./pages/lexicon";
 import { type LibraryQuery, OPEN, RESEARCH, WRITING, renderLibrary } from "./pages/library";
+import {
+  methodMarkdown,
+  methodSkill,
+  methodsMarkdown,
+  renderMethod,
+  renderMethods,
+} from "./pages/methods";
 import { renderNotFound, renderNotice } from "./pages/notice";
 import { renderPapers } from "./pages/papers";
 import { receiptLine, renderReadBoard } from "./pages/read";
@@ -533,6 +542,7 @@ app.get("/sitemap.xml", () => {
     ["/writing", ""],
     ["/research", ""],
     ["/lexicon", ""],
+    ["/methods", ""],
     ["/open", ""],
     ["/about", ""],
     ["/follow", ""],
@@ -541,6 +551,7 @@ app.get("/sitemap.xml", () => {
     ...allPapers().map((p): [string, string] => [`/papers/${p.slug}`, p.revised ?? p.date]),
     // A theory's last change is its revision, not the day it was coined.
     ...allTheories().map((t): [string, string] => [`/theories/${t.slug}`, t.revised ?? t.date]),
+    ...allMethods().map((m): [string, string] => [`/methods/${m.slug}`, m.date]),
     ...libraryItems()
       .filter((r) => !isWriting(r.kind) && r.kind !== "Paper" && r.kind !== "Project")
       .map((r): [string, string] => [r.route, r.date]),
@@ -1192,6 +1203,41 @@ app.get("/theories/:slug", (c, next) => {
     );
   }
   return html(renderTheory(t, { signedIn: signedIn(c) }));
+});
+
+// ---- methods (2026-11-28) -------------------------------------------------------
+const mdHeaders = {
+  "content-type": "text/markdown; charset=utf-8",
+  "cache-control": "public, max-age=300",
+};
+app.get("/methods", (c) => html(renderMethods({ signedIn: signedIn(c) })));
+app.get("/methods.md", () => new Response(methodsMarkdown(), { headers: mdHeaders }));
+app.get("/methods/:slug", (c, next) => {
+  const raw = c.req.param("slug");
+  const md = raw.endsWith(".md");
+  const m = method(md ? raw.slice(0, -3) : raw);
+  if (!m) return next();
+  if (md)
+    return markdownTwin(
+      {
+        id: m.slug,
+        title: m.title,
+        kind: "Method",
+        topic: "Methods",
+        date: m.date,
+        body: methodMarkdown(m),
+      },
+      `/methods/${m.slug}`,
+    );
+  return html(renderMethod(m, { signedIn: signedIn(c) }));
+});
+// The method as a Claude skill: one SKILL.md, saved into a folder of its name.
+app.get("/methods/:slug/SKILL.md", (c, next) => {
+  const m = method(c.req.param("slug"));
+  if (!m) return next();
+  return new Response(methodSkill(m), {
+    headers: { ...mdHeaders, "content-disposition": 'attachment; filename="SKILL.md"' },
+  });
 });
 
 // What changed between a paper's last kept version and the current one,

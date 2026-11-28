@@ -1,5 +1,30 @@
 [
  {
+  "kind": "Essay",
+  "topic": "AI-directed development",
+  "date": "2026-11-28",
+  "dateLabel": "28 Nov",
+  "title": "Research gets used when it becomes a procedure",
+  "dek": "Much of what research finds is known and still not done. A few steps, written so anyone can follow them, have changed outcomes where the findings alone did not. A method is that form for an idea: the theory as steps a person or a language model can run, kept next to the theory that says when the steps fail.",
+  "stat": "8 sources · 5 min",
+  "min": 5,
+  "quotes": 0,
+  "sources": 8,
+  "own": 0,
+  "coined": 0,
+  "route": "/articles/research-becomes-a-procedure"
+ },
+ {
+  "kind": "Theory",
+  "topic": "McLuhan & media theory",
+  "date": "2026-11-27",
+  "dateLabel": "27 Nov",
+  "title": "The load-bearing core",
+  "dek": "Every paragraph in a piece of writing does a job: it makes a claim, backs one, limits one, explains background, repeats something or announces what is coming. Marked that way, a piece shows the part its argument cannot lose. That part is what readers remember, what a good summary keeps, and the form the piece can be rebuilt from.",
+  "stat": "12 propositions · 5 strong",
+  "route": "/theories/the-load-bearing-core"
+ },
+ {
   "kind": "Theory",
   "topic": "McLuhan & media theory",
   "date": "2026-11-27",
